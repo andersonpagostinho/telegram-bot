@@ -1,2 +1,3 @@
 twilio
 python-telegram-bot[webhooks, job-queue]
+speechrecognition
