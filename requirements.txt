@@ -1,4 +1,7 @@
 twilio
 python-telegram-bot[webhooks, job-queue]
 speechrecognition
-pydub
+pydubgoogle-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
