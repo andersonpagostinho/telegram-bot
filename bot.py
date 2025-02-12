@@ -12,6 +12,7 @@ from twilio.rest import Client
 from flask import Flask
 import speech_recognition as sr  # Biblioteca para transcrição de áudio
 import subprocess  # Para usar FFmpeg
+import dateparser  # Biblioteca para interpretar datas e horas
 
 # Configuração de logs
 def log(message):
@@ -152,82 +153,58 @@ def transcrever_audio(wav_path):
             log(f"❌ Erro na requisição ao Google Speech-to-Text: {e}")
             return None
 
+# Função para interpretar datas e horas
+def interpretar_data_hora(texto):
+    try:
+        # Extrai a data e hora usando dateparser
+        data_hora = dateparser.parse(texto, languages=["pt"])
+        if not data_hora:
+            return None
+
+        # Formata a data e hora no formato ISO
+        return data_hora.strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception as e:
+        log(f"❌ Erro ao interpretar data e hora: {e}")
+        return None
+
 # Função para processar comandos de voz
 async def processar_comando_voz(update: Update, texto: str):
     texto = texto.lower()
 
-    if "adicionar tarefa" in texto:
-        task = texto.replace("adicionar tarefa", "").strip()
-        if task:
-            tarefa_data = {
-                "descricao": task,
-                "data_criacao": datetime.now().isoformat()
+    if "agendar" in texto:
+        # Extrai o título e a data/hora do comando
+        partes = texto.split(" às ")
+        if len(partes) < 2:
+            await update.message.reply_text("⚠️ Formato inválido. Use: Agendar [título] [data/hora]")
+            return
+
+        titulo = partes[0].replace("agendar", "").strip()
+        data_hora_texto = partes[1].strip()
+
+        # Interpreta a data e hora
+        data_hora = interpretar_data_hora(data_hora_texto)
+        if not data_hora:
+            await update.message.reply_text("❌ Não entendi a data/hora. Pode reformular?")
+            return
+
+        # Agenda o evento
+        start_time = f"{data_hora}-03:00"
+        end_time = f"{data_hora}-03:00"
+        event_link = add_event(titulo, start_time, end_time)
+        if event_link:
+            evento_data = {
+                "titulo": titulo,
+                "data": data_hora.split("T")[0],
+                "hora": data_hora.split("T")[1],
+                "link": event_link,
+                "notificado": False
             }
-            salvar_tarefa(tarefa_data)
-            await update.message.reply_text(f"✅ Tarefa adicionada: {task}")
-            send_whatsapp_message(f"✅ Tarefa adicionada: {task}")
+            salvar_evento(evento_data)
+            await update.message.reply_text(f"✅ Evento '{titulo}' agendado para {data_hora}.")
+            send_whatsapp_message(f"✅ Evento '{titulo}' agendado para {data_hora}.")
         else:
-            await update.message.reply_text("⚠️ Você precisa fornecer uma descrição.")
-            send_whatsapp_message("⚠️ Você precisa fornecer uma descrição.")
-
-    elif "listar tarefas" in texto:
-        tarefas = buscar_tarefas()
-        if tarefas:
-            task_list = "\n".join([f"- {tarefa['descricao']}" for tarefa in tarefas])
-            await update.message.reply_text(f"📌 Suas tarefas:\n{task_list}")
-            send_whatsapp_message(f"📌 Suas tarefas:\n{task_list}")
-        else:
-            await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
-            send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
-
-    elif "limpar tarefas" in texto:
-        try:
-            tarefas_ref = db.collection("Tarefas").stream()
-            for tarefa in tarefas_ref:
-                tarefa.reference.delete()
-            await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
-            send_whatsapp_message("🗑️ Todas as tarefas foram removidas.")
-        except Exception as e:
-            log(f"❌ Erro ao limpar tarefas: {str(e)}")
-            await update.message.reply_text("❌ Erro ao limpar tarefas.")
-            send_whatsapp_message("❌ Erro ao limpar tarefas.")
-
-    elif "agendar evento" in texto:
-        partes = texto.split(" ")
-        if len(partes) >= 4:
-            titulo = partes[2]
-            data_hora = partes[3]
-            start_time = f"{data_hora}-03:00"
-            end_time = f"{data_hora}-03:00"
-            event_link = add_event(titulo, start_time, end_time)
-            if event_link:
-                evento_data = {
-                    "titulo": titulo,
-                    "data": data_hora.split("T")[0],
-                    "hora": data_hora.split("T")[1],
-                    "link": event_link,
-                    "notificado": False
-                }
-                salvar_evento(evento_data)
-                await update.message.reply_text(f"✅ Evento '{titulo}' adicionado: {event_link}")
-                send_whatsapp_message(f"✅ Evento '{titulo}' adicionado: {event_link}")
-            else:
-                await update.message.reply_text("❌ Erro ao adicionar evento!")
-                send_whatsapp_message("❌ Erro ao adicionar evento!")
-        else:
-            await update.message.reply_text("⚠️ Use: agendar evento <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
-            send_whatsapp_message("⚠️ Use: agendar evento <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
-
-    elif "listar eventos" in texto:
-        eventos = buscar_eventos()
-        if eventos:
-            eventos_list = "\n".join([f"🔹 {evento['titulo']} - {evento['data']} às {evento['hora']}\n🔗 {evento['link']}" for evento in eventos])
-            await update.message.reply_text(f"📅 Eventos agendados:\n{eventos_list}")
-            send_whatsapp_message(f"📅 Eventos agendados:\n{eventos_list}")
-        else:
-            await update.message.reply_text("📭 Nenhum evento agendado.")
-            send_whatsapp_message("📭 Nenhum evento agendado.")
-
+            await update.message.reply_text("❌ Erro ao agendar evento!")
+            send_whatsapp_message("❌ Erro ao agendar evento!")
     else:
         await update.message.reply_text("❌ Comando não reconhecido.")
         send_whatsapp_message("❌ Comando não reconhecido.")
