@@ -1,4 +1,4 @@
-import os
+iimport os
 import json
 import re
 import logging
@@ -14,17 +14,8 @@ from flask import Flask
 import speech_recognition as sr
 import subprocess
 import dateparser
-import subprocess
-import sys
+from apscheduler.schedulers.background import BackgroundScheduler
 import threading
-
-# Verifica se o apscheduler está instalado e instala se necessário
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-except ModuleNotFoundError:
-    print("📌 'apscheduler' não encontrado. Instalando agora...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "apscheduler"])
-    from apscheduler.schedulers.background import BackgroundScheduler
 
 # Configuração de logs
 logging.basicConfig(
@@ -128,68 +119,37 @@ def send_whatsapp_message(message: str):
     except Exception as e:
         logger.error(f"❌ Erro ao enviar mensagem pelo WhatsApp: {str(e)}")
 
-# Agendamento de lembretes
-def inicializar_agendamento(app):
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(verificar_lembretes, 'interval', minutes=5, args=[app])
-    scheduler.start()
-    logger.info("✅ Agendador de lembretes inicializado")
-
-def verificar_lembretes(app):
+# Funções de áudio
+def converter_ogg_para_wav(ogg_path, wav_path):
     try:
-        agora = datetime.now()
-        enviar_lembretes_tarefas(app, agora)
-        enviar_lembretes_eventos(app, agora)
-    except Exception as e:
-        logger.error(f"❌ Erro geral em verificar_lembretes: {str(e)}")
+        comando = [
+            "ffmpeg", "-i", ogg_path,
+            "-acodec", "pcm_s16le",
+            "-ar", "16000",
+            "-ac", "1",
+            wav_path
+        ]
+        subprocess.run(comando, check=True)
+        logger.info(f"✅ Áudio convertido: {wav_path}")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ Erro ao converter áudio: {e}")
+        return False
 
-def enviar_lembretes_tarefas(app, agora):
-    for tarefa in buscar_tarefas():
+def transcrever_audio(wav_path):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(wav_path) as source:
+        audio = recognizer.record(source)
         try:
-            if tarefa.get("lembrete_enviado", False):
-                continue
-
-            data_venc = datetime.fromisoformat(tarefa["data_vencimento"])
-            dias_restantes = (data_venc - agora).days
-
-            if dias_restantes in [1, 3]:
-                mensagem = f"⏰ LEMBRETE TAREFA\n📝 {tarefa['descricao']}\n📅 Vence em {dias_restantes} dia(s)"
-                enviar_notificacao(app, mensagem, tarefa)
-                
-        except Exception as e:
-            logger.error(f"❌ Erro em tarefa {tarefa['id']}: {str(e)}")
-
-def enviar_lembretes_eventos(app, agora):
-    for evento in buscar_eventos():
-        try:
-            if evento.get("lembrete_enviado", False):
-                continue
-
-            data_hora = datetime.fromisoformat(f"{evento['data']}T{evento['hora']}")
-            diff = (data_hora - agora).total_seconds() / 3600
-
-            if 0.5 <= diff <= 24:
-                horas_restantes = int(diff)
-                mensagem = f"⏰ LEMBRETE EVENTO\n📌 {evento['titulo']}\n⏳ Começa em {horas_restantes} hora(s)"
-                enviar_notificacao(app, mensagem, evento)
-
-        except Exception as e:
-            logger.error(f"❌ Erro em evento {evento['id']}: {str(e)}")
-
-def enviar_notificacao(app, mensagem, item):
-    try:
-        chat_ids = [user["chat_id"] for user in buscar_usuarios()]
-        for chat_id in chat_ids:
-            app.bot.send_message(chat_id=chat_id, text=mensagem)
-        
-        send_whatsapp_message(mensagem)
-        
-        colecao = "Tarefas" if "descricao" in item else "Eventos"
-        db.collection(colecao).document(item["id"]).update({"lembrete_enviado": True})
-        
-        logger.info(f"✅ Notificação enviada: {mensagem}")
-    except Exception as e:
-        logger.error(f"❌ Erro ao enviar notificação: {str(e)}")
+            texto = recognizer.recognize_google(audio, language="pt-BR")
+            logger.info(f"✅ Áudio transcrito: {texto}")
+            return texto
+        except sr.UnknownValueError:
+            logger.error("❌ Não foi possível transcrever o áudio.")
+            return None
+        except sr.RequestError as e:
+            logger.error(f"❌ Erro na requisição ao Google Speech-to-Text: {e}")
+            return None
 
 # Handlers do Telegram
 async def start(update: Update, context: CallbackContext) -> None:
@@ -197,50 +157,96 @@ async def start(update: Update, context: CallbackContext) -> None:
     salvar_usuario(chat_id)
     await update.message.reply_text("👋 Olá! Vou te enviar lembretes de tarefas e eventos importantes.")
 
-async def add_task(update: Update, context: CallbackContext) -> None:
-    try:
-        args = context.args
-        full_text = ' '.join(args)
-        
-        prioridade_match = re.search(r'-prioridade (\w+)', full_text)
-        data_match = re.search(r'-data (.+?)(?= -|$)', full_text)
-        
-        prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
-        data_vencimento = data_match.group(1) if data_match else None
-        
-        if data_vencimento:
-            data_obj = dateparser.parse(data_vencimento, languages=['pt'])
-            if not data_obj:
-                await update.message.reply_text("❌ Data inválida! Use o formato: dd/mm/aaaa ou 'amanhã'")
-                return
-            data_iso = data_obj.isoformat()
-        else:
-            data_iso = (datetime.now() + timedelta(days=3)).isoformat()
+async def help_command(update: Update, context: CallbackContext) -> None:
+    help_text = """
+    🛠 Comandos disponíveis:
+    /start - Inicia o bot
+    /help - Mostra esta ajuda
+    /tarefa [descrição] - Adiciona uma tarefa
+    /listar - Lista todas as tarefas
+    /limpar - Remove todas as tarefas
+    /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> - Agenda um evento
+    /eventos - Lista todos os eventos agendados
+    """
+    await update.message.reply_text(help_text)
 
-        descricao = re.sub(r'(-prioridade \w+|-data .+?)', '', full_text).strip()
+async def handle_voice(update: Update, context: CallbackContext) -> None:
+    voice_file = await update.message.voice.get_file()
+    ogg_path = "temp_audio.ogg"
+    await voice_file.download_to_drive(ogg_path)
 
-        if not descricao:
-            await update.message.reply_text("⚠️ Formato correto:\n/tarefa Comprar leite -prioridade alta -data amanhã")
-            return
+    wav_path = "temp_audio.wav"
+    if not converter_ogg_para_wav(ogg_path, wav_path):
+        await update.message.reply_text("❌ Erro ao processar o áudio. Tente novamente.")
+        return
+
+    texto = transcrever_audio(wav_path)
+    if not texto:
+        await update.message.reply_text("❌ Não entendi o áudio. Pode repetir?")
+        return
+
+    await update.message.reply_text(f"🎤 Você disse: {texto}")
+    await processar_comando_voz(update, texto)
+
+    os.remove(ogg_path)
+    os.remove(wav_path)
+    logger.info("✅ Arquivos temporários removidos.")
+
+async def processar_comando_voz(update: Update, texto: str):
+    texto = texto.lower()
+
+    if "adicionar tarefa" in texto:
+        partes = texto.split(" com prioridade ")
+        descricao = partes[0].replace("adicionar tarefa", "").strip()
+        prioridade = partes[1].strip() if len(partes) > 1 else "baixa"
+
+        prioridades_validas = ["alta", "média", "baixa"]
+        if prioridade not in prioridades_validas:
+            prioridade = "baixa"
 
         tarefa_data = {
             "descricao": descricao,
             "prioridade": prioridade,
-            "data_criacao": datetime.now().isoformat(),
-            "data_vencimento": data_iso,
-            "lembrete_enviado": False
+            "data_criacao": datetime.now().isoformat()
         }
-        
-        if salvar_tarefa(tarefa_data):
-            await update.message.reply_text(f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}")
-    except Exception as e:
-        logger.error(f"❌ Erro no comando /tarefa: {str(e)}")
-        await update.message.reply_text("❌ Erro ao processar tarefa. Verifique o formato!")
+        salvar_tarefa(tarefa_data)
+        await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
+        send_whatsapp_message(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
 
-async def error_handler(update: Update, context: CallbackContext):
-    logger.error(f"❌ Erro crítico: {context.error}")
-    await update.message.reply_text("⚠️ Ocorreu um erro interno. Nossa equipe já foi notificada.")
-    send_whatsapp_message(f"🚨 ERRO NO BOT: {context.error}")
+    elif "agendar" in texto:
+        partes = texto.split(" às ")
+        if len(partes) < 2:
+            await update.message.reply_text("⚠️ Formato inválido. Use: Agendar [título] [data/hora]")
+            return
+
+        titulo = partes[0].replace("agendar", "").strip()
+        data_hora_texto = partes[1].strip()
+
+        data_hora = dateparser.parse(data_hora_texto, languages=["pt"])
+        if not data_hora:
+            await update.message.reply_text("❌ Não entendi a data/hora. Pode reformular?")
+            return
+
+        start_time = f"{data_hora.isoformat()}-03:00"
+        end_time = f"{data_hora.isoformat()}-03:00"
+        event_link = add_event(titulo, start_time, end_time)
+        if event_link:
+            evento_data = {
+                "titulo": titulo,
+                "data": data_hora.strftime("%Y-%m-%d"),
+                "hora": data_hora.strftime("%H:%M:%S"),
+                "link": event_link,
+                "notificado": False
+            }
+            salvar_evento(evento_data)
+            await update.message.reply_text(f"✅ Evento '{titulo}' agendado para {data_hora}.")
+            send_whatsapp_message(f"✅ Evento '{titulo}' agendado para {data_hora}.")
+        else:
+            await update.message.reply_text("❌ Erro ao agendar evento!")
+            send_whatsapp_message("❌ Erro ao agendar evento!")
+    else:
+        await update.message.reply_text("❌ Comando não reconhecido.")
+        send_whatsapp_message("❌ Comando não reconhecido.")
 
 # Configuração do Flask
 app_web = Flask(__name__)
@@ -256,14 +262,15 @@ def run_flask():
 def main():
     app = Application.builder().token(TOKEN).build()
     
-    inicializar_agendamento(app)
-    
+    # Handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("tarefa", add_task))
-    app.add_error_handler(error_handler)
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
+    # Iniciar Flask em uma thread separada
     threading.Thread(target=run_flask, daemon=True).start()
-    
+
+    # Iniciar bot
     logger.info("🚀 Bot rodando com polling...")
     app.run_polling()
 
