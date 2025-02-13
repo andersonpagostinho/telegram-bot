@@ -256,6 +256,43 @@ async def processar_comando_voz(update: Update, texto: str):
         send_whatsapp_message("❌ Comando não reconhecido.")
 
 # Comandos adicionais
+async def add_task(update: Update, context: CallbackContext) -> None:
+    args = context.args
+    full_text = ' '.join(args)
+    
+    prioridade_match = re.search(r'-prioridade (\w+)', full_text)
+    data_match = re.search(r'-data (.+?)(?= -|$)', full_text)
+    
+    prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
+    data_vencimento = data_match.group(1) if data_match else None
+    
+    if data_vencimento:
+        data_obj = dateparser.parse(data_vencimento, languages=['pt'])
+        if not data_obj:
+            await update.message.reply_text("❌ Data inválida! Use o formato: dd/mm/aaaa ou 'amanhã'")
+            return
+        data_iso = data_obj.isoformat()
+    else:
+        data_iso = (datetime.now() + timedelta(days=3)).isoformat()
+
+    descricao = re.sub(r'(-prioridade \w+|-data .+?)', '', full_text).strip()
+
+    if not descricao:
+        await update.message.reply_text("⚠️ Formato correto:\n/tarefa Comprar leite -prioridade alta -data amanhã")
+        return
+
+    tarefa_data = {
+        "descricao": descricao,
+        "prioridade": prioridade,
+        "data_criacao": datetime.now().isoformat(),
+        "data_vencimento": data_iso
+    }
+    
+    if salvar_tarefa(tarefa_data):
+        await update.message.reply_text(f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}")
+    else:
+        await update.message.reply_text("❌ Erro ao adicionar tarefa.")
+
 async def list_tasks(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
     if tarefas:
