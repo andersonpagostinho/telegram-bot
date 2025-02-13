@@ -16,6 +16,7 @@ import subprocess
 import dateparser
 import subprocess
 import sys
+import threading
 
 # Verifica se o apscheduler está instalado e instala se necessário
 try:
