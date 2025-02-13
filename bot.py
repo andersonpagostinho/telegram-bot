@@ -171,7 +171,28 @@ def interpretar_data_hora(texto):
 async def processar_comando_voz(update: Update, texto: str):
     texto = texto.lower()
 
-    if "agendar" in texto:
+    if "adicionar tarefa" in texto:
+        # Extrai a descrição e a prioridade do comando
+        partes = texto.split(" com prioridade ")
+        descricao = partes[0].replace("adicionar tarefa", "").strip()
+        prioridade = partes[1].strip() if len(partes) > 1 else "baixa"
+
+        # Valida a prioridade
+        prioridades_validas = ["alta", "média", "baixa"]
+        if prioridade not in prioridades_validas:
+            prioridade = "baixa"  # Prioridade padrão
+
+        # Salva a tarefa no Firebase
+        tarefa_data = {
+            "descricao": descricao,
+            "prioridade": prioridade,
+            "data_criacao": datetime.now().isoformat()
+        }
+        salvar_tarefa(tarefa_data)
+        await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
+        send_whatsapp_message(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
+
+    elif "agendar" in texto:
         # Extrai o título e a data/hora do comando
         partes = texto.split(" às ")
         if len(partes) < 2:
