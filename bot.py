@@ -252,6 +252,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /help - Mostra esta ajuda
     /tarefa [descrição] - Adiciona uma tarefa
     /listar - Lista todas as tarefas
+    /listar_prioridade - Lista tarefas ordenadas por prioridade
     /limpar - Remove todas as tarefas
     /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> - Agenda um evento
     /eventos - Lista todos os eventos agendados
@@ -259,20 +260,24 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text(help_text)
     send_whatsapp_message(help_text)
 
-# Comando /tarefa
+# Comando /tarefa atualizado para suportar prioridade
 async def add_task(update: Update, context: CallbackContext) -> None:
-    task = " ".join(context.args)
+    args = " ".join(context.args).split(" -prioridade ")
+    task = args[0].strip()
+    prioridade = args[1].strip().lower() if len(args) > 1 else "baixa"
+
     if task:
         tarefa_data = {
             "descricao": task,
+            "prioridade": prioridade,
             "data_criacao": datetime.now().isoformat()
         }
         salvar_tarefa(tarefa_data)
-        await update.message.reply_text(f"✅ Tarefa adicionada: {task}")
-        send_whatsapp_message(f"✅ Tarefa adicionada: {task}")
+        await update.message.reply_text(f"✅ Tarefa adicionada: {task} (Prioridade: {prioridade})")
+        send_whatsapp_message(f"✅ Tarefa adicionada: {task} (Prioridade: {prioridade})")
     else:
-        await update.message.reply_text("⚠️ Você precisa fornecer uma descrição. Exemplo: /tarefa Comprar pão")
-        send_whatsapp_message("⚠️ Você precisa fornecer uma descrição. Exemplo: /tarefa Comprar pão")
+        await update.message.reply_text("⚠️ Você precisa fornecer uma descrição. Exemplo: /tarefa Comprar pão -prioridade alta")
+        send_whatsapp_message("⚠️ Você precisa fornecer uma descrição. Exemplo: /tarefa Comprar pão -prioridade alta")
 
 # Comando /listar
 async def list_tasks(update: Update, context: CallbackContext) -> None:
@@ -281,6 +286,21 @@ async def list_tasks(update: Update, context: CallbackContext) -> None:
         task_list = "\n".join([f"- {tarefa['descricao']}" for tarefa in tarefas])
         await update.message.reply_text(f"📌 Suas tarefas:\n{task_list}")
         send_whatsapp_message(f"📌 Suas tarefas:\n{task_list}")
+    else:
+        await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
+        send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
+
+# Comando /listar_prioridade
+async def list_tasks_by_priority(update: Update, context: CallbackContext) -> None:
+    tarefas = buscar_tarefas()
+    if tarefas:
+        # Ordenar tarefas por prioridade (alta > média > baixa)
+        prioridade_ordem = {"alta": 1, "média": 2, "baixa": 3}
+        tarefas_ordenadas = sorted(tarefas, key=lambda x: prioridade_ordem.get(x.get("prioridade", "baixa"), 3))
+
+        task_list = "\n".join([f"- {tarefa['descricao']} (Prioridade: {tarefa.get('prioridade', 'baixa')})" for tarefa in tarefas_ordenadas])
+        await update.message.reply_text(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
+        send_whatsapp_message(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
     else:
         await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
         send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
@@ -379,6 +399,7 @@ def main():
     app_telegram.add_handler(CommandHandler("help", help_command))
     app_telegram.add_handler(CommandHandler("tarefa", add_task))
     app_telegram.add_handler(CommandHandler("listar", list_tasks))
+    app_telegram.add_handler(CommandHandler("listar_prioridade", list_tasks_by_priority))
     app_telegram.add_handler(CommandHandler("limpar", clear_tasks))
     app_telegram.add_handler(CommandHandler("agenda", add_agenda))
     app_telegram.add_handler(CommandHandler("eventos", list_events))
