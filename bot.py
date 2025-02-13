@@ -14,7 +14,16 @@ from flask import Flask
 import speech_recognition as sr
 import subprocess
 import dateparser
-from apscheduler.schedulers.background import BackgroundScheduler
+import subprocess
+import sys
+
+# Verifica se o apscheduler está instalado e instala se necessário
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+except ModuleNotFoundError:
+    print("📌 'apscheduler' não encontrado. Instalando agora...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "apscheduler"])
+    from apscheduler.schedulers.background import BackgroundScheduler
 
 # Configuração de logs
 logging.basicConfig(
