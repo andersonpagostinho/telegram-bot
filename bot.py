@@ -170,6 +170,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /help - Mostra esta ajuda
     /tarefa [descrição] - Adiciona uma tarefa
     /listar - Lista todas as tarefas
+    /listar_prioridade - Lista tarefas ordenadas por prioridade
     /limpar - Remove todas as tarefas
     /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> - Agenda um evento
     /eventos - Lista todos os eventos agendados
@@ -254,6 +255,94 @@ async def processar_comando_voz(update: Update, texto: str):
         await update.message.reply_text("❌ Comando não reconhecido.")
         send_whatsapp_message("❌ Comando não reconhecido.")
 
+# Comandos adicionais
+async def list_tasks(update: Update, context: CallbackContext) -> None:
+    tarefas = buscar_tarefas()
+    if tarefas:
+        task_list = "\n".join([f"- {tarefa['descricao']}" for tarefa in tarefas])
+        await update.message.reply_text(f"📌 Suas tarefas:\n{task_list}")
+        send_whatsapp_message(f"📌 Suas tarefas:\n{task_list}")
+    else:
+        await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
+        send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
+
+async def list_tasks_by_priority(update: Update, context: CallbackContext) -> None:
+    tarefas = buscar_tarefas()
+    if tarefas:
+        prioridade_ordem = {"alta": 1, "média": 2, "baixa": 3}
+        tarefas_ordenadas = sorted(tarefas, key=lambda x: prioridade_ordem.get(x.get("prioridade", "baixa"), 3))
+        task_list = "\n".join([f"- {tarefa['descricao']} (Prioridade: {tarefa.get('prioridade', 'baixa')})" for tarefa in tarefas_ordenadas])
+        await update.message.reply_text(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
+        send_whatsapp_message(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
+    else:
+        await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
+        send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
+
+async def clear_tasks(update: Update, context: CallbackContext) -> None:
+    try:
+        tarefas_ref = db.collection("Tarefas").stream()
+        for tarefa in tarefas_ref:
+            tarefa.reference.delete()
+        await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
+        send_whatsapp_message("🗑️ Todas as tarefas foram removidas.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao limpar tarefas: {str(e)}")
+        await update.message.reply_text("❌ Erro ao limpar tarefas.")
+        send_whatsapp_message("❌ Erro ao limpar tarefas.")
+
+async def list_events(update: Update, context: CallbackContext) -> None:
+    eventos = buscar_eventos()
+    if eventos:
+        eventos_list = "\n".join([f"🔹 {evento['titulo']} - {evento['data']} às {evento['hora']}\n🔗 {evento['link']}" for evento in eventos])
+        await update.message.reply_text(f"📅 Eventos agendados:\n{eventos_list}")
+        send_whatsapp_message(f"📅 Eventos agendados:\n{eventos_list}")
+    else:
+        await update.message.reply_text("📭 Nenhum evento agendado.")
+        send_whatsapp_message("📭 Nenhum evento agendado.")
+
+async def add_agenda(update: Update, context: CallbackContext) -> None:
+    if len(context.args) < 2:
+        await update.message.reply_text("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
+        send_whatsapp_message("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
+        return
+    titulo = context.args[0]
+    data_hora = context.args[1]
+
+    start_time = f"{data_hora}-03:00"
+    end_time = f"{data_hora}-03:00"
+    event_link = add_event(titulo, start_time, end_time)
+    if event_link:
+        evento_data = {
+            "titulo": titulo,
+            "data": data_hora.split("T")[0],
+            "hora": data_hora.split("T")[1],
+            "link": event_link,
+            "notificado": False
+        }
+        salvar_evento(evento_data)
+        await update.message.reply_text(f"✅ Evento '{titulo}' adicionado: {event_link}")
+        send_whatsapp_message(f"✅ Evento '{titulo}' adicionado: {event_link}")
+    else:
+        await update.message.reply_text("❌ Erro ao adicionar evento!")
+        send_whatsapp_message("❌ Erro ao adicionar evento!")
+
+def add_event(summary, start_time, end_time):
+    try:
+        service = get_calendar_service()
+        calendar_id = "andersonpagostinho@gmail.com"  # Substitua pelo seu calendar_id
+        event = {
+            'summary': summary,
+            'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
+            'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
+        }
+        created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
+        event_link = created_event.get('htmlLink')
+        logger.info(f"✅ Evento Criado: {event_link}")
+        return event_link
+    except Exception as e:
+        logger.error(f"❌ Erro ao criar evento no Google Calendar: {str(e)}")
+        return None
+
 # Configuração do Flask
 app_web = Flask(__name__)
 @app_web.route("/")
@@ -271,6 +360,12 @@ def main():
     # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("tarefa", add_task))
+    app.add_handler(CommandHandler("listar", list_tasks))
+    app.add_handler(CommandHandler("listar_prioridade", list_tasks_by_priority))
+    app.add_handler(CommandHandler("limpar", clear_tasks))
+    app.add_handler(CommandHandler("agenda", add_agenda))
+    app.add_handler(CommandHandler("eventos", list_events))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     # Iniciar Flask em uma thread separada
