@@ -49,6 +49,11 @@ if not credentials_json:
     logger.error("❌ ERRO: A variável de ambiente GOOGLE_CREDENTIALS_JSON não foi encontrada!")
     raise ValueError("⚠️ ERRO: GOOGLE_CREDENTIALS_JSON não foi encontrada!")
 
+def get_calendar_service():
+    creds_info = json.loads(credentials_json)
+    creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+    return build("calendar", "v3", credentials=creds)
+
 # Inicializar Firebase
 firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS")
 if not firebase_credentials_json:
