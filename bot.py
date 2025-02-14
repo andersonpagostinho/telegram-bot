@@ -46,16 +46,19 @@ if not TOKEN:
 # Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
-try:
-    with open("google_calendar.json", "r") as file:
-        credentials_json = json.load(file)  # Lendo como JSON direto
-except FileNotFoundError:
-    logger.error("❌ ERRO: Arquivo google_calendar.json não encontrado!")
-    raise ValueError("Credenciais do Google não configuradas!")
+# Tenta carregar as credenciais do ambiente ou do arquivo local
+credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
 if not credentials_json:
-    logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON está vazio!")
-    raise ValueError("Credenciais do Google não configuradas!")
+    try:
+        with open("google_calendar.json", "r") as file:
+            credentials_json = file.read()
+    except FileNotFoundError:
+        logger.error("❌ ERRO: google_calendar.json não encontrado!")
+        raise ValueError("Credenciais do Google não configuradas!")
+
+# Converte JSON string para dicionário
+credentials_json = json.loads(credentials_json)
 
 def get_calendar_service():
     try:
