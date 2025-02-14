@@ -50,12 +50,8 @@ SCOPES = ["https://www.googleapis.com/auth/calendar"]
 credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
 if not credentials_json:
-    try:
-        with open("google_calendar.json", "r") as file:
-            credentials_json = file.read()
-    except FileNotFoundError:
-        logger.error("❌ ERRO: google_calendar.json não encontrado!")
-        raise ValueError("Credenciais do Google não configuradas!")
+    logger.error("❌ ERRO: Variável GOOGLE_CREDENTIALS_JSON não foi encontrada!")
+    raise ValueError("Credenciais do Google não configuradas!")
 
 # Converte JSON string para dicionário
 credentials_json = json.loads(credentials_json)
