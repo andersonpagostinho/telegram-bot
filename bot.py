@@ -25,7 +25,8 @@ except ModuleNotFoundError:
 
 # Configuração de logs
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -33,44 +34,43 @@ logger = logging.getLogger(__name__)
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
-USER_WHATSAPP_NUMBER = "whatsapp:+5519990068427"  # Substitua pelo seu número
+USER_WHATSAPP_NUMBER = "whatsapp:+5519990068427"
 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
 # Configuração do Telegram Bot
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
-    logger.error("❌ ERRO: A variável de ambiente TOKEN do Telegram não foi encontrada!")
-    raise ValueError("⚠️ ERRO: A variável de ambiente TOKEN do Telegram não foi encontrada!")
+    logger.error("❌ ERRO: Variável TOKEN não encontrada!")
+    raise ValueError("Token do Telegram não configurado!")
 
 # Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not credentials_json:
-    logger.error("❌ ERRO: A variável de ambiente GOOGLE_CREDENTIALS_JSON não foi encontrada!")
-    raise ValueError("⚠️ ERRO: GOOGLE_CREDENTIALS_JSON não foi encontrada!")
-
-def get_calendar_service():
-    creds_info = json.loads(credentials_json)
-    creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
-    return build("calendar", "v3", credentials=creds)
+    logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON não encontrado!")
+    raise ValueError("Credenciais do Google não configuradas!")
 
 # Inicializar Firebase
 firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS")
 if not firebase_credentials_json:
-    raise ValueError("❌ ERRO: A variável de ambiente FIREBASE_CREDENTIALS não foi encontrada!")
+    raise ValueError("❌ ERRO: FIREBASE_CREDENTIALS não encontrado!")
 
-cred_info = json.loads(firebase_credentials_json)
-cred = credentials.Certificate(cred_info)
-firebase_admin.initialize_app(cred)
-db = firestore.client()
-logger.info("✅ Firebase inicializado com sucesso!")
+try:
+    cred_info = json.loads(firebase_credentials_json)
+    cred = credentials.Certificate(cred_info)
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    logger.info("✅ Firebase inicializado com sucesso!")
+except Exception as e:
+    logger.error(f"❌ Erro ao inicializar Firebase: {str(e)}")
+    raise
 
 # Funções do Firebase
 def salvar_tarefa(tarefa_data):
     try:
         if "data_vencimento" not in tarefa_data:
             tarefa_data["data_vencimento"] = (datetime.now() + timedelta(days=3)).isoformat()
-            
+        
         tarefa_ref = db.collection("Tarefas").document()
         tarefa_data["id"] = tarefa_ref.id
         tarefa_ref.set(tarefa_data)
@@ -80,24 +80,29 @@ def salvar_tarefa(tarefa_data):
         logger.error(f"❌ Erro ao salvar tarefa: {str(e)}")
         return None
 
+def salvar_evento(evento_data):
+    try:
+        evento_ref = db.collection("Eventos").document()
+        evento_data["id"] = evento_ref.id
+        evento_ref.set(evento_data)
+        logger.info(f"✅ Evento salvo: {evento_data['titulo']}")
+        return evento_ref.id
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar evento: {str(e)}")
+        return None
+
 def buscar_tarefas():
     try:
-        return [
-            {**tarefa.to_dict(), "id": tarefa.id} 
-            for tarefa in db.collection("Tarefas").stream()
-        ]
+        return [{**doc.to_dict(), "id": doc.id} for doc in db.collection("Tarefas").stream()]
     except Exception as e:
-        logger.error(f"❌ Erro buscar tarefas: {str(e)}")
+        logger.error(f"❌ Erro ao buscar tarefas: {str(e)}")
         return []
 
 def buscar_eventos():
     try:
-        return [
-            {**evento.to_dict(), "id": evento.id}
-            for evento in db.collection("Eventos").stream()
-        ]
+        return [{**doc.to_dict(), "id": doc.id} for doc in db.collection("Eventos").stream()]
     except Exception as e:
-        logger.error(f"❌ Erro buscar eventos: {str(e)}")
+        logger.error(f"❌ Erro ao buscar eventos: {str(e)}")
         return []
 
 def salvar_usuario(chat_id):
@@ -126,296 +131,371 @@ def send_whatsapp_message(message: str):
             body=message,
             to=USER_WHATSAPP_NUMBER
         )
-        logger.info(f"✅ Mensagem enviada para {USER_WHATSAPP_NUMBER}: {message}")
+        logger.info(f"✅ Mensagem enviada para {USER_WHATSAPP_NUMBER}")
     except Exception as e:
-        logger.error(f"❌ Erro ao enviar mensagem pelo WhatsApp: {str(e)}")
+        logger.error(f"❌ Erro ao enviar WhatsApp: {str(e)}")
 
 # Funções de áudio
 def converter_ogg_para_wav(ogg_path, wav_path):
     try:
-        comando = [
+        subprocess.run([
             "ffmpeg", "-i", ogg_path,
             "-acodec", "pcm_s16le",
             "-ar", "16000",
             "-ac", "1",
             wav_path
-        ]
-        subprocess.run(comando, check=True)
-        logger.info(f"✅ Áudio convertido: {wav_path}")
+        ], check=True)
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"❌ Erro ao converter áudio: {e}")
+        logger.error(f"❌ Erro na conversão de áudio: {e}")
         return False
 
 def transcrever_audio(wav_path):
     recognizer = sr.Recognizer()
-    with sr.AudioFile(wav_path) as source:
-        audio = recognizer.record(source)
-        try:
+    try:
+        with sr.AudioFile(wav_path) as source:
+            audio = recognizer.record(source)
             texto = recognizer.recognize_google(audio, language="pt-BR")
-            logger.info(f"✅ Áudio transcrito: {texto}")
+            logger.info(f"✅ Transcrição: {texto}")
             return texto
-        except sr.UnknownValueError:
-            logger.error("❌ Não foi possível transcrever o áudio.")
-            return None
-        except sr.RequestError as e:
-            logger.error(f"❌ Erro na requisição ao Google Speech-to-Text: {e}")
-            return None
+    except sr.UnknownValueError:
+        logger.error("❌ Áudio não reconhecido")
+    except sr.RequestError as e:
+        logger.error(f"❌ Erro no serviço de reconhecimento: {e}")
+    return None
 
 # Handlers do Telegram
 async def start(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
     salvar_usuario(chat_id)
-    await update.message.reply_text("👋 Olá! Vou te enviar lembretes de tarefas e eventos importantes.")
+    await update.message.reply_text("👋 Olá! Vou gerenciar seus lembretes e eventos!")
 
 async def help_command(update: Update, context: CallbackContext) -> None:
     help_text = """
     🛠 Comandos disponíveis:
     /start - Inicia o bot
-    /help - Mostra esta ajuda
-    /tarefa [descrição] - Adiciona uma tarefa
-    /listar - Lista todas as tarefas
-    /listar_prioridade - Lista tarefas ordenadas por prioridade
-    /limpar - Remove todas as tarefas
-    /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> - Agenda um evento
-    /eventos - Lista todos os eventos agendados
+    /help - Mostra ajuda
+    /tarefa [descrição] - Adiciona tarefa
+    /listar - Lista tarefas
+    /listar_prioridade - Ordena por prioridade
+    /limpar - Remove todas tarefas
+    /agenda <título> <data-hora> - Agenda evento
+    /eventos - Lista eventos
     """
     await update.message.reply_text(help_text)
 
 async def handle_voice(update: Update, context: CallbackContext) -> None:
-    voice_file = await update.message.voice.get_file()
-    ogg_path = "temp_audio.ogg"
-    await voice_file.download_to_drive(ogg_path)
-
-    wav_path = "temp_audio.wav"
-    if not converter_ogg_para_wav(ogg_path, wav_path):
-        await update.message.reply_text("❌ Erro ao processar o áudio. Tente novamente.")
-        return
-
-    texto = transcrever_audio(wav_path)
-    if not texto:
-        await update.message.reply_text("❌ Não entendi o áudio. Pode repetir?")
-        return
-
-    await update.message.reply_text(f"🎤 Você disse: {texto}")
-    await processar_comando_voz(update, texto)
-
-    os.remove(ogg_path)
-    os.remove(wav_path)
-    logger.info("✅ Arquivos temporários removidos.")
+    try:
+        voice_file = await update.message.voice.get_file()
+        ogg_path = "temp_audio.ogg"
+        await voice_file.download_to_drive(ogg_path)
+        
+        wav_path = "temp_audio.wav"
+        if not converter_ogg_para_wav(ogg_path, wav_path):
+            await update.message.reply_text("❌ Falha no processamento do áudio")
+            return
+            
+        texto = transcrever_audio(wav_path)
+        if texto:
+            await update.message.reply_text(f"🎤 Você disse: {texto}")
+            await processar_comando_voz(update, texto)
+        else:
+            await update.message.reply_text("❌ Não entendi o áudio")
+            
+        os.remove(ogg_path)
+        os.remove(wav_path)
+    except Exception as e:
+        logger.error(f"❌ Erro no processamento de voz: {str(e)}")
+        await update.message.reply_text("❌ Erro ao processar áudio")
 
 async def processar_comando_voz(update: Update, texto: str):
-    texto = texto.lower()
+    try:
+        texto = texto.lower()
+        
+        if "adicionar tarefa" in texto:
+            partes = texto.split(" com prioridade ")
+            descricao = partes[0].replace("adicionar tarefa", "").strip()
+            prioridade = partes[1].strip() if len(partes) > 1 else "baixa"
+            
+            prioridades_validas = {"alta", "média", "baixa"}
+            prioridade = prioridade if prioridade in prioridades_validas else "baixa"
+            
+            tarefa_data = {
+                "descricao": descricao,
+                "prioridade": prioridade,
+                "data_criacao": datetime.now().isoformat()
+            }
+            if salvar_tarefa(tarefa_data):
+                msg = f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})"
+                await update.message.reply_text(msg)
+                send_whatsapp_message(msg)
+                
+        elif "agendar" in texto:
+            partes = texto.split(" às ")
+            if len(partes) != 2:
+                await update.message.reply_text("⚠️ Formato: Agendar [título] às [data/hora]")
+                return
+                
+            titulo = partes[0].replace("agendar", "").strip()
+            data_hora = dateparser.parse(partes[1].strip(), languages=["pt"])
+            
+            if not data_hora:
+                await update.message.reply_text("❌ Data/hora inválida")
+                return
+                
+            start_time = data_hora.isoformat()
+            end_time = (data_hora + timedelta(hours=1)).isoformat()
+            
+            event_link = add_event(titulo, start_time, end_time)
+            if event_link:
+                evento_data = {
+                    "titulo": titulo,
+                    "data": data_hora.strftime("%Y-%m-%d"),
+                    "hora": data_hora.strftime("%H:%M:%S"),
+                    "link": event_link,
+                    "notificado": False
+                }
+                if salvar_evento(evento_data):
+                    msg = f"✅ Evento '{titulo}' agendado para {data_hora.strftime('%d/%m/%Y %H:%M')}"
+                    await update.message.reply_text(msg)
+                    send_whatsapp_message(msg)
+            else:
+                await update.message.reply_text("❌ Falha ao criar evento")
+                
+        else:
+            await update.message.reply_text("❌ Comando não reconhecido")
+            
+    except Exception as e:
+        logger.error(f"❌ Erro no processamento de comando: {str(e)}")
+        await update.message.reply_text("❌ Erro ao processar comando")
 
-    if "adicionar tarefa" in texto:
-        partes = texto.split(" com prioridade ")
-        descricao = partes[0].replace("adicionar tarefa", "").strip()
-        prioridade = partes[1].strip() if len(partes) > 1 else "baixa"
+# Comandos de tarefas
+async def add_task(update: Update, context: CallbackContext) -> None:
+    try:
+        args = context.args
+        full_text = ' '.join(args)
+        
+        prioridade_match = re.search(r'-prioridade (\w+)', full_text)
+        data_match = re.search(r'-data (.+?)(?= -|$)', full_text)
+        
+        prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
+        data_vencimento = data_match.group(1) if data_match else None
+        
+        if data_vencimento:
+            data_obj = dateparser.parse(data_vencimento, languages=['pt'])
+            if not data_obj:
+                await update.message.reply_text("❌ Formato de data inválido!")
+                return
+            data_iso = data_obj.isoformat()
+        else:
+            data_iso = (datetime.now() + timedelta(days=3)).isoformat()
 
-        prioridades_validas = ["alta", "média", "baixa"]
-        if prioridade not in prioridades_validas:
-            prioridade = "baixa"
-
+        descricao = re.sub(r'(-prioridade \w+|-data .+?)', '', full_text).strip()
+        
+        if not descricao:
+            await update.message.reply_text("⚠️ Formato: /tarefa [descrição] -prioridade [alta/média/baixa] -data [data]")
+            return
+            
         tarefa_data = {
             "descricao": descricao,
             "prioridade": prioridade,
-            "data_criacao": datetime.now().isoformat()
+            "data_criacao": datetime.now().isoformat(),
+            "data_vencimento": data_iso
         }
-        salvar_tarefa(tarefa_data)
-        await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
-        send_whatsapp_message(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
+        
+        if salvar_tarefa(tarefa_data):
+            msg = f"✅ Tarefa adicionada:\n{descricao}\n📅 {data_obj.strftime('%d/%m/%Y') if data_obj else 'Sem data'}"
+            await update.message.reply_text(msg)
+            send_whatsapp_message(msg)
+        else:
+            await update.message.reply_text("❌ Erro ao salvar tarefa")
+            
+    except Exception as e:
+        logger.error(f"❌ Erro ao adicionar tarefa: {str(e)}")
+        await update.message.reply_text("❌ Erro ao processar tarefa")
 
-    elif "agendar" in texto:
-        partes = texto.split(" às ")
-        if len(partes) < 2:
-            await update.message.reply_text("⚠️ Formato inválido. Use: Agendar [título] [data/hora]")
+async def list_tasks(update: Update, context: CallbackContext) -> None:
+    try:
+        tarefas = buscar_tarefas()
+        if tarefas:
+            task_list = "\n".join([f"• {t['descricao']}" for t in tarefas])
+            msg = f"📋 Suas tarefas:\n{task_list}"
+        else:
+            msg = "📭 Nenhuma tarefa encontrada"
+            
+        await update.message.reply_text(msg)
+        send_whatsapp_message(msg)
+    except Exception as e:
+        logger.error(f"❌ Erro ao listar tarefas: {str(e)}")
+        await update.message.reply_text("❌ Erro ao buscar tarefas")
+
+async def list_tasks_by_priority(update: Update, context: CallbackContext) -> None:
+    try:
+        tarefas = buscar_tarefas()
+        if tarefas:
+            prioridade_ordem = {"alta": 1, "média": 2, "baixa": 3}
+            tarefas_ordenadas = sorted(tarefas, key=lambda x: prioridade_ordem[x.get("prioridade", "baixa")])
+            task_list = "\n".join([f"• {t['descricao']} ({t['prioridade']})" for t in tarefas_ordenadas])
+            msg = f"📌 Tarefas por prioridade:\n{task_list}"
+        else:
+            msg = "📭 Nenhuma tarefa encontrada"
+            
+        await update.message.reply_text(msg)
+        send_whatsapp_message(msg)
+    except Exception as e:
+        logger.error(f"❌ Erro ao ordenar tarefas: {str(e)}")
+        await update.message.reply_text("❌ Erro ao ordenar tarefas")
+
+async def clear_tasks(update: Update, context: CallbackContext) -> None:
+    try:
+        batch = db.batch()
+        tarefas_ref = db.collection("Tarefas").stream()
+        
+        for tarefa in tarefas_ref:
+            batch.delete(tarefa.reference)
+            
+        batch.commit()
+        msg = "🗑️ Todas as tarefas foram removidas"
+        await update.message.reply_text(msg)
+        send_whatsapp_message(msg)
+    except Exception as e:
+        logger.error(f"❌ Erro ao limpar tarefas: {str(e)}")
+        await update.message.reply_text("❌ Erro ao limpar tarefas")
+
+# Comandos de eventos
+async def add_agenda(update: Update, context: CallbackContext) -> None:
+    try:
+        if len(context.args) < 2:
+            msg = "⚠️ Formato: /agenda <Título> <YYYY-MM-DDTHH:MM:SS>"
+            await update.message.reply_text(msg)
             return
-
-        titulo = partes[0].replace("agendar", "").strip()
-        data_hora_texto = partes[1].strip()
-
-        data_hora = dateparser.parse(data_hora_texto, languages=["pt"])
-        if not data_hora:
-            await update.message.reply_text("❌ Não entendi a data/hora. Pode reformular?")
+            
+        titulo = context.args[0]
+        data_hora = context.args[1]
+        
+        try:
+            dt = datetime.fromisoformat(data_hora)
+        except ValueError:
+            await update.message.reply_text("❌ Formato de data inválido! Use ISO format")
             return
-
-        start_time = f"{data_hora.isoformat()}-03:00"
-        end_time = f"{data_hora.isoformat()}-03:00"
+            
+        start_time = dt.isoformat()
+        end_time = (dt + timedelta(hours=1)).isoformat()
+        
         event_link = add_event(titulo, start_time, end_time)
         if event_link:
             evento_data = {
                 "titulo": titulo,
-                "data": data_hora.strftime("%Y-%m-%d"),
-                "hora": data_hora.strftime("%H:%M:%S"),
+                "data": dt.strftime("%Y-%m-%d"),
+                "hora": dt.strftime("%H:%M:%S"),
                 "link": event_link,
                 "notificado": False
             }
-            salvar_evento(evento_data)
-            await update.message.reply_text(f"✅ Evento '{titulo}' agendado para {data_hora}.")
-            send_whatsapp_message(f"✅ Evento '{titulo}' agendado para {data_hora}.")
+            if salvar_evento(evento_data):
+                msg = f"✅ Evento criado:\n{titulo}\n📅 {dt.strftime('%d/%m/%Y %H:%M')}\n🔗 {event_link}"
+                await update.message.reply_text(msg)
+                send_whatsapp_message(msg)
         else:
-            await update.message.reply_text("❌ Erro ao agendar evento!")
-            send_whatsapp_message("❌ Erro ao agendar evento!")
-    else:
-        await update.message.reply_text("❌ Comando não reconhecido.")
-        send_whatsapp_message("❌ Comando não reconhecido.")
-
-# Comandos adicionais
-async def add_task(update: Update, context: CallbackContext) -> None:
-    args = context.args
-    full_text = ' '.join(args)
-    
-    prioridade_match = re.search(r'-prioridade (\w+)', full_text)
-    data_match = re.search(r'-data (.+?)(?= -|$)', full_text)
-    
-    prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
-    data_vencimento = data_match.group(1) if data_match else None
-    
-    if data_vencimento:
-        data_obj = dateparser.parse(data_vencimento, languages=['pt'])
-        if not data_obj:
-            await update.message.reply_text("❌ Data inválida! Use o formato: dd/mm/aaaa ou 'amanhã'")
-            return
-        data_iso = data_obj.isoformat()
-    else:
-        data_iso = (datetime.now() + timedelta(days=3)).isoformat()
-
-    descricao = re.sub(r'(-prioridade \w+|-data .+?)', '', full_text).strip()
-
-    if not descricao:
-        await update.message.reply_text("⚠️ Formato correto:\n/tarefa Comprar leite -prioridade alta -data amanhã")
-        return
-
-    tarefa_data = {
-        "descricao": descricao,
-        "prioridade": prioridade,
-        "data_criacao": datetime.now().isoformat(),
-        "data_vencimento": data_iso
-    }
-    
-    if salvar_tarefa(tarefa_data):
-        await update.message.reply_text(f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}")
-    else:
-        await update.message.reply_text("❌ Erro ao adicionar tarefa.")
-
-async def list_tasks(update: Update, context: CallbackContext) -> None:
-    tarefas = buscar_tarefas()
-    if tarefas:
-        task_list = "\n".join([f"- {tarefa['descricao']}" for tarefa in tarefas])
-        await update.message.reply_text(f"📌 Suas tarefas:\n{task_list}")
-        send_whatsapp_message(f"📌 Suas tarefas:\n{task_list}")
-    else:
-        await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
-        send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
-
-async def list_tasks_by_priority(update: Update, context: CallbackContext) -> None:
-    tarefas = buscar_tarefas()
-    if tarefas:
-        prioridade_ordem = {"alta": 1, "média": 2, "baixa": 3}
-        tarefas_ordenadas = sorted(tarefas, key=lambda x: prioridade_ordem.get(x.get("prioridade", "baixa"), 3))
-        task_list = "\n".join([f"- {tarefa['descricao']} (Prioridade: {tarefa.get('prioridade', 'baixa')})" for tarefa in tarefas_ordenadas])
-        await update.message.reply_text(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
-        send_whatsapp_message(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
-    else:
-        await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
-        send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
-
-async def clear_tasks(update: Update, context: CallbackContext) -> None:
-    try:
-        tarefas_ref = db.collection("Tarefas").stream()
-        for tarefa in tarefas_ref:
-            tarefa.reference.delete()
-        await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
-        send_whatsapp_message("🗑️ Todas as tarefas foram removidas.")
+            await update.message.reply_text("❌ Falha ao criar evento")
+            
     except Exception as e:
-        logger.error(f"❌ Erro ao limpar tarefas: {str(e)}")
-        await update.message.reply_text("❌ Erro ao limpar tarefas.")
-        send_whatsapp_message("❌ Erro ao limpar tarefas.")
+        logger.error(f"❌ Erro ao agendar evento: {str(e)}")
+        await update.message.reply_text("❌ Erro ao agendar evento")
 
 async def list_events(update: Update, context: CallbackContext) -> None:
-    eventos = buscar_eventos()
-    if eventos:
-        eventos_list = "\n".join([f"🔹 {evento['titulo']} - {evento['data']} às {evento['hora']}\n🔗 {evento['link']}" for evento in eventos])
-        await update.message.reply_text(f"📅 Eventos agendados:\n{eventos_list}")
-        send_whatsapp_message(f"📅 Eventos agendados:\n{eventos_list}")
-    else:
-        await update.message.reply_text("📭 Nenhum evento agendado.")
-        send_whatsapp_message("📭 Nenhum evento agendado.")
+    try:
+        eventos = buscar_eventos()
+        if eventos:
+            event_list = []
+            for evento in eventos:
+                event_list.append(
+                    f"• {evento['titulo']}\n"
+                    f"📅 {evento['data']} às {evento['hora']}\n"
+                    f"🔗 {evento['link']}"
+                )
+            msg = "\n\n".join(event_list)
+            await update.message.reply_text(f"📅 Eventos agendados:\n\n{msg}")
+            send_whatsapp_message(f"📅 Eventos agendados:\n\n{msg}")
+        else:
+            msg = "📭 Nenhum evento agendado"
+            await update.message.reply_text(msg)
+            send_whatsapp_message(msg)
+    except Exception as e:
+        logger.error(f"❌ Erro ao listar eventos: {str(e)}")
+        await update.message.reply_text("❌ Erro ao buscar eventos")
 
-async def add_agenda(update: Update, context: CallbackContext) -> None:
-    if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
-        send_whatsapp_message("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
-        return
-    titulo = context.args[0]
-    data_hora = context.args[1]
-
-    start_time = f"{data_hora}-03:00"
-    end_time = f"{data_hora}-03:00"
-    event_link = add_event(titulo, start_time, end_time)
-    if event_link:
-        evento_data = {
-            "titulo": titulo,
-            "data": data_hora.split("T")[0],
-            "hora": data_hora.split("T")[1],
-            "link": event_link,
-            "notificado": False
-        }
-        salvar_evento(evento_data)
-        await update.message.reply_text(f"✅ Evento '{titulo}' adicionado: {event_link}")
-        send_whatsapp_message(f"✅ Evento '{titulo}' adicionado: {event_link}")
-    else:
-        await update.message.reply_text("❌ Erro ao adicionar evento!")
-        send_whatsapp_message("❌ Erro ao adicionar evento!")
+# Integração Google Calendar
+def get_calendar_service():
+    try:
+        creds_info = json.loads(credentials_json)
+        creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+        return build("calendar", "v3", credentials=creds)
+    except Exception as e:
+        logger.error(f"❌ Erro nas credenciais do Google: {str(e)}")
+        return None
 
 def add_event(summary, start_time, end_time):
     try:
         service = get_calendar_service()
-        calendar_id = "andersonpagostinho@gmail.com"  # Substitua pelo seu calendar_id
+        if not service:
+            return None
+            
         event = {
             'summary': summary,
             'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
             'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
         }
-        created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
-        event_link = created_event.get('htmlLink')
-        logger.info(f"✅ Evento Criado: {event_link}")
-        return event_link
+        
+        created_event = service.events().insert(
+            calendarId="primary",
+            body=event
+        ).execute()
+        
+        return created_event.get('htmlLink')
     except Exception as e:
-        logger.error(f"❌ Erro ao criar evento no Google Calendar: {str(e)}")
+        logger.error(f"❌ Erro ao criar evento: {str(e)}")
         return None
 
 # Configuração do Flask
 app_web = Flask(__name__)
+
 @app_web.route("/")
 def home():
-    return "Bot rodando!"
+    return "🤖 Bot em funcionamento!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
-    app_web.run(host="0.0.0.0", port=port)
+    app_web.run(host="0.0.0.0", port=port, use_reloader=False)
 
 # Função principal
 def main():
-    app = Application.builder().token(TOKEN).build()
-    
-    # Handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("tarefa", add_task))
-    app.add_handler(CommandHandler("listar", list_tasks))
-    app.add_handler(CommandHandler("listar_prioridade", list_tasks_by_priority))
-    app.add_handler(CommandHandler("limpar", clear_tasks))
-    app.add_handler(CommandHandler("agenda", add_agenda))
-    app.add_handler(CommandHandler("eventos", list_events))
-    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
-
-    # Iniciar Flask em uma thread separada
-    threading.Thread(target=run_flask, daemon=True).start()
-
-    # Iniciar bot
-    logger.info("🚀 Bot rodando com polling...")
-    app.run_polling()
+    try:
+        app = Application.builder().token(TOKEN).build()
+        
+        # Registro de handlers
+        handlers = [
+            CommandHandler("start", start),
+            CommandHandler("help", help_command),
+            CommandHandler("tarefa", add_task),
+            CommandHandler("listar", list_tasks),
+            CommandHandler("listar_prioridade", list_tasks_by_priority),
+            CommandHandler("limpar", clear_tasks),
+            CommandHandler("agenda", add_agenda),
+            CommandHandler("eventos", list_events),
+            MessageHandler(filters.VOICE, handle_voice)
+        ]
+        
+        app.add_handlers(handlers)
+        
+        # Iniciar Flask em thread separada
+        threading.Thread(target=run_flask, daemon=True).start()
+        
+        logger.info("🚀 Iniciando bot...")
+        app.run_polling()
+        
+    except Exception as e:
+        logger.error(f"❌ Erro fatal: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     main()
