@@ -431,37 +431,19 @@ async def list_events(update: Update, context: CallbackContext) -> None:
         logger.error(f"❌ Erro ao listar eventos: {str(e)}")
         await update.message.reply_text("❌ Erro ao buscar eventos")
 
-# Integração Google Calendar
-def get_calendar_service():
-    try:
-        creds_info = json.loads(credentials_json)
-        creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
-        return build("calendar", "v3", credentials=creds)
-    except Exception as e:
-        logger.error(f"❌ Erro nas credenciais do Google: {str(e)}")
-        return None
+# Configuração do Google Calendar
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
-def add_event(summary, start_time, end_time):
-    try:
-        service = get_calendar_service()
-        if not service:
-            return None
-            
-        event = {
-            'summary': summary,
-            'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
-            'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
-        }
-        
-        created_event = service.events().insert(
-            calendarId="andersonpagostinho@gmail.com",
-            body=event
-        ).execute()
-        
-        return created_event.get('htmlLink')
-    except Exception as e:
-        logger.error(f"❌ Erro ao criar evento: {str(e)}")
-        return None
+try:
+    with open("google_calendar.json", "r") as file:
+        credentials_json = json.load(file)  # Converte a string JSON em dicionário
+except FileNotFoundError:
+    logger.error("❌ ERRO: Arquivo google_calendar.json não encontrado!")
+    raise ValueError("Credenciais do Google não configuradas!")
+
+if not credentials_json:
+    logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON está vazio!")
+    raise ValueError("Credenciais do Google não configuradas!")
 
 # Configuração do Flask
 app_web = Flask(__name__)
