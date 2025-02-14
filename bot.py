@@ -167,6 +167,119 @@ def transcrever_audio(wav_path):
             logger.error(f"❌ Erro na requisição ao Google Speech-to-Text: {e}")
             return None
 
+# Função para gerar relatórios
+def gerar_relatorio(periodo="diario"):
+    try:
+        agora = datetime.now()
+        if periodo == "diario":
+            inicio = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+            fim = inicio + timedelta(days=1)
+            titulo_relatorio = "📊 Relatório Diário"
+        elif periodo == "semanal":
+            inicio = agora - timedelta(days=agora.weekday())  # Início da semana (segunda-feira)
+            inicio = inicio.replace(hour=0, minute=0, second=0, microsecond=0)
+            fim = inicio + timedelta(weeks=1)
+            titulo_relatorio = "📊 Relatório Semanal"
+        else:
+            return "❌ Período inválido. Use 'diario' ou 'semanal'."
+
+        # Buscar tarefas no período
+        tarefas = buscar_tarefas()
+        tarefas_periodo = [
+            t for t in tarefas
+            if inicio <= datetime.fromisoformat(t["data_criacao"]) < fim
+        ]
+
+        # Buscar eventos no período
+        eventos = buscar_eventos()
+        eventos_periodo = [
+            e for e in eventos
+            if inicio <= datetime.fromisoformat(e["data"] + "T" + e["hora"]) < fim
+        ]
+
+        # Montar o relatório
+        relatorio = f"{titulo_relatorio}\n\n"
+        relatorio += "📌 Tarefas:\n"
+        if tarefas_periodo:
+            for i, tarefa in enumerate(tarefas_periodo, 1):
+                relatorio += f"{i}. {tarefa['descricao']} (Prioridade: {tarefa['prioridade']})\n"
+        else:
+            relatorio += "Nenhuma tarefa encontrada.\n"
+
+        relatorio += "\n📅 Eventos:\n"
+        if eventos_periodo:
+            for i, evento in enumerate(eventos_periodo, 1):
+                relatorio += f"{i}. {evento['titulo']} - {evento['data']} às {evento['hora']}\n"
+        else:
+            relatorio += "Nenhum evento encontrado.\n"
+
+        return relatorio
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao gerar relatório: {str(e)}")
+        return "❌ Erro ao gerar relatório."
+
+# Função para enviar relatórios via Telegram
+async def enviar_relatorio_telegram(context: CallbackContext, periodo="diario"):
+    try:
+        relatorio = gerar_relatorio(periodo)
+        usuarios = buscar_usuarios()
+        for usuario in usuarios:
+            chat_id = usuario["chat_id"]
+            await context.bot.send_message(chat_id=chat_id, text=relatorio)
+        logger.info(f"✅ Relatório {periodo} enviado para {len(usuarios)} usuários.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao enviar relatório: {str(e)}")
+
+# Função para enviar relatórios via WhatsApp
+def enviar_relatorio_whatsapp(periodo="diario"):
+    try:
+        relatorio = gerar_relatorio(periodo)
+        send_whatsapp_message(relatorio)
+        logger.info(f"✅ Relatório {periodo} enviado via WhatsApp.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao enviar relatório via WhatsApp: {str(e)}")
+
+# Configurar o agendador
+def configurar_agendador(app: Application):
+    scheduler = BackgroundScheduler()
+    
+    # Relatório diário às 8h
+    scheduler.add_job(
+        enviar_relatorio_telegram,
+        trigger="cron",
+        hour=8,
+        minute=0,
+        args=[app, "diario"],
+    )
+    scheduler.add_job(
+        enviar_relatorio_whatsapp,
+        trigger="cron",
+        hour=8,
+        minute=0,
+        args=["diario"],
+    )
+
+    # Relatório semanal às 8h de segunda-feira
+    scheduler.add_job(
+        enviar_relatorio_telegram,
+        trigger="cron",
+        day_of_week="mon",
+        hour=8,
+        minute=0,
+        args=[app, "semanal"],
+    )
+    scheduler.add_job(
+        enviar_relatorio_whatsapp,
+        trigger="cron",
+        day_of_week="mon",
+        hour=8,
+        minute=0,
+        args=["semanal"],
+    )
+
+    scheduler.start()
+
 # Handlers do Telegram
 async def start(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
@@ -184,6 +297,8 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /limpar - Remove todas as tarefas
     /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> - Agenda um evento
     /eventos - Lista todos os eventos agendados
+    /relatorio_diario - Gera um relatório diário
+    /relatorio_semanal - Gera um relatório semanal
     """
     await update.message.reply_text(help_text)
 
@@ -417,6 +532,9 @@ def main():
 
     # Iniciar Flask em uma thread separada
     threading.Thread(target=run_flask, daemon=True).start()
+
+    # Configurar agendador de relatórios
+    configurar_agendador(app)
 
     # Iniciar bot
     logger.info("🚀 Bot rodando com polling...")
