@@ -45,7 +45,7 @@ if not TOKEN:
 
 # Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+credentials_json = os.getenv("google_calendar.json")
 if not credentials_json:
     logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON não encontrado!")
     raise ValueError("Credenciais do Google não configuradas!")
