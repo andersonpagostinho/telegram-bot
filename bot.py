@@ -46,31 +46,25 @@ if not TOKEN:
 # Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
-# Tenta carregar as credenciais do ambiente ou do arquivo local
-credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-
-if not credentials_json:
-    logger.error("❌ ERRO: Variável GOOGLE_CREDENTIALS_JSON não foi encontrada!")
+# Carrega as credenciais do Google Calendar
+GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
+if not GOOGLE_CREDENTIALS_JSON:
+    logger.error("❌ ERRO: Variável GOOGLE_CREDENTIALS_JSON não encontrada!")
     raise ValueError("Credenciais do Google não configuradas!")
 
-# Converte JSON string para dicionário
-credentials_json = json.loads(credentials_json)
-
-def get_calendar_service():
-    try:
-        creds = service_account.Credentials.from_service_account_info(credentials_json, scopes=SCOPES)
-        return build("calendar", "v3", credentials=creds)
-    except Exception as e:
-        logger.error(f"❌ Erro ao conectar ao Google Calendar: {str(e)}")
-        return None
+try:
+    GOOGLE_CREDENTIALS = json.loads(GOOGLE_CREDENTIALS_JSON)
+except json.JSONDecodeError:
+    logger.error("❌ ERRO: Formato inválido das credenciais do Google!")
+    raise ValueError("Erro ao decodificar JSON das credenciais do Google!")
 
 # Inicializar Firebase
-firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS")
-if not firebase_credentials_json:
+FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS")
+if not FIREBASE_CREDENTIALS:
     raise ValueError("❌ ERRO: FIREBASE_CREDENTIALS não encontrado!")
 
 try:
-    cred_info = json.loads(firebase_credentials_json)
+    cred_info = json.loads(FIREBASE_CREDENTIALS)
     cred = credentials.Certificate(cred_info)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
@@ -177,6 +171,27 @@ def transcrever_audio(wav_path):
     except sr.RequestError as e:
         logger.error(f"❌ Erro no serviço de reconhecimento: {e}")
     return None
+
+# Função para adicionar evento ao Google Calendar
+def add_event(summary, start_time, end_time):
+    try:
+        creds = service_account.Credentials.from_service_account_info(GOOGLE_CREDENTIALS, scopes=SCOPES)
+        service = build("calendar", "v3", credentials=creds)
+        
+        event = {
+            'summary': summary,
+            'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
+            'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
+        }
+        
+        # Use o e-mail do calendário específico
+        calendar_id = "andersonpagostinho@gmail.com"
+        created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
+        
+        return created_event.get('htmlLink')
+    except Exception as e:
+        logger.error(f"❌ Erro ao criar evento: {str(e)}")
+        return None
 
 # Handlers do Telegram
 async def start(update: Update, context: CallbackContext) -> None:
@@ -444,31 +459,6 @@ async def list_events(update: Update, context: CallbackContext) -> None:
     except Exception as e:
         logger.error(f"❌ Erro ao listar eventos: {str(e)}")
         await update.message.reply_text("❌ Erro ao buscar eventos")
-
-# Configuração do Google Calendar
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
-
-# 📌 Carrega as credenciais do ambiente (Render)
-credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-
-if not credentials_json:
-    logger.error("❌ ERRO: Variável GOOGLE_CREDENTIALS_JSON não foi encontrada!")
-    raise ValueError("Credenciais do Google não configuradas!")
-
-# Converte JSON string para dicionário
-try:
-    credentials_json = json.loads(credentials_json)
-except json.JSONDecodeError:
-    logger.error("❌ ERRO: O formato das credenciais do Google está inválido!")
-    raise ValueError("Erro ao decodificar JSON das credenciais do Google!")
-
-def get_calendar_service():
-    try:
-        creds = service_account.Credentials.from_service_account_info(credentials_json, scopes=SCOPES)
-        return build("calendar", "v3", credentials=creds)
-    except Exception as e:
-        logger.error(f"❌ Erro ao conectar ao Google Calendar: {str(e)}")
-        return None
 
 # Configuração do Flask
 app_web = Flask(__name__)
