@@ -74,6 +74,17 @@ def salvar_tarefa(tarefa_data):
         logger.error(f"❌ Erro ao salvar tarefa: {str(e)}")
         return None
 
+def salvar_evento(evento_data):
+    try:
+        evento_ref = db.collection("Eventos").document()
+        evento_data["id"] = evento_ref.id
+        evento_ref.set(evento_data)
+        logger.info(f"✅ Evento salvo: {evento_data['titulo']}")
+        return evento_ref.id
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar evento: {str(e)}")
+        return None
+
 def buscar_tarefas():
     try:
         return [
