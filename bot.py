@@ -448,16 +448,27 @@ async def list_events(update: Update, context: CallbackContext) -> None:
 # Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
-try:
-    with open("google_calendar.json", "r") as file:
-        credentials_json = json.load(file)  # Converte a string JSON em dicionário
-except FileNotFoundError:
-    logger.error("❌ ERRO: Arquivo google_calendar.json não encontrado!")
-    raise ValueError("Credenciais do Google não configuradas!")
+# 📌 Carrega as credenciais do ambiente (Render)
+credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
 if not credentials_json:
-    logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON está vazio!")
+    logger.error("❌ ERRO: Variável GOOGLE_CREDENTIALS_JSON não foi encontrada!")
     raise ValueError("Credenciais do Google não configuradas!")
+
+# Converte JSON string para dicionário
+try:
+    credentials_json = json.loads(credentials_json)
+except json.JSONDecodeError:
+    logger.error("❌ ERRO: O formato das credenciais do Google está inválido!")
+    raise ValueError("Erro ao decodificar JSON das credenciais do Google!")
+
+def get_calendar_service():
+    try:
+        creds = service_account.Credentials.from_service_account_info(credentials_json, scopes=SCOPES)
+        return build("calendar", "v3", credentials=creds)
+    except Exception as e:
+        logger.error(f"❌ Erro ao conectar ao Google Calendar: {str(e)}")
+        return None
 
 # Configuração do Flask
 app_web = Flask(__name__)
