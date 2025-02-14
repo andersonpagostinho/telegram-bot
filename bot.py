@@ -281,10 +281,12 @@ async def add_task(update: Update, context: CallbackContext) -> None:
         prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
         data_vencimento = data_match.group(1) if data_match else None
         
+        # Verifica se a data foi fornecida e é válida
+        data_obj = None
         if data_vencimento:
             data_obj = dateparser.parse(data_vencimento, languages=['pt'])
             if not data_obj:
-                await update.message.reply_text("❌ Formato de data inválido!")
+                await update.message.reply_text("❌ Data inválida! Use o formato: dd/mm/aaaa ou 'amanhã'")
                 return
             data_iso = data_obj.isoformat()
         else:
@@ -293,9 +295,9 @@ async def add_task(update: Update, context: CallbackContext) -> None:
         descricao = re.sub(r'(-prioridade \w+|-data .+?)', '', full_text).strip()
         
         if not descricao:
-            await update.message.reply_text("⚠️ Formato: /tarefa [descrição] -prioridade [alta/média/baixa] -data [data]")
+            await update.message.reply_text("⚠️ Formato correto:\n/tarefa Comprar leite -prioridade alta -data amanhã")
             return
-            
+
         tarefa_data = {
             "descricao": descricao,
             "prioridade": prioridade,
@@ -304,11 +306,11 @@ async def add_task(update: Update, context: CallbackContext) -> None:
         }
         
         if salvar_tarefa(tarefa_data):
-            msg = f"✅ Tarefa adicionada:\n{descricao}\n📅 {data_obj.strftime('%d/%m/%Y') if data_obj else 'Sem data'}"
+            msg = f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y') if data_obj else 'Sem data'}"
             await update.message.reply_text(msg)
             send_whatsapp_message(msg)
         else:
-            await update.message.reply_text("❌ Erro ao salvar tarefa")
+            await update.message.reply_text("❌ Erro ao adicionar tarefa.")
             
     except Exception as e:
         logger.error(f"❌ Erro ao adicionar tarefa: {str(e)}")
@@ -366,22 +368,25 @@ async def clear_tasks(update: Update, context: CallbackContext) -> None:
 async def add_agenda(update: Update, context: CallbackContext) -> None:
     try:
         if len(context.args) < 2:
-            msg = "⚠️ Formato: /agenda <Título> <YYYY-MM-DDTHH:MM:SS>"
+            msg = "⚠️ Use: /agenda <Título> <YYYY-MM-DDTHH:MM:SS>"
             await update.message.reply_text(msg)
             return
             
         titulo = context.args[0]
         data_hora = context.args[1]
-        
+
         try:
+            # Converte a string de data/hora para um objeto datetime
             dt = datetime.fromisoformat(data_hora)
         except ValueError:
-            await update.message.reply_text("❌ Formato de data inválido! Use ISO format")
+            await update.message.reply_text("❌ Formato de data/hora inválido! Use: YYYY-MM-DDTHH:MM:SS")
             return
             
+        # Define o horário de início e término do evento
         start_time = dt.isoformat()
         end_time = (dt + timedelta(hours=1)).isoformat()
         
+        # Adiciona o evento ao Google Calendar
         event_link = add_event(titulo, start_time, end_time)
         if event_link:
             evento_data = {
@@ -392,15 +397,17 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
                 "notificado": False
             }
             if salvar_evento(evento_data):
-                msg = f"✅ Evento criado:\n{titulo}\n📅 {dt.strftime('%d/%m/%Y %H:%M')}\n🔗 {event_link}"
+                msg = f"✅ Evento '{titulo}' agendado para {dt.strftime('%d/%m/%Y %H:%M')}\n🔗 {event_link}"
                 await update.message.reply_text(msg)
                 send_whatsapp_message(msg)
+            else:
+                await update.message.reply_text("❌ Erro ao salvar evento no banco de dados.")
         else:
-            await update.message.reply_text("❌ Falha ao criar evento")
+            await update.message.reply_text("❌ Erro ao criar evento no Google Calendar.")
             
     except Exception as e:
         logger.error(f"❌ Erro ao agendar evento: {str(e)}")
-        await update.message.reply_text("❌ Erro ao agendar evento")
+        await update.message.reply_text("❌ Erro ao agendar evento.")
 
 async def list_events(update: Update, context: CallbackContext) -> None:
     try:
