@@ -45,10 +45,25 @@ if not TOKEN:
 
 # Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-credentials_json = os.getenv("google_calendar.json")
-if not credentials_json:
-    logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON não encontrado!")
+
+try:
+    with open("google_calendar.json", "r") as file:
+        credentials_json = json.load(file)  # Lendo como JSON direto
+except FileNotFoundError:
+    logger.error("❌ ERRO: Arquivo google_calendar.json não encontrado!")
     raise ValueError("Credenciais do Google não configuradas!")
+
+if not credentials_json:
+    logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON está vazio!")
+    raise ValueError("Credenciais do Google não configuradas!")
+
+def get_calendar_service():
+    try:
+        creds = service_account.Credentials.from_service_account_info(credentials_json, scopes=SCOPES)
+        return build("calendar", "v3", credentials=creds)
+    except Exception as e:
+        logger.error(f"❌ Erro ao conectar ao Google Calendar: {str(e)}")
+        return None
 
 # Inicializar Firebase
 firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS")
