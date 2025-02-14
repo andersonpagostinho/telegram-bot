@@ -2,7 +2,7 @@ import os
 import json
 import re
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, firestore
 from google.oauth2 import service_account
@@ -63,7 +63,7 @@ logger.info("✅ Firebase inicializado com sucesso!")
 def salvar_tarefa(tarefa_data):
     try:
         if "data_vencimento" not in tarefa_data:
-            tarefa_data["data_vencimento"] = (datetime.now() + timedelta(days=3)).isoformat()
+            tarefa_data["data_vencimento"] = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
         
         if "lembrete" not in tarefa_data:
             tarefa_data["lembrete"] = 0  # Sem lembrete por padrão
@@ -116,7 +116,7 @@ def salvar_usuario(chat_id):
         db.collection("Usuarios").document(str(chat_id)).set({
             "chat_id": chat_id,
             "ativo": True,
-            "data_registro": datetime.now().isoformat()
+            "data_registro": datetime.now(timezone.utc).isoformat()
         })
         logger.info(f"✅ Usuário registrado: {chat_id}")
     except Exception as e:
@@ -176,8 +176,13 @@ def transcrever_audio(wav_path):
 # Função para agendar lembretes
 def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembrete_minutos):
     try:
-        data_lembrete = datetime.fromisoformat(data) - timedelta(minutes=lembrete_minutos)
-        if data_lembrete > datetime.now():
+        # Converte a string de data para um objeto datetime com fuso horário
+        data_lembrete = datetime.fromisoformat(data).replace(tzinfo=timezone.utc) - timedelta(minutes=lembrete_minutos)
+        
+        # Obtém o horário atual com fuso horário
+        agora = datetime.now(timezone.utc)
+
+        if data_lembrete > agora:
             scheduler = BackgroundScheduler()
             scheduler.add_job(
                 enviar_lembrete,
@@ -207,8 +212,8 @@ async def enviar_lembrete(context: CallbackContext, tipo, id, descricao):
 # Função para registrar métricas diárias
 def registrar_metricas_diarias():
     try:
-        hoje = datetime.now().strftime("%Y-%m-%d")
-        tarefas_concluidas = len([t for t in buscar_tarefas() if datetime.fromisoformat(t["data_vencimento"]) <= datetime.now()])
+        hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        tarefas_concluidas = len([t for t in buscar_tarefas() if datetime.fromisoformat(t["data_vencimento"]) <= datetime.now(timezone.utc)])
         lembretes_enviados = len([t for t in buscar_tarefas() if t.get("lembrete", 0) > 0])
         eventos_criados = len(buscar_eventos())
         usuarios_ativos = len(buscar_usuarios())
@@ -325,7 +330,7 @@ async def processar_comando_voz(update: Update, texto: str):
         tarefa_data = {
             "descricao": descricao,
             "prioridade": prioridade,
-            "data_criacao": datetime.now().isoformat()
+            "data_criacao": datetime.now(timezone.utc).isoformat()
         }
         salvar_tarefa(tarefa_data)
         await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
@@ -386,7 +391,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
             return
         data_iso = data_obj.isoformat()
     else:
-        data_iso = (datetime.now() + timedelta(days=3)).isoformat()
+        data_iso = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
 
     descricao = re.sub(r'(-prioridade \w+|-data .+?|-lembrete \d+)', '', full_text).strip()
 
@@ -397,7 +402,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
     tarefa_data = {
         "descricao": descricao,
         "prioridade": prioridade,
-        "data_criacao": datetime.now().isoformat(),
+        "data_criacao": datetime.now(timezone.utc).isoformat(),
         "data_vencimento": data_iso,
         "lembrete": lembrete
     }
