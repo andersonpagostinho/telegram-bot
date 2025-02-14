@@ -11,6 +11,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext, MessageHandler, filters
 from twilio.rest import Client
 from flask import Flask
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 import speech_recognition as sr
 import subprocess
 import dateparser
@@ -470,6 +472,104 @@ def home():
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app_web.run(host="0.0.0.0", port=port, use_reloader=False)
+# Configuração do agendador de relatórios
+scheduler = BackgroundScheduler()
+
+async def gerar_relatorio_diario(context: CallbackContext):
+    try:
+        hoje = datetime.now().strftime("%Y-%m-%d")
+        tarefas = buscar_tarefas()
+        eventos = buscar_eventos()
+
+        tarefas_hoje = [t for t in tarefas if t.get("data_vencimento", "").startswith(hoje)]
+        eventos_hoje = [e for e in eventos if e.get("data", "") == hoje]
+
+        relatorio = f"📊 **Relatório Diário**\n📅 {hoje}\n\n"
+        
+        if tarefas_hoje:
+            relatorio += "📌 **Tarefas para hoje:**\n"
+            for tarefa in tarefas_hoje:
+                relatorio += f"- {tarefa['descricao']} (Prioridade: {tarefa.get('prioridade', 'baixa')})\n"
+        else:
+            relatorio += "📭 Nenhuma tarefa para hoje.\n"
+
+        relatorio += "\n"
+
+        if eventos_hoje:
+            relatorio += "📅 **Eventos para hoje:**\n"
+            for evento in eventos_hoje:
+                relatorio += f"- {evento['titulo']} às {evento['hora']}\n"
+        else:
+            relatorio += "📭 Nenhum evento para hoje.\n"
+
+        usuarios = buscar_usuarios()
+        for usuario in usuarios:
+            chat_id = usuario.get("chat_id")
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=relatorio)
+                logger.info(f"✅ Relatório diário enviado para {chat_id}")
+            except Exception as e:
+                logger.error(f"❌ Erro ao enviar relatório para {chat_id}: {str(e)}")
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao gerar relatório diário: {str(e)}")
+
+async def gerar_relatorio_semanal(context: CallbackContext):
+    try:
+        hoje = datetime.now()
+        inicio_semana = (hoje - timedelta(days=hoje.weekday())).strftime("%Y-%m-%d")
+        fim_semana = (hoje + timedelta(days=6 - hoje.weekday())).strftime("%Y-%m-%d")
+
+        tarefas = buscar_tarefas()
+        eventos = buscar_eventos()
+
+        tarefas_semana = [t for t in tarefas if inicio_semana <= t.get("data_vencimento", "") <= fim_semana]
+        eventos_semana = [e for e in eventos if inicio_semana <= e.get("data", "") <= fim_semana]
+
+        relatorio = f"📊 **Relatório Semanal**\n📅 {inicio_semana} a {fim_semana}\n\n"
+
+        if tarefas_semana:
+            relatorio += "📌 **Tarefas da semana:**\n"
+            for tarefa in tarefas_semana:
+                relatorio += f"- {tarefa['descricao']} (Prioridade: {tarefa.get('prioridade', 'baixa')})\n"
+        else:
+            relatorio += "📭 Nenhuma tarefa para esta semana.\n"
+
+        relatorio += "\n"
+
+        if eventos_semana:
+            relatorio += "📅 **Eventos da semana:**\n"
+            for evento in eventos_semana:
+                relatorio += f"- {evento['titulo']} em {evento['data']} às {evento['hora']}\n"
+        else:
+            relatorio += "📭 Nenhum evento para esta semana.\n"
+
+        usuarios = buscar_usuarios()
+        for usuario in usuarios:
+            chat_id = usuario.get("chat_id")
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=relatorio)
+                logger.info(f"✅ Relatório semanal enviado para {chat_id}")
+            except Exception as e:
+                logger.error(f"❌ Erro ao enviar relatório para {chat_id}: {str(e)}")
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao gerar relatório semanal: {str(e)}")
+
+# Agendamento de relatórios
+def agendar_relatorios(application):
+    try:
+        job_queue = application.job_queue
+        
+        # Relatório diário às 8h
+        job_queue.run_daily(gerar_relatorio_diario, time=datetime.time(hour=8, minute=0))
+        
+        # Relatório semanal às 8h de segunda-feira
+        job_queue.run_daily(gerar_relatorio_semanal, time=datetime.time(hour=8, minute=0), days=(0,))
+        
+        logger.info("✅ Agendador de relatórios iniciado com sucesso!")
+    except Exception as e:
+        logger.error(f"❌ Erro ao agendar relatórios: {str(e)}")
 
 # Função principal
 def main():
@@ -488,8 +588,11 @@ def main():
             CommandHandler("eventos", list_events),
             MessageHandler(filters.VOICE, handle_voice)
         ]
-        
+
         app.add_handlers(handlers)
+
+        # Agendar relatórios
+        agendar_relatorios(app)
         
         # Iniciar Flask em thread separada
         threading.Thread(target=run_flask, daemon=True).start()
