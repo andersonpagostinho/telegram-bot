@@ -64,6 +64,9 @@ def salvar_tarefa(tarefa_data):
     try:
         if "data_vencimento" not in tarefa_data:
             tarefa_data["data_vencimento"] = (datetime.now() + timedelta(days=3)).isoformat()
+        
+        if "lembrete" not in tarefa_data:
+            tarefa_data["lembrete"] = 0  # Sem lembrete por padrão
             
         tarefa_ref = db.collection("Tarefas").document()
         tarefa_data["id"] = tarefa_ref.id
@@ -76,6 +79,9 @@ def salvar_tarefa(tarefa_data):
 
 def salvar_evento(evento_data):
     try:
+        if "lembrete" not in evento_data:
+            evento_data["lembrete"] = 0  # Sem lembrete por padrão
+            
         evento_ref = db.collection("Eventos").document()
         evento_data["id"] = evento_ref.id
         evento_ref.set(evento_data)
@@ -167,118 +173,36 @@ def transcrever_audio(wav_path):
             logger.error(f"❌ Erro na requisição ao Google Speech-to-Text: {e}")
             return None
 
-# Função para gerar relatórios
-def gerar_relatorio(periodo="diario"):
+# Função para agendar lembretes
+def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembrete_minutos):
     try:
-        agora = datetime.now()
-        if periodo == "diario":
-            inicio = agora.replace(hour=0, minute=0, second=0, microsecond=0)
-            fim = inicio + timedelta(days=1)
-            titulo_relatorio = "📊 Relatório Diário"
-        elif periodo == "semanal":
-            inicio = agora - timedelta(days=agora.weekday())  # Início da semana (segunda-feira)
-            inicio = inicio.replace(hour=0, minute=0, second=0, microsecond=0)
-            fim = inicio + timedelta(weeks=1)
-            titulo_relatorio = "📊 Relatório Semanal"
-        else:
-            return "❌ Período inválido. Use 'diario' ou 'semanal'."
-
-        # Buscar tarefas no período
-        tarefas = buscar_tarefas()
-        tarefas_periodo = [
-            t for t in tarefas
-            if inicio <= datetime.fromisoformat(t["data_criacao"]) < fim
-        ]
-
-        # Buscar eventos no período
-        eventos = buscar_eventos()
-        eventos_periodo = [
-            e for e in eventos
-            if inicio <= datetime.fromisoformat(e["data"] + "T" + e["hora"]) < fim
-        ]
-
-        # Montar o relatório
-        relatorio = f"{titulo_relatorio}\n\n"
-        relatorio += "📌 Tarefas:\n"
-        if tarefas_periodo:
-            for i, tarefa in enumerate(tarefas_periodo, 1):
-                relatorio += f"{i}. {tarefa['descricao']} (Prioridade: {tarefa['prioridade']})\n"
-        else:
-            relatorio += "Nenhuma tarefa encontrada.\n"
-
-        relatorio += "\n📅 Eventos:\n"
-        if eventos_periodo:
-            for i, evento in enumerate(eventos_periodo, 1):
-                relatorio += f"{i}. {evento['titulo']} - {evento['data']} às {evento['hora']}\n"
-        else:
-            relatorio += "Nenhum evento encontrado.\n"
-
-        return relatorio
-
+        data_lembrete = datetime.fromisoformat(data) - timedelta(minutes=lembrete_minutos)
+        if data_lembrete > datetime.now():
+            scheduler = BackgroundScheduler()
+            scheduler.add_job(
+                enviar_lembrete,
+                trigger="date",
+                run_date=data_lembrete,
+                args=[context, tipo, id, descricao],
+            )
+            scheduler.start()
+            logger.info(f"✅ Lembrete agendado para {data_lembrete}")
     except Exception as e:
-        logger.error(f"❌ Erro ao gerar relatório: {str(e)}")
-        return "❌ Erro ao gerar relatório."
+        logger.error(f"❌ Erro ao agendar lembrete: {str(e)}")
 
-# Função para enviar relatórios via Telegram
-async def enviar_relatorio_telegram(context: CallbackContext, periodo="diario"):
+# Função para enviar lembretes
+async def enviar_lembrete(context: CallbackContext, tipo, id, descricao):
     try:
-        relatorio = gerar_relatorio(periodo)
         usuarios = buscar_usuarios()
         for usuario in usuarios:
             chat_id = usuario["chat_id"]
-            await context.bot.send_message(chat_id=chat_id, text=relatorio)
-        logger.info(f"✅ Relatório {periodo} enviado para {len(usuarios)} usuários.")
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"⏰ Lembrete: {tipo} '{descricao}' está chegando!"
+            )
+        logger.info(f"✅ Lembrete enviado para {len(usuarios)} usuários.")
     except Exception as e:
-        logger.error(f"❌ Erro ao enviar relatório: {str(e)}")
-
-# Função para enviar relatórios via WhatsApp
-def enviar_relatorio_whatsapp(periodo="diario"):
-    try:
-        relatorio = gerar_relatorio(periodo)
-        send_whatsapp_message(relatorio)
-        logger.info(f"✅ Relatório {periodo} enviado via WhatsApp.")
-    except Exception as e:
-        logger.error(f"❌ Erro ao enviar relatório via WhatsApp: {str(e)}")
-
-# Configurar o agendador
-def configurar_agendador(app: Application):
-    scheduler = BackgroundScheduler()
-    
-    # Relatório diário às 8h
-    scheduler.add_job(
-        enviar_relatorio_telegram,
-        trigger="cron",
-        hour=8,
-        minute=0,
-        args=[app, "diario"],
-    )
-    scheduler.add_job(
-        enviar_relatorio_whatsapp,
-        trigger="cron",
-        hour=8,
-        minute=0,
-        args=["diario"],
-    )
-
-    # Relatório semanal às 8h de segunda-feira
-    scheduler.add_job(
-        enviar_relatorio_telegram,
-        trigger="cron",
-        day_of_week="mon",
-        hour=8,
-        minute=0,
-        args=[app, "semanal"],
-    )
-    scheduler.add_job(
-        enviar_relatorio_whatsapp,
-        trigger="cron",
-        day_of_week="mon",
-        hour=8,
-        minute=0,
-        args=["semanal"],
-    )
-
-    scheduler.start()
+        logger.error(f"❌ Erro ao enviar lembrete: {str(e)}")
 
 # Handlers do Telegram
 async def start(update: Update, context: CallbackContext) -> None:
@@ -387,9 +311,11 @@ async def add_task(update: Update, context: CallbackContext) -> None:
     
     prioridade_match = re.search(r'-prioridade (\w+)', full_text)
     data_match = re.search(r'-data (.+?)(?= -|$)', full_text)
+    lembrete_match = re.search(r'-lembrete (\d+)', full_text)
     
     prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
     data_vencimento = data_match.group(1) if data_match else None
+    lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
     
     if data_vencimento:
         data_obj = dateparser.parse(data_vencimento, languages=['pt'])
@@ -400,21 +326,24 @@ async def add_task(update: Update, context: CallbackContext) -> None:
     else:
         data_iso = (datetime.now() + timedelta(days=3)).isoformat()
 
-    descricao = re.sub(r'(-prioridade \w+|-data .+?)', '', full_text).strip()
+    descricao = re.sub(r'(-prioridade \w+|-data .+?|-lembrete \d+)', '', full_text).strip()
 
     if not descricao:
-        await update.message.reply_text("⚠️ Formato correto:\n/tarefa Comprar leite -prioridade alta -data amanhã")
+        await update.message.reply_text("⚠️ Formato correto:\n/tarefa Comprar leite -prioridade alta -data amanhã -lembrete 30")
         return
 
     tarefa_data = {
         "descricao": descricao,
         "prioridade": prioridade,
         "data_criacao": datetime.now().isoformat(),
-        "data_vencimento": data_iso
+        "data_vencimento": data_iso,
+        "lembrete": lembrete
     }
     
     if salvar_tarefa(tarefa_data):
-        await update.message.reply_text(f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}")
+        await update.message.reply_text(f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}\n⏰ Lembrete: {lembrete} minutos antes")
+        if lembrete > 0:
+            agendar_lembrete(context, "Tarefa", tarefa_data["id"], descricao, data_iso, lembrete)
     else:
         await update.message.reply_text("❌ Erro ao adicionar tarefa.")
 
@@ -464,11 +393,13 @@ async def list_events(update: Update, context: CallbackContext) -> None:
 
 async def add_agenda(update: Update, context: CallbackContext) -> None:
     if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
-        send_whatsapp_message("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)>")
+        await update.message.reply_text("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> -lembrete <minutos>")
+        send_whatsapp_message("⚠️ Use: /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> -lembrete <minutos>")
         return
     titulo = context.args[0]
     data_hora = context.args[1]
+    lembrete_match = re.search(r'-lembrete (\d+)', ' '.join(context.args))
+    lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
 
     start_time = f"{data_hora}-03:00"
     end_time = f"{data_hora}-03:00"
@@ -479,11 +410,13 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
             "data": data_hora.split("T")[0],
             "hora": data_hora.split("T")[1],
             "link": event_link,
-            "notificado": False
+            "notificado": False,
+            "lembrete": lembrete
         }
         salvar_evento(evento_data)
-        await update.message.reply_text(f"✅ Evento '{titulo}' adicionado: {event_link}")
-        send_whatsapp_message(f"✅ Evento '{titulo}' adicionado: {event_link}")
+        await update.message.reply_text(f"✅ Evento '{titulo}' adicionado: {event_link}\n⏰ Lembrete: {lembrete} minutos antes")
+        if lembrete > 0:
+            agendar_lembrete(context, "Evento", evento_data["id"], titulo, start_time, lembrete)
     else:
         await update.message.reply_text("❌ Erro ao adicionar evento!")
         send_whatsapp_message("❌ Erro ao adicionar evento!")
@@ -532,9 +465,6 @@ def main():
 
     # Iniciar Flask em uma thread separada
     threading.Thread(target=run_flask, daemon=True).start()
-
-    # Configurar agendador de relatórios
-    configurar_agendador(app)
 
     # Iniciar bot
     logger.info("🚀 Bot rodando com polling...")
