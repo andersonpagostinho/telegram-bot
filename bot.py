@@ -66,7 +66,7 @@ def salvar_tarefa(tarefa_data):
             tarefa_data["data_vencimento"] = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
         
         if "lembrete" not in tarefa_data:
-            tarefa_data["lembrete"] = 0
+            tarefa_data["lembrete"] = 0  # Sem lembrete por padrão
             
         tarefa_ref = db.collection("Tarefas").document()
         tarefa_data["id"] = tarefa_ref.id
@@ -80,7 +80,7 @@ def salvar_tarefa(tarefa_data):
 def salvar_evento(evento_data):
     try:
         if "lembrete" not in evento_data:
-            evento_data["lembrete"] = 0
+            evento_data["lembrete"] = 0  # Sem lembrete por padrão
             
         evento_ref = db.collection("Eventos").document()
         evento_data["id"] = evento_ref.id
