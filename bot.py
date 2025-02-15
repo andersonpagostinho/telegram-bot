@@ -551,12 +551,20 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
     lembrete_match = re.search(r'-lembrete (\d+)', ' '.join(context.args))
     lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
 
-    start_time = f"{data_hora}-03:00"
-    end_time = f"{data_hora}-03:00"
-    
-    # Verificar se o horário está disponível
-    eventos = verificar_horarios_ocupados(start_time, end_time)
-    if eventos:
+    # Converter a data/hora para o formato ISO com fuso horário
+    try:
+        data_hora_obj = datetime.fromisoformat(data_hora)
+        if not data_hora_obj.tzinfo:
+            data_hora_obj = data_hora_obj.replace(tzinfo=timezone.utc)  # Adicionar fuso horário UTC se não estiver presente
+        start_time = data_hora_obj.isoformat()
+        end_time = (data_hora_obj + timedelta(hours=1)).isoformat()  # Duração padrão de 1 hora
+    except ValueError:
+        await update.message.reply_text("❌ Formato de data/hora inválido. Use o formato: YYYY-MM-DDTHH:MM:SS")
+        return
+
+    # Verificar se o horário está ocupado
+    eventos_ocupados = verificar_horarios_ocupados(start_time, end_time)
+    if eventos_ocupados:
         await update.message.reply_text("❌ Horário ocupado. Sugerindo horários livres...")
         horarios_livres = sugerir_horarios_livres(start_time, end_time)
         if horarios_livres:
@@ -570,18 +578,21 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
             send_whatsapp_message("❌ Nenhum horário livre encontrado.")
         return
     
+    # Se o horário estiver livre, agendar o evento
     event_link = add_event(titulo, start_time, end_time)
     if event_link:
         evento_data = {
             "titulo": titulo,
-            "data": data_hora.split("T")[0],
-            "hora": data_hora.split("T")[1],
+            "data": data_hora_obj.strftime("%Y-%m-%d"),
+            "hora": data_hora_obj.strftime("%H:%M:%S"),
             "link": event_link,
             "notificado": False,
             "lembrete": lembrete
         }
         salvar_evento(evento_data)
-        await update.message.reply_text(f"✅ Evento '{titulo}' adicionado: {event_link}\n⏰ Lembrete: {lembrete} minutos antes")
+        await update.message.reply_text(f"✅ Evento '{titulo}' agendado para {data_hora_obj.strftime('%Y-%m-%d %H:%M')}.\n🔗 {event_link}")
+        send_whatsapp_message(f"✅ Evento '{titulo}' agendado para {data_hora_obj.strftime('%Y-%m-%d %H:%M')}.\n🔗 {event_link}")
+        
         if lembrete > 0:
             agendar_lembrete(context, "Evento", evento_data["id"], titulo, start_time, lembrete)
     else:
