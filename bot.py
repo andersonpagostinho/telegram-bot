@@ -299,30 +299,44 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text(help_text)
 
 async def handle_voice(update: Update, context: CallbackContext) -> None:
-    voice_file = await update.message.voice.get_file()
-    ogg_path = "temp_audio.ogg"
-    await voice_file.download_to_drive(ogg_path)
+    try:
+        # Baixar o arquivo de áudio
+        voice_file = await update.message.voice.get_file()
+        ogg_path = "temp_audio.ogg"
+        await voice_file.download_to_drive(ogg_path)
 
-    wav_path = "temp_audio.wav"
-    if not converter_ogg_para_wav(ogg_path, wav_path):
-        await update.message.reply_text("❌ Erro ao processar o áudio. Tente novamente.")
-        return
+        # Converter o áudio para WAV
+        wav_path = "temp_audio.wav"
+        if not converter_ogg_para_wav(ogg_path, wav_path):
+            await update.message.reply_text("❌ Erro ao processar o áudio. Tente novamente.")
+            return
 
-    texto = transcrever_audio(wav_path)
-    if not texto:
-        await update.message.reply_text("❌ Não entendi o áudio. Pode repetir?")
-        return
+        # Transcrever o áudio para texto
+        texto = transcrever_audio(wav_path)
+        if not texto:
+            await update.message.reply_text("❌ Não entendi o áudio. Pode repetir?")
+            return
 
-    await update.message.reply_text(f"🎤 Você disse: {texto}")
-    await processar_comando_voz(update, texto)
+        await update.message.reply_text(f"🎤 Você disse: {texto}")
 
-    os.remove(ogg_path)
-    os.remove(wav_path)
-    logger.info("✅ Arquivos temporários removidos.")
+        # Processar o comando de voz
+        await processar_comando_voz(update, texto)
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar áudio: {str(e)}")
+        await update.message.reply_text("❌ Ocorreu um erro ao processar o áudio. Tente novamente.")
+    finally:
+        # Remover arquivos temporários
+        if os.path.exists(ogg_path):
+            os.remove(ogg_path)
+        if os.path.exists(wav_path):
+            os.remove(wav_path)
+        logger.info("✅ Arquivos temporários removidos.")
 
 async def processar_comando_voz(update: Update, texto: str):
     texto = texto.lower()
 
+    # Comando: Adicionar Tarefa
     if "adicionar tarefa" in texto:
         partes = texto.split(" com prioridade ")
         descricao = partes[0].replace("adicionar tarefa", "").strip()
@@ -341,6 +355,7 @@ async def processar_comando_voz(update: Update, texto: str):
         await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
         send_whatsapp_message(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
 
+    # Comando: Agendar Evento
     elif "agendar" in texto:
         partes = texto.split(" às ")
         if len(partes) < 2:
@@ -372,6 +387,8 @@ async def processar_comando_voz(update: Update, texto: str):
         else:
             await update.message.reply_text("❌ Erro ao agendar evento!")
             send_whatsapp_message("❌ Erro ao agendar evento!")
+
+    # Comando não reconhecido
     else:
         await update.message.reply_text("❌ Comando não reconhecido.")
         send_whatsapp_message("❌ Comando não reconhecido.")
