@@ -66,7 +66,7 @@ def salvar_tarefa(tarefa_data):
             tarefa_data["data_vencimento"] = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
         
         if "lembrete" not in tarefa_data:
-            tarefa_data["lembrete"] = 0  # Sem lembrete por padrão
+            tarefa_data["lembrete"] = 0
             
         tarefa_ref = db.collection("Tarefas").document()
         tarefa_data["id"] = tarefa_ref.id
@@ -80,7 +80,7 @@ def salvar_tarefa(tarefa_data):
 def salvar_evento(evento_data):
     try:
         if "lembrete" not in evento_data:
-            evento_data["lembrete"] = 0  # Sem lembrete por padrão
+            evento_data["lembrete"] = 0
             
         evento_ref = db.collection("Eventos").document()
         evento_data["id"] = evento_ref.id
@@ -176,10 +176,7 @@ def transcrever_audio(wav_path):
 # Função para agendar lembretes
 def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembrete_minutos):
     try:
-        # Converte a string de data para um objeto datetime com fuso horário
         data_lembrete = datetime.fromisoformat(data).replace(tzinfo=timezone.utc) - timedelta(minutes=lembrete_minutos)
-        
-        # Obtém o horário atual com fuso horário
         agora = datetime.now(timezone.utc)
 
         if data_lembrete > agora:
@@ -236,8 +233,7 @@ scheduler = BackgroundScheduler()
 
 def agendar_registro_metricas():
     try:
-        # Se já estiver rodando, evita iniciar novamente
-        if scheduler.state == 0:  # Verifica se ainda não foi iniciado
+        if scheduler.state == 0:
             scheduler.add_job(
                 registrar_metricas_diarias,
                 trigger="cron",
@@ -391,7 +387,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
     
     prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
     data_vencimento = data_match.group(1) if data_match else None
-    lembrete = int(lembrete_match.group(1)) if lembrete_match else 0  # Pega o valor do lembrete corretamente
+    lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
     
     if data_vencimento:
         data_obj = dateparser.parse(data_vencimento, languages=['pt'])
@@ -421,7 +417,6 @@ async def add_task(update: Update, context: CallbackContext) -> None:
         msg = f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}\n⏰ Lembrete: {lembrete} minutos antes"
         await update.message.reply_text(msg)
         
-        # Se houver lembrete, agenda automaticamente
         if lembrete > 0:
             agendar_lembrete(context, "Tarefa", tarefa_id, descricao, data_iso, lembrete)
     else:
@@ -504,7 +499,7 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
 def add_event(summary, start_time, end_time):
     try:
         service = get_calendar_service()
-        calendar_id = "andersonpagostinho@gmail.com"  # Substitua pelo seu calendar_id
+        calendar_id = "andersonpagostinho@gmail.com"
         event = {
             'summary': summary,
             'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
@@ -517,6 +512,60 @@ def add_event(summary, start_time, end_time):
     except Exception as e:
         logger.error(f"❌ Erro ao criar evento no Google Calendar: {str(e)}")
         return None
+
+# Novas funções de relatório
+async def relatorio_diario(update: Update, context: CallbackContext) -> None:
+    try:
+        hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        relatorio = db.collection("Relatorios").document(hoje).get()
+        
+        if relatorio.exists:
+            relatorio_data = relatorio.to_dict()
+            msg = f"📊 Relatório Diário ({hoje}):\n"
+            msg += f"✅ Tarefas Concluídas: {relatorio_data.get('tarefas_concluidas', 0)}\n"
+            msg += f"🔔 Lembretes Enviados: {relatorio_data.get('lembretes_enviados', 0)}\n"
+            msg += f"📅 Eventos Criados: {relatorio_data.get('eventos_criados', 0)}\n"
+            msg += f"👤 Usuários Ativos: {relatorio_data.get('usuarios_ativos', 0)}"
+            await update.message.reply_text(msg)
+            send_whatsapp_message(msg)
+        else:
+            await update.message.reply_text(f"📭 Nenhum relatório encontrado para {hoje}.")
+            send_whatsapp_message(f"📭 Nenhum relatório encontrado para {hoje}.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao gerar relatório diário: {str(e)}")
+        await update.message.reply_text("❌ Erro ao gerar relatório diário.")
+        send_whatsapp_message("❌ Erro ao gerar relatório diário.")
+
+async def relatorio_semanal(update: Update, context: CallbackContext) -> None:
+    try:
+        hoje = datetime.now(timezone.utc)
+        inicio_semana = hoje - timedelta(days=hoje.weekday())
+        fim_semana = inicio_semana + timedelta(days=6)
+        
+        relatorios_semana = db.collection("Relatorios").where("__name__", ">=", inicio_semana.strftime("%Y-%m-%d")).where("__name__", "<=", fim_semana.strftime("%Y-%m-%d")).stream()
+        
+        relatorios_data = [doc.to_dict() for doc in relatorios_semana]
+        
+        if relatorios_data:
+            tarefas_concluidas = sum(relatorio.get("tarefas_concluidas", 0) for relatorio in relatorios_data)
+            lembretes_enviados = sum(relatorio.get("lembretes_enviados", 0) for relatorio in relatorios_data)
+            eventos_criados = sum(relatorio.get("eventos_criados", 0) for relatorio in relatorios_data)
+            usuarios_ativos = sum(relatorio.get("usuarios_ativos", 0) for relatorio in relatorios_data)
+            
+            msg = f"📊 Relatório Semanal ({inicio_semana.strftime('%Y-%m-%d')} a {fim_semana.strftime('%Y-%m-%d')}):\n"
+            msg += f"✅ Tarefas Concluídas: {tarefas_concluidas}\n"
+            msg += f"🔔 Lembretes Enviados: {lembretes_enviados}\n"
+            msg += f"📅 Eventos Criados: {eventos_criados}\n"
+            msg += f"👤 Usuários Ativos: {usuarios_ativos}"
+            await update.message.reply_text(msg)
+            send_whatsapp_message(msg)
+        else:
+            await update.message.reply_text(f"📭 Nenhum relatório encontrado para a semana de {inicio_semana.strftime('%Y-%m-%d')} a {fim_semana.strftime('%Y-%m-%d')}.")
+            send_whatsapp_message(f"📭 Nenhum relatório encontrado para a semana de {inicio_semana.strftime('%Y-%m-%d')} a {fim_semana.strftime('%Y-%m-%d')}.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao gerar relatório semanal: {str(e)}")
+        await update.message.reply_text("❌ Erro ao gerar relatório semanal.")
+        send_whatsapp_message("❌ Erro ao gerar relatório semanal.")
 
 # Função principal
 def main():
@@ -531,6 +580,8 @@ def main():
     app.add_handler(CommandHandler("limpar", clear_tasks))
     app.add_handler(CommandHandler("agenda", add_agenda))
     app.add_handler(CommandHandler("eventos", list_events))
+    app.add_handler(CommandHandler("relatorio_diario", relatorio_diario))
+    app.add_handler(CommandHandler("relatorio_semanal", relatorio_semanal))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     # Iniciar Flask em uma thread separada
