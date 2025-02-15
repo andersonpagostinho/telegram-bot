@@ -389,6 +389,9 @@ async def add_task(update: Update, context: CallbackContext) -> None:
     data_vencimento = data_match.group(1) if data_match else None
     lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
     
+    # Definir data_obj com um valor padrão
+    data_obj = datetime.now(timezone.utc) + timedelta(days=3)  # Valor padrão
+    
     if data_vencimento:
         data_obj = dateparser.parse(data_vencimento, languages=['pt'])
         if not data_obj:
@@ -499,12 +502,20 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
 def add_event(summary, start_time, end_time):
     try:
         service = get_calendar_service()
-        calendar_id = "andersonpagostinho@gmail.com"
+        calendar_id = "andersonpagostinho@gmail.com"  # Substitua pelo seu calendar_id
+        
+        # Verificar se start_time e end_time estão no formato correto
+        if not start_time.endswith("-03:00"):
+            start_time += "-03:00"  # Adicionar fuso horário se não estiver presente
+        if not end_time.endswith("-03:00"):
+            end_time += "-03:00"
+        
         event = {
             'summary': summary,
             'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
             'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
         }
+        
         created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
         event_link = created_event.get('htmlLink')
         logger.info(f"✅ Evento Criado: {event_link}")
