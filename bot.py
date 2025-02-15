@@ -555,7 +555,7 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
     try:
         data_hora_obj = datetime.fromisoformat(data_hora)
         if not data_hora_obj.tzinfo:
-            data_hora_obj = data_hora_obj.replace(tzinfo=timezone.utc)  # Adicionar fuso horário UTC se não estiver presente
+            data_hora_obj = data_hora_obj.replace(tzinfo=timezone(timedelta(hours=-3)))  # Fuso horário -03:00 (Brasília)
         start_time = data_hora_obj.isoformat()
         end_time = (data_hora_obj + timedelta(hours=1)).isoformat()  # Duração padrão de 1 hora
     except ValueError:
@@ -604,7 +604,7 @@ def add_event(summary, start_time, end_time):
         service = get_calendar_service()
         calendar_id = "andersonpagostinho@gmail.com"  # Substitua pelo seu calendar_id
         
-        # Verificar se start_time e end_time estão no formato correto
+        # Garantir que start_time e end_time estão no formato correto
         if not start_time.endswith("-03:00"):
             start_time += "-03:00"  # Adicionar fuso horário se não estiver presente
         if not end_time.endswith("-03:00"):
@@ -612,8 +612,14 @@ def add_event(summary, start_time, end_time):
         
         event = {
             'summary': summary,
-            'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
-            'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
+            'start': {
+                'dateTime': start_time,
+                'timeZone': 'America/Sao_Paulo',
+            },
+            'end': {
+                'dateTime': end_time,
+                'timeZone': 'America/Sao_Paulo',
+            },
         }
         
         created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
