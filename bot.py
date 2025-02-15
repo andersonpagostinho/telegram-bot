@@ -231,18 +231,25 @@ def registrar_metricas_diarias():
     except Exception as e:
         logger.error(f"❌ Erro ao registrar métricas diárias: {str(e)}")
 
-# Função para agendar o registro diário de métricas
+# Criar o scheduler uma única vez
+scheduler = BackgroundScheduler()
+
 def agendar_lembretes():
     try:
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(
-            registrar_metricas_diarias,
-            trigger="cron",
-            hour=23,
-            minute=59,
-        )
-        scheduler.start()
-        logger.info("✅ Agendador de lembretes iniciado com sucesso!")
+        # Se já estiver rodando, evita iniciar novamente
+        if scheduler.state == 0:  # Verifica se ainda não foi iniciado
+            scheduler.add_job(
+                registrar_metricas_diarias,
+                trigger="cron",
+                hour=23,
+                minute=59,
+            )
+            scheduler.start()
+            logger.info("✅ Agendador de lembretes iniciado com sucesso!")
+        else:
+            logger.info("⏳ Agendador de lembretes já está rodando.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao iniciar o agendador: {str(e)}")
 
 # API no Flask para acessar relatórios
 app_web = Flask(__name__)
