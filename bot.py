@@ -198,14 +198,15 @@ def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembre
 # Função para enviar lembretes
 async def enviar_lembrete(context: CallbackContext, tipo, id, descricao):
     try:
+        logger.info(f"🚀 Enviando lembrete manualmente: {tipo} - {descricao}")
         usuarios = buscar_usuarios()
         for usuario in usuarios:
             chat_id = usuario["chat_id"]
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"⏰ Lembrete: {tipo} '{descricao}' está chegando!"
+                text=f"⏰ Lembrete TESTE: {tipo} '{descricao}' está chegando!"
             )
-        logger.info(f"✅ Lembrete enviado para {len(usuarios)} usuários.")
+        logger.info(f"✅ Lembrete TESTE enviado para {len(usuarios)} usuários.")
     except Exception as e:
         logger.error(f"❌ Erro ao enviar lembrete: {str(e)}")
 
@@ -231,16 +232,17 @@ def registrar_metricas_diarias():
         logger.error(f"❌ Erro ao registrar métricas diárias: {str(e)}")
 
 # Função para agendar o registro diário de métricas
-def agendar_registro_metricas():
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(
-        registrar_metricas_diarias,
-        trigger="cron",
-        hour=23,
-        minute=59,
-    )
-    scheduler.start()
-    logger.info("✅ Agendador de métricas diárias configurado.")
+def agendar_lembretes():
+    try:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(
+            registrar_metricas_diarias,
+            trigger="cron",
+            hour=23,
+            minute=59,
+        )
+        scheduler.start()
+        logger.info("✅ Agendador de lembretes iniciado com sucesso!")
 
 # API no Flask para acessar relatórios
 app_web = Flask(__name__)
