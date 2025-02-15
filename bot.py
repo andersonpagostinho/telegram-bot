@@ -315,14 +315,17 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
             fim_sugestao = inicio_periodo + timedelta(minutes=duracao_minutos)
             conflito = False
             
+            # Verificar se o horário sugerido conflita com algum evento existente
             for ocupado_inicio, ocupado_fim in horarios_ocupados:
                 if not (fim_sugestao <= ocupado_inicio or inicio_periodo >= ocupado_fim):
                     conflito = True
                     break
             
+            # Se não houver conflito, adicionar à lista de horários livres
             if not conflito:
                 horarios_livres.append((inicio_periodo, fim_sugestao))
             
+            # Avançar para o próximo intervalo de tempo
             inicio_periodo += timedelta(minutes=30)
         
         return horarios_livres
