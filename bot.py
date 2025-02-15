@@ -382,7 +382,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
     
     prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
     data_vencimento = data_match.group(1) if data_match else None
-    lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
+    lembrete = int(lembrete_match.group(1)) if lembrete_match else 0  # Pega o valor do lembrete corretamente
     
     if data_vencimento:
         data_obj = dateparser.parse(data_vencimento, languages=['pt'])
@@ -407,10 +407,14 @@ async def add_task(update: Update, context: CallbackContext) -> None:
         "lembrete": lembrete
     }
     
-    if salvar_tarefa(tarefa_data):
-        await update.message.reply_text(f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}\n⏰ Lembrete: {lembrete} minutos antes")
+    tarefa_id = salvar_tarefa(tarefa_data)
+    if tarefa_id:
+        msg = f"✅ Tarefa adicionada:\n{descricao}\n📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}\n⏰ Lembrete: {lembrete} minutos antes"
+        await update.message.reply_text(msg)
+        
+        # Se houver lembrete, agenda automaticamente
         if lembrete > 0:
-            agendar_lembrete(context, "Tarefa", tarefa_data["id"], descricao, data_iso, lembrete)
+            agendar_lembrete(context, "Tarefa", tarefa_id, descricao, data_iso, lembrete)
     else:
         await update.message.reply_text("❌ Erro ao adicionar tarefa.")
 
