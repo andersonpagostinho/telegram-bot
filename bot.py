@@ -234,7 +234,7 @@ def registrar_metricas_diarias():
 # Criar o scheduler uma única vez
 scheduler = BackgroundScheduler()
 
-def agendar_lembretes():
+def agendar_registro_metricas():
     try:
         # Se já estiver rodando, evita iniciar novamente
         if scheduler.state == 0:  # Verifica se ainda não foi iniciado
