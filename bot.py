@@ -311,63 +311,52 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         inicio_periodo = datetime.fromisoformat(start_time).astimezone(timezone.utc)
         fim_periodo = datetime.fromisoformat(end_time).astimezone(timezone.utc)
 
-        # Definir horário comercial (9h às 18h, no fuso horário local)
-        horario_comercial_inicio = inicio_periodo.replace(hour=9, minute=0, second=0, microsecond=0)
-        horario_comercial_fim = inicio_periodo.replace(hour=18, minute=0, second=0, microsecond=0)
+        # Definir horário comercial (9h às 18h) dentro do período solicitado
+        horario_comercial_inicio = max(inicio_periodo.replace(hour=9, minute=0, second=0, microsecond=0), inicio_periodo)
+        horario_comercial_fim = min(inicio_periodo.replace(hour=18, minute=0, second=0, microsecond=0), fim_periodo)
 
-        # Verificar eventos no dia todo
+        # Se o horário comercial estiver fora do período solicitado, abortar
+        if horario_comercial_inicio >= horario_comercial_fim:
+            logger.info("⛔ Nenhum horário comercial dentro do período solicitado.")
+            return []
+
+        # Buscar eventos dentro do horário comercial
         eventos = verificar_horarios_ocupados(
             horario_comercial_inicio.isoformat(),
             horario_comercial_fim.isoformat()
         )
         horarios_ocupados = []
 
-        # Coletar horários ocupados
+        # Coletar horários ocupados e converter para UTC
         for evento in eventos:
             inicio = datetime.fromisoformat(evento['start']['dateTime']).astimezone(timezone.utc)
             fim = datetime.fromisoformat(evento['end']['dateTime']).astimezone(timezone.utc)
             horarios_ocupados.append((inicio, fim))
-            logger.info(f"⛔ Ocupado de {inicio} até {fim}")
 
         # Ordenar horários ocupados
         horarios_ocupados.sort()
 
         # Inicializar lista de horários livres
         horarios_livres = []
+        proximo_inicio = horario_comercial_inicio
 
-        # Verificar espaço antes do primeiro evento
-        if horarios_ocupados:
-            primeiro_evento_inicio = horarios_ocupados[0][0]
-            tempo_livre = (primeiro_evento_inicio - horario_comercial_inicio).total_seconds() / 60
-            if tempo_livre >= duracao_minutos:
-                horarios_livres.append((horario_comercial_inicio, primeiro_evento_inicio))
-        else:
-            # Se não houver eventos, o dia todo está livre
+        # Se não houver eventos, todo o horário comercial está livre
+        if not horarios_ocupados:
             horarios_livres.append((horario_comercial_inicio, horario_comercial_fim))
+        else:
+            # Verificar espaços antes, entre e depois dos eventos
+            for ocupado_inicio, ocupado_fim in horarios_ocupados:
+                if proximo_inicio + timedelta(minutes=duracao_minutos) <= ocupado_inicio:
+                    horarios_livres.append((proximo_inicio, ocupado_inicio))
+                
+                proximo_inicio = max(proximo_inicio, ocupado_fim)
 
-        # Verificar espaços entre eventos
-        for i in range(len(horarios_ocupados) - 1):
-            evento_atual_fim = horarios_ocupados[i][1]
-            proximo_evento_inicio = horarios_ocupados[i + 1][0]
-            tempo_livre = (proximo_evento_inicio - evento_atual_fim).total_seconds() / 60
-            if tempo_livre >= duracao_minutos:
-                horarios_livres.append((evento_atual_fim, proximo_evento_inicio))
+            # Verificar tempo livre após o último evento
+            if proximo_inicio + timedelta(minutes=duracao_minutos) <= horario_comercial_fim:
+                horarios_livres.append((proximo_inicio, horario_comercial_fim))
 
-        # Verificar espaço após o último evento
-        if horarios_ocupados:
-            ultimo_evento_fim = horarios_ocupados[-1][1]
-            tempo_livre = (horario_comercial_fim - ultimo_evento_fim).total_seconds() / 60
-            if tempo_livre >= duracao_minutos:
-                horarios_livres.append((ultimo_evento_fim, horario_comercial_fim))
-
-        # Filtrar horários livres dentro do período solicitado
-        horarios_livres_filtrados = []
-        for inicio, fim in horarios_livres:
-            if inicio >= inicio_periodo and fim <= fim_periodo:
-                horarios_livres_filtrados.append((inicio, fim))
-
-        logger.info(f"✅ Horários livres sugeridos: {horarios_livres_filtrados}")
-        return horarios_livres_filtrados
+        logger.info(f"✅ Horários livres sugeridos: {horarios_livres}")
+        return horarios_livres
     except Exception as e:
         logger.error(f"❌ Erro ao sugerir horários livres: {str(e)}")
         return []
