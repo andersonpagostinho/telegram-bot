@@ -16,6 +16,9 @@ import subprocess
 import dateparser
 from apscheduler.schedulers.background import BackgroundScheduler
 import threading
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Configuração de logs
 logging.basicConfig(
@@ -58,6 +61,37 @@ cred = credentials.Certificate(cred_info)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 logger.info("✅ Firebase inicializado com sucesso!")
+
+# Configuração do e-mail
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+def enviar_email(destinatario, assunto, corpo, html=False):
+    """
+    Envia um e-mail para o destinatário especificado.
+    """
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = destinatario
+        msg['Subject'] = assunto
+
+        if html:
+            msg.attach(MIMEText(corpo, 'html'))
+        else:
+            msg.attach(MIMEText(corpo, 'plain'))
+
+        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+            logger.info(f"✅ E-mail enviado para {destinatario}: {assunto}")
+            return True
+    except Exception as e:
+        logger.error(f"❌ Erro ao enviar e-mail: {str(e)}")
+        return False
 
 # Funções do Firebase
 def salvar_tarefa(tarefa_data):
@@ -380,6 +414,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /eventos - Lista todos os eventos agendados
     /relatorio_diario - Gera um relatório diário
     /relatorio_semanal - Gera um relatório semanal
+    /enviar_email <destinatário> <assunto> <mensagem> - Envia um e-mail
     """
     await update.message.reply_text(help_text)
 
@@ -715,6 +750,29 @@ async def relatorio_semanal(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("❌ Erro ao gerar relatório semanal.")
         send_whatsapp_message("❌ Erro ao gerar relatório semanal.")
 
+# Função para enviar e-mails
+async def enviar_email_command(update: Update, context: CallbackContext) -> None:
+    try:
+        args = context.args
+        if len(args) < 3:
+            await update.message.reply_text("⚠️ Formato correto: /enviar_email <destinatário> <assunto> <mensagem>")
+            return
+
+        destinatario = args[0]
+        assunto = args[1]
+        mensagem = ' '.join(args[2:])
+
+        if enviar_email(destinatario, assunto, mensagem):
+            await update.message.reply_text(f"✅ E-mail enviado para {destinatario} com sucesso!")
+            send_whatsapp_message(f"✅ E-mail enviado para {destinatario} com sucesso!")
+        else:
+            await update.message.reply_text("❌ Erro ao enviar e-mail.")
+            send_whatsapp_message("❌ Erro ao enviar e-mail.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar comando de e-mail: {str(e)}")
+        await update.message.reply_text("❌ Erro ao enviar e-mail.")
+        send_whatsapp_message("❌ Erro ao enviar e-mail.")
+
 # Função principal
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -730,6 +788,7 @@ def main():
     app.add_handler(CommandHandler("eventos", list_events))
     app.add_handler(CommandHandler("relatorio_diario", relatorio_diario))
     app.add_handler(CommandHandler("relatorio_semanal", relatorio_semanal))
+    app.add_handler(CommandHandler("enviar_email", enviar_email_command))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     # Iniciar Flask em uma thread separada
