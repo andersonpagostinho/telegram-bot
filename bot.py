@@ -305,7 +305,7 @@ def verificar_horarios_ocupados(start_time, end_time):
         return []
 
 # Função para sugerir horários livres
-ef sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
+def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
     try:
         eventos = verificar_horarios_ocupados(start_time, end_time)
         horarios_ocupados = []
