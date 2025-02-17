@@ -63,16 +63,19 @@ db = firestore.client()
 logger.info("✅ Firebase inicializado com sucesso!")
 
 # Configuração do e-mail
-EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=andersonpagostinho@gmail.com
+EMAIL_PASSWORD=and201180
 
 def enviar_email(destinatario, assunto, corpo, html=False):
-    """
-    Envia um e-mail para o destinatário especificado.
-    """
     try:
+        # Configuração do servidor SMTP
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()  # Inicia a conexão segura
+        server.login(EMAIL_USER, EMAIL_PASSWORD)  # Autentica no servidor
+
+        # Criação da mensagem
         msg = MIMEMultipart()
         msg['From'] = EMAIL_USER
         msg['To'] = destinatario
@@ -83,12 +86,12 @@ def enviar_email(destinatario, assunto, corpo, html=False):
         else:
             msg.attach(MIMEText(corpo, 'plain'))
 
-        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_USER, EMAIL_PASSWORD)
-            server.send_message(msg)
-            logger.info(f"✅ E-mail enviado para {destinatario}: {assunto}")
-            return True
+        # Envio do e-mail
+        server.sendmail(EMAIL_USER, destinatario, msg.as_string())
+        server.quit()  # Encerra a conexão
+
+        logger.info(f"✅ E-mail enviado para {destinatario}: {assunto}")
+        return True
     except Exception as e:
         logger.error(f"❌ Erro ao enviar e-mail: {str(e)}")
         return False
