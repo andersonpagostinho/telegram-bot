@@ -310,10 +310,11 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         eventos = verificar_horarios_ocupados(start_time, end_time)
         horarios_ocupados = []
 
+        # 🕒 Converter período para UTC
         inicio_periodo = datetime.fromisoformat(start_time).astimezone(timezone.utc)
         fim_periodo = datetime.fromisoformat(end_time).astimezone(timezone.utc)
 
-        # Coletar horários ocupados
+        # 📅 Coletar horários ocupados e converter para UTC
         for evento in eventos:
             inicio = datetime.fromisoformat(evento['start']['dateTime']).astimezone(timezone.utc)
             fim = datetime.fromisoformat(evento['end']['dateTime']).astimezone(timezone.utc)
@@ -322,7 +323,7 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         horarios_ocupados.sort()
         horarios_livres = []
 
-        # 🟢 1️⃣ **Se não houver eventos, o período inteiro está livre**
+        # 🟢 1️⃣ **Se não houver eventos, todo o período está livre**
         if not horarios_ocupados:
             horarios_livres.append((inicio_periodo, fim_periodo))
         
