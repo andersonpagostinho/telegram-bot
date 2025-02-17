@@ -336,10 +336,14 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         horarios_livres = []
 
         # Verificar espaço antes do primeiro evento
-        primeiro_evento_inicio = horarios_ocupados[0][0] if horarios_ocupados else horario_comercial_fim
-        tempo_livre = (primeiro_evento_inicio - horario_comercial_inicio).total_seconds() / 60
-        if tempo_livre >= duracao_minutos:
-            horarios_livres.append((horario_comercial_inicio, primeiro_evento_inicio))
+        if horarios_ocupados:
+            primeiro_evento_inicio = horarios_ocupados[0][0]
+            tempo_livre = (primeiro_evento_inicio - horario_comercial_inicio).total_seconds() / 60
+            if tempo_livre >= duracao_minutos:
+                horarios_livres.append((horario_comercial_inicio, primeiro_evento_inicio))
+        else:
+            # Se não houver eventos, o dia todo está livre
+            horarios_livres.append((horario_comercial_inicio, horario_comercial_fim))
 
         # Verificar espaços entre eventos
         for i in range(len(horarios_ocupados) - 1):
