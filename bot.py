@@ -319,10 +319,10 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         inicio_periodo = datetime.fromisoformat(start_time)
         fim_periodo = datetime.fromisoformat(end_time)
 
-        # Ordenar horários ocupados para garantir que a lógica funcione corretamente
+        # Ordena os eventos pelo horário de início
         horarios_ocupados.sort()
 
-        # Verifica espaços antes do primeiro evento
+        # Verifica espaço antes do primeiro evento
         if horarios_ocupados:
             primeiro_inicio = horarios_ocupados[0][0]
             if inicio_periodo + timedelta(minutes=duracao_minutos) <= primeiro_inicio:
@@ -333,16 +333,18 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
             fim_anterior = horarios_ocupados[i][1]
             inicio_proximo = horarios_ocupados[i + 1][0]
 
+            # Se houver espaço suficiente entre dois eventos, adiciona como horário livre
             if fim_anterior + timedelta(minutes=duracao_minutos) <= inicio_proximo:
                 horarios_livres.append((fim_anterior, inicio_proximo))
 
-        # Verifica espaço depois do último evento
+        # Verifica espaço após o último evento
         if horarios_ocupados:
             ultimo_fim = horarios_ocupados[-1][1]
             if ultimo_fim + timedelta(minutes=duracao_minutos) <= fim_periodo:
                 horarios_livres.append((ultimo_fim, fim_periodo))
 
-        logger.info(f"✅ Horários livres sugeridos: {horarios_livres}")
+        # Log para depuração
+        logger.info(f"✅ Horários livres encontrados: {horarios_livres}")
         return horarios_livres
     except Exception as e:
         logger.error(f"❌ Erro ao sugerir horários livres: {str(e)}")
