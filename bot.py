@@ -305,41 +305,40 @@ def verificar_horarios_ocupados(start_time, end_time):
         return []
 
 # Função para verificar horarios livres
-from datetime import datetime, timedelta, timezone
-
 def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
     try:
         eventos = verificar_horarios_ocupados(start_time, end_time)
         horarios_ocupados = []
 
-        # 🔄 Converter os horários para UTC
+        # Converter os horários para UTC
         inicio_periodo = datetime.fromisoformat(start_time).astimezone(timezone.utc)
         fim_periodo = datetime.fromisoformat(end_time).astimezone(timezone.utc)
 
-        print(f"🔍 Checando disponibilidade entre {inicio_periodo} e {fim_periodo}")
+        logger.info(f"🔍 Checando disponibilidade entre {inicio_periodo} e {fim_periodo}")
 
+        # Coletar horários ocupados
         for evento in eventos:
             inicio = datetime.fromisoformat(evento['start']['dateTime']).astimezone(timezone.utc)
             fim = datetime.fromisoformat(evento['end']['dateTime']).astimezone(timezone.utc)
             horarios_ocupados.append((inicio, fim))
-            print(f"⛔ Ocupado de {inicio} até {fim}")
+            logger.info(f"⛔ Ocupado de {inicio} até {fim}")
 
         horarios_livres = []
 
-        # ✅ Se não houver eventos, o intervalo inteiro está livre
+        # Se não houver eventos, o intervalo inteiro está livre
         if not horarios_ocupados:
             horarios_livres.append((inicio_periodo, fim_periodo))
         else:
-            # ✅ Ordena os horários ocupados para evitar erros
+            # Ordenar os horários ocupados
             horarios_ocupados.sort()
 
-            # ✅ Antes do primeiro evento
-            if inicio_periodo < horarios_ocupados[0][0]:
-                tempo_livre = (horarios_ocupados[0][0] - inicio_periodo).total_seconds() / 60
-                if tempo_livre >= duracao_minutos:
-                    horarios_livres.append((inicio_periodo, horarios_ocupados[0][0]))
+            # Verificar espaço antes do primeiro evento
+            primeiro_evento_inicio = horarios_ocupados[0][0]
+            tempo_livre = (primeiro_evento_inicio - inicio_periodo).total_seconds() / 60
+            if tempo_livre >= duracao_minutos:
+                horarios_livres.append((inicio_periodo, primeiro_evento_inicio))
 
-            # ✅ Entre eventos
+            # Verificar espaços entre eventos
             for i in range(len(horarios_ocupados) - 1):
                 evento_atual_fim = horarios_ocupados[i][1]
                 proximo_evento_inicio = horarios_ocupados[i + 1][0]
@@ -347,16 +346,16 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
                 if tempo_livre >= duracao_minutos:
                     horarios_livres.append((evento_atual_fim, proximo_evento_inicio))
 
-            # ✅ Após o último evento
-            if horarios_ocupados[-1][1] < fim_periodo:
-                tempo_livre = (fim_periodo - horarios_ocupados[-1][1]).total_seconds() / 60
-                if tempo_livre >= duracao_minutos:
-                    horarios_livres.append((horarios_ocupados[-1][1], fim_periodo))
+            # Verificar espaço após o último evento
+            ultimo_evento_fim = horarios_ocupados[-1][1]
+            tempo_livre = (fim_periodo - ultimo_evento_fim).total_seconds() / 60
+            if tempo_livre >= duracao_minutos:
+                horarios_livres.append((ultimo_evento_fim, fim_periodo))
 
-        print(f"✅ Horários livres sugeridos: {horarios_livres}")
+        logger.info(f"✅ Horários livres sugeridos: {horarios_livres}")
         return horarios_livres
     except Exception as e:
-        print(f"❌ Erro ao sugerir horários livres: {str(e)}")
+        logger.error(f"❌ Erro ao sugerir horários livres: {str(e)}")
         return []
 
 # Funções do Telegram
