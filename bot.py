@@ -311,7 +311,7 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         inicio_periodo = datetime.fromisoformat(start_time)
         fim_periodo = datetime.fromisoformat(end_time)
         
-        while inicio_periodo < fim_periodo:
+        while inicio_periodo + timedelta(minutes=duracao_minutos) <= fim_periodo:
             fim_sugestao = inicio_periodo + timedelta(minutes=duracao_minutos)
             conflito = False
             
