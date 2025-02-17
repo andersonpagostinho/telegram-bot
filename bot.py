@@ -63,17 +63,34 @@ db = firestore.client()
 logger.info("✅ Firebase inicializado com sucesso!")
 
 # Configuração do e-mail
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=andersonpagostinho@gmail.com
-EMAIL_PASSWORD=and201180
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
 def enviar_email(destinatario, assunto, corpo, html=False):
     try:
+        # Verifica se todas as variáveis de ambiente estão definidas
+        if not all([EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD]):
+            logger.error("❌ Variáveis de ambiente para e-mail não configuradas corretamente.")
+            return False
+
         # Configuração do servidor SMTP
-        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server = smtplib.SMTP(EMAIL_HOST, int(EMAIL_PORT))
         server.starttls()  # Inicia a conexão segura
-        server.login(EMAIL_USER, EMAIL_PASSWORD)  # Autentica no servidor
+
+        # Tenta autenticar no servidor
+        try:
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"❌ Erro de autenticação: {str(e)}")
+            return False
+        except smtplib.SMTPNotSupportedError as e:
+            logger.error(f"❌ Método de autenticação não suportado: {str(e)}")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"❌ Erro genérico de SMTP: {str(e)}")
+            return False
 
         # Criação da mensagem
         msg = MIMEMultipart()
