@@ -280,7 +280,7 @@ def run_flask():
 def verificar_horarios_ocupados(start_time, end_time):
     try:
         service = get_calendar_service()
-        calendar_id = "andersonpagostinho@gmail.com"  # Substitua pelo seu calendar_id
+        calendar_id = "andersonpagostinho@gmail.com"
         
         events_result = service.events().list(
             calendarId=calendar_id,
@@ -291,6 +291,9 @@ def verificar_horarios_ocupados(start_time, end_time):
         ).execute()
         
         events = events_result.get('items', [])
+        
+        logger.info(f"📅 Eventos encontrados entre {start_time} e {end_time}: {events}")
+        
         return events
     except Exception as e:
         logger.error(f"❌ Erro ao verificar horários ocupados: {str(e)}")
@@ -303,31 +306,33 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         horarios_ocupados = []
         
         for evento in eventos:
-            inicio = datetime.fromisoformat(evento['start']['dateTime'])
-            fim = datetime.fromisoformat(evento['end']['dateTime'])
-            horarios_ocupados.append((inicio, fim))
-        
+            if 'start' in evento and 'end' in evento:
+                inicio = datetime.fromisoformat(evento['start']['dateTime'])
+                fim = datetime.fromisoformat(evento['end']['dateTime'])
+                horarios_ocupados.append((inicio, fim))
+
+        logger.info(f"⏳ Horários ocupados: {horarios_ocupados}")
+
         horarios_livres = []
         inicio_periodo = datetime.fromisoformat(start_time)
         fim_periodo = datetime.fromisoformat(end_time)
-        
+
         while inicio_periodo + timedelta(minutes=duracao_minutos) <= fim_periodo:
             fim_sugestao = inicio_periodo + timedelta(minutes=duracao_minutos)
             conflito = False
-            
-            # Verificar se o horário sugerido conflita com algum evento existente
+
             for ocupado_inicio, ocupado_fim in horarios_ocupados:
                 if not (fim_sugestao <= ocupado_inicio or inicio_periodo >= ocupado_fim):
                     conflito = True
                     break
-            
-            # Se não houver conflito, adicionar à lista de horários livres
+
             if not conflito:
                 horarios_livres.append((inicio_periodo, fim_sugestao))
-            
-            # Avançar para o próximo intervalo de tempo
+
             inicio_periodo += timedelta(minutes=30)
-        
+
+        logger.info(f"✅ Horários livres sugeridos: {horarios_livres}")
+
         return horarios_livres
     except Exception as e:
         logger.error(f"❌ Erro ao sugerir horários livres: {str(e)}")
