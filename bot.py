@@ -291,9 +291,11 @@ def verificar_horarios_ocupados(start_time, end_time):
         ).execute()
         
         events = events_result.get('items', [])
-        
-        logger.info(f"📅 Eventos encontrados entre {start_time} e {end_time}: {events}")
-        
+
+        logger.info(f"📅 Eventos encontrados ({len(events)}) entre {start_time} e {end_time}:")
+        for event in events:
+            logger.info(f"   🕒 {event.get('start').get('dateTime')} - {event.get('end').get('dateTime')} ({event.get('summary')})")
+
         return events
     except Exception as e:
         logger.error(f"❌ Erro ao verificar horários ocupados: {str(e)}")
