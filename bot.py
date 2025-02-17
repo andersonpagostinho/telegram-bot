@@ -304,6 +304,7 @@ def verificar_horarios_ocupados(start_time, end_time):
         logger.error(f"❌ Erro ao verificar horários ocupados: {str(e)}")
         return []
 
+# Função para verificar horarios livres
 def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
     try:
         eventos = verificar_horarios_ocupados(start_time, end_time)
@@ -342,11 +343,14 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
             if ultimo_evento_fim + timedelta(minutes=duracao_minutos) <= fim_periodo:
                 horarios_livres.append((ultimo_evento_fim, fim_periodo))
 
-        logger.info(f"✅ Horários livres sugeridos (UTC): {horarios_livres}")
-        return horarios_livres
-    except Exception as e:
-        logger.error(f"❌ Erro ao sugerir horários livres: {str(e)}")
-        return []
+        if not horarios_livres:
+            mensagem = f"❌ Nenhum horário livre encontrado entre {start_time} e {end_time}."
+            if eventos:
+                mensagem += f" Evento(s) agendado(s):"
+                for evento in eventos:
+                    mensagem += f"\n   🕒 {evento['start']['dateTime']} - {evento['end']['dateTime']} ({evento.get('summary', 'Sem título')})"
+            logger.info(mensagem)
+            return []
 
 # Funções do Telegram
 async def start(update: Update, context: CallbackContext) -> None:
