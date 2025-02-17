@@ -305,12 +305,12 @@ def verificar_horarios_ocupados(start_time, end_time):
         return []
 
 # Função para sugerir horários livres
-def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
+ef sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
     try:
         eventos = verificar_horarios_ocupados(start_time, end_time)
         horarios_ocupados = []
 
-        # 🕒 Converter período para UTC
+        # 🕒 Converter período de análise para UTC
         inicio_periodo = datetime.fromisoformat(start_time).astimezone(timezone.utc)
         fim_periodo = datetime.fromisoformat(end_time).astimezone(timezone.utc)
 
@@ -322,6 +322,8 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
 
         horarios_ocupados.sort()
         horarios_livres = []
+
+        logger.info(f"🔄 Horários ocupados (UTC): {horarios_ocupados}")
 
         # 🟢 1️⃣ **Se não houver eventos, todo o período está livre**
         if not horarios_ocupados:
