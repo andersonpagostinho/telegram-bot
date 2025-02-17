@@ -304,17 +304,14 @@ def verificar_horarios_ocupados(start_time, end_time):
         logger.error(f"❌ Erro ao verificar horários ocupados: {str(e)}")
         return []
 
-# Função para sugerir horários livres
 def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
     try:
         eventos = verificar_horarios_ocupados(start_time, end_time)
         horarios_ocupados = []
 
-        # 🕒 Converter período de análise para UTC
         inicio_periodo = datetime.fromisoformat(start_time).astimezone(timezone.utc)
         fim_periodo = datetime.fromisoformat(end_time).astimezone(timezone.utc)
 
-        # 📅 Coletar horários ocupados e converter para UTC
         for evento in eventos:
             inicio = datetime.fromisoformat(evento['start']['dateTime']).astimezone(timezone.utc)
             fim = datetime.fromisoformat(evento['end']['dateTime']).astimezone(timezone.utc)
@@ -325,16 +322,13 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
 
         logger.info(f"🔄 Horários ocupados (UTC): {horarios_ocupados}")
 
-        # 🟢 1️⃣ **Se não houver eventos, todo o período está livre**
-        if not horarios_ocupados:
-            horarios_livres.append((inicio_periodo, fim_periodo))
-        
-        # 🟢 2️⃣ **Se houver espaço antes do primeiro evento**
-        primeiro_evento_inicio = horarios_ocupados[0][0]
-        if inicio_periodo + timedelta(minutes=duracao_minutos) <= primeiro_evento_inicio:
-            horarios_livres.append((inicio_periodo, primeiro_evento_inicio))
+        # Verifica se há espaço antes do primeiro evento
+        if horarios_ocupados:
+            primeiro_evento_inicio = horarios_ocupados[0][0]
+            if inicio_periodo + timedelta(minutes=duracao_minutos) <= primeiro_evento_inicio:
+                horarios_livres.append((inicio_periodo, primeiro_evento_inicio))
 
-        # 🔄 3️⃣ **Verificar espaços entre eventos**
+        # Verifica espaços entre eventos
         for i in range(len(horarios_ocupados) - 1):
             evento_atual_fim = horarios_ocupados[i][1]
             proximo_evento_inicio = horarios_ocupados[i + 1][0]
@@ -342,10 +336,11 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
             if evento_atual_fim + timedelta(minutes=duracao_minutos) <= proximo_evento_inicio:
                 horarios_livres.append((evento_atual_fim, proximo_evento_inicio))
 
-        # 🟢 4️⃣ **Se houver espaço depois do último evento**
-        ultimo_evento_fim = horarios_ocupados[-1][1]
-        if ultimo_evento_fim + timedelta(minutes=duracao_minutos) <= fim_periodo:
-            horarios_livres.append((ultimo_evento_fim, fim_periodo))
+        # Verifica se há espaço depois do último evento
+        if horarios_ocupados:
+            ultimo_evento_fim = horarios_ocupados[-1][1]
+            if ultimo_evento_fim + timedelta(minutes=duracao_minutos) <= fim_periodo:
+                horarios_livres.append((ultimo_evento_fim, fim_periodo))
 
         logger.info(f"✅ Horários livres sugeridos (UTC): {horarios_livres}")
         return horarios_livres
