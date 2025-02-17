@@ -315,7 +315,7 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
             fim = datetime.fromisoformat(evento['end']['dateTime'])
             horarios_ocupados.append((inicio, fim))
 
-        # Ordenar os eventos para garantir que os cálculos sejam feitos corretamente
+        # Ordena os eventos por horário de início
         horarios_ocupados.sort()
 
         logger.info(f"⏳ Lista de horários ocupados: {horarios_ocupados}")
