@@ -291,10 +291,13 @@ def verificar_horarios_ocupados(start_time, end_time):
         ).execute()
         
         events = events_result.get('items', [])
-
-        logger.info(f"📅 Eventos encontrados ({len(events)}) entre {start_time} e {end_time}:")
-        for event in events:
-            logger.info(f"   🕒 {event.get('start').get('dateTime')} - {event.get('end').get('dateTime')} ({event.get('summary')})")
+        
+        if events:
+            logger.info(f"📅 Eventos encontrados ({len(events)}) entre {start_time} e {end_time}:")
+            for event in events:
+                logger.info(f"   🕒 {event['start']['dateTime']} - {event['end']['dateTime']} ({event.get('summary', 'Sem título')})")
+        else:
+            logger.info(f"✅ Nenhum evento encontrado entre {start_time} e {end_time}.")
 
         return events
     except Exception as e:
@@ -311,11 +314,13 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
             inicio = datetime.fromisoformat(evento['start']['dateTime'])
             fim = datetime.fromisoformat(evento['end']['dateTime'])
             horarios_ocupados.append((inicio, fim))
-        
+
+        logger.info(f"⏳ Lista de horários ocupados: {horarios_ocupados}")
+
         horarios_livres = []
         inicio_periodo = datetime.fromisoformat(start_time)
         fim_periodo = datetime.fromisoformat(end_time)
-        
+
         # Sugerir horários antes do primeiro evento
         if horarios_ocupados:
             primeiro_evento_inicio = horarios_ocupados[0][0]
@@ -339,7 +344,9 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
                 tempo_livre = (fim_periodo - ultimo_evento_fim).total_seconds() / 60
                 if tempo_livre >= duracao_minutos:
                     horarios_livres.append((ultimo_evento_fim, fim_periodo))
-        
+
+        logger.info(f"✅ Horários livres encontrados: {horarios_livres}")
+
         return horarios_livres
     except Exception as e:
         logger.error(f"❌ Erro ao sugerir horários livres: {str(e)}")
