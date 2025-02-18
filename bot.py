@@ -655,6 +655,38 @@ async def processar_comando_voz(update: Update, texto: str):
         else:
             await update.message.reply_text("❌ Erro ao agendar evento!")
             send_whatsapp_message("❌ Erro ao agendar evento!")
+ # Comando: Ler E-mails
+    elif "ler e-mails" in texto or "verificar e-mails" in texto:
+        # Extrair o número de e-mails (se mencionado)
+        num_emails = 5  # Padrão
+        if "últimos" in texto:
+            try:
+                num_emails = int(re.search(r'\d+', texto).group())
+                if num_emails > 10:  # Limite máximo
+                    num_emails = 10
+            except:
+                pass
+
+        # Ler e-mails
+        emails = ler_emails(num_emails)
+        
+        if not emails:
+            await update.message.reply_text("📭 Nenhum e-mail novo encontrado.")
+            return
+
+        # Preparar resposta
+        response = "📬 Últimos e-mails:\n\n"
+        for idx, email_msg in enumerate(emails, 1):
+            response += (
+                f"📌 E-mail {idx}:\n"
+                f"De: {email_msg['de']}\n"
+                f"Assunto: {email_msg['assunto']}\n"
+                f"Conteúdo: {email_msg['corpo']}\n\n"
+            )
+
+        # Enviar resposta
+        await update.message.reply_text(response[:4000])  # Limite do Telegram
+        send_whatsapp_message(response[:1600])  # Limite do WhatsApp
 
     # Comando não reconhecido
     else:
