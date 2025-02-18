@@ -67,6 +67,9 @@ EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_IMAP_SERVER = os.getenv("EMAIL_IMAP_SERVER")
+EMAIL_IMAP_PORT = os.getenv("EMAIL_IMAP_PORT")
+EMAIL_FOLDER = os.getenv("EMAIL_FOLDER", "INBOX")
 
 def enviar_email(destinatario, assunto, corpo, html=False):
     try:
@@ -180,6 +183,115 @@ if __name__ == "__main__":
         print(f"👤 Remetente: {email['remetente']}")
         print(f"📅 Data: {email['data']}")
         print(f"✉️ Corpo: {email['corpo'][:300]}...")  # Limita o corpo a 300 caracteres
+
+# Nova função para ler e-mails
+def ler_emails(num_emails=5):
+    try:
+        if not all([EMAIL_IMAP_SERVER, EMAIL_IMAP_PORT, EMAIL_USER, EMAIL_PASSWORD]):
+            logger.error("❌ Variáveis de ambiente IMAP não configuradas")
+            return []
+
+        # Conectar ao servidor IMAP
+        mail = imaplib.IMAP4_SSL(EMAIL_IMAP_SERVER, int(EMAIL_IMAP_PORT))
+        mail.login(EMAIL_USER, EMAIL_PASSWORD)
+        mail.select(EMAIL_FOLDER)
+
+        # Buscar e-mails recentes não lidos
+        status, messages = mail.search(None, 'UNSEEN')
+        if status != 'OK':
+            return []
+
+        email_ids = messages[0].split()[-num_emails:]  # Pegar últimos X e-mails
+
+        emails = []
+        for e_id in email_ids:
+            _, msg_data = mail.fetch(e_id, '(RFC822)')
+            raw_email = msg_data[0][1]
+            
+            # Parsear o e-mail
+            msg = email.message_from_bytes(raw_email)
+            
+            # Decodificar cabeçalhos
+            subject, encoding = decode_header(msg["Subject"])[0]
+            if isinstance(subject, bytes):
+                subject = subject.decode(encoding or 'utf-8')
+            
+            from_, encoding = decode_header(msg.get("From"))[0]
+            if isinstance(from_, bytes):
+                from_ = from_.decode(encoding or 'utf-8')
+
+            # Extrair texto do corpo
+            body = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    content_type = part.get_content_type()
+                    if content_type == "text/plain":
+                        body = part.get_payload(decode=True).decode()
+                        break
+            else:
+                body = msg.get_payload(decode=True).decode()
+
+            emails.append({
+                "de": from_,
+                "assunto": subject,
+                "corpo": body[:500] + "..." if len(body) > 500 else body  # Limitar tamanho do corpo
+            })
+
+        mail.close()
+        mail.logout()
+        return emails
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao ler e-mails: {str(e)}")
+        return []
+
+# Novo comando para ler e-mails
+async def ler_emails_command(update: Update, context: CallbackContext):
+    try:
+        num_emails = int(context.args[0]) if context.args else 5
+        if num_emails > 10:  # Limite máximo
+            num_emails = 10
+            
+        emails = ler_emails(num_emails)
+        
+        if not emails:
+            await update.message.reply_text("📭 Nenhum e-mail novo encontrado.")
+            return
+
+        response = "📬 Últimos e-mails:\n\n"
+        for idx, email_msg in enumerate(emails, 1):
+            response += (
+                f"📌 E-mail {idx}:\n"
+                f"De: {email_msg['de']}\n"
+                f"Assunto: {email_msg['assunto']}\n"
+                f"Conteúdo: {email_msg['corpo']}\n\n"
+            )
+
+        await update.message.reply_text(response[:4000])  # Limite do Telegram
+        send_whatsapp_text(response[:1600])  # Limite do WhatsApp
+
+    except Exception as e:
+        logger.error(f"❌ Erro no comando ler_emails: {str(e)}")
+        await update.message.reply_text("❌ Erro ao ler e-mails. Verifique as configurações IMAP.")
+
+# Atualize o comando de ajuda
+async def help_command(update: Update, context: CallbackContext) -> None:
+    help_text = """
+    🛠 Comandos disponíveis:
+    /start - Inicia o bot
+    /help - Mostra esta ajuda
+    /tarefa [descrição] - Adiciona uma tarefa
+    /listar - Lista todas as tarefas
+    /listar_prioridade - Lista tarefas ordenadas por prioridade
+    /limpar - Remove todas as tarefas
+    /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> - Agenda um evento
+    /eventos - Lista todos os eventos agendados
+    /relatorio_diario - Gera um relatório diário
+    /relatorio_semanal - Gera um relatório semanal
+    /enviar_email <destinatário> <assunto> <mensagem> - Envia um e-mail
+    /ler_emails [número] - Lê últimos e-mails (até 10)  # Nova linha adicionada
+    """
+    await update.message.reply_text(help_text)
 
 # Funções do Firebase
 def salvar_tarefa(tarefa_data):
@@ -879,6 +991,7 @@ def main():
     app.add_handler(CommandHandler("relatorio_semanal", relatorio_semanal))
     app.add_handler(CommandHandler("enviar_email", enviar_email_command))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_handler(CommandHandler("ler_emails", ler_emails_command))
 
     # Iniciar Flask em uma thread separada
     threading.Thread(target=run_flask, daemon=True).start()
