@@ -149,11 +149,11 @@ def ler_emails(num_emails=5):
             # Decodificar cabeçalhos
             subject, encoding = decode_header(msg["Subject"])[0]
             if isinstance(subject, bytes):
-                subject = subject.decode(encoding or 'utf-8')
+                subject = subject.decode(encoding or 'utf-8', errors='replace')
             
             from_, encoding = decode_header(msg.get("From"))[0]
             if isinstance(from_, bytes):
-                from_ = from_.decode(encoding or 'utf-8')
+                from_ = from_.decode(encoding or 'utf-8', errors='replace')
 
             # Extrair texto do corpo
             body = ""
@@ -161,10 +161,18 @@ def ler_emails(num_emails=5):
                 for part in msg.walk():
                     content_type = part.get_content_type()
                     if content_type == "text/plain":
-                        body = part.get_payload(decode=True).decode()
+                        payload = part.get_payload(decode=True)
+                        try:
+                            body = payload.decode('utf-8', errors='replace')
+                        except UnicodeDecodeError:
+                            body = payload.decode('latin-1', errors='replace')
                         break
             else:
-                body = msg.get_payload(decode=True).decode()
+                payload = msg.get_payload(decode=True)
+                try:
+                    body = payload.decode('utf-8', errors='replace')
+                except UnicodeDecodeError:
+                    body = payload.decode('latin-1', errors='replace')
 
             emails.append({
                 "de": from_,
