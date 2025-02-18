@@ -123,48 +123,54 @@ def conectar_email():
         print(f"❌ Erro ao conectar ao e-mail: {str(e)}")
         return None
 
-def ler_emails(pasta="INBOX", quantidade=10):
-    """ Lê os e-mails mais recentes da caixa de entrada. """
-    cliente = conectar_email()
-    if not cliente:
-        return []
-
+# Função para ler e-mails
+def ler_emails(update: Update, context: CallbackContext):
     try:
-        cliente.select_folder(pasta)
-        mensagens = cliente.search(["ALL"])  # Busca todos os e-mails
-        mensagens = mensagens[-quantidade:]  # Pegamos os mais recentes
+        # Conectar ao servidor IMAP
+        mail = imaplib.IMAP4_SSL(EMAIL_IMAP_HOST)
+        mail.login(EMAIL_USER, EMAIL_PASSWORD)
+        mail.select("inbox")
 
-        emails_lidos = []
-        for uid in reversed(mensagens):
-            raw_message = cliente.fetch(uid, ["RFC822"])[uid][b"RFC822"]
-            mensagem = email.message_from_bytes(raw_message)
+        # Buscar os últimos 5 e-mails não lidos
+        status, mensagens = mail.search(None, 'UNSEEN')
+        mensagens = mensagens[0].split()
 
-            # Decodificar assunto
-            assunto, encoding = decode_header(mensagem["Subject"])[0]
-            if isinstance(assunto, bytes):
-                assunto = assunto.decode(encoding or "utf-8")
+        if not mensagens:
+            update.message.reply_text("📭 Nenhum e-mail não lido encontrado.")
+            return
+        
+        resposta = "📩 *E-mails não lidos:*\n\n"
 
-            remetente = mensagem["From"]
-            data = mensagem["Date"]
+        for num in mensagens[-5:]:  # Pegando os últimos 5 e-mails
+            status, dados = mail.fetch(num, "(RFC822)")
+            for response_part in dados:
+                if isinstance(response_part, tuple):
+                    msg = email.message_from_bytes(response_part[1])
+                    assunto, encoding = decode_header(msg["Subject"])[0]
+                    if isinstance(assunto, bytes):
+                        assunto = assunto.decode(encoding or "utf-8")
+                    
+                    remetente = msg.get("From")
+                    data = msg.get("Date")
 
-            # Extrair corpo da mensagem
-            corpo = ""
-            if mensagem.is_multipart():
-                for part in mensagem.walk():
-                    content_type = part.get_content_type()
-                    if content_type == "text/plain":  # Pega apenas texto puro
-                        corpo = part.get_payload(decode=True).decode("utf-8", errors="ignore")
-                        break
-            else:
-                corpo = mensagem.get_payload(decode=True).decode("utf-8", errors="ignore")
+                    resposta += f"📌 *Assunto:* {assunto}\n👤 *De:* {remetente}\n📅 *Data:* {data}\n\n"
+        
+        mail.close()
+        mail.logout()
+        
+        update.message.reply_text(resposta, parse_mode="Markdown")
 
-            emails_lidos.append({"assunto": assunto, "remetente": remetente, "data": data, "corpo": corpo})
-
-        cliente.logout()
-        return emails_lidos
     except Exception as e:
-        print(f"❌ Erro ao ler e-mails: {str(e)}")
-        return []
+        update.message.reply_text(f"❌ Erro ao ler e-mails: {str(e)}")
+
+# Configuração do bot
+TOKEN = "SEU_TOKEN_DO_TELEGRAM"  # Substitua pelo seu token
+app = ApplicationBuilder().token(TOKEN).build()
+app.add_handler(CommandHandler("emails", ler_emails))
+
+if __name__ == "__main__":
+    print("🚀 Bot do Telegram rodando...")
+    app.run_polling()
 
 # Teste da função
 if __name__ == "__main__":
