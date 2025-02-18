@@ -165,7 +165,7 @@ def ler_emails(update: Update, context: CallbackContext):
 
 # Configuração do bot
 TOKEN = "SEU_TOKEN_DO_TELEGRAM"  # Substitua pelo seu token
-app = ApplicationBuilder().token(TOKEN).build()
+app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("emails", ler_emails))
 
 if __name__ == "__main__":
