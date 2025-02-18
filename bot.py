@@ -120,7 +120,7 @@ def enviar_email(destinatario, assunto, corpo, html=False):
         return False
 
 # Nova função para ler e-mails
-ef ler_emails(num_emails=5):
+def ler_emails(num_emails=5):
     try:
         if not all([EMAIL_IMAP_SERVER, EMAIL_IMAP_PORT, EMAIL_USER, EMAIL_PASSWORD]):
             logger.error("❌ Variáveis de ambiente IMAP não configuradas")
