@@ -120,7 +120,7 @@ def enviar_email(destinatario, assunto, corpo, html=False):
         return False
 
 # Nova função para ler e-mails
-def ler_emails(num_emails=5):
+ef ler_emails(num_emails=5):
     try:
         if not all([EMAIL_IMAP_SERVER, EMAIL_IMAP_PORT, EMAIL_USER, EMAIL_PASSWORD]):
             logger.error("❌ Variáveis de ambiente IMAP não configuradas")
@@ -129,11 +129,12 @@ def ler_emails(num_emails=5):
         # Conectar ao servidor IMAP
         mail = imaplib.IMAP4_SSL(EMAIL_IMAP_SERVER, int(EMAIL_IMAP_PORT))
         mail.login(EMAIL_USER, EMAIL_PASSWORD)
-        mail.select(EMAIL_FOLDER)
+        mail.select(EMAIL_FOLDER)  # Certifique-se de que está acessando a pasta correta
 
         # Buscar e-mails recentes não lidos
         status, messages = mail.search(None, 'UNSEEN')
         if status != 'OK':
+            logger.info("📭 Nenhum e-mail novo encontrado.")
             return []
 
         email_ids = messages[0].split()[-num_emails:]  # Pegar últimos X e-mails
@@ -155,7 +156,7 @@ def ler_emails(num_emails=5):
             if isinstance(from_, bytes):
                 from_ = from_.decode(encoding or 'utf-8', errors='replace')
 
-            # Extrair texto do corpo
+            # Extrair texto do corpo (priorizar text/plain)
             body = ""
             if msg.is_multipart():
                 for part in msg.walk():
@@ -174,10 +175,14 @@ def ler_emails(num_emails=5):
                 except UnicodeDecodeError:
                     body = payload.decode('latin-1', errors='replace')
 
+            # Limitar o tamanho do corpo para evitar mensagens muito longas
+            if len(body) > 500:
+                body = body[:500] + "..."
+
             emails.append({
                 "de": from_,
                 "assunto": subject,
-                "corpo": body[:500] + "..." if len(body) > 500 else body  # Limitar tamanho do corpo
+                "corpo": body
             })
 
         mail.close()
@@ -211,7 +216,7 @@ async def ler_emails_command(update: Update, context: CallbackContext):
             )
 
         await update.message.reply_text(response[:4000])  # Limite do Telegram
-        send_whatsapp_text(response[:1600])  # Limite do WhatsApp
+        send_whatsapp_message(response[:1600])  # Limite do WhatsApp
 
     except Exception as e:
         logger.error(f"❌ Erro no comando ler_emails: {str(e)}")
