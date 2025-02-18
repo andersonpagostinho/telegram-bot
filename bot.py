@@ -113,6 +113,68 @@ def enviar_email(destinatario, assunto, corpo, html=False):
         logger.error(f"❌ Erro ao enviar e-mail: {str(e)}")
         return False
 
+def conectar_email():
+    """ Conecta-se à conta de e-mail via IMAP. """
+    try:
+        cliente = imapclient.IMAPClient(EMAIL_IMAP_HOST, ssl=True)
+        cliente.login(EMAIL_IMAP_USER, EMAIL_IMAP_PASSWORD)
+        return cliente
+    except Exception as e:
+        print(f"❌ Erro ao conectar ao e-mail: {str(e)}")
+        return None
+
+def ler_emails(pasta="INBOX", quantidade=10):
+    """ Lê os e-mails mais recentes da caixa de entrada. """
+    cliente = conectar_email()
+    if not cliente:
+        return []
+
+    try:
+        cliente.select_folder(pasta)
+        mensagens = cliente.search(["ALL"])  # Busca todos os e-mails
+        mensagens = mensagens[-quantidade:]  # Pegamos os mais recentes
+
+        emails_lidos = []
+        for uid in reversed(mensagens):
+            raw_message = cliente.fetch(uid, ["RFC822"])[uid][b"RFC822"]
+            mensagem = email.message_from_bytes(raw_message)
+
+            # Decodificar assunto
+            assunto, encoding = decode_header(mensagem["Subject"])[0]
+            if isinstance(assunto, bytes):
+                assunto = assunto.decode(encoding or "utf-8")
+
+            remetente = mensagem["From"]
+            data = mensagem["Date"]
+
+            # Extrair corpo da mensagem
+            corpo = ""
+            if mensagem.is_multipart():
+                for part in mensagem.walk():
+                    content_type = part.get_content_type()
+                    if content_type == "text/plain":  # Pega apenas texto puro
+                        corpo = part.get_payload(decode=True).decode("utf-8", errors="ignore")
+                        break
+            else:
+                corpo = mensagem.get_payload(decode=True).decode("utf-8", errors="ignore")
+
+            emails_lidos.append({"assunto": assunto, "remetente": remetente, "data": data, "corpo": corpo})
+
+        cliente.logout()
+        return emails_lidos
+    except Exception as e:
+        print(f"❌ Erro ao ler e-mails: {str(e)}")
+        return []
+
+# Teste da função
+if __name__ == "__main__":
+    emails = ler_emails()
+    for email in emails:
+        print(f"\n📩 Assunto: {email['assunto']}")
+        print(f"👤 Remetente: {email['remetente']}")
+        print(f"📅 Data: {email['data']}")
+        print(f"✉️ Corpo: {email['corpo'][:300]}...")  # Limita o corpo a 300 caracteres
+
 # Funções do Firebase
 def salvar_tarefa(tarefa_data):
     try:
@@ -144,6 +206,7 @@ def salvar_evento(evento_data):
     except Exception as e:
         logger.error(f"❌ Erro ao salvar evento: {str(e)}")
         return None
+
 
 def buscar_tarefas():
     try:
