@@ -16,7 +16,10 @@ import subprocess
 import dateparser
 from apscheduler.schedulers.background import BackgroundScheduler
 import threading
+import imaplib
 import smtplib
+import email
+from email.header import decode_header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
