@@ -1,29 +1,3 @@
-New chat
-Today
-New chat
-veja esse script, não quero que
-Yesterday
-Vamos criar uma estrutura para a
-7 Days
-precido de outras variaveis? o e
-import os import json import re
-# Função para verificar horários
-esse é oscript: import os import
-import os import json import re
-esse émeu codigo completo: impor
-funcionou, mas nao retorna a con
-esse é o script que estamos trab
-este é um script que estamos faz
-30 Days
-o que iremos fazer agora: 📌 Etap
-estou fazendo um agente para peq
-voce vai começar a vender alguma
-conhece um jogo chamado anno 180
-vamos elaborar um produto de men
-meu pc está lento com memoria ra
-Get App
-
-New chat
 import os
 import json
 import re
@@ -109,7 +83,6 @@ PALAVRAS_CHAVE = {
 REMETENTES_PRIORITARIOS = json.loads(os.getenv("REMETENTES_PRIORITARIOS", "[]"))
 HORARIO_COMERCIAL = (9, 18)
 
-# ========== NOVAS FUNÇÕES DE PRIORIZAÇÃO MANUAL ==========
 def obter_config_prioridade_usuario(chat_id):
     try:
         doc_ref = db.collection("UserPrioritySettings").document(str(chat_id))
@@ -122,11 +95,6 @@ def obter_config_prioridade_usuario(chat_id):
 async def priorizar_email(update: Update, context: CallbackContext):
     """
     Comando: /priorizar_email <add/remove/list> [tipo] [valor] [prioridade]
-    Exemplos:
-    /priorizar_email add remetente "suporte@empresa.com" alta
-    /priorizar_email add palavra "relatório" media
-    /priorizar_email list
-    /priorizar_email remove palavra "newsletter"
     """
     try:
         chat_id = str(update.effective_chat.id)
@@ -193,7 +161,6 @@ def classificar_prioridade(email_data):
         assunto = email_data['assunto'].lower()
         corpo = email_data['corpo'].lower()
 
-        # Primeiro verificar regras manuais do usuário
         for r, p in user_config['remetentes'].items():
             if r in remetente:
                 return p
@@ -202,7 +169,6 @@ def classificar_prioridade(email_data):
             if palavra in assunto or palavra in corpo:
                 return p
 
-        # Depois regras automáticas
         for prioridade, palavras in PALAVRAS_CHAVE.items():
             if any(p in assunto or p in corpo for p in palavras):
                 return prioridade
@@ -220,49 +186,42 @@ def classificar_prioridade(email_data):
         return "baixa"
 
 def salvar_email_classificado(email_data):
-    """Salva e-mail no Firebase com classificação de prioridade"""
     try:
         email_data['prioridade'] = classificar_prioridade(email_data)
         email_data['data_recebimento'] = datetime.now(timezone.utc).isoformat()
         
         doc_ref = db.collection("Emails").document()
         doc_ref.set(email_data)
-        
         logger.info(f"📩 E-mail salvo: {email_data['assunto']} - Prioridade: {email_data['prioridade']}")
         return doc_ref.id
     except Exception as e:
         logger.error(f"❌ Erro ao salvar e-mail: {str(e)}")
         return None
 
-# Nova função para ler e-mails
 def ler_emails(num_emails=5):
     try:
         if not all([EMAIL_IMAP_SERVER, EMAIL_IMAP_PORT, EMAIL_USER, EMAIL_PASSWORD]):
             logger.error("❌ Variáveis de ambiente IMAP não configuradas")
             return []
 
-        # Conectar ao servidor IMAP
         mail = imaplib.IMAP4_SSL(EMAIL_IMAP_SERVER, int(EMAIL_IMAP_PORT))
         mail.login(EMAIL_USER, EMAIL_PASSWORD)
         mail.select(EMAIL_FOLDER)
 
-        # Buscar e-mails recentes não lidos
         status, messages = mail.search(None, 'UNSEEN')
         if status != 'OK':
             logger.info("📭 Nenhum e-mail novo encontrado.")
             return []
 
-        email_ids = messages[0].split()[-num_emails:]  # Pegar últimos X e-mails
+        email_ids = messages[0].split()[-num_emails:]
 
         emails = []
         for e_id in email_ids:
             _, msg_data = mail.fetch(e_id, '(RFC822)')
             raw_email = msg_data[0][1]
             
-            # Parsear o e-mail
             msg = email.message_from_bytes(raw_email)
             
-            # Decodificar cabeçalhos
             subject, encoding = decode_header(msg["Subject"])[0]
             if isinstance(subject, bytes):
                 subject = subject.decode(encoding or 'utf-8', errors='replace')
@@ -271,7 +230,6 @@ def ler_emails(num_emails=5):
             if isinstance(from_, bytes):
                 from_ = from_.decode(encoding or 'utf-8', errors='replace')
 
-            # Extrair texto do corpo
             body = ""
             if msg.is_multipart():
                 for part in msg.walk():
@@ -290,18 +248,15 @@ def ler_emails(num_emails=5):
                 except UnicodeDecodeError:
                     body = payload.decode('latin-1', errors='replace')
 
-            # Limitar o tamanho do corpo
             if len(body) > 500:
                 body = body[:500] + "..."
 
-            # Salvar e-mail classificado
             email_data = {
                 "de": from_,
                 "assunto": subject,
                 "corpo": body
             }
             salvar_email_classificado(email_data)
-
             emails.append(email_data)
 
         mail.close()
@@ -312,9 +267,7 @@ def ler_emails(num_emails=5):
         logger.error(f"❌ Erro ao ler e-mails: {str(e)}")
         return []
 
-# NOVO COMANDO PARA LISTAR E-MAILS PRIORITÁRIOS
 async def listar_emails_prioritarios(update: Update, context: CallbackContext):
-    """Lista e-mails classificados como alta prioridade"""
     try:
         emails = db.collection("Emails").where("prioridade", "==", "alta").stream()
         
@@ -332,11 +285,10 @@ async def listar_emails_prioritarios(update: Update, context: CallbackContext):
         logger.error(f"❌ Erro no comando listar_emails_prioritarios: {str(e)}")
         await update.message.reply_text("❌ Erro ao listar e-mails prioritários.")
 
-# Novo comando para ler e-mails
 async def ler_emails_command(update: Update, context: CallbackContext):
     try:
         num_emails = int(context.args[0]) if context.args else 5
-        if num_emails > 10:  # Limite máximo
+        if num_emails > 10:
             num_emails = 10
             
         emails = ler_emails(num_emails)
@@ -354,14 +306,13 @@ async def ler_emails_command(update: Update, context: CallbackContext):
                 f"Conteúdo: {email_msg['corpo']}\n\n"
             )
 
-        await update.message.reply_text(response[:4000])  # Limite do Telegram
-        send_whatsapp_message(response[:1600])  # Limite do WhatsApp
+        await update.message.reply_text(response[:4000])
+        send_whatsapp_message(response[:1600])
 
     except Exception as e:
         logger.error(f"❌ Erro no comando ler_emails: {str(e)}")
-        await update.message.reply_text("❌ Erro ao ler e-mails. Verifique as configurações IMAP.")
+        await update.message.reply_text("❌ Erro ao ler e-mails.")
 
-# Atualize o comando de ajuda
 async def help_command(update: Update, context: CallbackContext) -> None:
     help_text = """
     🛠 Comandos disponíveis:
@@ -378,17 +329,17 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /enviar_email <destinatário> <assunto> <mensagem> - Envia um e-mail
     /ler_emails [número] - Lê últimos e-mails (até 10)
     /emails_prioritarios - Lista e-mails de alta prioridade
+    /priorizar_email - Configura priorização de e-mails
     """
     await update.message.reply_text(help_text)
 
-# Funções do Firebase
 def salvar_tarefa(tarefa_data):
     try:
         if "data_vencimento" not in tarefa_data:
             tarefa_data["data_vencimento"] = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
         
         if "lembrete" not in tarefa_data:
-            tarefa_data["lembrete"] = 0  # Sem lembrete por padrão
+            tarefa_data["lembrete"] = 0
             
         tarefa_ref = db.collection("Tarefas").document()
         tarefa_data["id"] = tarefa_ref.id
@@ -402,7 +353,7 @@ def salvar_tarefa(tarefa_data):
 def salvar_evento(evento_data):
     try:
         if "lembrete" not in evento_data:
-            evento_data["lembrete"] = 0  # Sem lembrete por padrão
+            evento_data["lembrete"] = 0
             
         evento_ref = db.collection("Eventos").document()
         evento_data["id"] = evento_ref.id
@@ -463,7 +414,6 @@ def buscar_usuarios():
         logger.error(f"❌ Erro ao buscar usuários: {str(e)}")
         return []
 
-# Funções de notificação
 def send_whatsapp_message(message: str):
     try:
         client.messages.create(
@@ -475,7 +425,6 @@ def send_whatsapp_message(message: str):
     except Exception as e:
         logger.error(f"❌ Erro ao enviar mensagem pelo WhatsApp: {str(e)}")
 
-# Funções de áudio
 def converter_ogg_para_wav(ogg_path, wav_path):
     try:
         comando = [
@@ -507,7 +456,6 @@ def transcrever_audio(wav_path):
             logger.error(f"❌ Erro na requisição ao Google Speech-to-Text: {e}")
             return None
 
-# Função para agendar lembretes
 def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembrete_minutos):
     try:
         data_lembrete = datetime.fromisoformat(data).replace(tzinfo=timezone.utc) - timedelta(minutes=lembrete_minutos)
@@ -526,7 +474,6 @@ def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembre
     except Exception as e:
         logger.error(f"❌ Erro ao agendar lembrete: {str(e)}")
 
-# Função para enviar lembretes
 async def enviar_lembrete(context: CallbackContext, tipo, id, descricao):
     try:
         logger.info(f"🚀 Enviando lembrete manualmente: {tipo} - {descricao}")
@@ -541,7 +488,6 @@ async def enviar_lembrete(context: CallbackContext, tipo, id, descricao):
     except Exception as e:
         logger.error(f"❌ Erro ao enviar lembrete: {str(e)}")
 
-# Função para registrar métricas diárias
 def registrar_metricas_diarias():
     try:
         hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -562,7 +508,6 @@ def registrar_metricas_diarias():
     except Exception as e:
         logger.error(f"❌ Erro ao registrar métricas diárias: {str(e)}")
 
-# Criar o scheduler uma única vez
 scheduler = BackgroundScheduler()
 
 def agendar_registro_metricas():
@@ -581,7 +526,6 @@ def agendar_registro_metricas():
     except Exception as e:
         logger.error(f"❌ Erro ao iniciar o agendador: {str(e)}")
 
-# API no Flask para acessar relatórios
 app_web = Flask(__name__)
 
 @app_web.route("/relatorios")
@@ -610,7 +554,6 @@ def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app_web.run(host="0.0.0.0", port=port)
 
-# Função para verificar horários ocupados
 def verificar_horarios_ocupados(start_time, end_time):
     try:
         service = get_calendar_service()
@@ -638,54 +581,43 @@ def verificar_horarios_ocupados(start_time, end_time):
         logger.error(f"❌ Erro ao verificar horários ocupados: {str(e)}")
         return []
 
-# Função para verificar horarios livres
 def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
     try:
-        # Converter os horários para UTC
         inicio_periodo = datetime.fromisoformat(start_time).astimezone(timezone.utc)
         fim_periodo = datetime.fromisoformat(end_time).astimezone(timezone.utc)
 
-        # Definir horário comercial (9h às 18h) dentro do período solicitado
         horario_comercial_inicio = max(inicio_periodo.replace(hour=9, minute=0, second=0, microsecond=0), inicio_periodo)
         horario_comercial_fim = min(inicio_periodo.replace(hour=18, minute=0, second=0, microsecond=0), fim_periodo)
 
-        # Se o horário comercial estiver fora do período solicitado, abortar
         if horario_comercial_inicio >= horario_comercial_fim:
             logger.info("⛔ Nenhum horário comercial dentro do período solicitado.")
             return []
 
-        # Buscar eventos dentro do horário comercial
         eventos = verificar_horarios_ocupados(
             horario_comercial_inicio.isoformat(),
             horario_comercial_fim.isoformat()
         )
         horarios_ocupados = []
 
-        # Coletar horários ocupados e converter para UTC
         for evento in eventos:
             inicio = datetime.fromisoformat(evento['start']['dateTime']).astimezone(timezone.utc)
             fim = datetime.fromisoformat(evento['end']['dateTime']).astimezone(timezone.utc)
             horarios_ocupados.append((inicio, fim))
 
-        # Ordenar horários ocupados
         horarios_ocupados.sort()
 
-        # Inicializar lista de horários livres
         horarios_livres = []
         proximo_inicio = horario_comercial_inicio
 
-        # Se não houver eventos, todo o horário comercial está livre
         if not horarios_ocupados:
             horarios_livres.append((horario_comercial_inicio, horario_comercial_fim))
         else:
-            # Verificar espaços antes, entre e depois dos eventos
             for ocupado_inicio, ocupado_fim in horarios_ocupados:
                 if proximo_inicio + timedelta(minutes=duracao_minutos) <= ocupado_inicio:
                     horarios_livres.append((proximo_inicio, ocupado_inicio))
                 
                 proximo_inicio = max(proximo_inicio, ocupado_fim)
 
-            # Verificar tempo livre após o último evento
             if proximo_inicio + timedelta(minutes=duracao_minutos) <= horario_comercial_fim:
                 horarios_livres.append((proximo_inicio, horario_comercial_fim))
 
@@ -695,68 +627,43 @@ def sugerir_horarios_livres(start_time, end_time, duracao_minutos=60):
         logger.error(f"❌ Erro ao sugerir horários livres: {str(e)}")
         return []
 
-# Funções do Telegram
 async def start(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
     salvar_usuario(chat_id)
     await update.message.reply_text("👋 Olá! Vou te enviar lembretes de tarefas e eventos importantes.")
 
-async def help_command(update: Update, context: CallbackContext) -> None:
-    help_text = """
-    🛠 Comandos disponíveis:
-    /start - Inicia o bot
-    /help - Mostra esta ajuda
-    /tarefa [descrição] - Adiciona uma tarefa
-    /listar - Lista todas as tarefas
-    /listar_prioridade - Lista tarefas ordenadas por prioridade
-    /limpar - Remove todas as tarefas
-    /agenda <título> <data-hora (YYYY-MM-DDTHH:MM:SS)> - Agenda um evento
-    /eventos - Lista todos os eventos agendados
-    /relatorio_diario - Gera um relatório diário
-    /relatorio_semanal - Gera um relatório semanal
-    /enviar_email <destinatário> <assunto> <mensagem> - Envia um e-mail
-    """
-    await update.message.reply_text(help_text)
-
 async def handle_voice(update: Update, context: CallbackContext) -> None:
     try:
-        # Baixar o arquivo de áudio
         voice_file = await update.message.voice.get_file()
         ogg_path = "temp_audio.ogg"
         await voice_file.download_to_drive(ogg_path)
 
-        # Converter o áudio para WAV
         wav_path = "temp_audio.wav"
         if not converter_ogg_para_wav(ogg_path, wav_path):
             await update.message.reply_text("❌ Erro ao processar o áudio. Tente novamente.")
             return
 
-        # Transcrever o áudio para texto
         texto = transcrever_audio(wav_path)
         if not texto:
             await update.message.reply_text("❌ Não entendi o áudio. Pode repetir?")
             return
 
         await update.message.reply_text(f"🎤 Você disse: {texto}")
-
-        # Processar o comando de voz
-        await processar_comando_voz(update, texto)
+        await processar_comando_voz(update, context, texto)
 
     except Exception as e:
         logger.error(f"❌ Erro ao processar áudio: {str(e)}")
         await update.message.reply_text("❌ Ocorreu um erro ao processar o áudio. Tente novamente.")
     finally:
-        # Remover arquivos temporários
         if os.path.exists(ogg_path):
             os.remove(ogg_path)
         if os.path.exists(wav_path):
             os.remove(wav_path)
         logger.info("✅ Arquivos temporários removidos.")
 
-async def processar_comando_voz(update: Update, texto: str):
+async def processar_comando_voz(update: Update, context: CallbackContext, texto: str):
     texto = texto.lower()
 
-    # Comando: Adicionar Tarefa
     if "adicionar tarefa" in texto:
         partes = texto.split(" com prioridade ")
         descricao = partes[0].replace("adicionar tarefa", "").strip()
@@ -775,7 +682,6 @@ async def processar_comando_voz(update: Update, texto: str):
         await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
         send_whatsapp_message(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
 
-    # Comando: Agendar Evento
     elif "agendar" in texto:
         partes = texto.split(" às ")
         if len(partes) < 2:
@@ -808,26 +714,22 @@ async def processar_comando_voz(update: Update, texto: str):
             await update.message.reply_text("❌ Erro ao agendar evento!")
             send_whatsapp_message("❌ Erro ao agendar evento!")
 
- # Comando: Ler E-mails
     elif "ler e-mails" in texto or "verificar e-mails" in texto:
-        # Extrair o número de e-mails (se mencionado)
-        num_emails = 5  # Padrão
+        num_emails = 5
         if "últimos" in texto:
             try:
                 num_emails = int(re.search(r'\d+', texto).group())
-                if num_emails > 10:  # Limite máximo
+                if num_emails > 10:
                     num_emails = 10
             except:
                 pass
 
-        # Ler e-mails
         emails = ler_emails(num_emails)
         
         if not emails:
             await update.message.reply_text("📭 Nenhum e-mail novo encontrado.")
             return
 
-        # Preparar resposta
         response = "📬 Últimos e-mails:\n\n"
         for idx, email_msg in enumerate(emails, 1):
             response += (
@@ -837,16 +739,68 @@ async def processar_comando_voz(update: Update, texto: str):
                 f"Conteúdo: {email_msg['corpo']}\n\n"
             )
 
-        # Enviar resposta
-        await update.message.reply_text(response[:4000])  # Limite do Telegram
-        send_whatsapp_message(response[:1600])  # Limite do WhatsApp
+        await update.message.reply_text(response[:4000])
+        send_whatsapp_message(response[:1600])
 
-    # Comando não reconhecido
+    elif "listar tarefas" in texto:
+        await list_tasks(update, context)
+
+    elif "listar tarefas por prioridade" in texto:
+        await list_tasks_by_priority(update, context)
+
+    elif "limpar todas as tarefas" in texto:
+        await update.message.reply_text("⚠️ Tem certeza que deseja apagar TODAS as tarefas? Responda 'sim' para confirmar.")
+        context.user_data['aguardando_confirmacao'] = True
+
+    elif "listar eventos" in texto:
+        await list_events(update, context)
+
+    elif "gerar relatório diário" in texto:
+        await relatorio_diario(update, context)
+
+    elif "gerar relatório semanal" in texto:
+        await relatorio_semanal(update, context)
+
+    elif "enviar e-mail para" in texto:
+        try:
+            match = re.search(r'para (.+?) assunto (.+?) mensagem (.+)', texto)
+            if match:
+                destinatario = match.group(1).strip()
+                assunto = match.group(2).strip()
+                mensagem = match.group(3).strip()
+                
+                if enviar_email(destinatario, assunto, mensagem):
+                    await update.message.reply_text(f"✅ E-mail enviado para {destinatario}!")
+                else:
+                    await update.message.reply_text("❌ Falha ao enviar e-mail.")
+            else:
+                await update.message.reply_text("❌ Formato inválido. Use: 'Enviar e-mail para [email] assunto [texto] mensagem [texto]'")
+        except Exception as e:
+            logger.error(f"Erro ao enviar e-mail por voz: {str(e)}")
+            await update.message.reply_text("❌ Erro ao processar comando de e-mail.")
+
+    elif "priorizar e-mail do" in texto and "como" in texto:
+        try:
+            partes = re.split(r' do | como ', texto)
+            remetente = partes[1].strip()
+            prioridade = partes[2].strip()
+            
+            context.args = ["add", "remetente", remetente, prioridade]
+            await priorizar_email(update, context)
+        except Exception as e:
+            logger.error(f"Erro priorização por voz: {str(e)}")
+            await update.message.reply_text("❌ Formato inválido. Use: 'Priorizar e-mail do [email] como [prioridade]'")
+
+    elif "mostrar e-mails prioritários" in texto or "listar e-mails importantes" in texto:
+        await listar_emails_prioritarios(update, context)
+
+    elif context.user_data.get('aguardando_confirmacao') and "sim" in texto:
+        await clear_tasks(update, context)
+        context.user_data['aguardando_confirmacao'] = False
+
     else:
-        await update.message.reply_text("❌ Comando não reconhecido.")
-        send_whatsapp_message("❌ Comando não reconhecido.")
+        await update.message.reply_text("❌ Comando não reconhecido. Diga 'ajuda' para ver os comandos disponíveis.")
 
-# Comandos adicionais
 async def add_task(update: Update, context: CallbackContext) -> None:
     args = context.args
     full_text = ' '.join(args)
@@ -859,8 +813,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
     data_vencimento = data_match.group(1) if data_match else None
     lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
     
-    # Definir data_obj com um valor padrão
-    data_obj = datetime.now(timezone.utc) + timedelta(days=3)  # Valor padrão
+    data_obj = datetime.now(timezone.utc) + timedelta(days=3)
     
     if data_vencimento:
         data_obj = dateparser.parse(data_vencimento, languages=['pt'])
@@ -910,7 +863,7 @@ async def list_tasks_by_priority(update: Update, context: CallbackContext) -> No
     if tarefas:
         prioridade_ordem = {"alta": 1, "média": 2, "baixa": 3}
         tarefas_ordenadas = sorted(tarefas, key=lambda x: prioridade_ordem.get(x.get("prioridade", "baixa"), 3))
-        task_list = "\n".join([f"- {tarefa['descricao']} (Prioridade: {tarefa.get('prioridade', 'baixa')})" for tarefa in tarefas_ordenadas])
+        task_list = "\n".join([f"- {tarefa['descricao']} (Prioridade: {tarefa.get('prioridade', 'baixa')}" for tarefa in tarefas_ordenadas])
         await update.message.reply_text(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
         send_whatsapp_message(f"📌 Suas tarefas ordenadas por prioridade:\n{task_list}")
     else:
@@ -950,18 +903,16 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
     lembrete_match = re.search(r'-lembrete (\d+)', ' '.join(context.args))
     lembrete = int(lembrete_match.group(1)) if lembrete_match else 0
 
-    # Converter a data/hora para o formato ISO com fuso horário
     try:
         data_hora_obj = datetime.fromisoformat(data_hora)
         if not data_hora_obj.tzinfo:
-            data_hora_obj = data_hora_obj.replace(tzinfo=timezone(timedelta(hours=-3)))  # Fuso horário -03:00 (Brasília)
+            data_hora_obj = data_hora_obj.replace(tzinfo=timezone(timedelta(hours=-3)))
         start_time = data_hora_obj.isoformat()
-        end_time = (data_hora_obj + timedelta(hours=1)).isoformat()  # Duração padrão de 1 hora
+        end_time = (data_hora_obj + timedelta(hours=1)).isoformat()
     except ValueError:
         await update.message.reply_text("❌ Formato de data/hora inválido. Use o formato: YYYY-MM-DDTHH:MM:SS")
         return
 
-    # Verificar se o horário está ocupado
     eventos_ocupados = verificar_horarios_ocupados(start_time, end_time)
     if eventos_ocupados:
         await update.message.reply_text("❌ Horário ocupado. Sugerindo horários livres...")
@@ -977,7 +928,6 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
             send_whatsapp_message("❌ Nenhum horário livre encontrado.")
         return
     
-    # Se o horário estiver livre, agendar o evento
     event_link = add_event(titulo, start_time, end_time)
     if event_link:
         evento_data = {
@@ -1001,11 +951,10 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
 def add_event(summary, start_time, end_time):
     try:
         service = get_calendar_service()
-        calendar_id = "andersonpagostinho@gmail.com"  # Substitua pelo seu calendar_id
+        calendar_id = "andersonpagostinho@gmail.com"
         
-        # Garantir que start_time e end_time estão no formato correto
         if not start_time.endswith("-03:00"):
-            start_time += "-03:00"  # Adicionar fuso horário se não estiver presente
+            start_time += "-03:00"
         if not end_time.endswith("-03:00"):
             end_time += "-03:00"
         
@@ -1029,7 +978,6 @@ def add_event(summary, start_time, end_time):
         logger.error(f"❌ Erro ao criar evento no Google Calendar: {str(e)}")
         return None
 
-# Novas funções de relatório
 async def relatorio_diario(update: Update, context: CallbackContext) -> None:
     try:
         hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -1083,7 +1031,6 @@ async def relatorio_semanal(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("❌ Erro ao gerar relatório semanal.")
         send_whatsapp_message("❌ Erro ao gerar relatório semanal.")
 
-# Função para enviar e-mails
 async def enviar_email_command(update: Update, context: CallbackContext) -> None:
     try:
         args = context.args
@@ -1106,11 +1053,9 @@ async def enviar_email_command(update: Update, context: CallbackContext) -> None
         await update.message.reply_text("❌ Erro ao enviar e-mail.")
         send_whatsapp_message("❌ Erro ao enviar e-mail.")
 
-# Função principal
 def main():
     app = Application.builder().token(TOKEN).build()
     
-    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("tarefa", add_task))
@@ -1125,17 +1070,12 @@ def main():
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(CommandHandler("ler_emails", ler_emails_command))
     app.add_handler(CommandHandler("priorizar_email", priorizar_email))
-
-    # Novo handler para e-mails prioritários
     app.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
 
-    # Iniciar Flask em uma thread separada
     threading.Thread(target=run_flask, daemon=True).start()
 
-    # Agendar registro diário de métricas
     agendar_registro_metricas()
 
-    # Iniciar bot
     logger.info("🚀 Bot rodando com polling...")
     app.run_polling()
 
