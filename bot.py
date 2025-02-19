@@ -273,6 +273,18 @@ def salvar_evento(evento_data):
         logger.error(f"❌ Erro ao salvar evento: {str(e)}")
         return None
 
+def salvar_correspondencia(correspondencia_data):
+    try:
+        correspondencia_ref = db.collection("Correspondencias").document()
+        correspondencia_data["id"] = correspondencia_ref.id
+        correspondencia_data["data_recebimento"] = datetime.now(timezone.utc).isoformat()
+        correspondencia_ref.set(correspondencia_data)
+        logger.info(f"✅ Correspondência salva: {correspondencia_data['assunto']}")
+        return correspondencia_ref.id
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar correspondência: {str(e)}")
+        return None
+
 def buscar_tarefas():
     try:
         return [
