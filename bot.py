@@ -119,6 +119,57 @@ def enviar_email(destinatario, assunto, corpo, html=False):
         logger.error(f"❌ Erro ao enviar e-mail: {str(e)}")
         return False
 
+# Configurações de prioridade
+PALAVRAS_CHAVE = {
+    "alta": ["urgente", "prazo", "vencimento", "importante", "confirmação"],
+    "media": ["reunião", "atualização", "relatório", "cliente"],
+    "baixa": ["newsletter", "promoção", "marketing", "atualizações"]
+}
+
+REMETENTES_PRIORITARIOS = json.loads(os.getenv("REMETENTES_PRIORITARIOS", "[]"))
+HORARIO_COMERCIAL = (9, 18)  # 9h às 18h
+
+def classificar_prioridade(email_data):
+    """Classifica e-mails com base em múltiplos critérios"""
+    try:
+        assunto = email_data['assunto'].lower()
+        corpo = email_data['corpo'].lower()
+        remetente = email_data['de'].lower()
+        hora_recebimento = datetime.now(timezone.utc).hour
+
+        # Critério 1: Palavras-chave
+        for prioridade, palavras in PALAVRAS_CHAVE.items():
+            if any(palavra in assunto or palavra in corpo for palavra in palavras):
+                if prioridade == "alta": return "alta"
+                    
+        # Critério 2: Remetentes prioritários
+        if any(rem for rem in REMETENTES_PRIORITARIOS if rem.lower() in remetente):
+            return "alta"
+
+        # Critério 3: Horário de recebimento
+        if not (HORARIO_COMERCIAL[0] <= hora_recebimento < HORARIO_COMERCIAL[1]):
+            return "media"
+
+        return "baixa"
+    except Exception as e:
+        logger.error(f"❌ Erro ao classificar prioridade: {str(e)}")
+        return "baixa"  # Prioridade padrão em caso de erro
+
+def salvar_email_classificado(email_data):
+    """Salva e-mail no Firebase com classificação de prioridade"""
+    try:
+        email_data['prioridade'] = classificar_prioridade(email_data)
+        email_data['data_recebimento'] = datetime.now(timezone.utc).isoformat()
+        
+        doc_ref = db.collection("Emails").document()
+        doc_ref.set(email_data)
+        
+        logger.info(f"📩 E-mail salvo: {email_data['assunto']} - Prioridade: {email_data['prioridade']}")
+        return doc_ref.id
+    except Exception as e:
+        logger.error(f"❌ Erro ao salvar e-mail: {str(e)}")
+        return None
+
 # Nova função para ler e-mails
 def ler_emails(num_emails=5):
     try:
@@ -129,7 +180,7 @@ def ler_emails(num_emails=5):
         # Conectar ao servidor IMAP
         mail = imaplib.IMAP4_SSL(EMAIL_IMAP_SERVER, int(EMAIL_IMAP_PORT))
         mail.login(EMAIL_USER, EMAIL_PASSWORD)
-        mail.select(EMAIL_FOLDER)  # Certifique-se de que está acessando a pasta correta
+        mail.select(EMAIL_FOLDER)
 
         # Buscar e-mails recentes não lidos
         status, messages = mail.search(None, 'UNSEEN')
@@ -156,7 +207,7 @@ def ler_emails(num_emails=5):
             if isinstance(from_, bytes):
                 from_ = from_.decode(encoding or 'utf-8', errors='replace')
 
-            # Extrair texto do corpo (priorizar text/plain)
+            # Extrair texto do corpo
             body = ""
             if msg.is_multipart():
                 for part in msg.walk():
@@ -175,15 +226,19 @@ def ler_emails(num_emails=5):
                 except UnicodeDecodeError:
                     body = payload.decode('latin-1', errors='replace')
 
-            # Limitar o tamanho do corpo para evitar mensagens muito longas
+            # Limitar o tamanho do corpo
             if len(body) > 500:
                 body = body[:500] + "..."
 
-            emails.append({
+            # Salvar e-mail classificado
+            email_data = {
                 "de": from_,
                 "assunto": subject,
                 "corpo": body
-            })
+            }
+            salvar_email_classificado(email_data)
+
+            emails.append(email_data)
 
         mail.close()
         mail.logout()
@@ -192,6 +247,26 @@ def ler_emails(num_emails=5):
     except Exception as e:
         logger.error(f"❌ Erro ao ler e-mails: {str(e)}")
         return []
+
+# NOVO COMANDO PARA LISTAR E-MAILS PRIORITÁRIOS
+async def listar_emails_prioritarios(update: Update, context: CallbackContext):
+    """Lista e-mails classificados como alta prioridade"""
+    try:
+        emails = db.collection("Emails").where("prioridade", "==", "alta").stream()
+        
+        resposta = "📨 E-mails prioritários:\n\n"
+        for idx, email in enumerate(emails, 1):
+            data = email.to_dict()
+            resposta += (
+                f"{idx}. {data['assunto']}\n"
+                f"📩 De: {data['de']}\n"
+                f"⏰ Recebido em: {data['data_recebimento'][:16]}\n\n"
+            )
+
+        await update.message.reply_text(resposta[:4000])
+    except Exception as e:
+        logger.error(f"❌ Erro no comando listar_emails_prioritarios: {str(e)}")
+        await update.message.reply_text("❌ Erro ao listar e-mails prioritários.")
 
 # Novo comando para ler e-mails
 async def ler_emails_command(update: Update, context: CallbackContext):
@@ -237,7 +312,8 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /relatorio_diario - Gera um relatório diário
     /relatorio_semanal - Gera um relatório semanal
     /enviar_email <destinatário> <assunto> <mensagem> - Envia um e-mail
-    /ler_emails [número] - Lê últimos e-mails (até 10)  # Nova linha adicionada
+    /ler_emails [número] - Lê últimos e-mails (até 10)
+    /emails_prioritarios - Lista e-mails de alta prioridade
     """
     await update.message.reply_text(help_text)
 
@@ -983,6 +1059,9 @@ def main():
     app.add_handler(CommandHandler("enviar_email", enviar_email_command))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(CommandHandler("ler_emails", ler_emails_command))
+
+    # Novo handler para e-mails prioritários
+    app.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
 
     # Iniciar Flask em uma thread separada
     threading.Thread(target=run_flask, daemon=True).start()
