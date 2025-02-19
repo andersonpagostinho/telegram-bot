@@ -33,21 +33,21 @@ logger = logging.getLogger(__name__)
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
-USER_WHATSAPP_NUMBER = "whatsapp:+5519990068427"  # Substitua pelo seu número
+USER_WHATSAPP_NUMBER = "whatsapp:+5519990068427"
 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
 # Configuração do Telegram Bot
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
-    logger.error("❌ ERRO: A variável de ambiente TOKEN do Telegram não foi encontrada!")
-    raise ValueError("⚠️ ERRO: A variável de ambiente TOKEN do Telegram não foi encontrada!")
+    logger.error("❌ ERRO: TOKEN do Telegram não encontrado!")
+    raise ValueError("TOKEN do Telegram não configurado!")
 
 # Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not credentials_json:
-    logger.error("❌ ERRO: A variável de ambiente GOOGLE_CREDENTIALS_JSON não foi encontrada!")
-    raise ValueError("⚠️ ERRO: GOOGLE_CREDENTIALS_JSON não foi encontrada!")
+    logger.error("❌ ERRO: GOOGLE_CREDENTIALS_JSON não encontrado!")
+    raise ValueError("GOOGLE_CREDENTIALS_JSON não configurado!")
 
 def get_calendar_service():
     creds_info = json.loads(credentials_json)
@@ -57,69 +57,23 @@ def get_calendar_service():
 # Inicializar Firebase
 firebase_credentials_json = os.getenv("FIREBASE_CREDENTIALS")
 if not firebase_credentials_json:
-    raise ValueError("❌ ERRO: A variável de ambiente FIREBASE_CREDENTIALS não foi encontrada!")
+    raise ValueError("❌ ERRO: FIREBASE_CREDENTIALS não encontrado!")
 
 cred_info = json.loads(firebase_credentials_json)
 cred = credentials.Certificate(cred_info)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
-logger.info("✅ Firebase inicializado com sucesso!")
+logger.info("✅ Firebase inicializado!")
 
-# Configuração do e-mail
+# Configuração de Email
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_IMAP_SERVER = os.getenv("EMAIL_IMAP_SERVER")
 EMAIL_IMAP_PORT = os.getenv("EMAIL_IMAP_PORT")
-EMAIL_FOLDER = os.getenv("EMAIL_FOLDER", "INBOX")
 
-def enviar_email(destinatario, assunto, corpo, html=False):
-    try:
-        # Verifica se todas as variáveis de ambiente estão definidas
-        if not all([EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD]):
-            logger.error("❌ Variáveis de ambiente para e-mail não configuradas corretamente.")
-            return False
-
-        # Configuração do servidor SMTP
-        server = smtplib.SMTP(EMAIL_HOST, int(EMAIL_PORT))
-        server.starttls()  # Inicia a conexão segura
-
-        # Tenta autenticar no servidor
-        try:
-            server.login(EMAIL_USER, EMAIL_PASSWORD)
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"❌ Erro de autenticação: {str(e)}")
-            return False
-        except smtplib.SMTPNotSupportedError as e:
-            logger.error(f"❌ Método de autenticação não suportado: {str(e)}")
-            return False
-        except smtplib.SMTPException as e:
-            logger.error(f"❌ Erro genérico de SMTP: {str(e)}")
-            return False
-
-        # Criação da mensagem
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_USER
-        msg['To'] = destinatario
-        msg['Subject'] = assunto
-
-        if html:
-            msg.attach(MIMEText(corpo, 'html'))
-        else:
-            msg.attach(MIMEText(corpo, 'plain'))
-
-        # Envio do e-mail
-        server.sendmail(EMAIL_USER, destinatario, msg.as_string())
-        server.quit()  # Encerra a conexão
-
-        logger.info(f"✅ E-mail enviado para {destinatario}: {assunto}")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Erro ao enviar e-mail: {str(e)}")
-        return False
-
-# Configurações de prioridade
+# Configurações de Prioridade
 PALAVRAS_CHAVE = {
     "alta": ["urgente", "prazo", "vencimento", "importante", "confirmação"],
     "media": ["reunião", "atualização", "relatório", "cliente"],
@@ -127,33 +81,117 @@ PALAVRAS_CHAVE = {
 }
 
 REMETENTES_PRIORITARIOS = json.loads(os.getenv("REMETENTES_PRIORITARIOS", "[]"))
-HORARIO_COMERCIAL = (9, 18)  # 9h às 18h
+HORARIO_COMERCIAL = (9, 18)
+
+# ========== NOVAS FUNÇÕES DE PRIORIZAÇÃO MANUAL ==========
+def obter_config_prioridade_usuario(chat_id):
+    try:
+        doc_ref = db.collection("UserPrioritySettings").document(str(chat_id))
+        doc = doc_ref.get()
+        return doc.to_dict() or {"remetentes": {}, "palavras": {}}
+    except Exception as e:
+        logger.error(f"❌ Erro ao obter configurações: {str(e)}")
+        return {"remetentes": {}, "palavras": {}}
+
+async def priorizar_email(update: Update, context: CallbackContext):
+    """
+    Comando: /priorizar_email <add/remove/list> [tipo] [valor] [prioridade]
+    Exemplos:
+    /priorizar_email add remetente "suporte@empresa.com" alta
+    /priorizar_email add palavra "relatório" media
+    /priorizar_email list
+    /priorizar_email remove palavra "newsletter"
+    """
+    try:
+        chat_id = str(update.effective_chat.id)
+        args = context.args
+        
+        if not args:
+            await update.message.reply_text("⚠️ Formato incorreto!\nExemplos:\n"
+                                           "/priorizar_email add remetente \"suporte@empresa.com\" alta\n"
+                                           "/priorizar_email list")
+            return
+
+        action = args[0].lower()
+        config = obter_config_prioridade_usuario(chat_id)
+
+        if action == "add" and len(args) >= 4:
+            tipo = args[1].lower()
+            valor = ' '.join(args[2:-1]).strip('"')
+            prioridade = args[-1].lower()
+
+            if tipo not in ["remetente", "palavra"]:
+                await update.message.reply_text("❌ Tipo inválido! Use 'remetente' ou 'palavra'")
+                return
+
+            chave = "remetentes" if tipo == "remetente" else "palavras"
+            config[chave][valor.lower()] = prioridade
+            
+            db.collection("UserPrioritySettings").document(chat_id).set(config)
+            await update.message.reply_text(f"✅ {tipo.capitalize()} '{valor}' definido como prioridade {prioridade}")
+
+        elif action == "remove" and len(args) >= 3:
+            tipo = args[1].lower()
+            valor = ' '.join(args[2:]).strip('"')
+            
+            chave = "remetentes" if tipo == "remetente" else "palavras"
+            if valor.lower() in config[chave]:
+                del config[chave][valor.lower()]
+                db.collection("UserPrioritySettings").document(chat_id).set(config)
+                await update.message.reply_text(f"✅ Regra removida: {tipo} '{valor}'")
+            else:
+                await update.message.reply_text("❌ Regra não encontrada")
+
+        elif action == "list":
+            resposta = "⚙️ Suas Regras de Priorização:\n"
+            for tipo in ["remetentes", "palavras"]:
+                resposta += f"\n🔧 {tipo.capitalize()}:\n"
+                for item, prio in config.get(tipo, {}).items():
+                    resposta += f"   - {item}: {prio}\n"
+            await update.message.reply_text(resposta[:4000])
+
+        else:
+            await update.message.reply_text("⚠️ Comando inválido! Use /priorizar_email help para ajuda")
+
+    except Exception as e:
+        logger.error(f"❌ Erro no priorizar_email: {str(e)}")
+        await update.message.reply_text("❌ Erro ao processar comando")
 
 def classificar_prioridade(email_data):
-    """Classifica e-mails com base em múltiplos critérios"""
+    """Classificação híbrida: manual + automática"""
     try:
+        chat_id = str(email_data.get('chat_id', ''))
+        user_config = obter_config_prioridade_usuario(chat_id)
+        
+        remetente = email_data['de'].lower()
         assunto = email_data['assunto'].lower()
         corpo = email_data['corpo'].lower()
-        remetente = email_data['de'].lower()
-        hora_recebimento = datetime.now(timezone.utc).hour
 
-        # Critério 1: Palavras-chave
+        # Primeiro verificar regras manuais do usuário
+        for r, p in user_config['remetentes'].items():
+            if r in remetente:
+                return p
+
+        for palavra, p in user_config['palavras'].items():
+            if palavra in assunto or palavra in corpo:
+                return p
+
+        # Depois regras automáticas
         for prioridade, palavras in PALAVRAS_CHAVE.items():
-            if any(palavra in assunto or palavra in corpo for palavra in palavras):
-                if prioridade == "alta": return "alta"
-                    
-        # Critério 2: Remetentes prioritários
-        if any(rem for rem in REMETENTES_PRIORITARIOS if rem.lower() in remetente):
+            if any(p in assunto or p in corpo for p in palavras):
+                return prioridade
+
+        if any(rem in remetente for rem in REMETENTES_PRIORITARIOS):
             return "alta"
 
-        # Critério 3: Horário de recebimento
-        if not (HORARIO_COMERCIAL[0] <= hora_recebimento < HORARIO_COMERCIAL[1]):
+        if not (HORARIO_COMERCIAL[0] <= datetime.now(timezone.utc).hour < HORARIO_COMERCIAL[1]):
             return "media"
 
         return "baixa"
+
     except Exception as e:
-        logger.error(f"❌ Erro ao classificar prioridade: {str(e)}")
-        return "baixa"  # Prioridade padrão em caso de erro
+        logger.error(f"❌ Erro na classificação: {str(e)}")
+        return "baixa"
 
 def salvar_email_classificado(email_data):
     """Salva e-mail no Firebase com classificação de prioridade"""
@@ -743,6 +781,7 @@ async def processar_comando_voz(update: Update, texto: str):
         else:
             await update.message.reply_text("❌ Erro ao agendar evento!")
             send_whatsapp_message("❌ Erro ao agendar evento!")
+
  # Comando: Ler E-mails
     elif "ler e-mails" in texto or "verificar e-mails" in texto:
         # Extrair o número de e-mails (se mencionado)
@@ -1059,6 +1098,7 @@ def main():
     app.add_handler(CommandHandler("enviar_email", enviar_email_command))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(CommandHandler("ler_emails", ler_emails_command))
+    app.add_handler(CommandHandler("priorizar_email", priorizar_email))
 
     # Novo handler para e-mails prioritários
     app.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
