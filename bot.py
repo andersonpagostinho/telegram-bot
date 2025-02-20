@@ -827,7 +827,8 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
 
     elif "gerar relatório semanal" in texto:
         await relatorio_semanal(update, context)
- elif re.search(r'editar (prioridade|importância) (da tarefa|do compromisso) (.+?) para (alta|média|baixa)', texto):
+
+    elif re.search(r'editar (prioridade|importância) (da tarefa|do compromisso) (.+?) para (alta|média|baixa)', texto):
         match = re.search(r'editar (prioridade|importância) (da tarefa|do compromisso) (.+?) para (alta|média|baixa)', texto)
         descricao_tarefa = match.group(3).strip()
         nova_prioridade = match.group(4).lower()
