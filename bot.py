@@ -331,7 +331,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /emails_prioritarios - Lista e-mails de alta prioridade
     /priorizar_email - Configura priorização de e-mails
     /confirmar_reuniao <ID_Evento> - Confirma uma reunião e notifica os participantes
-    /editar_tarefa <ID> -prioridade <prioridade> - Altera prioridade da tarefa
+    /editar_tarefa <ID_ou_Descrição> -prioridade <prioridade> - Altera prioridade
     """
     await update.message.reply_text(help_text)
 
@@ -1173,35 +1173,49 @@ async def confirmar_presenca(update: Update, context: CallbackContext):
     except Exception as e:
         logger.error(f"❌ Erro ao confirmar presença: {str(e)}")
         await update.message.reply_text("❌ Erro ao confirmar presença.")
+
 async def editar_tarefa(update: Update, context: CallbackContext) -> None:
-    """Edita a prioridade de uma tarefa existente"""
+    """Edita a prioridade de uma tarefa existente por ID ou Descrição"""
     try:
         args = context.args
         if len(args) < 2:
-            await update.message.reply_text("⚠️ Formato correto:\n/editar_tarefa <ID_Tarefa> -prioridade <nova_prioridade>")
+            await update.message.reply_text("⚠️ Formato correto:\n/editar_tarefa <ID_ou_Descrição> -prioridade <nova_prioridade>")
             return
 
-        tarefa_id = args[0]
+        # Extrair prioridade e critério de busca
         prioridade = args[-1].lower()
-        
+        criterio_busca = ' '.join(args[:-2]).strip('"')  # Suporta descrições com espaços
+
         if prioridade not in ["alta", "média", "baixa"]:
             await update.message.reply_text("❌ Prioridade inválida! Use: alta, média ou baixa")
             return
 
-        tarefa_ref = db.collection("Tarefas").document(tarefa_id)
-        tarefa = tarefa_ref.get()
-        
-        if not tarefa.exists:
-            await update.message.reply_text("❌ Tarefa não encontrada!")
-            return
+        # Buscar por ID ou Descrição
+        tarefas_ref = db.collection("Tarefas")
+        if criterio_busca.startswith("id:"):
+            tarefa_id = criterio_busca[3:].strip()
+            tarefa_ref = tarefas_ref.document(tarefa_id)
+        else:
+            # Busca por descrição exata (case-insensitive)
+            tarefas = tarefas_ref.where("descricao", "==", criterio_busca).stream()
+            tarefas_list = list(tarefas)
+            
+            if not tarefas_list:
+                await update.message.reply_text("❌ Nenhuma tarefa encontrada com essa descrição!")
+                return
+            if len(tarefas_list) > 1:
+                await update.message.reply_text("⚠️ Várias tarefas encontradas. Use o ID:\n" + 
+                                               "\n".join([f"- {t.id}: {t.get('descricao')}" for t in tarefas_list]))
+                return
+            tarefa_ref = tarefas_list[0].reference
 
+        # Atualizar prioridade
         tarefa_ref.update({"prioridade": prioridade})
-        await update.message.reply_text(f"✅ Prioridade da tarefa atualizada para {prioridade.capitalize()}!")
-        send_whatsapp_message(f"📝 Tarefa atualizada: {tarefa.get('descricao')}\nNova prioridade: {prioridade}")
-
+        await update.message.reply_text(f"✅ Prioridade atualizada para {prioridade.capitalize()}!")
+        
     except Exception as e:
         logger.error(f"❌ Erro ao editar tarefa: {str(e)}")
-        await update.message.reply_text("❌ Erro ao atualizar tarefa. Verifique o ID.")
+        await update.message.reply_text("❌ Erro ao atualizar tarefa. Verifique os dados.")
 
 def main():
     app = Application.builder().token(TOKEN).build()
