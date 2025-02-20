@@ -331,6 +331,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /emails_prioritarios - Lista e-mails de alta prioridade
     /priorizar_email - Configura priorização de e-mails
     /confirmar_reuniao <ID_Evento> - Confirma uma reunião e notifica os participantes
+    /editar_tarefa <ID> -prioridade <prioridade> - Altera prioridade da tarefa
     """
     await update.message.reply_text(help_text)
 
@@ -917,12 +918,12 @@ async def add_task(update: Update, context: CallbackContext) -> None:
 async def list_tasks(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
     if tarefas:
-        task_list = "\n".join([f"- {tarefa['descricao']}" for tarefa in tarefas])
+        task_list = "\n".join([f"🆔 {tarefa['id']}\n- {tarefa['descricao']}\nPrioridade: {tarefa.get('prioridade', 'baixa')}\n" 
+                      for tarefa in tarefas])
         await update.message.reply_text(f"📌 Suas tarefas:\n{task_list}")
-        send_whatsapp_message(f"📌 Suas tarefas:\n{task_list}")
+        send_whatsapp_message(f"📌 Suas tarefas:\n{task_list[:1500]}")  # Limite do WhatsApp
     else:
         await update.message.reply_text("📭 Nenhuma tarefa adicionada.")
-        send_whatsapp_message("📭 Nenhuma tarefa adicionada.")
 
 async def list_tasks_by_priority(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
@@ -1172,6 +1173,35 @@ async def confirmar_presenca(update: Update, context: CallbackContext):
     except Exception as e:
         logger.error(f"❌ Erro ao confirmar presença: {str(e)}")
         await update.message.reply_text("❌ Erro ao confirmar presença.")
+async def editar_tarefa(update: Update, context: CallbackContext) -> None:
+    """Edita a prioridade de uma tarefa existente"""
+    try:
+        args = context.args
+        if len(args) < 2:
+            await update.message.reply_text("⚠️ Formato correto:\n/editar_tarefa <ID_Tarefa> -prioridade <nova_prioridade>")
+            return
+
+        tarefa_id = args[0]
+        prioridade = args[-1].lower()
+        
+        if prioridade not in ["alta", "média", "baixa"]:
+            await update.message.reply_text("❌ Prioridade inválida! Use: alta, média ou baixa")
+            return
+
+        tarefa_ref = db.collection("Tarefas").document(tarefa_id)
+        tarefa = tarefa_ref.get()
+        
+        if not tarefa.exists:
+            await update.message.reply_text("❌ Tarefa não encontrada!")
+            return
+
+        tarefa_ref.update({"prioridade": prioridade})
+        await update.message.reply_text(f"✅ Prioridade da tarefa atualizada para {prioridade.capitalize()}!")
+        send_whatsapp_message(f"📝 Tarefa atualizada: {tarefa.get('descricao')}\nNova prioridade: {prioridade}")
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao editar tarefa: {str(e)}")
+        await update.message.reply_text("❌ Erro ao atualizar tarefa. Verifique o ID.")
 
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -1193,6 +1223,7 @@ def main():
     app.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
     app.add_handler(CommandHandler("confirmar_reuniao", comando_confirmar_reuniao))
     app.add_handler(CommandHandler("confirmar_presenca", confirmar_presenca))  
+    app.add_handler(CommandHandler("editar_tarefa", editar_tarefa))
 
     threading.Thread(target=run_flask, daemon=True).start()
 
