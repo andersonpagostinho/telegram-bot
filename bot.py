@@ -330,8 +330,67 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /ler_emails [número] - Lê últimos e-mails (até 10)
     /emails_prioritarios - Lista e-mails de alta prioridade
     /priorizar_email - Configura priorização de e-mails
+    /confirmar_reuniao <ID_Evento> - Confirma uma reunião e notifica os participantes
     """
     await update.message.reply_text(help_text)
+
+def confirmar_reuniao(evento_id: str):
+    try:
+        evento_ref = db.collection("Eventos").document(evento_id)
+        evento_ref.update({"status": "confirmado"})
+        
+        evento = evento_ref.get().to_dict()
+        mensagem = (
+            f"✅ Reunião Confirmada!\n"
+            f"📌 Título: {evento['titulo']}\n"
+            f"📅 Data: {evento['data']}\n"
+            f"🕒 Hora: {evento['hora']}\n"
+            f"🔗 Link: {evento.get('link', 'N/A')}"
+        )
+        
+        # Enviar para WhatsApp
+        send_whatsapp_message(mensagem)
+        
+        # Enviar para Telegram (usuários cadastrados)
+        usuarios = buscar_usuarios()
+        for usuario in usuarios:
+            context.bot.send_message(
+                chat_id=usuario["chat_id"],
+                text=mensagem
+            )
+        
+        logger.info(f"✅ Reunião {evento_id} confirmada e notificada!")
+        return True
+    
+    except Exception as e:
+        logger.error(f"❌ Erro ao confirmar reunião: {str(e)}")
+        return False
+
+def verificar_confirmacoes_pendentes():
+    try:
+        eventos = db.collection("Eventos").where("status", "==", "pendente").stream()
+        agora = datetime.now(timezone.utc)
+        
+        for evento in eventos:
+            dados = evento.to_dict()
+            data_evento = datetime.fromisoformat(f"{dados['data']}T{dados['hora']}")
+            
+            if (data_evento - agora) < timedelta(hours=24):
+                confirmar_reuniao(evento.id)
+                logger.info(f"⚠️ Reunião {evento.id} confirmada automaticamente!")
+    
+    except Exception as e:
+        logger.error(f"❌ Erro na verificação automática: {str(e)}")
+
+async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
+    try:
+        evento_id = context.args[0]
+        if confirmar_reuniao(evento_id):
+            await update.message.reply_text("✅ Reunião confirmada e notificada aos participantes!")
+        else:
+            await update.message.reply_text("❌ Erro ao confirmar reunião. Verifique o ID.")
+    except IndexError:
+        await update.message.reply_text("⚠️ Formato correto: /confirmar_reuniao <ID_Evento>")
 
 def salvar_tarefa(tarefa_data):
     try:
@@ -525,6 +584,13 @@ def agendar_registro_metricas():
             logger.info("⏳ Agendador de lembretes já está rodando.")
     except Exception as e:
         logger.error(f"❌ Erro ao iniciar o agendador: {str(e)}")
+
+scheduler.add_job(
+    verificar_confirmacoes_pendentes,
+    trigger="cron",
+    hour=8,
+    minute=0
+)
 
 app_web = Flask(__name__)
 
@@ -765,7 +831,7 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
         try:
             match = re.search(r'para (.+?) assunto (.+?) mensagem (.+)', texto)
             if match:
-                destinatario = match.group(1).strip()
+                destinatario = match.group(1].strip()
                 assunto = match.group(2).strip()
                 mensagem = match.group(3).strip()
                 
@@ -953,29 +1019,40 @@ def add_event(summary, start_time, end_time):
         service = get_calendar_service()
         calendar_id = "andersonpagostinho@gmail.com"
         
-        if not start_time.endswith("-03:00"):
-            start_time += "-03:00"
-        if not end_time.endswith("-03:00"):
-            end_time += "-03:00"
-        
         event = {
             'summary': summary,
-            'start': {
-                'dateTime': start_time,
-                'timeZone': 'America/Sao_Paulo',
-            },
-            'end': {
-                'dateTime': end_time,
-                'timeZone': 'America/Sao_Paulo',
-            },
+            'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
+            'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
+            'conferenceData': {  # Adiciona Google Meet automaticamente
+                'createRequest': {'requestId': 'sample123', 'conferenceSolutionKey': {'type': 'hangoutsMeet'}}
+            }
         }
         
-        created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
-        event_link = created_event.get('htmlLink')
+        created_event = service.events().insert(
+            calendarId=calendar_id,
+            body=event,
+            conferenceDataVersion=1
+        ).execute()
+        
+        event_link = created_event.get('hangoutLink', created_event['htmlLink'])
+        
+        # Salvar no Firebase com status pendente
+        evento_data = {
+            "titulo": summary,
+            "data": datetime.fromisoformat(start_time).strftime("%Y-%m-%d"),
+            "hora": datetime.fromisoformat(start_time).strftime("%H:%M:%S"),
+            "link": event_link,
+            "status": "pendente",
+            "participantes": []  # Adicione participantes se necessário
+        }
+        evento_ref = db.collection("Eventos").document()
+        evento_ref.set(evento_data)
+        
         logger.info(f"✅ Evento Criado: {event_link}")
         return event_link
+    
     except Exception as e:
-        logger.error(f"❌ Erro ao criar evento no Google Calendar: {str(e)}")
+        logger.error(f"❌ Erro ao criar evento: {str(e)}")
         return None
 
 async def relatorio_diario(update: Update, context: CallbackContext) -> None:
@@ -1071,6 +1148,7 @@ def main():
     app.add_handler(CommandHandler("ler_emails", ler_emails_command))
     app.add_handler(CommandHandler("priorizar_email", priorizar_email))
     app.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
+    app.add_handler(CommandHandler("confirmar_reuniao", comando_confirmar_reuniao))
 
     threading.Thread(target=run_flask, daemon=True).start()
 
