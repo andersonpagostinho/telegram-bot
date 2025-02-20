@@ -831,7 +831,7 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
         try:
             match = re.search(r'para (.+?) assunto (.+?) mensagem (.+)', texto)
             if match:
-                destinatario = match.group(1].strip()
+                destinatario = match.group(1).strip()
                 assunto = match.group(2).strip()
                 mensagem = match.group(3).strip()
                 
