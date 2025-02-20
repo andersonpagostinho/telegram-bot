@@ -827,6 +827,41 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
 
     elif "gerar relatório semanal" in texto:
         await relatorio_semanal(update, context)
+ elif re.search(r'editar (prioridade|importância) (da tarefa|do compromisso) (.+?) para (alta|média|baixa)', texto):
+        match = re.search(r'editar (prioridade|importância) (da tarefa|do compromisso) (.+?) para (alta|média|baixa)', texto)
+        descricao_tarefa = match.group(3).strip()
+        nova_prioridade = match.group(4).lower()
+        
+        # Buscar tarefa por descrição
+        tarefas_ref = db.collection("Tarefas")
+        tarefas = tarefas_ref.where("descricao", "==", descricao_tarefa).stream()
+        
+        tarefas_list = list(tarefas)
+        if not tarefas_list:
+            await update.message.reply_text(f"❌ Nenhuma tarefa encontrada com a descrição: '{descricao_tarefa}'")
+            return
+            
+        if len(tarefas_list) > 1:
+            ids = "\n".join([f"- ID: {t.id}" for t in tarefas_list])
+            await update.message.reply_text(
+                f"⚠️ Várias tarefas encontradas. Especifique o ID:\n{ids}\n"
+                f"Exemplo por voz: 'Editar prioridade da tarefa ID ABC123 para alta'"
+            )
+            return
+            
+        # Atualizar se encontrou apenas uma
+        tarefa_ref = tarefas_list[0].reference
+        tarefa_ref.update({"prioridade": nova_prioridade})
+        await update.message.reply_text(
+            f"✅ Prioridade da tarefa '{descricao_tarefa}' "
+            f"atualizada para {nova_prioridade.capitalize()}!"
+        )
+        send_whatsapp_message(
+            f"📝 Tarefa atualizada por voz:\n"
+            f"'{descricao_tarefa}'\n"
+            f"Nova prioridade: {nova_prioridade}"
+        )
+
 
     elif "enviar e-mail para" in texto:
         try:
