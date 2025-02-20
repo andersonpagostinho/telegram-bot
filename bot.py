@@ -1129,6 +1129,49 @@ async def enviar_email_command(update: Update, context: CallbackContext) -> None
         logger.error(f"❌ Erro ao processar comando de e-mail: {str(e)}")
         await update.message.reply_text("❌ Erro ao enviar e-mail.")
         send_whatsapp_message("❌ Erro ao enviar e-mail.")
+def enviar_convite(destinatario: str, assunto: str, mensagem: str, evento_link: str):
+    try:
+        service = build('gmail', 'v1', credentials=get_calendar_service()._credentials)
+        
+        email_msg = MIMEText(f"{mensagem}\n\n🔗 Link do Evento: {evento_link}")
+        email_msg['To'] = destinatario
+        email_msg['From'] = EMAIL_USER
+        email_msg['Subject'] = assunto
+
+        raw_message = base64.urlsafe_b64encode(email_msg.as_bytes()).decode()
+        message = {'raw': raw_message}
+
+        service.users().messages().send(userId='me', body=message).execute()
+        logger.info(f"✅ Convite enviado para {destinatario}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Erro ao enviar convite: {str(e)}")
+        return False
+
+async def confirmar_presenca(update: Update, context: CallbackContext):
+    try:
+        evento_id = context.args[0]
+        chat_id = str(update.effective_chat.id)
+        
+        evento_ref = db.collection("Eventos").document(evento_id)
+        evento = evento_ref.get().to_dict()
+        
+        if not evento:
+            await update.message.reply_text("❌ Evento não encontrado.")
+            return
+        
+        participantes = evento.get("participantes", [])
+        if chat_id not in participantes:
+            participantes.append(chat_id)
+            evento_ref.update({"participantes": participantes})
+            await update.message.reply_text("✅ Presença confirmada!")
+        else:
+            await update.message.reply_text("⚠️ Você já confirmou presença.")
+    except IndexError:
+        await update.message.reply_text("⚠️ Formato correto: /confirmar_presenca <ID_Evento>")
+    except Exception as e:
+        logger.error(f"❌ Erro ao confirmar presença: {str(e)}")
+        await update.message.reply_text("❌ Erro ao confirmar presença.")
 
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -1149,6 +1192,7 @@ def main():
     app.add_handler(CommandHandler("priorizar_email", priorizar_email))
     app.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
     app.add_handler(CommandHandler("confirmar_reuniao", comando_confirmar_reuniao))
+    app.add_handler(CommandHandler("confirmar_presenca", confirmar_presenca))  
 
     threading.Thread(target=run_flask, daemon=True).start()
 
