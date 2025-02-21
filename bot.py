@@ -419,7 +419,7 @@ def detectar_prioridade(descricao: str) -> str:
             return prioridade
     return "baixa"  # Prioridade padrão se nenhuma palavra-chave for encontrada
 
-ef salvar_tarefa(tarefa_data):
+def salvar_tarefa(tarefa_data):
     try:
         # Garantir que lembretes sejam armazenados como array
         if "lembrete" not in tarefa_data:
