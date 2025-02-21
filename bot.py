@@ -22,7 +22,7 @@ import email
 from email.header import decode_header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from fuzzywuzzy import fuzz
+from rapidfuzz import fuzz
 
 # Configuração de logs
 logging.basicConfig(
