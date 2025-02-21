@@ -24,6 +24,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from fuzzywuzzy import fuzz
 from datetime import datetime, timezone
+from email.mime.base import MIMEBase
+from email import encoders
+import shlex
+import base64
 
 # Configuração de logs
 logging.basicConfig(
@@ -334,6 +338,7 @@ async def help_command(update: Update, context: CallbackContext) -> None:
     /priorizar_email - Configura priorização de e-mails
     /confirmar_reuniao <ID_Evento> - Confirma uma reunião e notifica os participantes
     /editar_tarefa <ID_ou_Descrição> -prioridade <prioridade> - Altera prioridade
+    /enviar_email_anexo <destinatário> "<assunto>" "<mensagem>" - Envia email com arquivo anexado (envie o arquivo com esta legenda)
     """
     await update.message.reply_text(help_text)
 
@@ -1245,6 +1250,38 @@ async def enviar_email_command(update: Update, context: CallbackContext) -> None
         logger.error(f"❌ Erro ao processar comando de e-mail: {str(e)}")
         await update.message.reply_text("❌ Erro ao enviar e-mail.")
         send_whatsapp_message("❌ Erro ao enviar e-mail.")
+def enviar_email(destinatario: str, assunto: str, mensagem: str, anexos=None) -> bool:
+    if anexos is None:
+        anexos = []
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = destinatario
+        msg['Subject'] = assunto
+
+        msg.attach(MIMEText(mensagem, 'plain', 'utf-8'))
+
+        for caminho_anexo in anexos:
+            with open(caminho_anexo, 'rb') as arquivo:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(arquivo.read())
+                encoders.encode_base64(part)
+                part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename="{os.path.basename(caminho_anexo)}"'
+                )
+                msg.attach(part)
+
+        with smtplib.SMTP(EMAIL_HOST, int(EMAIL_PORT)) as server:
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+            
+        logger.info(f"✅ E-mail com anexo enviado para {destinatario}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Erro ao enviar e-mail com anexo: {str(e)}")
+        return False
 
 def enviar_convite(destinatario: str, assunto: str, mensagem: str, evento_link: str):
     try:
@@ -1333,6 +1370,41 @@ async def editar_tarefa(update: Update, context: CallbackContext) -> None:
         logger.error(f"❌ Erro ao editar tarefa: {str(e)}")
         await update.message.reply_text("❌ Erro ao atualizar tarefa. Verifique os dados.")
 
+async def handle_document(update: Update, context: CallbackContext) -> None:
+    try:
+        # Verificar se a legenda começa com o comando
+        if not update.message.caption or not update.message.caption.startswith("/enviar_email_anexo"):
+            return
+
+        # Processar a legenda
+        parts = shlex.split(update.message.caption)
+        if len(parts) < 4:
+            await update.message.reply_text("⚠️ Formato incorreto!\nUse: /enviar_email_anexo <destinatário> \"Assunto entre aspas\" \"Mensagem entre aspas\"")
+            return
+
+        _, destinatario, assunto, mensagem = parts[0], parts[1], parts[2], ' '.join(parts[3:])
+
+        # Baixar o arquivo
+        document = update.message.document
+        file = await context.bot.get_file(document.file_id)
+        file_name = document.file_name
+        temp_path = f"temp_{file_name}"
+        
+        await file.download_to_drive(temp_path)
+
+        # Enviar e-mail
+        if enviar_email(destinatario, assunto, mensagem, [temp_path]):
+            await update.message.reply_text(f"✅ E-mail com anexo enviado para {destinatario}!")
+        else:
+            await update.message.reply_text("❌ Falha ao enviar e-mail com anexo!")
+
+        # Limpar arquivo temporário
+        os.remove(temp_path)
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar anexo: {str(e)}")
+        await update.message.reply_text("❌ Erro ao processar arquivo!")
+
 def main():
     app = Application.builder().token(TOKEN).build()
     
@@ -1354,6 +1426,7 @@ def main():
     app.add_handler(CommandHandler("confirmar_reuniao", comando_confirmar_reuniao))
     app.add_handler(CommandHandler("confirmar_presenca", confirmar_presenca))  
     app.add_handler(CommandHandler("editar_tarefa", editar_tarefa))
+    app.add_handler(MessageHandler(filters.Document.ALL & filters.CAPTION, handle_document))
 
     threading.Thread(target=run_flask, daemon=True).start()
 
