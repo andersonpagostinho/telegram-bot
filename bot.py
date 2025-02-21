@@ -1032,7 +1032,9 @@ async def add_task(update: Update, context: CallbackContext) -> None:
 
     except Exception as e:
         logger.error(f"❌ Erro ao processar comando /tarefa: {str(e)}")
-        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa.")async def list_tasks(update: Update, context: CallbackContext) -> None:
+        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa.")
+
+async def list_tasks(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
     if tarefas:
         task_list = "\n".join([f"🆔 {tarefa['id']}\n- {tarefa['descricao']}\nPrioridade: {tarefa.get('prioridade', 'baixa')}\n" 
