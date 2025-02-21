@@ -76,9 +76,9 @@ EMAIL_IMAP_PORT = os.getenv("EMAIL_IMAP_PORT")
 
 # Configurações de Prioridade
 PALAVRAS_CHAVE = {
-    "alta": ["urgente", "prazo", "vencimento", "importante", "confirmação"],
-    "media": ["reunião", "atualização", "relatório", "cliente"],
-    "baixa": ["newsletter", "promoção", "marketing", "atualizações"]
+    "alta": ["urgente", "pagar", "vencimento", "prazo", "importante", "multa", "conta", "reunião"],
+    "media": ["enviar", "revisar", "responder", "agendar"],
+    "baixa": ["newsletter", "promoção", "marketing", "atualizações", "lembrar", "verificar", "pensar", "considerar"]
 }
 
 REMETENTES_PRIORITARIOS = json.loads(os.getenv("REMETENTES_PRIORITARIOS", "[]"))
@@ -394,18 +394,29 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
     except IndexError:
         await update.message.reply_text("⚠️ Formato correto: /confirmar_reuniao <ID_Evento>")
 
+# Função para detectar prioridade com base nas palavras-chave já definidas no dicionário PALAVRAS_CHAVE
+def detectar_prioridade(descricao: str) -> str:
+    descricao_lower = descricao.lower()
+    for prioridade, palavras in PALAVRAS_CHAVE.items():
+        if any(palavra in descricao_lower for palavra in palavras):
+            return prioridade
+    return "baixa"  # Prioridade padrão se nenhuma palavra-chave for encontrada
+
 def salvar_tarefa(tarefa_data):
     try:
+        # Se a prioridade não for informada, detecta automaticamente pela descrição
+        if not tarefa_data.get("prioridade"):
+            tarefa_data["prioridade"] = detectar_prioridade(tarefa_data["descricao"])
+
+        # Define data de vencimento padrão se não informada
         if "data_vencimento" not in tarefa_data:
             tarefa_data["data_vencimento"] = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
-        
-        if "lembrete" not in tarefa_data:
-            tarefa_data["lembrete"] = 0
-            
+
         tarefa_ref = db.collection("Tarefas").document()
         tarefa_data["id"] = tarefa_ref.id
         tarefa_ref.set(tarefa_data)
-        logger.info(f"✅ Tarefa salva: {tarefa_data['descricao']}")
+
+        logger.info(f"✅ Tarefa salva: {tarefa_data['descricao']} - Prioridade: {tarefa_data['prioridade']}")
         return tarefa_ref.id
     except Exception as e:
         logger.error(f"❌ Erro ao salvar tarefa: {str(e)}")
@@ -956,58 +967,56 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
         await update.message.reply_text("❌ Comando não reconhecido. Diga 'ajuda' para ver os comandos disponíveis.")
 
 async def add_task(update: Update, context: CallbackContext) -> None:
-    args = context.args
-    full_text = ' '.join(args)
+    try:
+        args = context.args
+        full_text = ' '.join(args)
 
-    # Regex para identificar data no formato: dia 25, 25/03, 2025-03-25 ou 25-03-2025
-    data_match = re.search(r'(dia \d{1,2}|\d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2}|\d{1,2}-\d{1,2}-\d{4})', full_text)
-    
-    if data_match:
-        data_texto = data_match.group(0).replace('dia ', '').strip()
+        # Extrai a prioridade informada pelo usuário (se existir)
+        prioridade_match = re.search(r'-prioridade (alta|média|baixa)', full_text)
+        prioridade = prioridade_match.group(1).lower() if prioridade_match else None
 
-        # Tenta converter a data usando dateparser com suporte a vários formatos
-        data_obj = dateparser.parse(data_texto, languages=['pt'])
-        if not data_obj:
-            await update.message.reply_text("❌ Data inválida! Use o formato: dia DD/MM ou YYYY-MM-DD.")
+        # Extrai a data informada pelo usuário
+        data_match = re.search(r'(dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2})', full_text)
+        data_vencimento = None
+        if data_match:
+            data_texto = data_match.group(1)
+            data_vencimento = dateparser.parse(data_texto, languages=['pt'])
+
+        if not data_vencimento:
+            await update.message.reply_text("❌ Data inválida ou não encontrada! Informe assim: dia 25/12 ou 2025-12-25.")
             return
-    else:
-        await update.message.reply_text("❌ Data não encontrada! Informe a data assim: dia 25/12 ou 2025-12-25.")
-        return
 
-    # Extrai prioridade se houver, senão padrão: baixa
-    prioridade_match = re.search(r'-prioridade (alta|média|media|baixa)', full_text)
-    prioridade = prioridade_match.group(1).lower() if prioridade_match else "baixa"
-    if prioridade == "media":
-        prioridade = "média"  # Ajuste para acentuação
+        # Remove parâmetros para deixar apenas a descrição
+        descricao = re.sub(r'(-prioridade (alta|média|baixa)|dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2})', '', full_text).strip()
+        if not descricao:
+            await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
+            return
 
-    # Remove data e prioridade para capturar a descrição limpa
-    descricao = re.sub(r'(dia \d{1,2}|\d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2}|\d{1,2}-\d{1,2}-\d{4})', '', full_text)
-    descricao = re.sub(r'-prioridade (alta|média|media|baixa)', '', descricao).strip()
+        # Se a prioridade não foi informada, detecta automaticamente
+        prioridade = prioridade or detectar_prioridade(descricao)
 
-    if not descricao:
-        await update.message.reply_text("⚠️ Descrição não encontrada! Use: /tarefa [descrição] dia DD/MM -prioridade alta")
-        return
+        tarefa_data = {
+            "descricao": descricao,
+            "prioridade": prioridade,
+            "data_criacao": datetime.now(timezone.utc).isoformat(),
+            "data_vencimento": data_vencimento.isoformat(),
+        }
 
-    tarefa_data = {
-        "descricao": descricao,
-        "prioridade": prioridade,
-        "data_criacao": datetime.now(timezone.utc).isoformat(),
-        "data_vencimento": data_obj.isoformat(),
-        "lembrete": 0  # Ajuste conforme necessário
-    }
+        tarefa_id = salvar_tarefa(tarefa_data)
+        if tarefa_id:
+            msg = (
+                f"✅ Tarefa adicionada:\n"
+                f"📝 {descricao}\n"
+                f"📅 Vencimento: {data_vencimento.strftime('%d/%m/%Y')}\n"
+                f"🔔 Prioridade: {prioridade.capitalize()}"
+            )
+            await update.message.reply_text(msg)
+        else:
+            await update.message.reply_text("❌ Erro ao adicionar tarefa.")
 
-    tarefa_id = salvar_tarefa(tarefa_data)
-    if tarefa_id:
-        msg = (
-            f"✅ Tarefa adicionada:\n"
-            f"📝 {descricao}\n"
-            f"📅 Vencimento: {data_obj.strftime('%d/%m/%Y')}\n"
-            f"🔔 Prioridade: {prioridade.capitalize()}"
-        )
-        await update.message.reply_text(msg)
-        send_whatsapp_message(msg)
-    else:
-        await update.message.reply_text("❌ Erro ao adicionar tarefa.")
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar comando /tarefa: {str(e)}")
+        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa.")
 
 async def list_tasks(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
