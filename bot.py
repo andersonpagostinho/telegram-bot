@@ -397,12 +397,13 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
 
 def extrair_data(texto):
     # Busca formatos como "dia 25", "dia 25/02", "dia 25/02/2024" ou datas ISO
-    match = re.search(r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?)|(\d{4}-\d{2}-\d{2})', 
+    match = re.search(
+        r'(dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?))|(\d{4}-\d{2}-\d{2})', 
         texto, 
-        re.IGNORECASE)
-
+        re.IGNORECASE
+    )
     if match:
-        data_str = match.group(1) or match.group(2)
+        data_str = match.group(2) or match.group(3)  # Grupo 2: dia XX/XX, Grupo 3: data ISO
         # Adiciona o ano atual se não estiver presente
         if data_str and '/' in data_str and len(data_str.split('/')) == 2:
             data_str += f"/{datetime.now().year}"
@@ -992,7 +993,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
             return
 
         # Remove a parte da data do texto para obter a descrição
-        descricao = re.sub(r'dia \d{1,2}/\d{1,2}(?:/\d{2,4})?', '', full_text, flags=re.IGNORECASE).strip()
+        descricao = re.sub(r'(dia \d{1,2}/\d{1,2}(?:/\d{2,4})?|\d{4}-\d{2}-\d{2})', '', full_text, flags=re.IGNORECASE).strip()
         if not descricao:
             await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
             return
