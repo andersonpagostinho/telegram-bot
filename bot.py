@@ -1102,54 +1102,39 @@ async def add_agenda(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("❌ Erro ao adicionar evento!")
         send_whatsapp_message("❌ Erro ao adicionar evento!")
 
-def add_event(summary, start_time, end_time):
+def add_event(summary, start_time, end_time, adicionar_conferencia=False):
     try:
         service = get_calendar_service()
         calendar_id = "andersonpagostinho@gmail.com"
 
-        # 🔔 Estrutura básica do evento (sem conferência)
         event = {
             'summary': summary,
             'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
             'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
         }
 
-        try:
-            # 📝 Tenta criar com Google Meet
+        if adicionar_conferencia:
             event['conferenceData'] = {
                 'createRequest': {
-                    'requestId': f"req-{int(datetime.now().timestamp())}",
+                    'requestId': 'meet_' + datetime.now().strftime("%Y%m%d%H%M%S"),
                     'conferenceSolutionKey': {'type': 'hangoutsMeet'}
                 }
             }
 
-            created_event = service.events().insert(
-                calendarId=calendar_id,
-                body=event,
-                conferenceDataVersion=1
-            ).execute()
+        created_event = service.events().insert(
+            calendarId=calendar_id,
+            body=event,
+            conferenceDataVersion=1 if adicionar_conferencia else 0
+        ).execute()
 
-            event_link = created_event.get('hangoutLink', created_event['htmlLink'])
-            logger.info(f"✅ Evento criado com Google Meet: {event_link}")
-
-        except Exception as e:
-            logger.warning(f"⚠️ Não foi possível criar com Google Meet: {str(e)}. Criando sem conferência...")
-
-            # 🔄 Remove conferenceData e tenta criar novamente
-            event.pop('conferenceData', None)
-            created_event = service.events().insert(
-                calendarId=calendar_id,
-                body=event
-            ).execute()
-
-            event_link = created_event.get('htmlLink')
-            logger.info(f"✅ Evento criado sem conferência: {event_link}")
-
+        event_link = created_event.get('hangoutLink') or created_event.get('htmlLink')
+        logger.info(f"✅ Evento Criado: {event_link}")
         return event_link
 
     except Exception as e:
         logger.error(f"❌ Erro ao criar evento: {str(e)}")
         return None
+
 
 async def relatorio_diario(update: Update, context: CallbackContext) -> None:
     try:
@@ -1225,6 +1210,7 @@ async def enviar_email_command(update: Update, context: CallbackContext) -> None
         logger.error(f"❌ Erro ao processar comando de e-mail: {str(e)}")
         await update.message.reply_text("❌ Erro ao enviar e-mail.")
         send_whatsapp_message("❌ Erro ao enviar e-mail.")
+
 def enviar_convite(destinatario: str, assunto: str, mensagem: str, evento_link: str):
     try:
         service = build('gmail', 'v1', credentials=get_calendar_service()._credentials)
