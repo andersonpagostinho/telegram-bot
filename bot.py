@@ -1107,26 +1107,44 @@ def add_event(summary, start_time, end_time):
         service = get_calendar_service()
         calendar_id = "andersonpagostinho@gmail.com"
 
+        # 🔔 Estrutura básica do evento (sem conferência)
         event = {
             'summary': summary,
             'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
             'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
-            'conferenceData': {  # 🆕 Verificação do tipo de conferência
-                'createRequest': {
-                    'requestId': f"req-{datetime.now().timestamp()}",
-                    'conferenceSolutionKey': {'type': 'hangoutsMeet'}  # Experimente 'hangoutsMeet' ou remova
-                }
-            }
         }
 
-        created_event = service.events().insert(
-            calendarId=calendar_id,
-            body=event,
-            conferenceDataVersion=1
-        ).execute()
+        try:
+            # 📝 Tenta criar com Google Meet
+            event['conferenceData'] = {
+                'createRequest': {
+                    'requestId': f"req-{int(datetime.now().timestamp())}",
+                    'conferenceSolutionKey': {'type': 'hangoutsMeet'}
+                }
+            }
 
-        event_link = created_event.get('hangoutLink', created_event['htmlLink'])
-        logger.info(f"✅ Evento Criado: {event_link}")
+            created_event = service.events().insert(
+                calendarId=calendar_id,
+                body=event,
+                conferenceDataVersion=1
+            ).execute()
+
+            event_link = created_event.get('hangoutLink', created_event['htmlLink'])
+            logger.info(f"✅ Evento criado com Google Meet: {event_link}")
+
+        except Exception as e:
+            logger.warning(f"⚠️ Não foi possível criar com Google Meet: {str(e)}. Criando sem conferência...")
+
+            # 🔄 Remove conferenceData e tenta criar novamente
+            event.pop('conferenceData', None)
+            created_event = service.events().insert(
+                calendarId=calendar_id,
+                body=event
+            ).execute()
+
+            event_link = created_event.get('htmlLink')
+            logger.info(f"✅ Evento criado sem conferência: {event_link}")
+
         return event_link
 
     except Exception as e:
