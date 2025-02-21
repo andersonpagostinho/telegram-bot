@@ -1112,7 +1112,7 @@ def add_event(summary, start_time, end_time):
             'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
             'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
             'conferenceData': {  # Adiciona Google Meet automaticamente
-                'createRequest': {'requestId': 'sample123', 'conferenceSolutionKey': {'type': 'hangoutsMeet'}}
+                'createRequest': {'requestId': 'sample123', 'conferenceSolutionKey': {'type': 'hangouts'}}
             }
         }
         
