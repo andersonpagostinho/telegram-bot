@@ -398,17 +398,19 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
 def extrair_data(texto):
     # Busca formatos como "dia 25", "dia 25/02", "dia 25/02/2024" ou datas ISO
     match = re.search(
-        r'(dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?))|(\d{4}-\d{2}-\d{2})', 
+        r'(dia\s+(\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?))|(\d{4}-\d{2}-\d{2})', 
         texto, 
         re.IGNORECASE
     )
     if match:
-        data_str = match.group(2) or match.group(3)  # Grupo 2: dia XX/XX, Grupo 3: data ISO
-        # Adiciona o ano atual se não estiver presente
-        if data_str and '/' in data_str and len(data_str.split('/')) == 2:
-            data_str += f"/{datetime.now().year}"
-        data = dateparser.parse(data_str, languages=['pt'])
-        return data if data else None
+        # Grupo 2: dia XX/XX, Grupo 3: data ISO
+        data_str = match.group(2) or match.group(3)
+        if data_str:
+            # Adiciona o ano atual se não estiver presente
+            if '/' in data_str and len(data_str.split('/')) == 2:
+                data_str += f"/{datetime.now().year}"
+            data = dateparser.parse(data_str, languages=['pt'])
+            return data if data else None
     return None
 
 # Função para detectar prioridade com base nas palavras-chave já definidas no dicionário PALAVRAS_CHAVE
