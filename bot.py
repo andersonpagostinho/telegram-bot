@@ -396,10 +396,17 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
         await update.message.reply_text("⚠️ Formato correto: /confirmar_reuniao <ID_Evento>")
 
 def extrair_data(texto):
-    # Busca formatos como "dia 25", "dia 25/02" ou datas ISO
-    match = re.search(r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{4})?)?)|((?:\d{4}-\d{2}-\d{2}))', texto)
+    # Busca formatos como "dia 25", "dia 25/02", "dia 25/02/2024" ou datas ISO
+    match = re.search(
+        r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?)|((?:\d{4}-\d{2}-\d{2}))', 
+        texto, 
+        re.IGNORECASE
+    )
     if match:
         data_str = match.group(1) or match.group(2)
+        # Adiciona o ano atual se não estiver presente
+        if data_str and '/' in data_str and len(data_str.split('/')) == 2:
+            data_str += f"/{datetime.now().year}"
         data = dateparser.parse(data_str, languages=['pt'])
         return data if data else None
     return None
@@ -978,33 +985,31 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
 
 async def add_task(update: Update, context: CallbackContext) -> None:
     try:
-        args = context.args
-        full_text = ' '.join(args)
+        full_text = ' '.join(context.args).strip()
+        if not full_text:
+            await update.message.reply_text("⚠️ Informe a descrição da tarefa. Exemplo:\n/tarefa Pagar conta de luz dia 25/02 -prioridade alta")
+            return
 
-        # Extrai a prioridade informada pelo usuário (se existir)
+        # 🔎 Extrai prioridade informada (se existir)
         prioridade_match = re.search(r'-prioridade (alta|média|baixa)', full_text)
         prioridade = prioridade_match.group(1).lower() if prioridade_match else None
 
-        # Extrai a data informada pelo usuário
-        data_match = re.search(r'(dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2})', full_text)
-        data_vencimento = None
-        if data_match:
-            data_texto = data_match.group(1)
-            data_vencimento = dateparser.parse(data_texto, languages=['pt'])
-
+        # 📅 Extrai data usando a função dedicada
+        data_vencimento = extrair_data(full_text)
         if not data_vencimento:
             await update.message.reply_text("❌ Data inválida ou não encontrada! Informe assim: dia 25/12 ou 2025-12-25.")
             return
 
-        # Remove parâmetros para deixar apenas a descrição
-        descricao = re.sub(r'(-prioridade (alta|média|baixa)|dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2})', '', full_text).strip()
+        # 📝 Limpa texto para obter apenas a descrição
+        descricao = re.sub(r'(-prioridade (alta|média|baixa)|dia \d{1,2}(?:/\d{1,2}(?:/\d{4})?)?|\d{4}-\d{2}-\d{2})', '', full_text).strip()
         if not descricao:
             await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
             return
 
-        # Se a prioridade não foi informada, detecta automaticamente
+        # 🧠 Detecta prioridade automaticamente se não foi informada
         prioridade = prioridade or detectar_prioridade(descricao)
 
+        # 💾 Monta dados da tarefa
         tarefa_data = {
             "descricao": descricao,
             "prioridade": prioridade,
@@ -1012,6 +1017,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
             "data_vencimento": data_vencimento.isoformat(),
         }
 
+        # 🚀 Salva a tarefa
         tarefa_id = salvar_tarefa(tarefa_data)
         if tarefa_id:
             msg = (
@@ -1022,11 +1028,11 @@ async def add_task(update: Update, context: CallbackContext) -> None:
             )
             await update.message.reply_text(msg)
         else:
-            await update.message.reply_text("❌ Erro ao adicionar tarefa.")
+            await update.message.reply_text("❌ Erro ao adicionar a tarefa. Tente novamente.")
 
     except Exception as e:
         logger.error(f"❌ Erro ao processar comando /tarefa: {str(e)}")
-        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa.")
+        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa. Verifique os dados e tente novamente.")
 
 async def list_tasks(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
