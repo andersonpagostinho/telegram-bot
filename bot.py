@@ -398,7 +398,7 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
 def extrair_data(texto):
     # Busca formatos como "dia 25", "dia 25/02", "dia 25/02/2024" ou datas ISO
     match = re.search(
-        r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?))|(\d{4}-\d{2}-\d{2})', 
+        r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?)|(\d{4}-\d{2}-\d{2})', 
         texto, 
         re.IGNORECASE
     )
@@ -986,34 +986,23 @@ async def add_task(update: Update, context: CallbackContext) -> None:
         args = context.args
         full_text = ' '.join(args)
 
-        # Extrai a prioridade informada pelo usuário (se existir)
-        prioridade_match = re.search(r'-prioridade (alta|média|baixa)', full_text, re.IGNORECASE)
-        prioridade = prioridade_match.group(1).lower() if prioridade_match else None
-
         # Extrai a data informada pelo usuário
         data_vencimento = extrair_data(full_text)
         if not data_vencimento:
             await update.message.reply_text("❌ Data inválida ou não encontrada! Informe assim: dia 25/12 ou 2025-12-25.")
             return
 
-        # Extrai múltiplos lembretes (se existirem)
-        lembretes = []
-        lembrete_match = re.findall(r'-lembrete (\d+)', full_text)
-        if lembrete_match:
-            lembretes = [int(minutos) for minutos in lembrete_match]
-
-        # Remove parâmetros para deixar apenas a descrição
-        descricao = re.sub(
-            r'(-prioridade (alta|média|baixa)|dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2}|-lembrete \d+)', 
-            '', 
-            full_text
-        ).strip()
+        # Remove a parte da data do texto para obter a descrição
+        descricao = re.sub(r'dia \d{1,2}/\d{1,2}(?:/\d{2,4})?', '', full_text, flags=re.IGNORECASE).strip()
         if not descricao:
             await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
             return
 
-        # Se a prioridade não foi informada, detecta automaticamente
-        prioridade = prioridade or detectar_prioridade(descricao)
+        # Define a prioridade automaticamente com base nas palavras-chave
+        prioridade = detectar_prioridade(descricao)
+
+        # Define lembretes padrão (30 minutos, 60 minutos e 24 horas antes)
+        lembretes = [30, 60, 1440]  # Lembretes padrão
 
         # Cria a estrutura de dados da tarefa
         tarefa_data = {
@@ -1021,7 +1010,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
             "prioridade": prioridade,
             "data_criacao": datetime.now(timezone.utc).isoformat(),
             "data_vencimento": data_vencimento.isoformat(),
-            "lembrete": lembretes  # Agora é uma lista de minutos
+            "lembrete": lembretes  # Lembretes padrão
         }
 
         # Salva a tarefa no Firebase
@@ -1032,21 +1021,18 @@ async def add_task(update: Update, context: CallbackContext) -> None:
                 f"📝 {descricao}\n"
                 f"📅 Vencimento: {data_vencimento.strftime('%d/%m/%Y')}\n"
                 f"🔔 Prioridade: {prioridade.capitalize()}\n"
-                f"⏰ Lembretes: {', '.join(map(str, lembretes))} minutos antes" if lembretes else "Sem lembretes"
+                f"⏰ Lembretes: {', '.join(map(str, lembretes))} minutos antes"
             )
             await update.message.reply_text(msg)
 
-            # Agenda os lembretes (se houver)
-            if lembretes:
-                agendar_lembrete(context, "Tarefa", tarefa_id, descricao, data_vencimento.isoformat(), lembretes)
+            # Agenda os lembretes
+            agendar_lembrete(context, "Tarefa", tarefa_id, descricao, data_vencimento.isoformat(), lembretes)
         else:
             await update.message.reply_text("❌ Erro ao adicionar tarefa.")
 
     except Exception as e:
         logger.error(f"❌ Erro ao processar comando /tarefa: {str(e)}")
-        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa.")
-
-async def list_tasks(update: Update, context: CallbackContext) -> None:
+        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa.")async def list_tasks(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
     if tarefas:
         task_list = "\n".join([f"🆔 {tarefa['id']}\n- {tarefa['descricao']}\nPrioridade: {tarefa.get('prioridade', 'baixa')}\n" 
