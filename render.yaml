@@ -1,4 +1,5 @@
 buildCommand: |
   pip install --upgrade pip setuptools wheel
+  pip install rapidfuzz==3.5.2
   pip install -r requirements.txt
 startCommand: python bot.py
