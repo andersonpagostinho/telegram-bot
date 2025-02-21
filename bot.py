@@ -1106,39 +1106,29 @@ def add_event(summary, start_time, end_time):
     try:
         service = get_calendar_service()
         calendar_id = "andersonpagostinho@gmail.com"
-        
+
         event = {
             'summary': summary,
             'start': {'dateTime': start_time, 'timeZone': 'America/Sao_Paulo'},
             'end': {'dateTime': end_time, 'timeZone': 'America/Sao_Paulo'},
-            'conferenceData': {  # Adiciona Google Meet automaticamente
-                'createRequest': {'requestId': 'sample123', 'conferenceSolutionKey': {'type': 'hangouts'}}
+            'conferenceData': {  # 🆕 Verificação do tipo de conferência
+                'createRequest': {
+                    'requestId': f"req-{datetime.now().timestamp()}",
+                    'conferenceSolutionKey': {'type': 'hangoutsMeet'}  # Experimente 'hangoutsMeet' ou remova
+                }
             }
         }
-        
+
         created_event = service.events().insert(
             calendarId=calendar_id,
             body=event,
             conferenceDataVersion=1
         ).execute()
-        
+
         event_link = created_event.get('hangoutLink', created_event['htmlLink'])
-        
-        # Salvar no Firebase com status pendente
-        evento_data = {
-            "titulo": summary,
-            "data": datetime.fromisoformat(start_time).strftime("%Y-%m-%d"),
-            "hora": datetime.fromisoformat(start_time).strftime("%H:%M:%S"),
-            "link": event_link,
-            "status": "pendente",
-            "participantes": []  # Adicione participantes se necessário
-        }
-        evento_ref = db.collection("Eventos").document()
-        evento_ref.set(evento_data)
-        
         logger.info(f"✅ Evento Criado: {event_link}")
         return event_link
-    
+
     except Exception as e:
         logger.error(f"❌ Erro ao criar evento: {str(e)}")
         return None
