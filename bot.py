@@ -397,11 +397,10 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
 
 def extrair_data(texto):
     # Busca formatos como "dia 25", "dia 25/02", "dia 25/02/2024" ou datas ISO
-    match = re.search(
-        r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?)|(\d{4}-\d{2}-\d{2})', 
+    match = re.search(r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?)|(\d{4}-\d{2}-\d{2})', 
         texto, 
-        re.IGNORECASE
-    )
+        re.IGNORECASE)
+
     if match:
         data_str = match.group(1) or match.group(2)
         # Adiciona o ano atual se não estiver presente
