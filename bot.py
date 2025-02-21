@@ -419,20 +419,17 @@ def detectar_prioridade(descricao: str) -> str:
             return prioridade
     return "baixa"  # Prioridade padrão se nenhuma palavra-chave for encontrada
 
-def salvar_tarefa(tarefa_data):
+ef salvar_tarefa(tarefa_data):
     try:
-        # Se a prioridade não for informada, detecta automaticamente pela descrição
-        if not tarefa_data.get("prioridade"):
-            tarefa_data["prioridade"] = detectar_prioridade(tarefa_data["descricao"])
-
-        # Define data de vencimento padrão se não informada
-        if "data_vencimento" not in tarefa_data:
-            tarefa_data["data_vencimento"] = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
-
+        # Garantir que lembretes sejam armazenados como array
+        if "lembrete" not in tarefa_data:
+            tarefa_data["lembrete"] = []
+        elif not isinstance(tarefa_data["lembrete"], list):
+            tarefa_data["lembrete"] = [tarefa_data["lembrete"]]
+            
         tarefa_ref = db.collection("Tarefas").document()
         tarefa_data["id"] = tarefa_ref.id
         tarefa_ref.set(tarefa_data)
-
         logger.info(f"✅ Tarefa salva: {tarefa_data['descricao']} - Prioridade: {tarefa_data['prioridade']}")
         return tarefa_ref.id
     except Exception as e:
@@ -569,21 +566,22 @@ def transcrever_audio(wav_path):
             logger.error(f"❌ Erro na requisição ao Google Speech-to-Text: {e}")
             return None
 
-def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembrete_minutos):
+def agendar_lembrete(context: CallbackContext, tipo, id, descricao, data, lembretes):
     try:
-        data_lembrete = datetime.fromisoformat(data).replace(tzinfo=timezone.utc) - timedelta(minutes=lembrete_minutos)
-        agora = datetime.now(timezone.utc)
+        for minutos in lembretes:
+            data_lembrete = datetime.fromisoformat(data).replace(tzinfo=timezone.utc) - timedelta(minutes=minutos)
+            agora = datetime.now(timezone.utc)
 
-        if data_lembrete > agora:
-            scheduler = BackgroundScheduler()
-            scheduler.add_job(
-                enviar_lembrete,
-                trigger="date",
-                run_date=data_lembrete,
-                args=[context, tipo, id, descricao],
-            )
-            scheduler.start()
-            logger.info(f"✅ Lembrete agendado para {data_lembrete}")
+            if data_lembrete > agora:
+                scheduler = BackgroundScheduler()
+                scheduler.add_job(
+                    enviar_lembrete,
+                    trigger="date",
+                    run_date=data_lembrete,
+                    args=[context, tipo, id, descricao],
+                )
+                scheduler.start()
+                logger.info(f"✅ Lembrete agendado para {data_lembrete}")
     except Exception as e:
         logger.error(f"❌ Erro ao agendar lembrete: {str(e)}")
 
@@ -985,54 +983,73 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
 
 async def add_task(update: Update, context: CallbackContext) -> None:
     try:
-        full_text = ' '.join(context.args).strip()
-        if not full_text:
-            await update.message.reply_text("⚠️ Informe a descrição da tarefa. Exemplo:\n/tarefa Pagar conta de luz dia 25/02 -prioridade alta")
-            return
+        args = context.args
+        full_text = ' '.join(args)
 
-        # 🔎 Extrai prioridade informada (se existir)
-        prioridade_match = re.search(r'-prioridade (alta|média|baixa)', full_text)
+        # Extrai a prioridade informada pelo usuário (se existir)
+        prioridade_match = re.search(r'-prioridade (alta|média|baixa)', full_text, re.IGNORECASE)
         prioridade = prioridade_match.group(1).lower() if prioridade_match else None
 
-        # 📅 Extrai data usando a função dedicada
-        data_vencimento = extrair_data(full_text)
+        # Extrai a data informada pelo usuário
+        data_match = re.search(r'(dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2})', full_text)
+        data_vencimento = None
+        if data_match:
+            data_texto = data_match.group(1)
+            data_vencimento = dateparser.parse(data_texto, languages=['pt'])
+
         if not data_vencimento:
             await update.message.reply_text("❌ Data inválida ou não encontrada! Informe assim: dia 25/12 ou 2025-12-25.")
             return
 
-        # 📝 Limpa texto para obter apenas a descrição
-        descricao = re.sub(r'(-prioridade (alta|média|baixa)|dia \d{1,2}(?:/\d{1,2}(?:/\d{4})?)?|\d{4}-\d{2}-\d{2})', '', full_text).strip()
+        # Extrai múltiplos lembretes (se existirem)
+        lembretes = []
+        lembrete_match = re.findall(r'-lembrete (\d+)', full_text)
+        if lembrete_match:
+            lembretes = [int(minutos) for minutos in lembrete_match]
+
+        # Remove parâmetros para deixar apenas a descrição
+        descricao = re.sub(
+            r'(-prioridade (alta|média|baixa)|dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2}|-lembrete \d+)', 
+            '', 
+            full_text
+        ).strip()
         if not descricao:
             await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
             return
 
-        # 🧠 Detecta prioridade automaticamente se não foi informada
+        # Se a prioridade não foi informada, detecta automaticamente
         prioridade = prioridade or detectar_prioridade(descricao)
 
-        # 💾 Monta dados da tarefa
+        # Cria a estrutura de dados da tarefa
         tarefa_data = {
             "descricao": descricao,
             "prioridade": prioridade,
             "data_criacao": datetime.now(timezone.utc).isoformat(),
             "data_vencimento": data_vencimento.isoformat(),
+            "lembrete": lembretes  # Agora é uma lista de minutos
         }
 
-        # 🚀 Salva a tarefa
+        # Salva a tarefa no Firebase
         tarefa_id = salvar_tarefa(tarefa_data)
         if tarefa_id:
             msg = (
                 f"✅ Tarefa adicionada:\n"
                 f"📝 {descricao}\n"
                 f"📅 Vencimento: {data_vencimento.strftime('%d/%m/%Y')}\n"
-                f"🔔 Prioridade: {prioridade.capitalize()}"
+                f"🔔 Prioridade: {prioridade.capitalize()}\n"
+                f"⏰ Lembretes: {', '.join(map(str, lembretes))} minutos antes" if lembretes else "Sem lembretes"
             )
             await update.message.reply_text(msg)
+
+            # Agenda os lembretes (se houver)
+            if lembretes:
+                agendar_lembrete(context, "Tarefa", tarefa_id, descricao, data_vencimento.isoformat(), lembretes)
         else:
-            await update.message.reply_text("❌ Erro ao adicionar a tarefa. Tente novamente.")
+            await update.message.reply_text("❌ Erro ao adicionar tarefa.")
 
     except Exception as e:
         logger.error(f"❌ Erro ao processar comando /tarefa: {str(e)}")
-        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa. Verifique os dados e tente novamente.")
+        await update.message.reply_text("❌ Ocorreu um erro ao adicionar a tarefa.")
 
 async def list_tasks(update: Update, context: CallbackContext) -> None:
     tarefas = buscar_tarefas()
