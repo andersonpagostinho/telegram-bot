@@ -398,7 +398,7 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
 def extrair_data(texto):
     # Busca formatos como "dia 25", "dia 25/02", "dia 25/02/2024" ou datas ISO
     match = re.search(
-        r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?)|((?:\d{4}-\d{2}-\d{2}))', 
+        r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{2,4})?))|(\d{4}-\d{2}-\d{2})', 
         texto, 
         re.IGNORECASE
     )
@@ -991,12 +991,7 @@ async def add_task(update: Update, context: CallbackContext) -> None:
         prioridade = prioridade_match.group(1).lower() if prioridade_match else None
 
         # Extrai a data informada pelo usuário
-        data_match = re.search(r'(dia \d{1,2}/\d{1,2}|\d{4}-\d{2}-\d{2})', full_text)
-        data_vencimento = None
-        if data_match:
-            data_texto = data_match.group(1)
-            data_vencimento = dateparser.parse(data_texto, languages=['pt'])
-
+        data_vencimento = extrair_data(full_text)
         if not data_vencimento:
             await update.message.reply_text("❌ Data inválida ou não encontrada! Informe assim: dia 25/12 ou 2025-12-25.")
             return
