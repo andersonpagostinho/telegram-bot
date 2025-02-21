@@ -22,6 +22,7 @@ import email
 from email.header import decode_header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from fuzzywuzzy import fuzz
 
 # Configuração de logs
 logging.basicConfig(
@@ -445,6 +446,30 @@ def buscar_tarefas():
     except Exception as e:
         logger.error(f"❌ Erro buscar tarefas: {str(e)}")
         return []
+
+def buscar_tarefa_por_descricao(descricao: str):
+    """Busca tarefas com descrição semelhante usando fuzzy matching"""
+    try:
+        tarefas_ref = db.collection("Tarefas").stream()
+        tarefas = [t for t in tarefas_ref]
+        
+        # Aplica fuzzy matching para encontrar a melhor correspondência
+        melhor_tarefa = None
+        melhor_pontuacao = 0
+        
+        for tarefa in tarefas:
+            descricao_tarefa = tarefa.get("descricao", "").lower()
+            pontuacao = fuzz.ratio(descricao.lower(), descricao_tarefa)
+            
+            if pontuacao > melhor_pontuacao and pontuacao >= 70:  # Limite de 70% de similaridade
+                melhor_tarefa = tarefa
+                melhor_pontuacao = pontuacao
+        
+        return melhor_tarefa  # Retorna a tarefa mais semelhante ou None
+    
+    except Exception as e:
+        logger.error(f"❌ Erro ao buscar tarefa por descrição: {str(e)}")
+        return None
 
 def buscar_eventos():
     try:
@@ -896,6 +921,32 @@ async def processar_comando_voz(update: Update, context: CallbackContext, texto:
 
     elif "mostrar e-mails prioritários" in texto or "listar e-mails importantes" in texto:
         await listar_emails_prioritarios(update, context)
+
+    elif re.search(r'editar (prioridade|importância) (da tarefa|do compromisso) (.+?) para (alta|média|baixa)', texto):
+        match = re.search(r'editar (prioridade|importância) (da tarefa|do compromisso) (.+?) para (alta|média|baixa)', texto)
+        descricao_tarefa = match.group(3).strip()
+        nova_prioridade = match.group(4).lower()
+        
+        # Buscar tarefa por descrição aproximada
+        tarefa = buscar_tarefa_por_descricao(descricao_tarefa)
+        
+        if not tarefa:
+            await update.message.reply_text(
+                f"❌ Nenhuma tarefa encontrada com descrição semelhante a: '{descricao_tarefa}'"
+            )
+            return
+            
+        # Atualizar prioridade
+        tarefa.reference.update({"prioridade": nova_prioridade})
+        await update.message.reply_text(
+            f"✅ Prioridade da tarefa '{tarefa.get('descricao')}' "
+            f"atualizada para {nova_prioridade.capitalize()}!"
+        )
+        send_whatsapp_message(
+            f"📝 Tarefa atualizada por voz:\n"
+            f"'{tarefa.get('descricao')}'\n"
+            f"Nova prioridade: {nova_prioridade}"
+        )
 
     elif context.user_data.get('aguardando_confirmacao') and "sim" in texto:
         await clear_tasks(update, context)
