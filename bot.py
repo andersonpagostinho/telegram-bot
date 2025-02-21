@@ -23,6 +23,7 @@ from email.header import decode_header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from fuzzywuzzy import fuzz
+from datetime import datetime, timezone
 
 # Configuração de logs
 logging.basicConfig(
@@ -393,6 +394,15 @@ async def comando_confirmar_reuniao(update: Update, context: CallbackContext):
             await update.message.reply_text("❌ Erro ao confirmar reunião. Verifique o ID.")
     except IndexError:
         await update.message.reply_text("⚠️ Formato correto: /confirmar_reuniao <ID_Evento>")
+
+def extrair_data(texto):
+    # Busca formatos como "dia 25", "dia 25/02" ou datas ISO
+    match = re.search(r'dia (\d{1,2}(?:/\d{1,2}(?:/\d{4})?)?)|((?:\d{4}-\d{2}-\d{2}))', texto)
+    if match:
+        data_str = match.group(1) or match.group(2)
+        data = dateparser.parse(data_str, languages=['pt'])
+        return data if data else None
+    return None
 
 # Função para detectar prioridade com base nas palavras-chave já definidas no dicionário PALAVRAS_CHAVE
 def detectar_prioridade(descricao: str) -> str:
