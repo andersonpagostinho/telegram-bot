@@ -66,4 +66,4 @@ python-dotenv==1.0.1
 dateparser==1.2.1
 apscheduler==3.10.4
 fuzzywuzzy==0.18.0
-python-Levenshtein==0.12.2
+dateparser==1.2.1
