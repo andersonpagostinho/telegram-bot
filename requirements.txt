@@ -38,7 +38,6 @@ pycparser==2.22
 pydub==0.25.1
 PyJWT==2.10.1
 pyparsing==3.2.1
-python-telegram-bot==21.10
 python-telegram-bot[webhooks]==21.1.1
 requests==2.32.3
 rsa==4.9
