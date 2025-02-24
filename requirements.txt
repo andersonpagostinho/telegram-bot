@@ -37,12 +37,9 @@ pyasn1==0.6.1
 pycparser==2.22
 pydub==0.25.1
 PyJWT==2.10.1
-<<<<<<< HEAD
 pyparsing==3.2.1
 python-telegram-bot==21.10
-=======
 python-telegram-bot[webhooks]==21.1.1
->>>>>>> 196971d (Corrige conflito e prepara deploy)
 requests==2.32.3
 rsa==4.9
 SpeechRecognition==3.14.1
@@ -55,12 +52,9 @@ yarl==1.18.3
 python-dotenv==1.0.1
 apscheduler==3.10.4
 fuzzywuzzy==0.18.0
-<<<<<<< HEAD
-=======
 python-Levenshtein==0.12.2
 gunicorn==21.2.0
 gevent==24.2.1
 greenlet==3.0.3
 Flask==3.0.3
->>>>>>> 196971d (Corrige conflito e prepara deploy)
 dateparser==1.2.1
