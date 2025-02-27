@@ -48,10 +48,11 @@ def webhook():
         logger.debug("📥 Webhook recebido")
         update = Update.de_json(request.get_json(force=True), application.bot)
 
-        logger.debug(f"📩 Update recebido: {update}")  # <-- Adiciona um log para verificar a mensagem recebida
+        logger.debug(f"📩 Update recebido: {update}")  # <-- Log para depuração
 
-        # Coloca a atualização na fila de processamento
-        application.update_queue.put_nowait(update)
+        # Obtém o loop do evento e cria a tarefa assíncrona
+        loop = asyncio.get_running_loop()
+        loop.create_task(application.process_update(update))
 
         return "OK", 200
     except Exception as e:
