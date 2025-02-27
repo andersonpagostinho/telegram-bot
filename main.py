@@ -47,10 +47,12 @@ def webhook():
     try:
         logger.debug("📥 Webhook recebido")
         update = Update.de_json(request.get_json(force=True), application.bot)
-        
+
+        logger.debug(f"📩 Update recebido: {update}")  # <-- Adiciona um log para verificar a mensagem recebida
+
         # Coloca a atualização na fila de processamento
         application.update_queue.put_nowait(update)
-        
+
         return "OK", 200
     except Exception as e:
         logger.error(f"🔥 Erro no webhook: {e}")
