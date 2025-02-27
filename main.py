@@ -50,10 +50,14 @@ def webhook():
 
         logger.debug(f"📩 Update recebido: {update}")  # <-- Log para depuração
 
-        # Obtém o loop principal do bot
-        loop = asyncio.get_event_loop()
+        # ✅ Garante que um loop de eventos ativo seja usado
+        try:
+            loop = asyncio.get_running_loop()  # Tenta obter um loop já rodando
+        except RuntimeError:
+            loop = asyncio.new_event_loop()  # Se não existir, cria um novo
+            asyncio.set_event_loop(loop)
 
-        # Usa run_coroutine_threadsafe para garantir execução assíncrona no loop correto
+        # ✅ Usa run_coroutine_threadsafe para rodar no loop correto
         future = asyncio.run_coroutine_threadsafe(application.process_update(update), loop)
         future.result()  # Aguarda a execução para capturar exceções
 
