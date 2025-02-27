@@ -2,77 +2,60 @@ import os
 import logging
 import asyncio
 import threading
+import sys
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, ContextTypes
 from dotenv import load_dotenv
-from handlers import register_handlers
 
-# 🔑 Carregar variáveis de ambiente
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
 
-# 📝 Configuração de logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# 🌐 Variáveis de ambiente
 TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 8080))
 RENDER_SERVICE_NAME = os.getenv("RENDER_SERVICE_NAME", "telegram-bot-a7a7")
 WEBHOOK_URL = f"https://{RENDER_SERVICE_NAME}.onrender.com/webhook"
 
-# 🏗️ Inicialização do Flask
 app = Flask(__name__)
-
-# 🏗️ Inicialização do Telegram
 application = Application.builder().token(TOKEN).build()
 
-# ✅ Registra os handlers logo após criar a aplicação
+# ✅ Agora os handlers são registrados corretamente, depois da criação do application
+from handler.bot import register_handlers
+
+print("✅ Registrando handlers...")  # TESTE
 register_handlers(application)
+print("✅ Handlers registrados!")  # TESTE
 
-# ✅ Comando /start
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        logger.info(f"🚀 Comando /start recebido de {update.effective_user.id}")
-        await update.message.reply_text("👋 Olá! Bot funcionando com Webhooks!")
-    except Exception as e:
-        logger.error(f"❌ Erro no comando /start: {e}")
+async def webhook_process(update: Update):
+    await application.process_update(update)
 
-# 🔄 Rota do webhook (Flask recebe e repassa para o bot)
 @app.route("/webhook", methods=["POST"])
 def webhook():
     try:
         logger.debug("📥 Webhook recebido")
         update = Update.de_json(request.get_json(force=True), application.bot)
 
-        logger.debug(f"📩 Update recebido: {update}")  # <-- Log para depuração
+        logger.debug(f"📩 Update recebido: {update}")
 
-        # ✅ Garante que um loop de eventos ativo seja usado
-        try:
-            loop = asyncio.get_running_loop()  # Tenta obter um loop já rodando
-        except RuntimeError:
-            loop = asyncio.new_event_loop()  # Se não existir, cria um novo
-            asyncio.set_event_loop(loop)
-
-        # ✅ Usa run_coroutine_threadsafe para rodar no loop correto
-        future = asyncio.run_coroutine_threadsafe(application.process_update(update), loop)
-        future.result()  # Aguarda a execução para capturar exceções
-
+       # ✅ Corrige a execução assíncrona correta
+       loop = asyncio.get_event_loop()
+       loop.create_task(webhook_process(update))
+        
         return "OK", 200
     except Exception as e:
-        logger.error(f"🔥 Erro no webhook: {e}")
+        logger.error(f"🔥 Erro no webhook: {e}", exc_info=True)
         return "Erro", 500
 
-# 🏠 Health check
 @app.route("/", methods=["GET"])
 def health_check():
-    logger.info("🩺 Health check recebido")
     return "🤖 Bot Online!", 200
 
-# 🌐 Configura o webhook no Telegram
 async def set_webhook():
     try:
         await application.bot.delete_webhook()
@@ -84,32 +67,24 @@ async def set_webhook():
     except Exception as e:
         logger.error(f"❌ Erro ao configurar webhook: {e}")
 
-# 🚀 Inicialização do bot
 def run_bot():
     try:
-        # Cria um novo loop assíncrono
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        # Configura o webhook
-        loop.run_until_complete(set_webhook())
-        
-        # Inicializa o Application
+        # ✅ Inicializa o Application explicitamente
         loop.run_until_complete(application.initialize())
+        loop.run_until_complete(set_webhook())
         loop.run_until_complete(application.start())
         
-        # Inicia o processamento de atualizações
+        logger.info("🤖 Bot está rodando e processando atualizações...")
         loop.run_forever()
     except Exception as e:
-        logger.error(f"❌ Erro ao iniciar o bot: {e}")
+        logger.error(f"❌ Erro ao iniciar o bot: {e}", exc_info=True)
 
-# 🚀 Inicialização
 if __name__ == "__main__":
-    # 📦 Registra handlers
-    register_handlers(application)
-
-    # 🚀 Inicia o servidor Flask em uma thread separada
-    threading.Thread(target=app.run, kwargs={"host": "0.0.0.0", "port": PORT}).start()
-
-    # 🚀 Inicia o bot
+    threading.Thread(
+        target=app.run, 
+        kwargs={"host": "0.0.0.0", "port": PORT, "use_reloader": False}
+    ).start()
     run_bot()
