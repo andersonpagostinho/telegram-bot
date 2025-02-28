@@ -47,11 +47,8 @@ def webhook():
         update = Update.de_json(request.get_json(force=True), application.bot)
         logger.debug(f"📩 Update recebido: {update}")
 
-        # ✅ Usa o loop correto do bot
-        if application.running:
-            asyncio.run_coroutine_threadsafe(webhook_process(update), application.bot.loop)
-        else:
-            logger.error("❌ Loop do bot não está rodando!")
+        # ✅ Usa o loop correto da aplicação
+        application.create_task(webhook_process(update))
 
         return "OK", 200
     except Exception as e:
