@@ -3,22 +3,22 @@ from firebase_admin import credentials, firestore
 import os
 import json
 
-# Pegar credenciais do Firebase
+# 🔥 Verifica a variável de ambiente
 firebase_json_path = os.getenv("FIREBASE_CREDENTIALS")
 
 if not firebase_json_path or not os.path.exists(firebase_json_path):
-    raise ValueError("❌ Arquivo de credenciais do Firebase não encontrado!")
+    raise ValueError(f"❌ Arquivo de credenciais do Firebase não encontrado! Caminho: {firebase_json_path}")
 
-cred = credentials.Certificate(firebase_json_path)
+# ✅ Carregar credenciais do Firebase corretamente
+with open(firebase_json_path, "r") as f:
+    cred_info = json.load(f)
+
+cred = credentials.Certificate(cred_info)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# ✅ Função para salvar uma nova tarefa no Firestore
+# ✅ Função para salvar tarefa no Firestore
 def salvar_tarefa(descricao):
-    try:
-        tarefa_ref = db.collection("Tarefas").document()
-        tarefa_ref.set({"descricao": descricao, "status": "pendente"})
-        return True
-    except Exception as e:
-        print(f"Erro ao salvar tarefa: {e}")
-        return False
+    doc_ref = db.collection("Tarefas").document()
+    doc_ref.set({"descricao": descricao, "prioridade": "baixa"})
+    print(f"✅ Tarefa '{descricao}' salva com sucesso no Firestore!")
