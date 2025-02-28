@@ -24,9 +24,25 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     resposta = "📌 Suas tarefas:\n" + "\n".join(f"- {t['descricao']} ({t.get('prioridade', 'baixa')})" for t in tarefas)
     await update.message.reply_text(resposta)
 
+# ✅ listar prioridades
+async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tarefas = buscar_dados("Tarefas")
+    if not tarefas:
+        await update.message.reply_text("📭 Nenhuma tarefa encontrada.")
+        return
+
+    prioridade_ordem = {"alta": 1, "média": 2, "baixa": 3}
+    tarefas_ordenadas = sorted(tarefas, key=lambda x: prioridade_ordem.get(x.get("prioridade", "baixa"), 3))
+
+    resposta = "📌 Tarefas por prioridade:\n" + "\n".join(f"- {t['descricao']} ({t.get('prioridade', 'baixa')})" for t in tarefas_ordenadas)
+    await update.message.reply_text(resposta)
+
 # ✅ Limpar todas as tarefas
 async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if limpar_colecao("Tarefas"):
         await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
     else:
         await update.message.reply_text("❌ Erro ao limpar as tarefas.")
+
+
+
