@@ -26,7 +26,7 @@ app = Flask(__name__)
 application = Application.builder().token(TOKEN).build()
 
 # ✅ Agora os handlers são registrados corretamente, depois da criação do application
-from handler.bot import register_handlers
+from handlers.bot import register_handlers
 
 print("✅ Registrando handlers...")  # TESTE
 register_handlers(application)
