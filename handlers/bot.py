@@ -19,14 +19,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("📖 Comando /help recebido!")
     await update.message.reply_text(
         "ℹ️ Comandos disponíveis:\n"
-         "/start - Inicia o bot\n"
+        "/start - Inicia o bot\n"
         "/help - Mostra esta mensagem\n"
         "/tarefa - Adiciona uma tarefa\n"
         "/listar - Lista todas as tarefas\n"
         "/limpar - Remove todas as tarefas\n"
         "/ler_emails - Lê os últimos e-mails\n"
         "/emails_prioritarios - Lista e-mails importantes\n"
-        "/enviar_email - Envia um e-mail\n""
+        "/enviar_email - Envia um e-mail\n"
     )
 
 # 🚀 Registra os handlers
