@@ -3,21 +3,25 @@ from firebase_admin import credentials, firestore
 import os
 import json
 
-# 🔥 Verifica a variável de ambiente
-firebase_json_path = os.getenv("FIREBASE_CREDENTIALS")
+# ✅ Pega as credenciais do Firebase da variável de ambiente no Render
+firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
 
-if not firebase_json_path or not os.path.exists(firebase_json_path):
-    raise ValueError(f"❌ Arquivo de credenciais do Firebase não encontrado! Caminho: {firebase_json_path}")
+if not firebase_credentials:
+    raise ValueError("❌ Credenciais do Firebase não encontradas!")
 
-# ✅ Carregar credenciais do Firebase corretamente
-with open(firebase_json_path, "r") as f:
-    cred_info = json.load(f)
+try:
+    # ✅ Converte a string JSON armazenada na variável de ambiente para um dicionário
+    cred_info = json.loads(firebase_credentials)
+    
+    # ✅ Inicializa o Firebase com as credenciais carregadas
+    cred = credentials.Certificate(cred_info)
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("✅ Firebase inicializado com sucesso!")
+except Exception as e:
+    raise ValueError(f"❌ Erro ao carregar credenciais do Firebase: {e}")
 
-cred = credentials.Certificate(cred_info)
-firebase_admin.initialize_app(cred)
-db = firestore.client()
-
-# ✅ Função para salvar tarefa no Firestore
+# ✅ Função para salvar uma tarefa no Firestore
 def salvar_tarefa(descricao):
     doc_ref = db.collection("Tarefas").document()
     doc_ref.set({"descricao": descricao, "prioridade": "baixa"})
