@@ -43,10 +43,8 @@ def webhook():
 
         logger.debug(f"📩 Update recebido: {update}")
 
-        # ✅ Corrige a execução assíncrona correta
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(webhook_process(update))
+        # ✅ Usa o loop do bot corretamente
+        asyncio.run_coroutine_threadsafe(webhook_process(update), application._loop)
 
         return "OK", 200
     except Exception as e:
