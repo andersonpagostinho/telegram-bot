@@ -23,7 +23,7 @@ except Exception as e:
     raise ValueError(f"❌ Erro ao carregar credenciais do Firebase: {e}")
 
 # ✅ Função para salvar uma tarefa no Firestore
-ddef salvar_tarefa(descricao):
+def salvar_tarefa(descricao):
     try:
         doc_ref = db.collection("Tarefas").document()
         doc_ref.set({"descricao": descricao, "prioridade": "baixa"})  # Salvando como baixa por padrão
