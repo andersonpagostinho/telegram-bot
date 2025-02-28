@@ -29,6 +29,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/enviar_email - Envia um e-mail\n"
     )
 
+# ✅ comando ler email
+async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    emails = ler_emails()
+    if emails:
+        resposta = "📧 Emails:\n" + "\n".join(emails)
+    else:
+        resposta = "📭 Nenhum email encontrado."
+    
+    await update.message.reply_text(resposta)
+
 # 🚀 Registra os handlers
 def register_handlers(application: Application):
     try:
