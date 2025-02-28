@@ -12,25 +12,36 @@ if not firebase_credentials:
 # Converter a string JSON armazenada na variável de ambiente para um dicionário
 cred_info = json.loads(firebase_credentials)
 
-# Função para salvar dados no Firestore
+# Inicializar Firebase
+cred = credentials.Certificate(cred_info)
+firebase_admin.initialize_app(cred)
+db = firestore.client()
+
+# ✅ Função para salvar dados em uma coleção
 def salvar_dados(colecao, dados):
     try:
         doc_ref = db.collection(colecao).add(dados)
-        print(f"✅ Dados salvos na coleção '{colecao}': {dados}")
+        print(f"✅ Dados salvos em '{colecao}' com sucesso!")
         return doc_ref
     except Exception as e:
-        print(f"❌ Erro ao salvar dados: {e}")
+        print(f"❌ Erro ao salvar dados em '{colecao}': {e}")
+        return None
 
-# Função para buscar todos os documentos de uma coleção
+# ✅ Função para buscar dados de uma coleção
 def buscar_dados(colecao):
     try:
         docs = db.collection(colecao).stream()
         return [doc.to_dict() for doc in docs]
     except Exception as e:
-        print(f"❌ Erro ao buscar dados: {e}")
+        print(f"❌ Erro ao buscar dados de '{colecao}': {e}")
         return []
 
-# Inicializar Firebase
-cred = credentials.Certificate(cred_info)
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+# ✅ Função para deletar todos os documentos de uma coleção
+def deletar_colecao(colecao):
+    try:
+        docs = db.collection(colecao).stream()
+        for doc in docs:
+            doc.reference.delete()
+        print(f"🗑️ Coleção '{colecao}' deletada com sucesso!")
+    except Exception as e:
+        print(f"❌ Erro ao deletar coleção '{colecao}': {e}")
