@@ -44,9 +44,10 @@ def webhook():
         logger.debug(f"📩 Update recebido: {update}")
 
         # ✅ Corrige a execução assíncrona correta
-        loop = asyncio.get_event_loop()
-        loop.create_task(webhook_process(update))
-        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(webhook_process(update))
+
         return "OK", 200
     except Exception as e:
         logger.error(f"🔥 Erro no webhook: {e}", exc_info=True)
