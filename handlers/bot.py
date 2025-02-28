@@ -18,3 +18,6 @@ def register_handlers(application: Application):
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("tarefa", add_task))  # Apenas este comando para testar
+    application.add_handler(CommandHandler("listar", list_tasks))
+    application.add_handler(CommandHandler("limpar", clear_tasks))
+

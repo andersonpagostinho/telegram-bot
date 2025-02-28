@@ -3,18 +3,14 @@ from firebase_admin import credentials, firestore
 import os
 import json
 
-# ✅ Verifica se o Firebase já está inicializado para evitar erro
+# ✅ Inicializar Firebase apenas se ainda não estiver inicializado
 if not firebase_admin._apps:
     try:
-        # ✅ Obtém as credenciais do Firebase do ambiente (Render)
         firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
         if not firebase_credentials:
             raise ValueError("❌ Credenciais do Firebase não encontradas!")
 
-        # ✅ Converte a string JSON armazenada na variável de ambiente para um dicionário
         cred_info = json.loads(firebase_credentials)
-
-        # ✅ Inicializa o Firebase com as credenciais carregadas
         cred = credentials.Certificate(cred_info)
         firebase_admin.initialize_app(cred)
         print("✅ Firebase inicializado com sucesso!")
@@ -25,35 +21,33 @@ if not firebase_admin._apps:
 # ✅ Conectar ao Firestore
 db = firestore.client()
 
-# ✅ Função para salvar uma tarefa no Firestore
-def salvar_tarefa(descricao):
+# ✅ Função genérica para salvar um documento em qualquer coleção
+def salvar_dados(colecao, dados):
     try:
-        doc_ref = db.collection("Tarefas").document()
-        doc_ref.set({"descricao": descricao, "prioridade": "baixa"})  # Padrão: prioridade baixa
-        print(f"✅ Tarefa '{descricao}' salva no Firestore!")
+        db.collection(colecao).add(dados)
+        print(f"✅ Dados salvos com sucesso na coleção '{colecao}'!")
         return True
     except Exception as e:
-        print(f"❌ Erro ao salvar tarefa: {e}")
+        print(f"❌ Erro ao salvar dados na coleção '{colecao}': {e}")
         return False
 
-# ✅ Função para buscar todas as tarefas do Firestore
-def buscar_tarefas():
+# ✅ Função genérica para buscar todos os documentos de uma coleção
+def buscar_dados(colecao):
     try:
-        tarefas_ref = db.collection("Tarefas").stream()
-        tarefas = [{"id": doc.id, **doc.to_dict()} for doc in tarefas_ref]
-        return tarefas
+        docs = db.collection(colecao).stream()
+        return [doc.to_dict() for doc in docs]
     except Exception as e:
-        print(f"❌ Erro ao buscar tarefas: {e}")
+        print(f"❌ Erro ao buscar dados na coleção '{colecao}': {e}")
         return []
 
-# ✅ Função para limpar todas as tarefas no Firestore
-def limpar_tarefas():
+# ✅ Função genérica para deletar todos os documentos de uma coleção
+def limpar_colecao(colecao):
     try:
-        tarefas_ref = db.collection("Tarefas").stream()
-        for doc in tarefas_ref:
-            db.collection("Tarefas").document(doc.id).delete()
-        print("✅ Todas as tarefas foram removidas do Firestore!")
+        docs = db.collection(colecao).stream()
+        for doc in docs:
+            db.collection(colecao).document(doc.id).delete()
+        print(f"✅ Todos os documentos da coleção '{colecao}' foram removidos!")
         return True
     except Exception as e:
-        print(f"❌ Erro ao limpar tarefas: {e}")
+        print(f"❌ Erro ao limpar a coleção '{colecao}': {e}")
         return False

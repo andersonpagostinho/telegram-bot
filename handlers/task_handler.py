@@ -1,21 +1,32 @@
-import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-from services.firebase_service import salvar_tarefa
-
-logger = logging.getLogger(__name__)
+from services.firebase_service import salvar_dados, buscar_dados, limpar_colecao
 
 # ✅ Adicionar uma nova tarefa
 async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        descricao = ' '.join(context.args)
-        if not descricao:
-            await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
-            return
-        
-        salvar_tarefa(descricao)  # Função que salva no Firestore
+    descricao = ' '.join(context.args)
+    if not descricao:
+        await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
+        return
+    
+    tarefa_data = {"descricao": descricao, "prioridade": "baixa"}
+    if salvar_dados("Tarefas", tarefa_data):
         await update.message.reply_text(f"✅ Tarefa adicionada: {descricao}")
-
-    except Exception as e:
-        logger.error(f"Erro ao salvar tarefa: {e}", exc_info=True)
+    else:
         await update.message.reply_text("❌ Erro ao salvar a tarefa. Tente novamente.")
+
+# ✅ Listar todas as tarefas
+async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tarefas = buscar_dados("Tarefas")
+    if not tarefas:
+        await update.message.reply_text("📭 Nenhuma tarefa encontrada.")
+        return
+    resposta = "📌 Suas tarefas:\n" + "\n".join(f"- {t['descricao']} ({t.get('prioridade', 'baixa')})" for t in tarefas)
+    await update.message.reply_text(resposta)
+
+# ✅ Limpar todas as tarefas
+async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if limpar_colecao("Tarefas"):
+        await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
+    else:
+        await update.message.reply_text("❌ Erro ao limpar as tarefas.")
