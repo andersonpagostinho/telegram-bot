@@ -35,14 +35,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/enviar_email - Envia um e-mail\n"
     )
 
-def ler_emails():
-    try:
-        # Código para buscar emails...
-        return emails  # Retorna a lista de emails encontrados
-    except Exception as e:
-        print(f"❌ Erro ao buscar emails: {e}")
-        return []
-
 # ✅ comando ler email
 async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     emails = ler_emails()
