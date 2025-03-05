@@ -38,12 +38,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ✅ comando ler email
 async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     emails = ler_emails()
+    
     if emails:
         resposta = "📧 Emails:\n" + "\n".join(
-    f"- De: {email.get('remetente', 'Desconhecido')}\n  Assunto: {email.get('assunto', 'Sem assunto')}\n  Mensagem: {email.get('corpo', email.get('preview', 'Sem conteúdo'))[:300]}..." 
-    for email in emails
-)
-
+            f"- De: {email.get('remetente', 'Desconhecido')}\n"
+            f"  Assunto: {email.get('assunto', 'Sem assunto')}\n"
+            f"  Mensagem: {email.get('corpo')[:300] if email.get('corpo') else '⚠️ O email pode conter anexos ou estar vazio.'}"
+            for email in emails
+        )
     else:
         resposta = "📭 Nenhum email encontrado."
     
