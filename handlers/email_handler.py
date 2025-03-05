@@ -8,8 +8,6 @@ from email.mime.text import MIMEText
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from handlers.task_handler import add_task, list_tasks, clear_tasks
-from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, enviar_email_command
-
 
 logger = logging.getLogger(__name__)
 
