@@ -43,16 +43,18 @@ def ler_emails():
         print(f"❌ Erro ao buscar emails: {e}")
         return []
 
-# ✅ Ler emails
+# ✅ comando ler email
 async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     emails = ler_emails()
     if emails:
         resposta = "📧 Emails:\n" + "\n".join(
-            f"- De: {email.get('remetente', 'Desconhecido')}\n  Assunto: {email.get('assunto', 'Sem assunto')}\n  Mensagem: {email.get('corpo', email.get('preview', 'Sem conteúdo'))[:300]}..."
-            for email in emails
-        )
+    f"- De: {email.get('remetente', 'Desconhecido')}\n  Assunto: {email.get('assunto', 'Sem assunto')}\n  Mensagem: {email.get('corpo', email.get('preview', 'Sem conteúdo'))[:300]}..." 
+    for email in emails
+)
+
     else:
         resposta = "📭 Nenhum email encontrado."
+    
     await update.message.reply_text(resposta)
 
 # ✅ Buscar emails prioritários
