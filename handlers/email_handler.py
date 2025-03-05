@@ -69,6 +69,38 @@ def buscar_emails_prioritarios():
         print(f"❌ Erro ao buscar emails prioritários: {e}")
         return []
 
+# ✅ comando enviar email
+async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 2:
+        await update.message.reply_text("⚠️ Use: /enviar_email destinatario@exemplo.com Assunto Mensagem")
+        return
+
+    destinatario = context.args[0]
+    assunto = context.args[1]
+    mensagem = " ".join(context.args[2:]) if len(context.args) > 2 else ""
+
+    if enviar_email(destinatario, assunto, mensagem):
+        await update.message.reply_text(f"✅ Email enviado para {destinatario}!")
+    else:
+        await update.message.reply_text("❌ Erro ao enviar email.")
+
+def enviar_email(destinatario, assunto, mensagem):
+    try:
+        email_user = os.getenv("EMAIL_USER")
+        email_password = os.getenv("EMAIL_PASSWORD")
+
+        msg = f"Subject: {assunto}\n\n{mensagem}"
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(email_user, email_password)
+        server.sendmail(email_user, destinatario, msg)
+        server.quit()
+        print(f"✅ Email enviado para {destinatario}")
+        return True
+    except Exception as e:
+        print(f"❌ Erro ao enviar email: {e}")
+        return False
+
 # 🚀 Registra os handlers
 def register_handlers(application: Application):
     try:
