@@ -12,6 +12,14 @@ from services.email_service import ler_emails
 
 logger = logging.getLogger(__name__)
 
+# Configuração de Email
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_IMAP_SERVER = os.getenv("EMAIL_IMAP_SERVER")
+EMAIL_IMAP_PORT = os.getenv("EMAIL_IMAP_PORT")
+
 # ✅ Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -36,20 +44,74 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ✅ comando ler email
-async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    emails = ler_emails()
-    
-    if emails:
-        resposta = "📧 Emails:\n" + "\n".join(
-            f"- De: {email.get('remetente', 'Desconhecido')}\n"
-            f"  Assunto: {email.get('assunto', 'Sem assunto')}\n"
-            f"  Mensagem: {email.get('corpo')[:300] if email.get('corpo') else '⚠️ O email pode conter anexos ou estar vazio.'}"
-            for email in emails
-        )
-    else:
-        resposta = "📭 Nenhum email encontrado."
-    
-    await update.message.reply_text(resposta)
+def ler_emails(num_emails=5):
+    try:
+        if not all([EMAIL_IMAP_SERVER, EMAIL_IMAP_PORT, EMAIL_USER, EMAIL_PASSWORD]):
+            logger.error("❌ Variáveis de ambiente IMAP não configuradas")
+            return []
+
+        mail = imaplib.IMAP4_SSL(EMAIL_IMAP_SERVER, int(EMAIL_IMAP_PORT))
+        mail.login(EMAIL_USER, EMAIL_PASSWORD)
+        mail.select(EMAIL_FOLDER)
+
+        status, messages = mail.search(None, 'UNSEEN')
+        if status != 'OK':
+            logger.info("📭 Nenhum e-mail novo encontrado.")
+            return []
+
+        email_ids = messages[0].split()[-num_emails:]
+
+        emails = []
+        for e_id in email_ids:
+            _, msg_data = mail.fetch(e_id, '(RFC822)')
+            raw_email = msg_data[0][1]
+            
+            msg = email.message_from_bytes(raw_email)
+            
+            subject, encoding = decode_header(msg["Subject"])[0]
+            if isinstance(subject, bytes):
+                subject = subject.decode(encoding or 'utf-8', errors='replace')
+            
+            from_, encoding = decode_header(msg.get("From"))[0]
+            if isinstance(from_, bytes):
+                from_ = from_.decode(encoding or 'utf-8', errors='replace')
+
+            body = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    content_type = part.get_content_type()
+                    if content_type == "text/plain":
+                        payload = part.get_payload(decode=True)
+                        try:
+                            body = payload.decode('utf-8', errors='replace')
+                        except UnicodeDecodeError:
+                            body = payload.decode('latin-1', errors='replace')
+                        break
+            else:
+                payload = msg.get_payload(decode=True)
+                try:
+                    body = payload.decode('utf-8', errors='replace')
+                except UnicodeDecodeError:
+                    body = payload.decode('latin-1', errors='replace')
+
+            if len(body) > 500:
+                body = body[:500] + "..."
+
+            email_data = {
+                "de": from_,
+                "assunto": subject,
+                "corpo": body
+            }
+            salvar_email_classificado(email_data)
+            emails.append(email_data)
+
+        mail.close()
+        mail.logout()
+        return emails
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao ler e-mails: {str(e)}")
+        return []
 
 # ✅ Buscar emails prioritários
 def buscar_emails_prioritarios():
