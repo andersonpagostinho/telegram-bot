@@ -74,19 +74,28 @@ def buscar_emails_prioritarios():
         return []
 
 # ✅ comando enviar email
+import logging
+
+logger = logging.getLogger(__name__)
+
 async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Use: /enviar_email destinatario@exemplo.com Assunto Mensagem")
-        return
+    try:
+        if len(context.args) < 3:
+            await update.message.reply_text("⚠️ Uso correto: /enviar_email <destinatário> <assunto> <mensagem>")
+            return
 
-    destinatario = context.args[0]
-    assunto = context.args[1]
-    mensagem = " ".join(context.args[2:]) if len(context.args) > 2 else ""
+        destinatario = context.args[0]
+        assunto = context.args[1]
+        mensagem = " ".join(context.args[2:])
 
-    if enviar_email(destinatario, assunto, mensagem):
-        await update.message.reply_text(f"✅ Email enviado para {destinatario}!")
-    else:
-        await update.message.reply_text("❌ Erro ao enviar email.")
+        if enviar_email(destinatario, assunto, mensagem):  
+            await update.message.reply_text(f"📧 Email enviado para {destinatario} com sucesso!")
+        else:
+            await update.message.reply_text("❌ Erro ao enviar email.")
+
+    except Exception as e:
+        logger.error(f"Erro ao enviar email: {e}", exc_info=True)
+        await update.message.reply_text(f"❌ Erro ao enviar email: {e}")
 
 def enviar_email(destinatario, assunto, mensagem):
     try:
