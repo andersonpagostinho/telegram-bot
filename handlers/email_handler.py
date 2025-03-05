@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from handlers.task_handler import add_task, list_tasks, clear_tasks
+from services.email_service import ler_emails
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/emails_prioritarios - Lista e-mails importantes\n"
         "/enviar_email - Envia um e-mail\n"
     )
+
+def ler_emails():
+    try:
+        # Código para buscar emails...
+        return emails  # Retorna a lista de emails encontrados
+    except Exception as e:
+        print(f"❌ Erro ao buscar emails: {e}")
+        return []
 
 # ✅ Ler emails
 async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
