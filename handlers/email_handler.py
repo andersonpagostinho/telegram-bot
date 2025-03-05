@@ -1,4 +1,5 @@
 import logging
+import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from handlers.task_handler import add_task, list_tasks, clear_tasks
@@ -38,6 +39,35 @@ async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         resposta = "📭 Nenhum email encontrado."
     
     await update.message.reply_text(resposta)
+
+# ✅ comando listar email
+async def listar_emails_prioritarios(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    emails = buscar_emails_prioritarios()
+    if emails:
+        resposta = "📧 Emails prioritários:\n" + "\n".join(emails)
+    else:
+        resposta = "📭 Nenhum email prioritário encontrado."
+
+    await update.message.reply_text(resposta)
+
+def buscar_emails_prioritarios():
+    try:
+        email_user = os.getenv("EMAIL_USER")
+        email_password = os.getenv("EMAIL_PASSWORD")
+        remetentes_prioritarios = os.getenv("REMETENTES_PRIORITARIOS", "[]")
+
+        mail = imaplib.IMAP4_SSL("imap.gmail.com")
+        mail.login(email_user, email_password)
+        mail.select("inbox")
+
+        # Filtra e-mails apenas dos remetentes prioritários
+        result, data = mail.search(None, 'FROM', remetentes_prioritarios)
+        ids = data[0].split()
+
+        return [f"Email {i+1}" for i in range(len(ids))]  # Simulação de e-mails retornados
+    except Exception as e:
+        print(f"❌ Erro ao buscar emails prioritários: {e}")
+        return []
 
 # 🚀 Registra os handlers
 def register_handlers(application: Application):
