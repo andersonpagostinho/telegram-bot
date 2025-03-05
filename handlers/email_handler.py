@@ -1,9 +1,13 @@
 import logging
 import os
+import re
+import smtplib
+import imaplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from handlers.task_handler import add_task, list_tasks, clear_tasks
-from services.email_service import ler_emails, enviar_email
 
 logger = logging.getLogger(__name__)
 
@@ -30,30 +34,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/enviar_email - Envia um e-mail\n"
     )
 
-# ✅ comando ler email
+# ✅ Ler emails
 async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     emails = ler_emails()
     if emails:
         resposta = "📧 Emails:\n" + "\n".join(
-    f"- De: {email.get('remetente', 'Desconhecido')}\n  Assunto: {email.get('assunto', 'Sem assunto')}\n  Mensagem: {email.get('corpo', email.get('preview', 'Sem conteúdo'))[:300]}..." 
-    for email in emails
-)
-
+            f"- De: {email.get('remetente', 'Desconhecido')}\n  Assunto: {email.get('assunto', 'Sem assunto')}\n  Mensagem: {email.get('corpo', email.get('preview', 'Sem conteúdo'))[:300]}..."
+            for email in emails
+        )
     else:
         resposta = "📭 Nenhum email encontrado."
-    
     await update.message.reply_text(resposta)
 
-# ✅ comando listar email
-async def listar_emails_prioritarios(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    emails = buscar_emails_prioritarios()
-    if emails:
-        resposta = "📧 Emails prioritários:\n" + "\n".join(emails)
-    else:
-        resposta = "📭 Nenhum email prioritário encontrado."
-
-    await update.message.reply_text(resposta)
-
+# ✅ Buscar emails prioritários
 def buscar_emails_prioritarios():
     try:
         email_user = os.getenv("EMAIL_USER")
@@ -64,20 +57,14 @@ def buscar_emails_prioritarios():
         mail.login(email_user, email_password)
         mail.select("inbox")
 
-        # Filtra e-mails apenas dos remetentes prioritários
         result, data = mail.search(None, 'FROM', remetentes_prioritarios)
         ids = data[0].split()
-
         return [f"Email {i+1}" for i in range(len(ids))]  # Simulação de e-mails retornados
     except Exception as e:
         print(f"❌ Erro ao buscar emails prioritários: {e}")
         return []
 
-# ✅ comando enviar email
-import logging
-
-logger = logging.getLogger(__name__)
-
+# ✅ Enviar email
 async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if len(context.args) < 3:
@@ -88,7 +75,7 @@ async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYP
         assunto = context.args[1]
         mensagem = " ".join(context.args[2:])
 
-        if enviar_email(destinatario, assunto, mensagem):  
+        if enviar_email(destinatario, assunto, mensagem):
             await update.message.reply_text(f"📧 Email enviado para {destinatario} com sucesso!")
         else:
             await update.message.reply_text("❌ Erro ao enviar email.")
@@ -97,17 +84,29 @@ async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"Erro ao enviar email: {e}", exc_info=True)
         await update.message.reply_text(f"❌ Erro ao enviar email: {e}")
 
+# ✅ Função de envio de email
 def enviar_email(destinatario, assunto, mensagem):
     try:
         email_user = os.getenv("EMAIL_USER")
         email_password = os.getenv("EMAIL_PASSWORD")
+        email_host = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+        email_port = int(os.getenv("EMAIL_PORT", 587))
+        
+        if not email_user or not email_password:
+            raise ValueError("❌ EMAIL_USER ou EMAIL_PASSWORD não foram carregados corretamente!")
 
-        msg = f"Subject: {assunto}\n\n{mensagem}"
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+        msg = MIMEMultipart()
+        msg['From'] = email_user
+        msg['To'] = destinatario
+        msg['Subject'] = assunto
+        msg.attach(MIMEText(mensagem, 'plain'))
+
+        server = smtplib.SMTP(email_host, email_port)
         server.starttls()
         server.login(email_user, email_password)
-        server.sendmail(email_user, destinatario, msg)
+        server.sendmail(email_user, destinatario, msg.as_string())
         server.quit()
+        
         print(f"✅ Email enviado para {destinatario}")
         return True
     except Exception as e:
