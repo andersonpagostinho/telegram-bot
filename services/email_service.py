@@ -4,12 +4,16 @@ import email
 from email.message import EmailMessage
 import os
 import json
+import logging
+from email.header import decode_header
 
-# Configurações de e-mail do .env
+# ✅ Configurações de e-mail do .env
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_IMAP_SERVER = os.getenv("EMAIL_IMAP_SERVER", "imap.gmail.com")
+EMAIL_IMAP_PORT = os.getenv("EMAIL_IMAP_PORT", "993")
 EMAIL_FOLDER = os.getenv("EMAIL_FOLDER", "INBOX")
 REMETENTES_PRIORITARIOS = json.loads(os.getenv("REMETENTES_PRIORITARIOS", "[]"))
 
