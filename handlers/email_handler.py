@@ -35,9 +35,10 @@ async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     emails = ler_emails()
     if emails:
         resposta = "📧 Emails:\n" + "\n".join(
-    f"- De: {email['remetente']}\n  Assunto: {email['assunto']}\n  Mensagem: {email['corpo'][:100]}..." 
+    f"- De: {email.get('remetente', 'Desconhecido')}\n  Assunto: {email.get('assunto', 'Sem assunto')}\n  Mensagem: {email.get('corpo', 'Sem conteúdo')[:100]}..." 
     for email in emails
 )
+
     else:
         resposta = "📭 Nenhum email encontrado."
     
