@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from handlers.task_handler import add_task, list_tasks, list_tasks_by_priority, clear_tasks
 from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, enviar_email_command
+from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, confirmar_presenca
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,10 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("ler_emails", ler_emails_command))
         application.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
         application.add_handler(CommandHandler("enviar_email", enviar_email_command))
+        application.add_handler(CommandHandler("agenda", add_agenda))
+        application.add_handler(CommandHandler("eventos", list_events))
+        application.add_handler(CommandHandler("confirmar_reuniao", confirmar_reuniao))
+        application.add_handler(CommandHandler("confirmar_presenca", confirmar_presenca))
 
         logger.info("✅ Handlers registrados com sucesso!")
     except Exception as e:
