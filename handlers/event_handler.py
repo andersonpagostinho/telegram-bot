@@ -51,9 +51,10 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📭 Nenhum evento encontrado.")
         return
     
-    resposta = "📅 Próximos eventos:"
-" + "\n".join(f"- {event['summary']} ({event['start'].get('dateTime', 'Sem horário definido')})" for event in events)
-    await update.message.reply_text(resposta)
+   resposta = (
+    "📅 Próximos eventos:\n"
+    + "\n".join(f"- {event['summary']} ({event['start'].get('dateTime', 'Sem horário definido')})" for event in events)
+)
 
 # ✅ Confirmar um evento no Google Calendar
 async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
