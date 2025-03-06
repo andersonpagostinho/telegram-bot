@@ -10,23 +10,24 @@ from services.firebase_service import salvar_dados, buscar_dados
 
 logger = logging.getLogger(__name__)
 
-# Configuração do Google Calendar
+# 🔹 Configuração do Google Calendar
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
+GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")  # Está como string no Render
 CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID")
 
 if not GOOGLE_CREDENTIALS_JSON or not CALENDAR_ID:
     raise ValueError("❌ Credenciais do Google Calendar não encontradas!")
 
-# ✅ Convertendo string JSON para dicionário
+# 🔹 Converte a string JSON para um dicionário
 try:
-    google_credentials = json.loads(GOOGLE_CREDENTIALS_JSON)
-    creds = Credentials.from_service_account_info(google_credentials, scopes=SCOPES)
+    cred_info = json.loads(GOOGLE_CREDENTIALS_JSON)  # Agora carrega corretamente do ambiente
+    creds = Credentials.from_service_account_info(cred_info, scopes=SCOPES)
     service = build("calendar", "v3", credentials=creds)
-except json.JSONDecodeError as e:
-    raise ValueError(f"❌ Erro ao carregar JSON das credenciais: {e}")
+    print("✅ Google Calendar autenticado com sucesso!")
+except Exception as e:
+    raise ValueError(f"❌ Erro ao autenticar no Google Calendar: {e}")
 
-# ✅ Criar um evento no Google Calendar
+# 🔹 Criar um evento no Google Calendar
 async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     descricao = ' '.join(context.args)
     if not descricao:
@@ -47,19 +48,19 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     salvar_dados("Eventos", evento_data)
     await update.message.reply_text(f"📅 Evento adicionado ao Google Calendar: {descricao}")
 
-# ✅ Listar eventos do Google Calendar
+# 🔹 Listar eventos do Google Calendar
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.utcnow().isoformat() + "Z"
     events_result = service.events().list(calendarId=CALENDAR_ID, timeMin=now, maxResults=5, singleEvents=True, orderBy="startTime").execute()
     events = events_result.get("items", [])
-
+    
     if not events:
         await update.message.reply_text("📭 Nenhum evento encontrado.")
         return
     
-    resposta = "📅 Próximos eventos:\n" + "\n".join(
-        f"- {event['summary']} ({event['start'].get('dateTime', 'Sem horário definido')})"
-        for event in events
+    resposta = (
+        "📅 Próximos eventos:\n"
+        + "\n".join(f"- {event['summary']} ({event['start'].get('dateTime', 'Sem horário definido')})" for event in events)
     )
     await update.message.reply_text(resposta)
 
