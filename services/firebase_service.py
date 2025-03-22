@@ -146,3 +146,11 @@ def buscar_subcolecao(caminho):
     except Exception as e:
         print(f"❌ Erro ao buscar dados de: {caminho} | {e}")
         return {}
+
+def salvar_evento(evento_data):
+    try:
+        db.collection("Eventos").add(evento_data)
+        return True
+    except Exception as e:
+        print(f"Erro ao salvar evento: {e}")
+        return False
