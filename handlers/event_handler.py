@@ -240,7 +240,14 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ✅ Criar evento por comando de voz
 async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE, texto: str):
     try:
-        texto = texto.lower().replace("marcar reunião", "").replace("agendar reunião", "").strip()
+        texto = texto.lower()
+        texto = texto.replace("marcar reunião", "")
+        texto = texto.replace("agendar reunião", "")
+        texto = texto.replace("às", "as")  # 🔁 Corrige a palavra
+        texto = texto.strip()
+
+        print(f"[DEBUG] Texto tratado para dateparser: {texto}")
+
         data_hora = dateparser.parse(texto, languages=["pt"])
 
         if not data_hora:
@@ -253,19 +260,23 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         end_time = (data_hora + timedelta(hours=1)).isoformat()
         titulo = "Reunião agendada por voz"
 
-        event = {
-            "summary": titulo,
-            "start": {"dateTime": start_time, "timeZone": "America/Sao_Paulo"},
-            "end": {"dateTime": end_time, "timeZone": "America/Sao_Paulo"},
-        }
+        from config.google_config import get_calendar_service
+        service = get_calendar_service()
 
         user_id = str(update.message.from_user.id)
+        from services.firebase_service import buscar_cliente, salvar_dado_em_path
         cliente = buscar_cliente(user_id)
         calendar_id = cliente.get("calendar_id") if cliente else None
 
         if not calendar_id:
             await update.message.reply_text("❌ Google Calendar ID não configurado.")
             return
+
+        event = {
+            "summary": titulo,
+            "start": {"dateTime": start_time, "timeZone": "America/Sao_Paulo"},
+            "end": {"dateTime": end_time, "timeZone": "America/Sao_Paulo"},
+        }
 
         created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
         link = created_event.get("htmlLink")
@@ -283,7 +294,11 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         msg = f"✅ Reunião marcada!\n📅 {data_str} às {hora_str}\n🔗 {link}"
         await update.message.reply_text(msg)
-        
+
+        # Remover se não quiser depender do WhatsApp
+        # from utils.whatsapp_utils import send_whatsapp_message
+        # send_whatsapp_message(msg)
+
     except Exception as e:
         await update.message.reply_text("❌ Erro ao processar o agendamento por voz.")
         print("Erro ao agendar por voz:", e)
