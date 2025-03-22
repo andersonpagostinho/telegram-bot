@@ -13,7 +13,6 @@ from services.firebase_service import (
     salvar_dados,  # 🔄 usado no add_evento_por_voz
 )
 from config.google_config import get_calendar_service
-from utils.whatsapp_utils import send_whatsapp_message
 
 logger = logging.getLogger(__name__)
 
@@ -284,8 +283,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         msg = f"✅ Reunião marcada!\n📅 {data_str} às {hora_str}\n🔗 {link}"
         await update.message.reply_text(msg)
-        send_whatsapp_message(msg)
-
+        
     except Exception as e:
         await update.message.reply_text("❌ Erro ao processar o agendamento por voz.")
         print("Erro ao agendar por voz:", e)
