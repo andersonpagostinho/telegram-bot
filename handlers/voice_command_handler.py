@@ -1,87 +1,113 @@
+# handlers/voice_command_handler.py
+
+from utils.intencao_utils import identificar_intencao
+
 async def processar_comando_voz(update, context, texto):
     texto = texto.lower()
+    intencao = identificar_intencao(texto)
 
     try:
-        if "listar eventos" in texto or "eventos" in texto:
-            from handlers.event_handler import list_events
-            await list_events(update, context)
+        if intencao == "start":
+            from handlers.bot import start
+            await start(update, context)
 
-        elif "confirmar reunião" in texto:
-            from handlers.event_handler import confirmar_reuniao
-            context.args = texto.replace("confirmar reunião", "").strip().split()
-            await confirmar_reuniao(update, context)
+        elif intencao == "help":
+            from handlers.bot import help_command
+            await help_command(update, context)
 
-        elif "confirmar presença" in texto:
-            from handlers.event_handler import confirmar_presenca
-            context.args = texto.replace("confirmar presença", "").strip().split()
-            await confirmar_presenca(update, context)
-
-        elif "debug eventos" in texto or "verificar eventos" in texto:
-            from handlers.event_handler import debug_eventos
-            await debug_eventos(update, context)
-
-        elif "marcar reunião" in texto or "agendar reunião" in texto:
-            from handlers.event_handler import add_evento_por_voz
-            await add_evento_por_voz(update, context, texto)
-
-        elif "nova tarefa" in texto or "adicionar tarefa" in texto:
-            from handlers.task_handler import add_task
-            context.args = texto.replace("nova tarefa", "").replace("adicionar tarefa", "").strip().split()
-            await add_task(update, context)
-
-        elif "listar tarefas" in texto:
-            from handlers.task_handler import list_tasks
-            await list_tasks(update, context)
-
-        elif "prioridade" in texto:
-            from handlers.task_handler import list_tasks_by_priority
-            await list_tasks_by_priority(update, context)
-
-        elif "limpar tarefas" in texto:
-            from handlers.task_handler import clear_tasks
-            await clear_tasks(update, context)
-
-        elif "meus dados" in texto:
+        elif intencao == "meusdados":
             from handlers.perfil_handler import meus_dados
             await meus_dados(update, context)
 
-        elif "meu estilo" in texto:
+        elif intencao == "meuestilo":
             from handlers.perfil_handler import meu_estilo
             await meu_estilo(update, context)
 
-        elif "relatório diário" in texto:
-            from handlers.report_handler import gerar_relatorio_diario
-            await gerar_relatorio_diario(update, context)
+        elif intencao == "adicionar_tarefa":
+            from handlers.task_handler import add_task
+            await add_task(update, context)
 
-        elif "relatório semanal" in texto:
-            from handlers.report_handler import gerar_relatorio_semanal
-            await gerar_relatorio_semanal(update, context)
+        elif intencao == "listar_tarefas":
+            from handlers.task_handler import list_tasks
+            await list_tasks(update, context)
 
-        elif "enviar relatório" in texto:
-            from handlers.report_handler import enviar_relatorio_email
-            await enviar_relatorio_email(update, context)
+        elif intencao == "listar_prioridade":
+            from handlers.task_handler import list_tasks_by_priority
+            await list_tasks_by_priority(update, context)
 
-        elif "ler e-mails" in texto:
+        elif intencao == "limpar_tarefas":
+            from handlers.task_handler import clear_tasks
+            await clear_tasks(update, context)
+
+        elif intencao == "adicionar_evento":
+            from handlers.event_handler import add_evento_por_voz
+            await add_evento_por_voz(update, context, texto)
+
+        elif intencao == "listar_eventos":
+            from handlers.event_handler import list_events
+            await list_events(update, context)
+
+        elif intencao == "confirmar_reuniao":
+            from handlers.event_handler import confirmar_reuniao
+            await confirmar_reuniao(update, context)
+
+        elif intencao == "confirmar_presenca":
+            from handlers.event_handler import confirmar_presenca
+            await confirmar_presenca(update, context)
+
+        elif intencao == "debug_eventos":
+            from handlers.event_handler import debug_eventos
+            await debug_eventos(update, context)
+
+        elif intencao == "conectar_email":
+            from handlers.email_handler import conectar_email
+            await conectar_email(update, context)
+
+        elif intencao == "authcallback":
+            from handlers.email_handler import auth_callback
+            await auth_callback(update, context)
+
+        elif intencao == "ler_emails":
             from handlers.email_handler import ler_emails
             await ler_emails(update, context)
 
-        elif "e-mails prioritários" in texto or "importantes" in texto:
+        elif intencao == "emails_prioritarios":
             from handlers.email_handler import emails_prioritarios
             await emails_prioritarios(update, context)
 
-        elif "enviar e-mail" in texto:
+        elif intencao == "enviar_email":
             from handlers.email_handler import enviar_email
-            context.args = texto.replace("enviar e-mail", "").strip().split()
             await enviar_email(update, context)
 
-        elif "meu e-mail" in texto:
+        elif intencao == "meu_email":
             from handlers.email_handler import definir_email_envio
-            context.args = texto.replace("meu e-mail", "").strip().split()
             await definir_email_envio(update, context)
 
-        else:
-            await update.message.reply_text("🤔 Não reconheci o comando. Pode repetir de outra forma?")
+        elif intencao == "relatorio_diario":
+            from handlers.report_handler import gerar_relatorio_diario
+            await gerar_relatorio_diario(update, context)
 
+        elif intencao == "relatorio_semanal":
+            from handlers.report_handler import gerar_relatorio_semanal
+            await gerar_relatorio_semanal(update, context)
+
+        elif intencao == "enviar_relatorio_email":
+            from handlers.report_handler import enviar_relatorio_email
+            await enviar_relatorio_email(update, context)
+
+        elif intencao == "definir_tipo_negocio":
+            from handlers.perfil_handler import definir_tipo_negocio
+            await definir_tipo_negocio(update, context)
+
+        elif intencao == "definir_estilo":
+            from handlers.perfil_handler import definir_estilo
+            await definir_estilo(update, context)
+
+        elif intencao == "definir_nome_negocio":
+            from handlers.perfil_handler import definir_nome_negocio
+            await definir_nome_negocio(update, context)
+
+        else:
+            await update.message.reply_text("🤔 Não reconheci o comando. Pode tentar de outra forma?")
     except Exception as e:
-        print("❌ Erro ao processar comando por voz:", e)
-        await update.message.reply_text("❌ Ocorreu um erro ao executar o comando por voz.")
+        await update.message.reply_text(f"❌ Ocorreu um erro ao executar o comando de voz:\n{e}")
