@@ -13,9 +13,9 @@ async def processar_comando_voz(update, context, texto):
         from handlers.task_handler import clear_tasks
         await clear_tasks(update, context)
 
+    elif "marcar reunião" in texto or "agendar reunião" in texto:
+        from handlers.event_handler import add_evento_por_voz
+        await add_evento_por_voz(update, context, texto)
+
     else:
         await update.message.reply_text("🤔 Não reconheci o comando. Pode repetir de outra forma?")
-
-    elif "marcar reunião" in texto or "agendar reunião" in texto:
-       from handlers.event_handler import add_evento_por_voz  # 👈 Você vai criar isso
-       await add_evento_por_voz(update, context, texto)
