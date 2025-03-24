@@ -32,7 +32,7 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Listar todas as tarefas
 async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
-     if not await verificar_pagamento(update, context):
+    if not await verificar_pagamento(update, context):
         return
 
     if not await verificar_acesso_modulo(update, context, "secretaria"):
@@ -48,7 +48,7 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Listar por prioridade
 async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_TYPE):
-     if not await verificar_pagamento(update, context):
+    if not await verificar_pagamento(update, context):
         return
 
     if not await verificar_acesso_modulo(update, context, "secretaria"):
@@ -67,7 +67,7 @@ async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_T
 
 # ✅ Limpar todas as tarefas
 async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
-     if not await verificar_pagamento(update, context):
+    if not await verificar_pagamento(update, context):
         return
 
     if not await verificar_acesso_modulo(update, context, "secretaria"):

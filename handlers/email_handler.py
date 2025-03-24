@@ -297,6 +297,9 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("help", help_command))
         application.add_handler(CommandHandler("conectar_email", conectar_email))
         application.add_handler(CommandHandler("auth_callback", auth_callback))
+        application.add_handler(CommandHandler("ler_emails", ler_emails_command))
+        application.add_handler(CommandHandler("emails_prioritarios", listar_emails_prioritarios))
+        application.add_handler(CommandHandler("enviar_email", enviar_email_command))
         logger.info("✅ Handlers registrados com sucesso!")
     except Exception as e:
         logger.error(f"❌ Erro ao registrar handlers: {e}", exc_info=True)
