@@ -52,7 +52,7 @@ def webhook():
             bot_loop
         )
         future.result(timeout=10)  # Aguarda a conclusão
-        
+
         return "OK", 200
     except Exception as e:
         logger.error(f"🔥 Erro no webhook: {e}", exc_info=True)
@@ -76,12 +76,12 @@ def run_bot():
         # ✅ Cria e armazena o loop principal
         bot_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(bot_loop)
-        
+
         # Inicialização assíncrona
         bot_loop.run_until_complete(application.initialize())
         bot_loop.run_until_complete(setup_webhook())
         bot_loop.run_until_complete(application.start())
-        
+
         logger.info("🤖 Bot está rodando e processando atualizações...")
         bot_loop.run_forever()
     except Exception as e:

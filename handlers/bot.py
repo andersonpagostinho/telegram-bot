@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 from handlers.task_handler import add_task, list_tasks, list_tasks_by_priority, clear_tasks
 from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, enviar_email_command, conectar_email, auth_callback
 from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, confirmar_presenca, debug_eventos
-from services.firebase_service import buscar_cliente
+from services.firebase_service import buscar_cliente. salvar_cliente
 from handlers.test_handler import testar_firebase, verificar_firebase
 from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_relatorio_email
 from handlers.perfil_handler import set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo, set_email
