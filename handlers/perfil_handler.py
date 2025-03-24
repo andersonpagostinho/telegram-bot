@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from services.firebase_service import salvar_cliente, buscar_cliente
+from datetime import datetime
 
 # ✅ /tipo_negocio petshop
 async def set_tipo_negocio(update: Update, context: ContextTypes.DEFAULT_TYPE):
