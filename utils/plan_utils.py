@@ -2,7 +2,7 @@ from services.firebase_service import buscar_cliente
 from telegram import Update
 from telegram.ext import ContextTypes
 
-# ✅ Verifica se o pagamento está ativo (sem checar o módulo)
+# ✅ Verifica se o pagamento está ativo
 async def verificar_pagamento(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     user_id = str(update.message.from_user.id)
     cliente = buscar_cliente(user_id)
@@ -18,18 +18,15 @@ async def verificar_plano(user_id: str, modulo: str) -> bool:
     cliente = buscar_cliente(user_id)
 
     if not cliente:
-        return False  # Cliente não cadastrado
+        return False
 
     if not cliente.get("pagamentoAtivo", False):
-        return False  # Pagamento inativo
+        return False
 
     planos = cliente.get("planosAtivos", [])
-    if modulo not in planos:
-        return False  # Módulo não incluso no plano
+    return modulo in planos
 
-    return True
-
-# ✅ Verifica plano com mensagens (para handlers Telegram)
+# ✅ Verifica com mensagens (para comandos via bot)
 async def verificar_acesso_modulo(update: Update, context: ContextTypes.DEFAULT_TYPE, modulo: str) -> bool:
     user_id = str(update.message.from_user.id)
     cliente = buscar_cliente(user_id)
@@ -52,7 +49,7 @@ async def verificar_acesso_modulo(update: Update, context: ContextTypes.DEFAULT_
 
     return True
 
-# ✅ Detecta qual plano é necessário com base na intenção
+# ✅ Detecta qual módulo é necessário com base na intenção
 def identificar_plano_por_intencao(intencao: str) -> str:
     if intencao in [
         "adicionar_tarefa", "listar_tarefas", "listar_prioridade", "limpar_tarefas"
@@ -75,4 +72,4 @@ def identificar_plano_por_intencao(intencao: str) -> str:
     ]:
         return "secretaria"
     else:
-        return "secretaria"  # Por padrão, tudo entra na "secretaria"
+        return "secretaria"
