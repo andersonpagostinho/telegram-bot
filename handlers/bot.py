@@ -14,11 +14,20 @@ logger = logging.getLogger(__name__)
 
 # ✅ Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        logger.info("🚀 Comando /start recebido!")
-        await update.message.reply_text("👋 Olá! Bot funcionando via Webhooks!")
-    except Exception as e:
-        logger.error(f"Erro no /start: {e}", exc_info=True)
+    user = update.message.from_user
+    user_id = str(user.id)
+
+    dados = {
+        "nome": f"{user.first_name} {user.last_name or ''}".strip(),
+        "email": "",  # pode ser preenchido depois com /meuemail
+    }
+
+    salvar_cliente(user_id, dados)
+
+    await update.message.reply_text(
+        f"👋 Olá, {user.first_name}! Sou sua assistente virtual.\n\n"
+        f"Digite /help para ver tudo que posso fazer por você."
+    )
 
 # ✅ Comando /help
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

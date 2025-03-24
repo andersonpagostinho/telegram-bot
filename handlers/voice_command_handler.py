@@ -1,10 +1,20 @@
-# handlers/voice_command_handler.py
-
 from utils.intencao_utils import identificar_intencao
+from utils.plan_utils import verificar_plano, identificar_plano_por_intencao
+from services.firebase_service import buscar_cliente
 
 async def processar_comando_voz(update, context, texto):
     texto = texto.lower()
     intencao = identificar_intencao(texto)
+
+    user_id = str(update.message.from_user.id)
+
+    # 🔒 Verifica se o plano permite esse comando
+    plano_necessario = identificar_plano_por_intencao(intencao)
+    acesso_liberado = await verificar_plano(user_id, plano_necessario)
+
+    if not acesso_liberado:
+        await update.message.reply_text("⚠️ Seu plano está inativo ou não inclui este módulo.")
+        return
 
     try:
         if intencao == "start":
@@ -68,16 +78,16 @@ async def processar_comando_voz(update, context, texto):
             await auth_callback(update, context)
 
         elif intencao == "ler_emails":
-            from handlers.email_handler import ler_emails
-            await ler_emails(update, context)
+            from handlers.email_handler import ler_emails_command
+            await ler_emails_command(update, context)
 
         elif intencao == "emails_prioritarios":
-            from handlers.email_handler import emails_prioritarios
-            await emails_prioritarios(update, context)
+            from handlers.email_handler import listar_emails_prioritarios
+            await listar_emails_prioritarios(update, context)
 
         elif intencao == "enviar_email":
-            from handlers.email_handler import enviar_email
-            await enviar_email(update, context)
+            from handlers.email_handler import enviar_email_command
+            await enviar_email_command(update, context)
 
         elif intencao == "meu_email":
             from handlers.email_handler import definir_email_envio
@@ -109,5 +119,6 @@ async def processar_comando_voz(update, context, texto):
 
         else:
             await update.message.reply_text("🤔 Não reconheci o comando. Pode tentar de outra forma?")
+
     except Exception as e:
         await update.message.reply_text(f"❌ Ocorreu um erro ao executar o comando de voz:\n{e}")

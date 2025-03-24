@@ -1,3 +1,5 @@
+# handlers/event_handler.py
+
 import logging
 import dateparser
 from datetime import datetime, time, timedelta
@@ -10,18 +12,20 @@ from services.firebase_service import (
     buscar_dados,
     salvar_dado_em_path,
     buscar_subcolecao,
-    salvar_dados,  # 🔄 usado no add_evento_por_voz
+    salvar_dados,
 )
 from config.google_config import get_calendar_service
+from utils.plan_utils import verificar_acesso_modulo  # ✅ Verifica acesso ao módulo
 
 logger = logging.getLogger(__name__)
 
-# ✅ Inicializa serviço do Google Calendar
 service = get_calendar_service()
 
 
-# ✅ Configurar Google Calendar ID do usuário
 async def configurar_google_calendar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     if not context.args:
         await update.message.reply_text("⚠️ Use: /configurar_google_calendar <ID>")
         return
@@ -36,8 +40,10 @@ async def configurar_google_calendar(update: Update, context: ContextTypes.DEFAU
         await update.message.reply_text("❌ Erro ao salvar o ID no Firebase.")
 
 
-# ✅ Adicionar evento ao Google Calendar
 async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     if len(context.args) < 4:
         await update.message.reply_text(
             "⚠️ Uso correto: /agenda <Descrição> <AAAA-MM-DD> <HH:MM início> <HH:MM fim>\n"
@@ -128,8 +134,10 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ✅ Listar próximos eventos
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     user_id = str(update.message.from_user.id)
     cliente = buscar_cliente(user_id)
     calendar_id = cliente.get("calendar_id") if cliente else None
@@ -157,8 +165,10 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(resposta)
 
 
-# ✅ Confirmar evento por descrição
 async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     descricao = ' '.join(context.args)
     if not descricao:
         await update.message.reply_text("⚠️ Informe a descrição do evento para confirmar.")
@@ -187,8 +197,10 @@ async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Evento não encontrado.")
 
 
-# ✅ Confirmar presença (sem alterar Google Calendar)
 async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     descricao = ' '.join(context.args)
     if not descricao:
         await update.message.reply_text("⚠️ Informe o nome do evento para confirmar presença.")
@@ -207,8 +219,10 @@ async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text("❌ Evento não encontrado.")
 
 
-# ✅ Teste de conexão com Firebase
 async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     user_id = str(update.message.from_user.id)
     event_id = "evento_debug"
     evento_data = {
@@ -237,13 +251,15 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(resposta)
 
 
-# ✅ Criar evento por comando de voz
 async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE, texto: str):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     try:
         texto = texto.lower()
         texto = texto.replace("marcar reunião", "")
         texto = texto.replace("agendar reunião", "")
-        texto = texto.replace("às", "as")  # 🔁 Corrige a palavra
+        texto = texto.replace("às", "as")
         texto = texto.strip()
 
         print(f"[DEBUG] Texto tratado para dateparser: {texto}")
@@ -264,7 +280,6 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         service = get_calendar_service()
 
         user_id = str(update.message.from_user.id)
-        from services.firebase_service import buscar_cliente, salvar_dado_em_path
         cliente = buscar_cliente(user_id)
         calendar_id = cliente.get("calendar_id") if cliente else None
 
@@ -294,10 +309,6 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         msg = f"✅ Reunião marcada!\n📅 {data_str} às {hora_str}\n🔗 {link}"
         await update.message.reply_text(msg)
-
-        # Remover se não quiser depender do WhatsApp
-        # from utils.whatsapp_utils import send_whatsapp_message
-        # send_whatsapp_message(msg)
 
     except Exception as e:
         await update.message.reply_text("❌ Erro ao processar o agendamento por voz.")

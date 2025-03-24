@@ -51,8 +51,15 @@ def salvar_dados(colecao, dados):
 # ✅ Salvar ou atualizar dados de um cliente
 def salvar_cliente(user_id, dados):
     try:
-        print(f"📌 Salvando dados do usuário {user_id}: {dados}")  # 🔹 Adicionado para debug
-        db.collection("Clientes").document(str(user_id)).set(dados, merge=True)
+        dados_padrao = {
+            "pagamentoAtivo": True,
+            "planosAtivos": ["secretaria"],
+            "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
+            "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        }
+
+        dados_completos = {**dados_padrao, **dados}  # Prioriza os dados passados
+        db.collection("Clientes").document(str(user_id)).set(dados_completos, merge=True)
         print(f"✅ Cliente {user_id} salvo com sucesso!")
         return True
     except Exception as e:

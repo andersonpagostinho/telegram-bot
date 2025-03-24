@@ -1,17 +1,21 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from services.firebase_service import salvar_dados, buscar_dados, limpar_colecao
-from utils.priority_utils import detectar_prioridade_tarefa  # ✅ Importa função personalizada
+from utils.priority_utils import detectar_prioridade_tarefa
+from utils.plan_utils import verificar_acesso_modulo  # ✅ Novo
 
 # ✅ Adicionar uma nova tarefa
 async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     descricao = ' '.join(context.args)
     if not descricao:
         await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
         return
 
     user_id = str(update.message.from_user.id)
-    prioridade = detectar_prioridade_tarefa(descricao, user_id)  # ✅ Define prioridade personalizada
+    prioridade = detectar_prioridade_tarefa(descricao, user_id)
 
     tarefa_data = {
         "descricao": descricao,
@@ -25,15 +29,22 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Listar todas as tarefas
 async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     tarefas = buscar_dados("Tarefas")
     if not tarefas:
         await update.message.reply_text("📭 Nenhuma tarefa encontrada.")
         return
+
     resposta = "📌 Suas tarefas:\n" + "\n".join(f"- {t['descricao']} ({t.get('prioridade', 'baixa')})" for t in tarefas)
     await update.message.reply_text(resposta)
 
-# ✅ listar prioridades
+# ✅ Listar por prioridade
 async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     tarefas = buscar_dados("Tarefas")
     if not tarefas:
         await update.message.reply_text("📭 Nenhuma tarefa encontrada.")
@@ -47,9 +58,10 @@ async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_T
 
 # ✅ Limpar todas as tarefas
 async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"):
+        return
+
     if limpar_colecao("Tarefas"):
         await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
     else:
         await update.message.reply_text("❌ Erro ao limpar as tarefas.")
-
-

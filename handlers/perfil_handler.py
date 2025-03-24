@@ -16,7 +16,7 @@ async def set_tipo_negocio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ Erro ao salvar o tipo de negócio.")
 
-# ✅ /estilo descontraido
+# ✅ /estilo formal
 async def set_estilo_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("⚠️ Informe o estilo desejado. Ex: /estilo formal")
@@ -65,16 +65,16 @@ async def meu_estilo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# ? /meu_email exemplo@email.com
+# ✅ /meu_email exemplo@email.com
 async def set_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("?? Informe um e-mail. Exemplo:\n/meu_email exemplo@email.com")
+        await update.message.reply_text("⚠️ Informe um e-mail. Exemplo:\n/meu_email exemplo@email.com")
         return
 
     email = context.args[0]
     user_id = str(update.message.from_user.id)
 
     if salvar_cliente(user_id, {"email": email}):
-        await update.message.reply_text(f"?? E-mail salvo com sucesso: {email}")
+        await update.message.reply_text(f"📧 E-mail salvo com sucesso: {email}")
     else:
-        await update.message.reply_text("? Erro ao salvar o e-mail.")
+        await update.message.reply_text("❌ Erro ao salvar o e-mail.")
