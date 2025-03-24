@@ -7,7 +7,7 @@ from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, c
 from services.firebase_service import buscar_cliente, salvar_cliente
 from handlers.test_handler import testar_firebase, verificar_firebase
 from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_relatorio_email
-from handlers.perfil_handler import set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo, set_email
+from handlers.perfil_handler import set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo, set_email, meu_plano
 from handlers.voice_handler import handle_voice
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,7 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("meu_estilo", meu_estilo))
         application.add_handler(CommandHandler("meu_email", set_email))
         application.add_handler(MessageHandler(filters.VOICE, handle_voice))
+        application.add_handler(CommandHandler("meuplano", meu_plano))
 
         # 🚀 Adicionando os comandos de teste do Firebase
         application.add_handler(CommandHandler("testar_firebase", testar_firebase))

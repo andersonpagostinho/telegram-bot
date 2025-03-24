@@ -78,3 +78,39 @@ async def set_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📧 E-mail salvo com sucesso: {email}")
     else:
         await update.message.reply_text("❌ Erro ao salvar o e-mail.")
+
+# ✅ Comando /meuplano
+async def meu_plano(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    cliente = buscar_cliente(user_id)
+
+    if not cliente:
+        await update.message.reply_text("❌ Nenhum cadastro encontrado. Use /start para começar.")
+        return
+
+    nome = cliente.get("nome", "Não informado")
+    planos = cliente.get("planosAtivos", [])
+    pagamento = "✅ Ativo" if cliente.get("pagamentoAtivo") else "❌ Inativo"
+    data_assinatura = cliente.get("dataAssinatura", "❓")
+    proximo_pagamento = cliente.get("proximoPagamento", "❓")
+
+    # Calcula dias restantes se tiver data válida
+    dias_restantes = ""
+    try:
+        data_final = datetime.fromisoformat(proximo_pagamento)
+        dias = (data_final - datetime.now()).days
+        dias_restantes = f"\n📅 Dias restantes: *{dias}*" if dias >= 0 else "\n⚠️ Plano vencido"
+    except:
+        pass
+
+    texto = (
+        f"📋 *Informações do seu plano:*\n\n"
+        f"👤 Nome: *{nome}*\n"
+        f"💳 Pagamento: *{pagamento}*\n"
+        f"📦 Planos ativos: *{', '.join(planos) or 'Nenhum'}*\n"
+        f"🗓️ Assinatura: *{data_assinatura}*\n"
+        f"🔁 Próx. pagamento: *{proximo_pagamento}*"
+        f"{dias_restantes}"
+    )
+
+    await update.message.reply_text(texto, parse_mode="Markdown")
