@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import os
 import json
+from datetime import datetime, timedelta  # 🔹 Adicionado para salvar_cliente funcionar corretamente
 
 # ✅ Carregar credenciais do Firebase diretamente da variável de ambiente
 # 🔹 Primeiro, tentamos carregar a variável de ambiente (Render)
@@ -80,7 +81,6 @@ def buscar_cliente(user_id):
         print(f"❌ Erro ao buscar cliente {user_id}: {e}")
         return None
 
-
 # ✅ Função genérica para buscar todos os documentos de uma coleção
 def buscar_dados(colecao):
     try:
@@ -154,6 +154,7 @@ def buscar_subcolecao(caminho):
         print(f"❌ Erro ao buscar dados de: {caminho} | {e}")
         return {}
 
+# ✅ Salva evento simples (caso queira salvar fora da subcoleção)
 def salvar_evento(evento_data):
     try:
         db.collection("Eventos").add(evento_data)
@@ -161,3 +162,15 @@ def salvar_evento(evento_data):
     except Exception as e:
         print(f"Erro ao salvar evento: {e}")
         return False
+
+# ✅ NOVO: Buscar todos os clientes do sistema
+def buscar_todos_clientes():
+    try:
+        print("🔍 Buscando todos os clientes do Firebase...")
+        docs = db.collection("Clientes").stream()
+        clientes = {doc.id: doc.to_dict() for doc in docs}
+        print(f"✅ {len(clientes)} clientes encontrados.")
+        return clientes
+    except Exception as e:
+        print(f"❌ Erro ao buscar todos os clientes: {e}")
+        return {}

@@ -28,10 +28,14 @@ bot_loop = None  # Variável global para armazenar o loop
 
 # Registro de handlers
 from handlers.bot import register_handlers
+from scheduler.daily_summary import start_daily_summary  # ✅ Importa o agendador
 
 logger.info("✅ Registrando handlers...")
 register_handlers(application)
 logger.info("✅ Handlers registrados!")
+
+# ✅ Inicia o agendador de resumo diário
+start_daily_summary(application)
 
 async def webhook_process(update: Update):
     await application.process_update(update)
