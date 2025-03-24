@@ -1,5 +1,5 @@
 from utils.intencao_utils import identificar_intencao
-from utils.plan_utils import verificar_plano, identificar_plano_por_intencao
+from utils.plan_utils import verificar_plano, identificar_plano_por_intencao, verificar_pagamento
 from services.firebase_service import buscar_cliente
 
 async def processar_comando_voz(update, context, texto):

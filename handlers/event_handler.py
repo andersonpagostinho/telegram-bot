@@ -15,7 +15,7 @@ from services.firebase_service import (
     salvar_dados,
 )
 from config.google_config import get_calendar_service
-from utils.plan_utils import verificar_acesso_modulo  # ✅ Verifica acesso ao módulo
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅ Verifica acesso ao módulo
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,9 @@ service = get_calendar_service()
 
 
 async def configurar_google_calendar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -41,6 +44,9 @@ async def configurar_google_calendar(update: Update, context: ContextTypes.DEFAU
 
 
 async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -135,6 +141,9 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -166,6 +175,9 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -198,6 +210,9 @@ async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -252,6 +267,9 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE, texto: str):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 

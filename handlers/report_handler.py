@@ -4,12 +4,15 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from services.firebase_service import buscar_dados, buscar_subcolecao, buscar_cliente
 from handlers.email_handler import enviar_email  # Usa o que você já tem
-from utils.plan_utils import verificar_acesso_modulo  # ✅ NOVO
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅ NOVO
 
 logger = logging.getLogger(__name__)
 
 # ✅ Comando /relatorio_diario
 async def relatorio_diario(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -35,8 +38,12 @@ async def relatorio_diario(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Comando /relatorio_semanal
 async def relatorio_semanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
+
 
     user_id = str(update.message.from_user.id)
     hoje = datetime.now().date()
@@ -59,6 +66,9 @@ async def relatorio_semanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Comando /enviar_relatorio_email
 async def enviar_relatorio_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 

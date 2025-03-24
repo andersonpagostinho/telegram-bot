@@ -2,10 +2,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from services.firebase_service import salvar_dados, buscar_dados, limpar_colecao
 from utils.priority_utils import detectar_prioridade_tarefa
-from utils.plan_utils import verificar_acesso_modulo  # ✅ Novo
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅ Novo
 
 # ✅ Adicionar uma nova tarefa
 async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -29,6 +32,9 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Listar todas as tarefas
 async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+     if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -42,6 +48,9 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Listar por prioridade
 async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_TYPE):
+     if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -58,6 +67,9 @@ async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_T
 
 # ✅ Limpar todas as tarefas
 async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+     if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 

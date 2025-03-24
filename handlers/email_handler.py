@@ -12,7 +12,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from handlers.task_handler import add_task, list_tasks, clear_tasks
 from services.email_service import ler_emails, buscar_contatos_por_nome
 from services.firebase_service import salvar_cliente, buscar_cliente
-from utils.plan_utils import verificar_acesso_modulo  # ✅ Verificação de plano
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅ Verificação de plano
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -46,6 +46,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Conectar email via OAuth
 async def conectar_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -95,6 +98,9 @@ async def conectar_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Callback de autenticação
 async def auth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -163,6 +169,9 @@ def buscar_emails_prioritarios():
 
 # ✅ /emails_prioritarios
 async def listar_emails_prioritarios(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -175,6 +184,9 @@ async def listar_emails_prioritarios(update: Update, context: ContextTypes.DEFAU
 
 # ✅ /ler_emails
 async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
@@ -192,6 +204,9 @@ async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 # ✅ /enviar_email
 async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context):
+        return
+
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
