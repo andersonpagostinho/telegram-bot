@@ -57,3 +57,4 @@ gevent==24.2.1
 greenlet==3.0.3
 dateparser==1.2.1
 google-auth-oauthlib
+gTTS==2.5.4
