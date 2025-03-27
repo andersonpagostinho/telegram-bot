@@ -106,7 +106,7 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         resposta = "⚠️ Já existe um evento nesse horário.\n"
         resposta += "\n".join(f"🔄 Alternativa: {s}" for s in sugestoes) if sugestoes else "❌ Nenhum horário alternativo disponível."
-        await update.message.reply_text(resposta)
+        await responder_em_audio(update, context, resposta)
         return
 
     event = {
@@ -254,7 +254,7 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for eid, ev in eventos.items():
         resposta += f"\n📌 {eid}: {ev.get('descricao')} ({ev.get('data')} {ev.get('hora_inicio')} - {ev.get('hora_fim')})"
 
-    await update.message.reply_text(resposta)
+    await responder_em_audio(update, context, resposta)
 
 async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE, texto: str):
     if not await verificar_pagamento(update, context):
