@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
 from services.firebase_service import buscar_dados, buscar_subcolecao, buscar_cliente
-from handlers.email_handler import enviar_email  # Usa o que você já tem
-from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅ NOVO
+from handlers.email_handler import enviar_email
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento
+from utils.tts_utils import responder_em_audio
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ async def relatorio_diario(update: Update, context: ContextTypes.DEFAULT_TYPE):
     hoje = datetime.now().date().isoformat()
 
     tarefas = buscar_dados("Tarefas")
-    tarefas_hoje = [t for t in tarefas if hoje in t.get("data", hoje)]  # adapta se tiver campo data
+    tarefas_hoje = [t for t in tarefas if hoje in t.get("data", hoje)]
 
     eventos = buscar_subcolecao(f"Clientes/{user_id}/Eventos")
     eventos_hoje = [e for e in eventos.values() if e.get("data") == hoje]
@@ -44,7 +45,6 @@ async def relatorio_semanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_acesso_modulo(update, context, "secretaria"):
         return
 
-
     user_id = str(update.message.from_user.id)
     hoje = datetime.now().date()
     inicio_semana = hoje - timedelta(days=hoje.weekday())
@@ -55,8 +55,8 @@ async def relatorio_semanal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if "data" in e and inicio_semana <= datetime.fromisoformat(e["data"]).date() <= hoje
     ]
 
-    tarefas = buscar_dados("Tarefas")  # Adaptar se quiser por usuário
-    tarefas_semana = tarefas  # se quiser por data: [t for t in tarefas if ... ]
+    tarefas = buscar_dados("Tarefas")
+    tarefas_semana = tarefas
 
     resposta = f"📈 *Relatório Semanal ({inicio_semana} → {hoje}):*\n\n"
     resposta += f"📝 Tarefas registradas: {len(tarefas_semana)}\n"
@@ -76,7 +76,7 @@ async def enviar_relatorio_email(update: Update, context: ContextTypes.DEFAULT_T
     cliente_info = buscar_cliente(user_id)
 
     if not cliente_info or "email" not in cliente_info:
-        await update.message.reply_text("⚠️ Nenhum e-mail configurado para sua conta.")
+        await responder_em_audio(update, context, "⚠️ Nenhum e-mail configurado para sua conta.")
         return
 
     email_destino = cliente_info["email"]
@@ -92,6 +92,7 @@ async def enviar_relatorio_email(update: Update, context: ContextTypes.DEFAULT_T
     sucesso = enviar_email(email_destino, assunto, mensagem)
 
     if sucesso:
-        await update.message.reply_text(f"📧 Relatório enviado com sucesso para {email_destino}")
+        await responder_em_audio(update, context, f"📧 Relatório enviado com sucesso para {email_destino}")
     else:
-        await update.message.reply_text("❌ Erro ao enviar o relatório por e-mail.")
+        await responder_em_audio(update, context, "❌ Erro ao enviar o relatório por e-mail.")
+

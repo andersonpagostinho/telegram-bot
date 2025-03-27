@@ -3,6 +3,7 @@ from telegram.ext import ContextTypes
 from services.firebase_service import salvar_dados, buscar_dados, limpar_colecao
 from utils.priority_utils import detectar_prioridade_tarefa
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅ Novo
+from utils.tts_utils import responder_em_audio
 
 # ✅ Adicionar uma nova tarefa
 async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -26,7 +27,7 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     if salvar_dados("Tarefas", tarefa_data):
-        await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
+        await responder_em_audio(update, context, f"✅ Tarefa adicionada: {descricao}. Prioridade {prioridade}.")
     else:
         await update.message.reply_text("❌ Erro ao salvar a tarefa. Tente novamente.")
 
@@ -74,6 +75,6 @@ async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if limpar_colecao("Tarefas"):
-        await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
+        await responder_em_audio(update, context, "🗑️ Todas as tarefas foram removidas com sucesso.")
     else:
         await update.message.reply_text("❌ Erro ao limpar as tarefas.")

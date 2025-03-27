@@ -1,10 +1,11 @@
-# handlers/event_handler.py
+# handlers/event_handler.py 
 
 import logging
 import dateparser
 from datetime import datetime, time, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
+from utils.tts_utils import responder_em_audio
 
 from services.firebase_service import (
     salvar_cliente,
@@ -20,7 +21,6 @@ from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅
 logger = logging.getLogger(__name__)
 
 service = get_calendar_service()
-
 
 async def configurar_google_calendar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context):
@@ -38,10 +38,9 @@ async def configurar_google_calendar(update: Update, context: ContextTypes.DEFAU
     sucesso = salvar_cliente(user_id, {"calendar_id": calendar_id})
 
     if sucesso:
-        await update.message.reply_text(f"✅ Google Calendar ID configurado: {calendar_id}")
+        await responder_em_audio(update, context, f"✅ Google Calendar configurado com sucesso.")
     else:
         await update.message.reply_text("❌ Erro ao salvar o ID no Firebase.")
-
 
 async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context):
@@ -133,12 +132,7 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
     )
 
-    await update.message.reply_text(
-        f"📅 Evento criado!\n\n**{descricao}**\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}\n🔗 [Abrir no Google Calendar]({event_link})",
-        parse_mode="Markdown",
-        disable_web_page_preview=True
-    )
-
+    await responder_em_audio(update, context, f"📅 Evento criado para {data} das {hora_inicio} às {hora_fim}.")
 
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context):
@@ -173,7 +167,6 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(resposta)
 
-
 async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context):
         return
@@ -203,11 +196,10 @@ async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             evento["confirmado"] = True
             salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{event_id}", evento)
-            await update.message.reply_text(f"✅ Evento confirmado: {evento['descricao']}")
+            await responder_em_audio(update, context, f"✅ Reunião confirmada: {evento['descricao']}")
             return
 
     await update.message.reply_text("❌ Evento não encontrado.")
-
 
 async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context):
@@ -228,11 +220,10 @@ async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if evento["descricao"].lower() == descricao.lower():
             evento["confirmado"] = True
             salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{event_id}", evento)
-            await update.message.reply_text(f"✅ Presença confirmada: {descricao}")
+            await responder_em_audio(update, context, f"✅ Presença confirmada para: {descricao}")
             return
 
     await update.message.reply_text("❌ Evento não encontrado.")
-
 
 async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_acesso_modulo(update, context, "secretaria"):
@@ -250,7 +241,7 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     if salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{event_id}", evento_data):
-        await update.message.reply_text("✅ Evento de teste salvo com sucesso.")
+        await responder_em_audio(update, context, "✅ Evento de teste salvo com sucesso.")
     else:
         await update.message.reply_text("❌ Erro ao salvar evento de teste.")
 
@@ -264,7 +255,6 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         resposta += f"\n📌 {eid}: {ev.get('descricao')} ({ev.get('data')} {ev.get('hora_inicio')} - {ev.get('hora_fim')})"
 
     await update.message.reply_text(resposta)
-
 
 async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE, texto: str):
     if not await verificar_pagamento(update, context):
@@ -325,8 +315,8 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{created_event['id']}", evento_data)
 
-        msg = f"✅ Reunião marcada!\n📅 {data_str} às {hora_str}\n🔗 {link}"
-        await update.message.reply_text(msg)
+        msg = f"✅ Reunião marcada para {data_str} às {hora_str}."
+        await responder_em_audio(update, context, msg)
 
     except Exception as e:
         await update.message.reply_text("❌ Erro ao processar o agendamento por voz.")

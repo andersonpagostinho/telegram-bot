@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from services.firebase_service import salvar_cliente, buscar_cliente
 from datetime import datetime
+from utils.tts_utils import responder_em_audio  # ✅ Importado
 
 # ✅ /tipo_negocio petshop
 async def set_tipo_negocio(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -13,7 +14,7 @@ async def set_tipo_negocio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
 
     if salvar_cliente(user_id, {"tipo_negocio": tipo}):
-        await update.message.reply_text(f"🏪 Tipo de negócio definido como: {tipo}")
+        await responder_em_audio(update, context, f"🏪 Tipo de negócio definido como: {tipo}")
     else:
         await update.message.reply_text("❌ Erro ao salvar o tipo de negócio.")
 
@@ -27,7 +28,7 @@ async def set_estilo_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = str(update.message.from_user.id)
 
     if salvar_cliente(user_id, {"estilo_mensagem": estilo}):
-        await update.message.reply_text(f"🎨 Estilo de mensagens definido como: {estilo}")
+        await responder_em_audio(update, context, f"🎨 Estilo de mensagens definido como: {estilo}")
     else:
         await update.message.reply_text("❌ Erro ao salvar o estilo.")
 
@@ -41,7 +42,7 @@ async def set_nome_negocio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
 
     if salvar_cliente(user_id, {"nome_negocio": nome}):
-        await update.message.reply_text(f"🏷️ Nome do negócio salvo como: {nome}")
+        await responder_em_audio(update, context, f"🏷️ Nome do negócio salvo como: {nome}")
     else:
         await update.message.reply_text("❌ Erro ao salvar o nome do negócio.")
 
@@ -76,7 +77,7 @@ async def set_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
 
     if salvar_cliente(user_id, {"email": email}):
-        await update.message.reply_text(f"📧 E-mail salvo com sucesso: {email}")
+        await responder_em_audio(update, context, f"📧 E-mail salvo com sucesso: {email}")
     else:
         await update.message.reply_text("❌ Erro ao salvar o e-mail.")
 
@@ -95,7 +96,6 @@ async def meu_plano(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data_assinatura = cliente.get("dataAssinatura", "❓")
     proximo_pagamento = cliente.get("proximoPagamento", "❓")
 
-    # Calcula dias restantes se tiver data válida
     dias_restantes = ""
     try:
         data_final = datetime.fromisoformat(proximo_pagamento)

@@ -8,11 +8,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from utils.tts_utils import responder_em_audio
 
 from handlers.task_handler import add_task, list_tasks, clear_tasks
 from services.email_service import ler_emails, buscar_contatos_por_nome
 from services.firebase_service import salvar_cliente, buscar_cliente
-from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento  # ✅ Verificação de plano
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         logger.info("🚀 Comando /start recebido!")
-        await update.message.reply_text("👋 Olá! Bot funcionando via Webhooks!")
+        await responder_em_audio(update, context, "👋 Olá! Bot funcionando via Webhooks!")
     except Exception as e:
         logger.error(f"Erro no /start: {e}", exc_info=True)
 
@@ -143,7 +144,7 @@ async def auth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
     })
 
-    await update.message.reply_text("✅ Seu e-mail foi conectado com sucesso!")
+    await responder_em_audio(update, context, "✅ Seu e-mail foi conectado com sucesso!")
 
 # ✅ Buscar emails prioritários
 def buscar_emails_prioritarios():
@@ -199,7 +200,7 @@ async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
     else:
         resposta = "📭 Nenhum email encontrado."
-    
+
     await update.message.reply_text(resposta)
 
 # ✅ /enviar_email
@@ -225,7 +226,10 @@ async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
                 sucesso = enviar_email(destinatario, assunto, mensagem)
                 del context.user_data["contatos_em_espera"]
-                await update.message.reply_text("✅ E-mail enviado para: " + destinatario if sucesso else "❌ Erro ao enviar e-mail.")
+                if sucesso:
+                    await responder_em_audio(update, context, f"✅ E-mail enviado para: {destinatario}")
+                else:
+                    await update.message.reply_text("❌ Erro ao enviar e-mail.")
                 return
 
         await update.message.reply_text("❌ Opção inválida. Tente novamente.")
@@ -241,7 +245,7 @@ async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if "@" in entrada:
         sucesso = enviar_email(entrada, assunto, mensagem)
-        await update.message.reply_text("✅ E-mail enviado com sucesso!" if sucesso else "❌ Erro ao enviar e-mail.")
+        await responder_em_audio(update, context, "✅ E-mail enviado com sucesso!" if sucesso else "❌ Erro ao enviar e-mail.")
     else:
         contatos = buscar_contatos_por_nome(user_id, entrada)
         if not contatos:
@@ -250,7 +254,7 @@ async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
         if len(contatos) == 1:
             sucesso = enviar_email(contatos[0]["email"], assunto, mensagem)
-            await update.message.reply_text(f"✅ E-mail enviado para {contatos[0]['email']}" if sucesso else "❌ Erro ao enviar e-mail.")
+            await responder_em_audio(update, context, f"✅ E-mail enviado para {contatos[0]['email']}" if sucesso else "❌ Erro ao enviar e-mail.")
         else:
             context.user_data["contatos_em_espera"] = contatos
             context.user_data["assunto_em_espera"] = assunto
