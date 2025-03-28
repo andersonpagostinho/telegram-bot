@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from utils.tts_utils import responder_em_audio
+from services.email_service import filtrar_emails_prioritarios_por_palavras
 
 from handlers.task_handler import add_task, list_tasks, clear_tasks
 from services.email_service import ler_emails, buscar_contatos_por_nome
@@ -193,6 +194,7 @@ async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     user_id = str(update.message.from_user.id)
     emails = ler_emails(user_id=user_id)
+
     if emails:
         resposta = "📧 Emails:\n" + "\n".join(
             f"- De: {email.get('remetente', 'Desconhecido')}\n  Assunto: {email.get('assunto', 'Sem assunto')}\n  Mensagem: {email.get('corpo', email.get('preview', 'Sem conteúdo'))[:300]}..."
@@ -202,6 +204,16 @@ async def ler_emails_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         resposta = "📭 Nenhum email encontrado."
 
     await update.message.reply_text(resposta)
+
+    # 🔍 Verifica e avisa sobre prioritários
+    prioritarios = filtrar_emails_prioritarios_por_palavras(emails)
+    if prioritarios:
+        resumo = "📬 Emails prioritários:\n"
+        for email in prioritarios[:3]:
+            resumo += f"- {email['assunto']} de {email['remetente']}\n🔗 {email['link']}\n\n"
+
+        await responder_em_audio(update, context, f"Você recebeu {len(prioritarios)} e-mails importantes. Verifique sua caixa de entrada.")
+        await update.message.reply_text(resumo)
 
 # ✅ /enviar_email
 async def enviar_email_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

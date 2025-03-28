@@ -22,6 +22,15 @@ EMAIL_IMAP_PORT = os.getenv("EMAIL_IMAP_PORT", "993")
 EMAIL_FOLDER = os.getenv("EMAIL_FOLDER", "INBOX")
 REMETENTES_PRIORITARIOS = json.loads(os.getenv("REMETENTES_PRIORITARIOS", "[]"))
 
+logger = logging.getLogger(__name__)
+
+# ✅ Palavras que indicam e-mails prioritários
+PALAVRAS_CHAVE_PRIORITARIAS = [
+    "reunião", "urgente", "importante", "prazo", "proposta", "contrato",
+    "pagamento", "cobrança", "nota fiscal", "cliente", "reclamação",
+    "avaliação", "problema", "erro", "cancelamento", "pendência", "atraso"
+]
+
 # ✅ Função para ler e-mails
 def ler_emails(user_id=None, num_emails=5):
     try:
@@ -79,14 +88,15 @@ def ler_emails(user_id=None, num_emails=5):
             email_data = {
                 "remetente": from_,
                 "assunto": subject,
-                "corpo": body
+                "corpo": body,
+                "link": gerar_link_visualizacao_email(e_id.decode())  # 👈 Novo
             }
-            # 🔍 Adiciona prioridade se o user_id for fornecido
+
             if user_id:
                 prioridade = classificar_prioridade_email(email_data, user_id)
                 email_data["prioridade"] = prioridade
             else:
-                email_data["prioridade"] = "baixa"  # ou use heurística simples
+                email_data["prioridade"] = "baixa"
 
             emails.append(email_data)
 
@@ -98,7 +108,20 @@ def ler_emails(user_id=None, num_emails=5):
         logger.error(f"❌ Erro ao ler e-mails: {str(e)}")
         return []
 
-# ✅ Função para filtrar e-mails prioritários
+# ✅ Gera link direto para visualizar no Gmail (estimativa)
+def gerar_link_visualizacao_email(message_id):
+    return f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{message_id}"
+
+# ✅ Função para filtrar e-mails prioritários com base em palavras
+def filtrar_emails_prioritarios_por_palavras(emails):
+    importantes = []
+    for email_data in emails:
+        texto = f"{email_data.get('assunto', '')} {email_data.get('corpo', '')}".lower()
+        if any(palavra in texto for palavra in PALAVRAS_CHAVE_PRIORITARIAS):
+            importantes.append(email_data)
+    return importantes
+
+# ✅ Função para filtrar e-mails de remetentes prioritários
 def listar_emails_prioritarios():
     emails = ler_emails()
     return [email for email in emails if any(prior in email["remetente"] for prior in REMETENTES_PRIORITARIOS)]
