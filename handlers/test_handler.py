@@ -1,23 +1,17 @@
-from services.firebase_service import salvar_dados, buscar_dados
 from telegram import Update
-from telegram.ext import CallbackContext
+from telegram.ext import ContextTypes
+from services.firebase_service import atualizar_dado_em_path
 
-async def testar_firebase(update: Update, context: CallbackContext) -> None:
+# ✅ Comando de teste para salvar avisos no Firebase
+async def testar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
-    dados_teste = {"teste": "ok", "user": user_id}
+    path = f"Usuarios/{user_id}/configuracoes/avisos"
+    dados = {
+        "horarios": ["10:30", "14:00", "19:00"]
+    }
 
-    resultado = salvar_dados("teste_collection", dados_teste)  # ✅ Correção aqui
-
-    if resultado:
-        await update.message.reply_text("✅ Dados de teste salvos no Firebase.")
+    sucesso = atualizar_dado_em_path(path, dados)
+    if sucesso:
+        await update.message.reply_text("✅ Horários salvos com sucesso no Firebase!")
     else:
-        await update.message.reply_text("❌ Falha ao salvar os dados no Firebase.")
-
-async def verificar_firebase(update: Update, context: CallbackContext) -> None:
-    dados = buscar_dados("teste_collection")  # ✅ Correção aqui
-
-    if dados:
-        resposta = "\n".join(str(dado) for dado in dados)  # Formatar os dados
-        await update.message.reply_text(f"🔍 Dados encontrados:\n{resposta}")
-    else:
-        await update.message.reply_text("❌ Nenhum dado encontrado no Firebase.")
+        await update.message.reply_text("❌ Falha ao salvar horários no Firebase.")

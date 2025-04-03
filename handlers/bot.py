@@ -10,6 +10,7 @@ from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_
 from handlers.perfil_handler import set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo, set_email, meu_plano
 from handlers.voice_handler import handle_voice
 from handlers.followup_handler import criar_followup, listar_followups, verificar_avisos
+from handlers.test_handler import testar_avisos
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,7 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("followup", criar_followup))
         application.add_handler(CommandHandler("meusfollowups", listar_followups))
         application.add_handler(CommandHandler("verificaravisos", verificar_avisos))
+        application.add_handler(CommandHandler("testaravisos", testar_avisos))
 
         # 🚀 Adicionando os comandos de teste do Firebase
         application.add_handler(CommandHandler("testar_firebase", testar_firebase))
