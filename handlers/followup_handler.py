@@ -143,8 +143,8 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Horário inválido: {h}. Use o formato HH:MM.")
             return
 
-    path = f"Usuarios/{user_id}/configuracoes"
-    dados = {"avisos": {"horarios": horarios}}
+    path = f"Usuarios/{user_id}/configuracoes/avisos"
+    dados = {"horarios": horarios}
 
     print(f"[DEBUG] Salvando horários personalizados para {user_id}")
     sucesso = atualizar_dado_em_path(path, dados)
