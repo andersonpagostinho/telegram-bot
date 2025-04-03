@@ -162,11 +162,12 @@ async def verificar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
 
     try:
-        print(f"🔍 [DEBUG] Buscando configurações em: Usuarios/{user_id}/configuracoes")
+        print(f"🔍 [DEBUG] Buscando configurações em: Usuarios/{user_id}/configuracoes/avisos")
         config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes/avisos")
         print(f"📦 [DEBUG] Config retornada: {config}")
 
-        horarios = config.get("avisos", {}).get("horarios", []) if config else []
+        # CORREÇÃO AQUI 👇
+        horarios = config.get("horarios", []) if config else []
 
         if horarios:
             msg = "⏰ Seus lembretes estão configurados para:\n\n" + "\n".join(f"• {h}" for h in horarios)
@@ -178,6 +179,7 @@ async def verificar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text("❌ Erro ao verificar os horários de aviso.")
         print(f"[❌ ERRO EM /verificaravisos] {e}")
+
 
 # ✅ Envia áudio mesmo sem Update real
 async def responder_em_audio_fake(user_id, texto):
