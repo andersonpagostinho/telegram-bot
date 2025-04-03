@@ -147,7 +147,7 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dados = {"horarios": horarios}
 
     print(f"[DEBUG] Salvando horários personalizados para {user_id}")
-    sucesso = atualizar_dado_em_path(path, dados)
+    sucesso = salvar_dado_em_path(path, dados)
 
     if sucesso:
         await update.message.reply_text(
