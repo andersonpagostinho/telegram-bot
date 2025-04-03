@@ -91,8 +91,18 @@ def buscar_dados(colecao):
         return []
 
 def buscar_dado_em_path(path: str):
-    doc = db.document(path).get()
-    return doc.to_dict() if doc.exists else None
+    try:
+        print(f"🔎 [DEBUG] buscando dado em path: {path}")
+        doc = db.document(path).get()
+        if doc.exists:
+            print(f"📥 [DEBUG] Documento encontrado: {doc.to_dict()}")
+            return doc.to_dict()
+        else:
+            print("📭 [DEBUG] Documento não encontrado.")
+            return None
+    except Exception as e:
+        print(f"❌ Erro em buscar_dado_em_path: {e}")
+        return None
 
 # ✅ Função genérica para deletar todos os documentos de uma coleção
 def limpar_colecao(colecao):

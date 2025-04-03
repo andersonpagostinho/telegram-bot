@@ -162,8 +162,9 @@ async def verificar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
 
     try:
-        # ✅ Corrigir aqui: buscar o documento de configuracoes (e não diretamente "avisos")
+        print(f"🔍 [DEBUG] Buscando configurações em: Usuarios/{user_id}/configuracoes")
         config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes")
+        print(f"📦 [DEBUG] Config retornada: {config}")
 
         horarios = config.get("avisos", {}).get("horarios", []) if config else []
 
