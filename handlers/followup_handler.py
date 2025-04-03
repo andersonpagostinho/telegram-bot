@@ -162,11 +162,12 @@ async def verificar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
 
     try:
-        # Busca direto no path completo
-        config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes/avisos")
+        # ✅ Corrigir aqui: buscar o documento de configuracoes (e não diretamente "avisos")
+        config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes")
 
-        if config and isinstance(config, dict) and "horarios" in config:
-            horarios = config["horarios"]
+        horarios = config.get("avisos", {}).get("horarios", []) if config else []
+
+        if horarios:
             msg = "⏰ Seus lembretes estão configurados para:\n\n" + "\n".join(f"• {h}" for h in horarios)
         else:
             msg = "⏰ Você está usando os horários *padrão* de lembretes:\n\n• 09:00\n• 13:00\n• 17:00"
