@@ -143,8 +143,8 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Horário inválido: {h}")
             return
 
-    path = f"Usuarios/{user_id}/configuracoes/avisos"
-    dados = {"horarios": horarios}
+    config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes/avisos")
+    horarios = config.get("horarios", []) if config else []
 
     print(f"[DEBUG] Salvando: {dados} em {path}")
     sucesso = salvar_dado_em_path(path, dados)
