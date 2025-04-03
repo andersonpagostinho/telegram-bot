@@ -124,7 +124,7 @@ async def rotina_lembrete_followups(user_id=None):
         except Exception as e:
             print(f"❌ Erro ao notificar {uid}: {e}")
 
-# ✅ Rconfigurar avisos
+# ✅ /configuraravisos 09:00 13:00 17:00
 async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
@@ -133,8 +133,8 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Use: /configuraravisos HH:MM HH:MM HH:MM")
         return
 
-    horarios = context.args
     user_id = str(update.message.from_user.id)
+    horarios = context.args
 
     for h in horarios:
         try:
@@ -143,8 +143,9 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Horário inválido: {h}")
             return
 
-    config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes/avisos")
-    horarios = config.get("horarios", []) if config else []
+    # 💡 Aqui é onde salvamos corretamente os horários
+    path = f"Usuarios/{user_id}/configuracoes/avisos"
+    dados = {"horarios": horarios}
 
     print(f"[DEBUG] Salvando: {dados} em {path}")
     sucesso = salvar_dado_em_path(path, dados)
