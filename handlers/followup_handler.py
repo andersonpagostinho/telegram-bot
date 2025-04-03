@@ -124,13 +124,13 @@ async def rotina_lembrete_followups(user_id=None):
         except Exception as e:
             print(f"❌ Erro ao notificar {uid}: {e}")
 
-# ✅ /configuraravisos 09:00 13:00 17:00
+# ✅ Rconfigurar avisos
 async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
     if not context.args or len(context.args) > 3:
-        await update.message.reply_text("⚠️ Use: /configuraravisos HH:MM HH:MM HH:MM\nEx: /configuraravisos 09:00 13:00 17:00")
+        await update.message.reply_text("⚠️ Use: /configuraravisos HH:MM HH:MM HH:MM")
         return
 
     horarios = context.args
@@ -140,13 +140,13 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             datetime.strptime(h, "%H:%M")
         except ValueError:
-            await update.message.reply_text(f"❌ Horário inválido: {h}. Use o formato HH:MM.")
+            await update.message.reply_text(f"❌ Horário inválido: {h}")
             return
 
     path = f"Usuarios/{user_id}/configuracoes/avisos"
     dados = {"horarios": horarios}
 
-    print(f"[DEBUG] Salvando horários personalizados para {user_id}")
+    print(f"[DEBUG] Salvando: {dados} em {path}")
     sucesso = salvar_dado_em_path(path, dados)
 
     if sucesso:
@@ -155,7 +155,7 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
     else:
-        await update.message.reply_text("❌ Ocorreu um erro ao salvar os horários. Tente novamente.")
+        await update.message.reply_text("❌ Ocorreu um erro ao salvar os horários.")
 
 # ✅ /verificaravisos
 async def verificar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
