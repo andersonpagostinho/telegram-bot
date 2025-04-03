@@ -143,7 +143,6 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Horário inválido: {h}")
             return
 
-    # 💡 Aqui é onde salvamos corretamente os horários
     path = f"Usuarios/{user_id}/configuracoes/avisos"
     dados = {"horarios": horarios}
 
