@@ -163,7 +163,7 @@ async def verificar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         print(f"🔍 [DEBUG] Buscando configurações em: Usuarios/{user_id}/configuracoes")
-        config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes")
+        config = buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes/avisos")
         print(f"📦 [DEBUG] Config retornada: {config}")
 
         horarios = config.get("avisos", {}).get("horarios", []) if config else []
