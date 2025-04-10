@@ -1,13 +1,24 @@
 from utils.intencao_utils import identificar_intencao
-from utils.plan_utils import verificar_plano, identificar_plano_por_intencao, verificar_pagamento
+from utils.plan_utils import verificar_plano, identificar_plano_por_intencao
 from services.firebase_service import buscar_cliente
+from services.gpt_service import processar_com_gpt
+from services.intencao_gpt_service import identificar_intencao_com_gpt
 
 async def processar_comando_voz(update, context, texto):
     texto = texto.lower()
+
+    # 🔎 1. Tenta identificar intenção com regras fixas
     intencao = identificar_intencao(texto)
 
-    if intencao == "desconhecido":
-        intencao = await processar_intencao_com_gpt(texto)
+    # 🧠 2. Se não reconheceu, tenta via GPT (intenção)
+    if not intencao:
+        intencao = await identificar_intencao_com_gpt(texto)
+
+    # 💬 3. Se nem o GPT entendeu como intenção, responde com o próprio GPT
+    if not intencao:
+        resposta_gpt = await processar_com_gpt(texto)
+        await update.message.reply_text(resposta_gpt)
+        return
 
     user_id = str(update.message.from_user.id)
 
@@ -158,10 +169,8 @@ async def processar_comando_voz(update, context, texto):
             from datetime import datetime
             from handlers.followup_handler import configurar_avisos
 
-            # 🕒 Extrai horários: "08:15", "12h30", "16h"
             horarios_brutos = re.findall(r'\d{1,2}[:h]?\d{0,2}', texto)
 
-            # 🛠️ Normaliza para formato HH:MM
             horarios_formatados = []
             for h in horarios_brutos:
                 h = h.replace("h", ":")
@@ -173,7 +182,7 @@ async def processar_comando_voz(update, context, texto):
                 except ValueError:
                     continue
 
-            horarios_formatados = horarios_formatados[:3]  # Máximo 3
+            horarios_formatados = horarios_formatados[:3]
 
             if not horarios_formatados:
                 await update.message.reply_text(
@@ -190,4 +199,3 @@ async def processar_comando_voz(update, context, texto):
 
     except Exception as e:
         await update.message.reply_text(f"❌ Ocorreu um erro ao executar o comando de voz:\n{e}")
-
