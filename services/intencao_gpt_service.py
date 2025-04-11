@@ -1,6 +1,7 @@
+import os
 from openai import AsyncOpenAI
 
-client = AsyncOpenAI()  # Ou configure com chave/env personalizada
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 INTENCOES_VALIDAS = [
     "start", "help", "meusdados", "meuestilo", "adicionar_tarefa",
