@@ -1,0 +1,11 @@
+client_secret*.json
+agendabot-*.json
+.env
+firebase_credentials.json
+credentials.json
+google_calendar.json
+BotTelegramOAuth.json
+google_credentials.json
+webclient.json
+__pycache__/
+*.pyc
