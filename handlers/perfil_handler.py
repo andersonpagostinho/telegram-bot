@@ -195,6 +195,8 @@ async def adicionar_profissional(update: Update, context: ContextTypes.DEFAULT_T
         "servicos": atividades
     }
 
+    print(f"📌 Profissional a salvar:\n- Path: Clientes/{user_id}/Profissionais/{nome_prof}\n- Dados: {dados}")
+
     path = f"Clientes/{user_id}/Profissionais/{nome_prof}"
     salvo = await salvar_dado_em_path(path, dados)
 
