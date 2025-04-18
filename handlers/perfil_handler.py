@@ -181,6 +181,8 @@ async def meu_perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ /profissional
 async def adicionar_profissional(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("🚀 Entrou no handler /profissional")
+
     if not context.args or len(context.args) < 2:
         await update.message.reply_text("⚠️ Use o formato: /profissional Nome atividade1,atividade2")
         return
