@@ -179,4 +179,29 @@ async def meu_perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+# ✅ /profissional
+async def adicionar_profissional(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text("⚠️ Use o formato: /profissional Nome atividade1,atividade2")
+        return
+
+    nome_prof = context.args[0]
+    atividades = ' '.join(context.args[1:]).replace(" ", "").split(",")
+
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+    if not cliente:
+        await update.message.reply_text("⚠️ Nenhum cadastro encontrado. Use /start para iniciar.")
+        return
+
+    profissionais = cliente.get("profissionais", {})
+    profissionais[nome_prof] = atividades
+
+    atualizado = await salvar_cliente(user_id, {"profissionais": profissionais})
+
+    if atualizado:
+        atividades_formatadas = ", ".join(atividades)
+        await update.message.reply_text(f"👩‍⚕️ Profissional *{nome_prof}* salvo com as atividades: *{atividades_formatadas}*", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ Erro ao salvar profissional.")
 

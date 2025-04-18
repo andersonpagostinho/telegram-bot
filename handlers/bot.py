@@ -16,7 +16,7 @@ from handlers.perfil_handler import (
     meu_plano,
     meu_perfil,
     set_tipo_usuario,  # ✅ CORRETO
-    set_modo_uso       # ✅ CORRETO
+    set_modo_uso,       # ✅ CORRETO
 )
 from handlers.voice_handler import handle_voice
 from handlers.followup_handler import criar_followup, listar_followups, verificar_avisos, configurar_avisos
@@ -33,19 +33,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(user.id)
 
     dados = {
-        "nome": f"{user.first_name} {user.last_name or ''}".strip(),
-        "email": "",
-        "pagamentoAtivo": True,
-        "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
-        "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
-        "planosAtivos": ["secretaria"],
-
-        # ⚠️ Novos campos críticos:
-        "tipo_usuario": "", 
-        "modo_uso": "",
-        "tipo_negocio": "",
-        "estilo": ""
-    }
+    "nome": f"{user.first_name} {user.last_name or ''}".strip(),
+    "email": "",
+    "pagamentoAtivo": True,
+    "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
+    "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+    "planosAtivos": ["secretaria"],
+    "tipo_usuario": "", 
+    "modo_uso": "",
+    "tipo_negocio": "",
+    "estilo": ""
+}
 
     await salvar_cliente(user_id, dados)
 
@@ -55,14 +53,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     f"1️⃣ *Sou para você ou para seus clientes?*\n"
     f"→ Use o comando /tipo_usuario e escolha entre `dono` ou `cliente`\n\n"
     f"2️⃣ *Quem vai me acessar?*\n"
-      f"→ Use o comando /modo_uso e escolha entre `interno` (uso pessoal) ou `atendimento_cliente` (atendimento do seu negócio)\n\n"
+       f"→ Use o comando /modo_uso e escolha entre `interno` (uso pessoal) ou `atendimento_cliente` (atendimento do seu negócio)\n\n"
     f"3️⃣ *Qual é o seu tipo de negócio?*\n"
     f"→ Use o comando /tipo_negocio (ex: salão de beleza, clínica, tech...)\n\n"
     f"4️⃣ *Como prefere que eu me comunique?*\n"
-      f"→ Use /estilo e escolha `formal` ou `casual`\n\n"
+       f"→ Use /estilo e escolha `formal` ou `casual`\n\n"
     f"5️⃣ *Qual e-mail devo usar para enviar mensagens por você?*\n"
     f"→ Use /meu_email e informe seu e-mail ou o da sua empresa\n\n"
+    f"6️⃣ *Você tem profissionais que devemos cadastrar?*\n"
+    f"→ Use o comando /profissional e informe o nome e as atividades (ex: /profissional Joana corte,escova)\n\n"
     f"📌 Quando terminar, digite /help para ver tudo que posso fazer por você!"
+
 )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -119,8 +120,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🎯 *Personalização*\n"
         "/tipo_negocio - Define o tipo de negócio\n"
         "/estilo - Define o estilo de mensagens\n"
-        "/nome_negocio - Define o nome do seu negócio\n",
-
+        "/nome_negocio - Define o nome do seu negócio\n"
+        "/profissional - Cadastra profissional com suas atividades (ex: /profissional Ana corte,escova)\n",
         parse_mode='Markdown'
     )
 
@@ -173,6 +174,7 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("meu_perfil", meu_perfil))
         application.add_handler(CommandHandler("tipo_usuario", set_tipo_usuario))
         application.add_handler(CommandHandler("modo_uso", set_modo_uso))
+        application.add_handler(CommandHandler("profissional", adicionar_profissional))
         
 
         # 🚀 Adicionando os comandos de teste do Firebase
