@@ -7,7 +7,7 @@ from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, c
 from services.firebase_service_async import buscar_cliente, salvar_cliente, verificar_firebase
 from handlers.test_handler import testar_firebase, testar_avisos
 from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_relatorio_email
-from handlers.perfil_handler import set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo, set_email, meu_plano
+from handlers.perfil_handler import set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo, set_email, meu_plano, meu_perfil
 from handlers.voice_handler import handle_voice
 from handlers.followup_handler import criar_followup, listar_followups, verificar_avisos, configurar_avisos
 from handlers.test_handler import testar_avisos
@@ -31,22 +31,29 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "planosAtivos": ["secretaria"],
 
         # ⚠️ Novos campos críticos:
-        "tipo_usuario": "dono",  # ou "cliente", se o usuário for cliente
-        "modo_uso": "atendimento_cliente",  # ou "interno", dependendo do uso
-        "tipo_negocio": "não definido",  # a ser definido depois com /tipo_negocio
-        "estilo": "formal"
+        "tipo_usuario": "", 
+        "modo_uso": "",
+        "tipo_negocio": "",
+        "estilo": ""
     }
 
     await salvar_cliente(user_id, dados)
 
     await update.message.reply_text(
-        f"👋 Olá, {user.first_name}! Sou NeoEve, sua assistente virtual.\n\n"
-        f"Para personalizar seu perfil, use:\n"
-        f"• /meu_email — Definir e-mail de envio\n"
-        f"• /tipo_negocio — Informar seu tipo de negócio\n"
-        f"• /estilo — Definir estilo da comunicação\n\n"
-        f"Digite /help para ver tudo que posso fazer por você!"
-    )
+    f"👋 Olá, {user.first_name}! Sou *NeoEve*, sua secretária virtual com inteligência contextual.\n\n"
+    f"🛠️ Para começarmos do jeito certo, preciso saber como serei usada:\n"
+    f"1️⃣ *Sou para você ou para seus clientes?*\n"
+    f"→ Use o comando /tipo_usuario e escolha entre `dono` ou `cliente`\n\n"
+    f"2️⃣ *Quem vai me acessar?*\n"
+      f"→ Use o comando /modo_uso e escolha entre `interno` (uso pessoal) ou `atendimento_cliente` (atendimento do seu negócio)\n\n"
+    f"3️⃣ *Qual é o seu tipo de negócio?*\n"
+    f"→ Use o comando /tipo_negocio (ex: salão de beleza, clínica, tech...)\n\n"
+    f"4️⃣ *Como prefere que eu me comunique?*\n"
+      f"→ Use /estilo e escolha `formal` ou `casual`\n\n"
+    f"5️⃣ *Qual e-mail devo usar para enviar mensagens por você?*\n"
+    f"→ Use /meu_email e informe seu e-mail ou o da sua empresa\n\n"
+    f"📌 Quando terminar, digite /help para ver tudo que posso fazer por você!"
+)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("📖 Comando /help recebido!")
@@ -153,6 +160,7 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("configuraravisos", configurar_avisos))
         application.add_handler(CommandHandler("testaravisos", testar_avisos))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, processar_texto))
+        application.add_handler(CommandHandler("meu_perfil", meu_perfil))
         
 
         # 🚀 Adicionando os comandos de teste do Firebase

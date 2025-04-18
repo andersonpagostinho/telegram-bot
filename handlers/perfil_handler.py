@@ -115,3 +115,68 @@ async def meu_plano(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(texto, parse_mode="Markdown")
+
+# ✅ /tipo_usuario dono
+async def set_tipo_usuario(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("⚠️ Informe o tipo de usuário. Ex: /tipo_usuario dono ou /tipo_usuario cliente")
+        return
+
+    tipo = context.args[0].lower()
+    if tipo not in ["dono", "cliente"]:
+        await update.message.reply_text("❌ Valor inválido. Use apenas 'dono' ou 'cliente'.")
+        return
+
+    user_id = str(update.message.from_user.id)
+    if await salvar_cliente(user_id, {"tipo_usuario": tipo}):
+        await update.message.reply_text(f"🔐 Tipo de usuário definido como: *{tipo}*", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ Erro ao salvar o tipo de usuário.")
+
+# ✅ /modo_uso atendimento_cliente
+async def set_modo_uso(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("⚠️ Informe o modo de uso. Ex: /modo_uso interno ou /modo_uso atendimento_cliente")
+        return
+
+    modo = context.args[0].lower()
+    if modo not in ["interno", "atendimento_cliente"]:
+        await update.message.reply_text("❌ Valor inválido. Use apenas 'interno' ou 'atendimento_cliente'.")
+        return
+
+    user_id = str(update.message.from_user.id)
+    if await salvar_cliente(user_id, {"modo_uso": modo}):
+        await update.message.reply_text(f"🧭 Modo de uso definido como: *{modo}*", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("❌ Erro ao salvar o modo de uso.")
+
+# ✅ /meu_perfil
+async def meu_perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if not cliente:
+        await update.message.reply_text("❌ Nenhum perfil encontrado. Use /start para iniciar seu cadastro.")
+        return
+
+    nome = cliente.get("nome", "Não informado")
+    email = cliente.get("email", "Não informado")
+    tipo_usuario = cliente.get("tipo_usuario", "❓ Não definido")
+    modo_uso = cliente.get("modo_uso", "❓ Não definido")
+    tipo_negocio = cliente.get("tipo_negocio", "❓ Não definido")
+    estilo = cliente.get("estilo_mensagem", "❓ Não definido")
+    nome_negocio = cliente.get("nome_negocio", "❓ Não definido")
+
+    await update.message.reply_text(
+        f"📌 *Seu Perfil Completo:*\n\n"
+        f"👤 Nome: *{nome}*\n"
+        f"📧 E-mail: *{email}*\n"
+        f"🔐 Tipo de usuário: *{tipo_usuario}*\n"
+        f"🧭 Modo de uso: *{modo_uso}*\n"
+        f"🏪 Tipo de negócio: *{tipo_negocio}*\n"
+        f"🏷️ Nome do negócio: *{nome_negocio}*\n"
+        f"🎨 Estilo de comunicação: *{estilo}*",
+        parse_mode="Markdown"
+    )
+
+
