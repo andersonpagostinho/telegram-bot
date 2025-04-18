@@ -17,6 +17,7 @@ from handlers.perfil_handler import (
     meu_perfil,
     set_tipo_usuario,  # ✅ CORRETO
     set_modo_uso,       # ✅ CORRETO
+    listar_profissionais
 )
 from handlers.voice_handler import handle_voice
 from handlers.followup_handler import criar_followup, listar_followups, verificar_avisos, configurar_avisos
@@ -195,6 +196,7 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("tipo_usuario", set_tipo_usuario))
         application.add_handler(CommandHandler("modo_uso", set_modo_uso))
         application.add_handler(CommandHandler("profissional", adicionar_profissional))
+        application.add_handler(CommandHandler("listar_profissionais", listar_profissionais))
         
 
         # 🚀 Adicionando os comandos de teste do Firebase

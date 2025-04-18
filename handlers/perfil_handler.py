@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from services.firebase_service_async import salvar_cliente, buscar_cliente
+from services.firebase_service_async import salvar_cliente, buscar_cliente, salvar_dado_em_path, buscar_subcolecao
 from datetime import datetime
 from utils.formatters import formatar_horario_atual
 
@@ -189,19 +189,36 @@ async def adicionar_profissional(update: Update, context: ContextTypes.DEFAULT_T
     atividades = ' '.join(context.args[1:]).replace(" ", "").split(",")
 
     user_id = str(update.message.from_user.id)
-    cliente = await buscar_cliente(user_id)
-    if not cliente:
-        await update.message.reply_text("⚠️ Nenhum cadastro encontrado. Use /start para iniciar.")
-        return
 
-    profissionais = cliente.get("profissionais", {})
-    profissionais[nome_prof] = atividades
+    dados = {
+        "nome": nome_prof,
+        "servicos": atividades
+    }
 
-    atualizado = await salvar_cliente(user_id, {"profissionais": profissionais})
+    path = f"Clientes/{user_id}/Profissionais/{nome_prof}"
+    salvo = await salvar_dado_em_path(path, dados)
 
-    if atualizado:
+    if salvo:
         atividades_formatadas = ", ".join(atividades)
-        await update.message.reply_text(f"👩‍⚕️ Profissional *{nome_prof}* salvo com as atividades: *{atividades_formatadas}*", parse_mode="Markdown")
+        await update.message.reply_text(
+            f"👩‍⚕️ Profissional *{nome_prof}* cadastrada com: *{atividades_formatadas}*",
+            parse_mode="Markdown"
+        )
     else:
         await update.message.reply_text("❌ Erro ao salvar profissional.")
 
+# ✅ /listar_profissionais
+async def listar_profissionais(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais")
+
+    if not profissionais:
+        await update.message.reply_text("📭 Nenhum profissional cadastrado ainda.")
+        return
+
+    mensagem = "👥 *Profissionais cadastrados:*\n\n"
+    for nome, dados in profissionais.items():
+        servicos = ", ".join(dados.get("servicos", []))
+        mensagem += f"• *{nome}* – {servicos}\n"
+
+    await update.message.reply_text(mensagem, parse_mode="Markdown")
