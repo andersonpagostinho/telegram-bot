@@ -57,8 +57,18 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     # 🧠 Processar com GPT
-    resultado = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
-    print("🧠 [DEBUG] Resposta estruturada do GPT:", resultado)
+    resultado_raw = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
+    print("🧠 [DEBUG] Resposta bruta do GPT:", resultado_raw)
+
+    try:
+        resultado = json.loads(resultado_raw) if isinstance(resultado_raw, str) else resultado_raw
+    except Exception as e:
+        print("❌ Erro ao decodificar JSON:", e)
+        resultado = {
+            "resposta": "❌ Ocorreu um erro ao interpretar a resposta da IA.",
+            "acao": None,
+            "dados": {}
+        }
 
     acao = resultado.get("acao")
     dados = resultado.get("dados", {})
