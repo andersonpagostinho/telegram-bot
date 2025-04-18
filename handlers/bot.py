@@ -7,7 +7,17 @@ from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, c
 from services.firebase_service_async import buscar_cliente, salvar_cliente, verificar_firebase
 from handlers.test_handler import testar_firebase, testar_avisos
 from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_relatorio_email
-from handlers.perfil_handler import set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo, set_email, meu_plano, meu_perfil
+from handlers.perfil_handler import (
+    set_tipo_negocio,
+    set_estilo_mensagem,
+    set_nome_negocio,
+    meu_estilo,
+    set_email,
+    meu_plano,
+    meu_perfil,
+    set_tipo_usuario,  # ✅ CORRETO
+    set_modo_uso       # ✅ CORRETO
+)
 from handlers.voice_handler import handle_voice
 from handlers.followup_handler import criar_followup, listar_followups, verificar_avisos, configurar_avisos
 from handlers.test_handler import testar_avisos
@@ -161,6 +171,8 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("testaravisos", testar_avisos))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, processar_texto))
         application.add_handler(CommandHandler("meu_perfil", meu_perfil))
+        application.add_handler(CommandHandler("tipo_usuario", set_tipo_usuario))
+        application.add_handler(CommandHandler("modo_uso", set_modo_uso))
         
 
         # 🚀 Adicionando os comandos de teste do Firebase
