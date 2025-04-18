@@ -206,4 +206,7 @@ async def salvar_evento(evento_data):
         print(f"❌ Erro ao salvar evento global: {e}")
         return False
 
+# ✅ Alias para buscar documento único (para compatibilidade com /start)
+async def buscar_documento(path: str):
+    return await buscar_dado_em_path(path)
 

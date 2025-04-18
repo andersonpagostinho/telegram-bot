@@ -4,7 +4,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 from handlers.task_handler import add_task, list_tasks, list_tasks_by_priority, clear_tasks
 from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, enviar_email_command, conectar_email, auth_callback
 from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, confirmar_presenca, debug_eventos
-from services.firebase_service_async import buscar_cliente, salvar_cliente, verificar_firebase
+from services.firebase_service_async import buscar_cliente, salvar_cliente, verificar_firebase, buscar_documento
 from handlers.test_handler import testar_firebase, testar_avisos
 from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_relatorio_email
 from handlers.perfil_handler import (
@@ -32,39 +32,59 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = str(user.id)
 
+    # 👇 Verifica se o ID está listado como dono no Firebase
+    config = await buscar_documento("configuracoes/admin_config")
+    donos = config.get("donos", []) if config else []
+
+    if user_id in donos:
+        tipo_usuario = "dono"
+        modo_uso = "interno"
+        mensagem = (
+            f"👋 Olá, {user.first_name}! Detectei que você é o *dono* do negócio.\n\n"
+            f"🎯 O modo *interno* já foi ativado automaticamente.\n"
+            f"✅ Agora é só começar a usar! Você pode digitar /help para ver tudo que posso fazer.\n\n"
+            f"✨ Dica: personalize como quiser com os comandos:\n"
+            f"/tipo_negocio – ex: salão, clínica, etc.\n"
+            f"/estilo – formal ou casual\n"
+            f"/meu_email – para envio de mensagens\n"
+            f"/profissional – para cadastrar sua equipe"
+        )
+    else:
+        tipo_usuario = "cliente"
+        modo_uso = "atendimento_cliente"
+        mensagem = (
+            f"👋 Olá, {user.first_name}! Sou *NeoEve*, sua secretária virtual com inteligência contextual.\n\n"
+            f"🛠️ Para começarmos do jeito certo, preciso saber como serei usada:\n"
+            f"1️⃣ *Sou para você ou para seus clientes?*\n"
+            f"→ Use o comando /tipo_usuario e escolha entre `dono` ou `cliente`\n\n"
+            f"2️⃣ *Quem vai me acessar?*\n"
+            f"→ Use o comando /modo_uso e escolha entre `interno` ou `atendimento_cliente`\n\n"
+            f"3️⃣ *Qual é o seu tipo de negócio?*\n"
+            f"→ Use /tipo_negocio (ex: salão de beleza, clínica, tech...)\n\n"
+            f"4️⃣ *Como prefere que eu me comunique?*\n"
+            f"→ Use /estilo e escolha `formal` ou `casual`\n\n"
+            f"5️⃣ *Qual e-mail devo usar para enviar mensagens por você?*\n"
+            f"→ Use /meu_email e informe seu e-mail\n\n"
+            f"6️⃣ *Você tem profissionais que devemos cadastrar?*\n"
+            f"→ Use o comando /profissional (ex: /profissional Joana corte,escova)\n\n"
+            f"📌 Quando terminar, digite /help para ver tudo que posso fazer por você!"
+        )
+
     dados = {
-    "nome": f"{user.first_name} {user.last_name or ''}".strip(),
-    "email": "",
-    "pagamentoAtivo": True,
-    "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
-    "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
-    "planosAtivos": ["secretaria"],
-    "tipo_usuario": "", 
-    "modo_uso": "",
-    "tipo_negocio": "",
-    "estilo": ""
-}
+        "nome": f"{user.first_name} {user.last_name or ''}".strip(),
+        "email": "",
+        "pagamentoAtivo": True,
+        "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
+        "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+        "planosAtivos": ["secretaria"],
+        "tipo_usuario": tipo_usuario,
+        "modo_uso": modo_uso,
+        "tipo_negocio": "",
+        "estilo": ""
+    }
 
     await salvar_cliente(user_id, dados)
-
-    await update.message.reply_text(
-    f"👋 Olá, {user.first_name}! Sou *NeoEve*, sua secretária virtual com inteligência contextual.\n\n"
-    f"🛠️ Para começarmos do jeito certo, preciso saber como serei usada:\n"
-    f"1️⃣ *Sou para você ou para seus clientes?*\n"
-    f"→ Use o comando /tipo_usuario e escolha entre `dono` ou `cliente`\n\n"
-    f"2️⃣ *Quem vai me acessar?*\n"
-       f"→ Use o comando /modo_uso e escolha entre `interno` (uso pessoal) ou `atendimento_cliente` (atendimento do seu negócio)\n\n"
-    f"3️⃣ *Qual é o seu tipo de negócio?*\n"
-    f"→ Use o comando /tipo_negocio (ex: salão de beleza, clínica, tech...)\n\n"
-    f"4️⃣ *Como prefere que eu me comunique?*\n"
-       f"→ Use /estilo e escolha `formal` ou `casual`\n\n"
-    f"5️⃣ *Qual e-mail devo usar para enviar mensagens por você?*\n"
-    f"→ Use /meu_email e informe seu e-mail ou o da sua empresa\n\n"
-    f"6️⃣ *Você tem profissionais que devemos cadastrar?*\n"
-    f"→ Use o comando /profissional e informe o nome e as atividades (ex: /profissional Joana corte,escova)\n\n"
-    f"📌 Quando terminar, digite /help para ver tudo que posso fazer por você!"
-
-)
+    await update.message.reply_text(mensagem, parse_mode="Markdown")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("📖 Comando /help recebido!")

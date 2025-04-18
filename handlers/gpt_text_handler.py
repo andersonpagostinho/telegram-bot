@@ -29,9 +29,21 @@ async def processar_texto(update, context):
     if isinstance(eventos_dict, dict):
         eventos = [e["descricao"] for e in eventos_dict.values() if isinstance(e, dict) and "descricao" in e]
 
-    # 📦 Montar contexto para o GPT
+    # ✅ CORREÇÃO: Montar contexto com os campos esperados
+    usuario = {
+        "nome": dados_usuario.get("nome", ""),
+        "email": dados_usuario.get("email", ""),
+        "tipo_usuario": dados_usuario.get("tipo_usuario", ""),
+        "modo_uso": dados_usuario.get("modo_uso", ""),
+        "tipo_negocio": dados_usuario.get("tipo_negocio", ""),
+        "nome_negocio": dados_usuario.get("nome_negocio", ""),
+        "estilo": dados_usuario.get("estilo_mensagem", ""),
+        "pagamentoAtivo": dados_usuario.get("pagamentoAtivo", False),
+        "planosAtivos": dados_usuario.get("planosAtivos", [])
+    }
+
     contexto = {
-        "usuario": dados_usuario,
+        "usuario": usuario,
         "tarefas": tarefas,
         "eventos": eventos,
         "emails": []
