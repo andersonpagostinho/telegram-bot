@@ -58,6 +58,50 @@ async def executar_acao_por_nome(update, context, acao, dados):
             from .followup_handler import concluir_followup_por_gpt
             await executar_se_coroutine(concluir_followup_por_gpt, update, context, dados)
 
+        elif acao == "cadastrar_profissional":
+            from services.firebase_service_async import salvar_dado_em_path
+
+            nome = dados.get("nome")
+            servicos = dados.get("servicos", [])
+
+            if not nome or not servicos:
+                await update.message.reply_text("⚠️ Dados incompletos para cadastrar profissional.")
+                return
+
+            path = f"Clientes/{user_id}/Profissionais/{nome}"
+            dados_profissional = {
+                "nome": nome,
+                "servicos": servicos
+            }
+
+            print(f"📌 Salvando profissional via GPT:\n- Path: {path}\n- Dados: {dados_profissional}")
+            salvo = await salvar_dado_em_path(path, dados_profissional)
+
+            if salvo:
+                servicos_formatados = ", ".join(servicos)
+                await update.message.reply_text(
+                    f"✅ Profissional *{nome}* cadastrada com: *{servicos_formatados}*",
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.message.reply_text("❌ Erro ao salvar a profissional.")
+
+        elif acao == "listar_profissionais":
+            from services.firebase_service_async import buscar_subcolecao
+
+            profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais")
+
+            if not profissionais:
+                await update.message.reply_text("📭 Nenhum profissional cadastrado ainda.")
+                return
+
+            mensagem = "👥 *Profissionais cadastrados:*\n\n"
+            for nome, dados in profissionais.items():
+                servicos = ", ".join(dados.get("servicos", []))
+                mensagem += f"• *{nome}* – {servicos}\n"
+
+            await update.message.reply_text(mensagem, parse_mode="Markdown")
+
         else:
             await update.message.reply_text(f"⚠️ Ação desconhecida: {acao}")
 

@@ -67,7 +67,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"5️⃣ Qual e-mail devo usar para enviar mensagens por você?\n"
             f"→ Use `meuemail` e informe seu e-mail\n\n"
             f"6️⃣ Você tem profissionais que devemos cadastrar?\n"
-            f"→ Use o comando `profissional` (ex: `profissional Joana corte,escova`)\n\n"
+            f"→ Use o comando `profissional` (ex: `cadastrar a profissional Joana corte,escova`)\n\n"
             f"📌 Quando terminar, digite `help` para ver tudo que posso fazer por você!"
         )
 
