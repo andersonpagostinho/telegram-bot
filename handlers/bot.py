@@ -55,20 +55,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         modo_uso = "atendimento_cliente"
         mensagem = (
             f"👋 Olá, {user.first_name}! Sou *NeoEve*, sua secretária virtual com inteligência contextual.\n\n"
-            f"🛠️ Para começarmos do jeito certo, preciso saber como serei usada:\n"
-            f"1️⃣ *Sou para você ou para seus clientes?*\n"
-            f"→ Use o comando /tipo_usuario e escolha entre `dono` ou `cliente`\n\n"
-            f"2️⃣ *Quem vai me acessar?*\n"
-            f"→ Use o comando /modo_uso e escolha entre `interno` ou `atendimento_cliente`\n\n"
-            f"3️⃣ *Qual é o seu tipo de negócio?*\n"
-            f"→ Use /tipo_negocio (ex: salão de beleza, clínica, tech...)\n\n"
-            f"4️⃣ *Como prefere que eu me comunique?*\n"
-            f"→ Use /estilo e escolha `formal` ou `casual`\n\n"
-            f"5️⃣ *Qual e-mail devo usar para enviar mensagens por você?*\n"
-            f"→ Use /meu_email e informe seu e-mail\n\n"
-            f"6️⃣ *Você tem profissionais que devemos cadastrar?*\n"
-            f"→ Use o comando /profissional (ex: /profissional Joana corte,escova)\n\n"
-            f"📌 Quando terminar, digite /help para ver tudo que posso fazer por você!"
+            f"🛠️ Para começarmos do jeito certo, preciso saber como serei usada:\n\n"
+            f"1️⃣ Sou para você ou para seus clientes?\n"
+            f"→ Use o comando `tipousuario` e escolha entre `dono` ou `cliente`\n\n"
+            f"2️⃣ Quem vai me acessar?\n"
+              f"→ Use o comando `modouso` e escolha entre `interno` ou `atendimento_cliente`\n\n"
+            f"3️⃣ Qual é o seu tipo de negócio?\n"
+            f"→ Use `tiponegocio` (ex: salão de beleza, clínica, tech...)\n\n"
+            f"4️⃣ Como prefere que eu me comunique?\n"
+              f"→ Use `estilo` e escolha `formal` ou `casual`\n\n"
+            f"5️⃣ Qual e-mail devo usar para enviar mensagens por você?\n"
+            f"→ Use `meuemail` e informe seu e-mail\n\n"
+            f"6️⃣ Você tem profissionais que devemos cadastrar?\n"
+            f"→ Use o comando `profissional` (ex: `profissional Joana corte,escova`)\n\n"
+            f"📌 Quando terminar, digite `help` para ver tudo que posso fazer por você!"
         )
 
     dados = {
@@ -179,11 +179,11 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("relatorio_diario", "relatoriodiario", relatorio_diario))
         application.add_handler(CommandHandler("relatorio_semanal", "relatoriosemanal", relatorio_semanal))
         application.add_handler(CommandHandler("enviar_relatorio_email", "enviarrelatorioemail", enviar_relatorio_email))
-        application.add_handler(CommandHandler("tipo_negocio", set_tipo_negocio))
-        application.add_handler(CommandHandler("estilo", set_estilo_mensagem))
-        application.add_handler(CommandHandler("nome_negocio", set_nome_negocio))
-        application.add_handler(CommandHandler("meu_estilo", meu_estilo))
-        application.add_handler(CommandHandler("meu_email", set_email))
+        application.add_handler(CommandHandler(["tipo_negocio", "tiponegocio"], set_tipo_negocio))
+        application.add_handler(CommandHandler(["estilo"], set_estilo_mensagem))
+        application.add_handler(CommandHandler(["nome_negocio", "nomenegocio"], set_nome_negocio))
+        application.add_handler(CommandHandler(["meu_estilo", "meuestilo"], meu_estilo))
+        application.add_handler(CommandHandler(["meu_email", "meuemail"], set_email))
         application.add_handler(MessageHandler(filters.VOICE, handle_voice))
         application.add_handler(CommandHandler("meuplano", meu_plano))
         application.add_handler(CommandHandler("followup", criar_followup))
@@ -192,11 +192,11 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("configuraravisos", configurar_avisos))
         application.add_handler(CommandHandler("testaravisos", testar_avisos))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, processar_texto))
-        application.add_handler(CommandHandler("meu_perfil", meu_perfil))
-        application.add_handler(CommandHandler("tipo_usuario", set_tipo_usuario))
-        application.add_handler(CommandHandler("modo_uso", set_modo_uso))
+        application.add_handler(CommandHandler(["meu_perfil", "meuperfil"], meu_perfil))
+        application.add_handler(CommandHandler(["tipo_usuario", "tipousuario"], set_tipo_usuario))
+        application.add_handler(CommandHandler(["modo_uso", "modouso"], set_modo_uso))
         application.add_handler(CommandHandler("profissional", adicionar_profissional))
-        application.add_handler(CommandHandler("listar_profissionais", listar_profissionais))
+        application.add_handler(CommandHandler(["listar_profissionais", "listarprofissionais"], listar_profissionais))
         
 
         # 🚀 Adicionando os comandos de teste do Firebase
