@@ -93,6 +93,16 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 await responder_em_audio(update, context, mensagem)
             return True
 
+        elif acao == "cadastrar_profissional":
+            from handlers.acao_router_handler import executar_acao_por_nome
+            await executar_acao_por_nome(update, context, acao, dados)
+            return True
+
+        elif acao == "listar_profissionais":
+            from handlers.acao_router_handler import executar_acao_por_nome
+            await executar_acao_por_nome(update, context, acao, dados)
+            return True
+
         else:
             await update.message.reply_text(f"⚠️ Ação '{acao}' ainda não suportada.")
             return False
