@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path
+from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path, buscar_cliente
 from services.session_service import criar_ou_atualizar_sessao, pegar_sessao, resetar_sessao, sincronizar_contexto
 from services.profissional_service import buscar_profissionais_por_servico
 
@@ -98,12 +98,18 @@ async def tratar_mensagem_usuario(user_id, mensagem):
         if profissional_escolhido not in disponiveis:
             return f"❌ {profissional_escolhido} não está disponível para esse horário. Escolha entre: {', '.join(disponiveis)}."
 
+        cliente = await buscar_cliente(user_id)
+        is_dono = cliente.get("tipo_usuario") == "dono"
+
         criar_ou_atualizar_sessao(user_id, {
             **sessao,
-            "estado": "completo",
+            "estado": "aguardando_nome_cliente" if is_dono else "completo",
             "profissional": profissional_escolhido
         })
         await sincronizar_contexto(user_id, pegar_sessao(user_id))
+
+        if is_dono:
+            return "👤 Para quem é esse agendamento? (digite o nome da cliente ou deixe em branco)"
 
         try:
             servico = sessao.get("servico")
@@ -121,6 +127,9 @@ async def tratar_mensagem_usuario(user_id, mensagem):
                 "status": "pendente",
                 "criado_em": datetime.now().isoformat()
             }
+   
+            if sessao.get("nome_cliente"):
+                evento["nome_cliente"] = sessao["nome_cliente"]
 
             evento_id = f"{data_hora_inicio.strftime('%Y%m%d%H%M')}_{servico.replace(' ', '_')}_{profissional_escolhido}"
             await salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{evento_id}", evento)
@@ -129,7 +138,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             from services.notificacao_service import criar_notificacao_agendada
             await criar_notificacao_agendada(
                 user_id=user_id,
-                descricao=evento["descricao"],
+                descricao=f"{evento['descricao']} para {evento['nome_cliente']}" if "nome_cliente" in evento else evento["descricao"],
                 data=data_hora_inicio.strftime("%Y-%m-%d"),
                 hora_inicio=data_hora_inicio.strftime("%H:%M"),
                 canal="telegram",
@@ -142,6 +151,16 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
         except Exception as e:
             return f"❌ Erro ao salvar agendamento: {str(e)}"
+
+    elif sessao["estado"] == "aguardando_nome_cliente":
+        nome_cliente = mensagem.strip()
+        criar_ou_atualizar_sessao(user_id, {
+            **sessao,
+            "estado": "completo",
+            "nome_cliente": nome_cliente if nome_cliente else None
+        })
+        await sincronizar_contexto(user_id, pegar_sessao(user_id))
+        return await tratar_mensagem_usuario(user_id, "")
 
     else:
         return "Algo deu errado. Vamos começar de novo?"

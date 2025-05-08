@@ -3,7 +3,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from datetime import datetime
-from services.firebase_service_async import client
+from services.firebase_service_async import client, buscar_cliente
 from utils.formatters import formatar_horario_atual
 
 from services.firebase_service_async import (
@@ -19,12 +19,18 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
+    user_id = str(update.message.from_user.id)  # ✅ Define antes de usar
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode acessar tarefas.")
+        return
+
     descricao = ' '.join(context.args)
     if not descricao:
         await update.message.reply_text("⚠️ Você precisa informar uma descrição para a tarefa.")
         return
 
-    user_id = str(update.message.from_user.id)
     prioridade = detectar_prioridade_tarefa(descricao, user_id)
 
     tarefa_data = {
@@ -40,12 +46,10 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from services.notificacao_service import criar_notificacao_agendada
             await criar_notificacao_agendada(
                 user_id=user_id,
-                evento={
-                    "descricao": descricao,
-                    "data": datetime.now().strftime("%Y-%m-%d"),
-                    "hora_inicio": (datetime.now() + timedelta(minutes=30)).strftime("%H:%M")  # ou um campo horário específico se desejar
-                },
-                minutos_antes=0,  # notifica imediatamente ou ajuste como quiser
+                descricao=descricao,
+                data=datetime.now().strftime("%Y-%m-%d"),
+                hora_inicio=(datetime.now() + timedelta(minutes=30)).strftime("%H:%M"),
+                minutos_antes=0,
                 canal="telegram"
             )
         except Exception as e:
@@ -54,7 +58,6 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
     else:
         await update.message.reply_text("❌ Erro ao salvar a tarefa. Tente novamente.")
-
 
 # ✅ Função auxiliar que retorna a lista como texto
 async def gerar_texto_tarefas(user_id: str):
@@ -74,15 +77,20 @@ async def gerar_texto_tarefas(user_id: str):
     )
     return resposta
 
-# ✅ Mantém o comando funcionando
+# ✅ Listar tarefas (somente para o dono)
 async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
     user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode visualizar as tarefas.")
+        return
+
     resposta = await gerar_texto_tarefas(user_id)
     await update.message.reply_text(resposta)
-
 
 # ✅ Listar tarefas por prioridade
 async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -109,24 +117,42 @@ async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text(resposta)
 
 
-# ✅ Limpar todas as tarefas do usuário
+# ✅ Limpar todas as tarefas (somente para o dono)
 async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
     user_id = str(update.message.from_user.id)
-    path = f"Clientes/{user_id}/Tarefas"
+    cliente = await buscar_cliente(user_id)
 
-    if await limpar_colecao(path):
-        await update.message.reply_text("🗑️ Todas as tarefas foram removidas.")
-    else:
-        await update.message.reply_text("❌ Erro ao limpar as tarefas.")
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode limpar as tarefas.")
+        return
 
+    from services.firebase_service_async import buscar_subcolecao, deletar_dado_em_path
 
-# ✅ Adicionar tarefas via GPT (pode ser múltiplas)
+    tarefas = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
+
+    if not tarefas:
+        await update.message.reply_text("📭 Nenhuma tarefa para remover.")
+        return
+
+    for tarefa_id in tarefas.keys():
+        await deletar_dado_em_path(f"Clientes/{user_id}/Tarefas/{tarefa_id}")
+
+    await update.message.reply_text("🧹 Todas as tarefas foram removidas com sucesso.")
+
+# ✅ Adicionar tarefas via GPT (somente para o dono)
 async def add_task_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode adicionar tarefas.")
+        return
 
     tarefas = dados.get("tarefas") or []
     descricao = dados.get("descricao")
@@ -138,7 +164,6 @@ async def add_task_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, d
         await update.message.reply_text("⚠️ Nenhuma tarefa identificada.")
         return
 
-    user_id = str(update.message.from_user.id)
     adicionadas = 0
 
     for desc in tarefas:
@@ -161,28 +186,35 @@ async def remover_tarefa_por_descricao(update: Update, context: ContextTypes.DEF
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
     user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode remover tarefas.")
+        return
+
     tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas")
 
     if isinstance(descricao, str):
-        descricao = [descricao]  # transforma em lista se vier como string
+        descricao = [descricao]
 
     removidas = []
     nao_encontradas = []
+
+    from services.firebase_service_async import deletar_dado_em_path  # ✅ se ainda não importado
 
     for desc in descricao:
         encontrada = False
         for task_id, tarefa in tarefas_dict.items():
             if tarefa.get("descricao", "").lower() == desc.lower():
                 path = f"Clientes/{user_id}/Tarefas/{task_id}"
-                await client.document(path).delete()
-                removidas.append(tarefa.get("descricao", desc))  # Salva como está salvo
+                await deletar_dado_em_path(path)
+                removidas.append(tarefa.get("descricao", desc))
                 encontrada = True
                 break
 
         if not encontrada:
             nao_encontradas.append(desc)
 
-    # 📝 Resposta final
     resposta = ""
     if removidas:
         resposta += f"🗑️ Tarefas removidas com sucesso: {', '.join(removidas)}\n"

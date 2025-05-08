@@ -227,3 +227,19 @@ async def buscar_contatos_por_nome(user_id: str, nome: str):
         print(f"❌ Erro ao buscar contatos: {e}")
         return []
 
+# ✅ Buscar ID de cliente pelo nome (dentro de um negócio)
+async def buscar_id_cliente_por_nome(nome_cliente: str, id_dono: str) -> str | None:
+    """
+    Procura o ID do cliente com base no nome informado, dentro dos registros do dono.
+    """
+    nome_normalizado = nome_cliente.strip().lower()
+    clientes = await buscar_subcolecao(f"Clientes/{id_dono}/Clientes")
+    if not clientes:
+        return None
+
+    for uid, dados in clientes.items():
+        nome = dados.get("nome", "").strip().lower()
+        if nome == nome_normalizado:
+            return uid
+    return None
+

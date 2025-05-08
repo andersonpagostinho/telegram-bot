@@ -25,12 +25,18 @@ async def criar_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode registrar follow-ups.")
+        return
+
     if not context.args:
         await update.message.reply_text("⚠️ Informe o nome do cliente para o follow-up.\nEx: /followup Fulano da Loja X")
         return
 
     nome_cliente = ' '.join(context.args)
-    user_id = str(update.message.from_user.id)
     followup_id = str(uuid4())
 
     dados = {
@@ -52,6 +58,12 @@ async def listar_followups(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
     user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode visualizar follow-ups.")
+        return
+
     followups = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps")
 
     if not followups:
@@ -72,12 +84,18 @@ async def concluir_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode concluir follow-ups.")
+        return
+
     if not context.args:
         await update.message.reply_text("⚠️ Informe o nome do cliente para concluir o follow-up.\nEx: /concluirfollowup Fulano da Loja X")
         return
 
     nome_cliente = ' '.join(context.args).lower()
-    user_id = str(update.message.from_user.id)
     followups = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps")
 
     for fid, item in followups.items():
@@ -96,6 +114,13 @@ async def criar_followup_por_gpt(update: Update, context: ContextTypes.DEFAULT_T
     from services.notificacao_service import criar_notificacao_agendada
     from datetime import datetime
 
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode registrar follow-ups.")
+        return
+
     nome_cliente = dados.get("nome_cliente") or dados.get("nome") or dados.get("cliente")
     data = dados.get("data")  # formato esperado: YYYY-MM-DD
     hora = dados.get("hora")  # formato esperado: HH:MM
@@ -104,7 +129,6 @@ async def criar_followup_por_gpt(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("❌ Não entendi o nome do cliente para o follow-up.")
         return
 
-    user_id = str(update.message.from_user.id)
     followup_id = str(uuid4())
 
     dados_followup = {
@@ -141,10 +165,18 @@ async def criar_followup_por_gpt(update: Update, context: ContextTypes.DEFAULT_T
     else:
         await update.message.reply_text("❌ Erro ao salvar o follow-up.")
 
+
 # ✅ Concluir follow-up via GPT
 async def concluir_followup_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode concluir follow-ups.")
+        return
 
     nome_cliente = dados.get("nome_cliente") or dados.get("nome") or dados.get("cliente")
     if not nome_cliente:
@@ -152,13 +184,15 @@ async def concluir_followup_por_gpt(update: Update, context: ContextTypes.DEFAUL
         return
 
     nome_cliente = nome_cliente.lower()
-    user_id = str(update.message.from_user.id)
     followups = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps")
 
     for fid, item in followups.items():
         if nome_cliente in item.get("nome_cliente", "").lower():
             await deletar_dado_em_path(f"Usuarios/{user_id}/FollowUps/{fid}")
-            await update.message.reply_text(f"✅ Follow-up com *{item['nome_cliente']}* foi concluído e removido!", parse_mode="Markdown")
+            await update.message.reply_text(
+                f"✅ Follow-up com *{item['nome_cliente']}* foi concluído e removido!",
+                parse_mode="Markdown"
+            )
             return
 
     await update.message.reply_text("❌ Nenhum follow-up encontrado com esse nome.")
@@ -181,6 +215,12 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+    if cliente.get("tipo_usuario") != "dono":
+        await update.message.reply_text("⚠️ Apenas o dono pode configurar os horários de aviso.")
+        return
+
     if not context.args or len(context.args) > 3:
         await update.message.reply_text("⚠️ Use: /configuraravisos HH:MM HH:MM HH:MM")
         return
@@ -193,11 +233,14 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Horário inválido: {h}")
             return
 
-    path = f"Usuarios/{update.message.from_user.id}/configuracoes/avisos"
+    path = f"Usuarios/{user_id}/configuracoes/avisos"
     sucesso = await atualizar_dado_em_path(path, {"horarios": horarios})
 
     if sucesso:
-        await update.message.reply_text("✅ Horários de aviso atualizados com sucesso:\n\n" + "\n".join(f"• {h}" for h in horarios), parse_mode="Markdown")
+        await update.message.reply_text(
+            "✅ Horários de aviso atualizados com sucesso:\n\n" + "\n".join(f"• {h}" for h in horarios),
+            parse_mode="Markdown"
+        )
     else:
         await update.message.reply_text("❌ Ocorreu um erro ao salvar os horários.")
 
