@@ -61,6 +61,9 @@ async def processar_notificacoes_agendadas():
                     except Exception as e:
                         logger.error(f"Erro ao enviar notificação para {user_id} via {canal}: {e}")
 
+    except Exception as e:
+        logger.error(f"❌ Erro na rotina de notificações: {e}")
+
 def start_notificacao_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
     scheduler.add_job(processar_notificacoes_agendadas, "interval", minutes=2)
