@@ -23,9 +23,11 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
         try:
             await criar_notificacao_agendada(
                 user_id=user_id,
-                evento=evento,
-                minutos_antes=30,
-                canal="telegram"
+                descricao=evento.get("descricao", "Compromisso"),
+                data=evento.get("data"),
+                hora_inicio=evento.get("hora_inicio"),
+                canal="telegram",
+                minutos_antes=30
             )
         except Exception as e:
             print(f"⚠️ Erro ao agendar notificação: {e}")
