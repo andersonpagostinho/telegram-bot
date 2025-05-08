@@ -44,7 +44,7 @@ async def processar_notificacoes_agendadas():
                 if data_hora <= agora:
                     try:
                         if canal == "telegram":
-                            bot = Bot(token=os.getenv("TELEGRAM_TOKEN"))
+                            bot = Bot(token=os.getenv("TOKEN"))
                             await bot.send_message(chat_id=int(user_id), text=mensagem)
 
                         elif canal == "whatsapp":
