@@ -61,7 +61,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 🔍 Verificação rápida para perguntas diretas sobre eventos
     texto_baixo = texto.lower()
 
-    if any(p in texto_baixo for p in ["hoje", "tenho hoje", "eventos hoje"]):
+    if any(p in texto_baixo for p in ["eventos de hoje", "tenho evento hoje", "qual evento hoje", "compromissos de hoje"]):
         eventos = await buscar_eventos_por_intervalo(user_id, dias=0)
     elif any(p in texto_baixo for p in ["amanhã", "tenho amanhã", "eventos amanhã"]):
         eventos = await buscar_eventos_por_intervalo(user_id, dias=1)
