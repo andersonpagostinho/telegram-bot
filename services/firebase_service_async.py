@@ -23,7 +23,6 @@ def get_ref_from_path(path: str):
 
 async def verificar_firebase():
     try:
-        print("🔍 Verificando conexão com Firebase...")
         dados = await buscar_dados("Usuarios")  # ou outro caminho válido
         print("✅ Firebase verificado com sucesso.")
         return True
@@ -70,7 +69,6 @@ async def buscar_subcolecao(path: str):
 async def buscar_tarefas_do_usuario(user_id: str):
     try:
         path = f"Clientes/{user_id}/Tarefas"
-        print(f"🔎 Buscando tarefas do usuário em: {path}")
         tarefas = await buscar_subcolecao(path)
         print(f"📋 Tarefas encontradas: {tarefas}")
         return tarefas
@@ -90,7 +88,6 @@ async def buscar_tarefa_por_descricao(user_id: str, descricao: str):
 
 # ✅ Salvar dados em path (ex: Clientes/{id}/Eventos/{id})
 async def salvar_dado_em_path(path: str, dados: dict):
-    print(f"🔥 Salvando no Firestore: {path} -> {dados}")
     try:
         print(f"💾 Tentando salvar dados em: {path}")
         for k, v in dados.items():

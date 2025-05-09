@@ -34,7 +34,6 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
                 user_id_efetivo = await obter_id_dono(user_id)
 
         path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
-        print(f"📍 Vai salvar em {path}")
         await salvar_dado_em_path(path, evento)
 
         print(f"✅ Evento salvo para {user_id_efetivo} com ID {event_id}: {evento}")
@@ -81,9 +80,11 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
 
         if dia_especifico:
             data_alvo = dia_especifico
-        elif semana:
-            data_inicio = hoje
-            data_fim = hoje + timedelta(days=6)
+        if semana:
+            # Avança para o início da próxima semana (segunda-feira que vem)
+            proxima_semana = hoje + timedelta(days=(7 - hoje.weekday()))  # próxima segunda
+            data_inicio = proxima_semana
+            data_fim = proxima_semana + timedelta(days=6)  # domingo
         else:
             data_alvo = hoje + timedelta(days=dias)
 
