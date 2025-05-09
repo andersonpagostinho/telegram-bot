@@ -267,14 +267,24 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     # 🧠 Processar com GPT
-    resultado_raw = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
-    print("🔍 Resultado bruto do GPT:", resultado_raw)
-    if isinstance(resultado_raw, dict) and resultado_raw.get("acao") == "criar_evento":
-        await executar_acao_gpt(update, context, resultado_raw["acao"], resultado_raw["dados"])
-        await update.message.reply_text(resultado_raw["resposta"])
-        await salvar_contexto_temporario(user_id, {"evento_criado": False})
-        await atualizar_contexto(user_id, {"usuario": texto, "bot": resultado_raw["resposta"]})
-        return
+resultado_raw = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
+print("🔍 Resultado bruto do GPT:", resultado_raw)
+
+if isinstance(resultado_raw, dict) and resultado_raw.get("acao") == "criar_evento":
+    # 🧠 Detecta se há referência a e-mail (origem provável do evento)
+    if any(palavra in texto.lower() for palavra in ["e-mail", "email", "recebi", "mensagem de", "assunto do email"]):
+        context.user_data["origem_email_detectado"] = True
+        await update.message.reply_text("📬 Um novo evento foi criado com base em um e-mail importante:")
+
+    await executar_acao_gpt(update, context, resultado_raw["acao"], resultado_raw["dados"])
+
+    # 🔄 Limpa a flag após uso
+    context.user_data.pop("origem_email_detectado", None)
+
+    await salvar_contexto_temporario(user_id, {"evento_criado": False})
+    await atualizar_contexto(user_id, {"usuario": texto, "bot": resultado_raw["resposta"]})
+    return
+
     payload_debug = {
         "texto": texto,
         "contexto": contexto,
