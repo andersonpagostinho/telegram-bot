@@ -90,6 +90,7 @@ async def buscar_tarefa_por_descricao(user_id: str, descricao: str):
 
 # ✅ Salvar dados em path (ex: Clientes/{id}/Eventos/{id})
 async def salvar_dado_em_path(path: str, dados: dict):
+    print(f"🔥 Salvando no Firestore: {path} -> {dados}")
     try:
         print(f"💾 Tentando salvar dados em: {path}")
         for k, v in dados.items():
