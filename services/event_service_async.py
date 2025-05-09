@@ -1,6 +1,12 @@
 from datetime import datetime, timedelta
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-from services.firebase_service_async import salvar_dado_em_path, buscar_subcolecao, deletar_dado_em_path, obter_id_dono
+from services.firebase_service_async import (
+    salvar_dado_em_path,
+    buscar_subcolecao,
+    deletar_dado_em_path,
+    obter_id_dono,
+    buscar_dado_em_path
+)
 from services.notificacao_service import criar_notificacao_agendada
 
 # 🔁 Salvar ou atualizar um evento
@@ -28,6 +34,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
                 user_id_efetivo = await obter_id_dono(user_id)
 
         path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
+        print(f"📍 Vai salvar em {path}")
         await salvar_dado_em_path(path, evento)
 
         print(f"✅ Evento salvo para {user_id_efetivo} com ID {event_id}: {evento}")
