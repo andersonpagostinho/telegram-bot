@@ -356,10 +356,15 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await salvar_evento(user_id, evento_data)
 
         mensagem = (
-            f"📬 Um novo evento foi criado com base em um e-mail importante:\n\n"
-            f"📝 {descricao}\n"
+            f"📝 {descricao.capitalize()}\n"
             f"📅 {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}"
-        )
+       )
+
+        # Adiciona cabeçalho só se for de e-mail
+        if context.user_data.get("origem_email_detectado"):
+            mensagem = "📬 Um novo evento foi criado com base em um e-mail importante:\n\n" + mensagem
+
+        context.user_data.pop("origem_email_detectado", None)
 
         # Telegram
         try:

@@ -271,12 +271,8 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("🔍 Resultado bruto do GPT:", resultado_raw)
 
     if isinstance(resultado_raw, dict) and resultado_raw.get("acao") == "criar_evento":
-        # 🧠 Detecta se há referência a e-mail (origem provável do evento)
-        if any(palavra in texto.lower() for palavra in ["e-mail", "email", "recebi", "mensagem de", "assunto do email"]):
-            context.user_data["origem_email_detectado"] = True
-            await update.message.reply_text("📬 Um novo evento foi criado com base em um e-mail importante:")
-
         await executar_acao_gpt(update, context, resultado_raw["acao"], resultado_raw["dados"])
+        context.chat_data["evento_via_gpt"] = True
 
         # 🔄 Limpa a flag após uso
         context.user_data.pop("origem_email_detectado", None)
