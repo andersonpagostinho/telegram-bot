@@ -30,6 +30,8 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
         path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
         await salvar_dado_em_path(path, evento)
 
+        print(f"✅ Evento salvo para {user_id_efetivo} com ID {event_id}: {evento}")
+
         # 🔔 Enviar notificação só para o cliente (e não para o dono)
         cliente_id = evento.get("cliente_id")
         if cliente_id and cliente_id != user_id_efetivo:
@@ -91,8 +93,8 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
                 continue
 
             # 🧠 Filtra por cliente se for o caso
-            if filtrar_por_cliente and evento.get("cliente_id") != user_id:
-                continue
+            #if filtrar_por_cliente and evento.get("cliente_id") != user_id:
+            #    continue
 
             if semana:
                 if data_inicio <= data_evento <= data_fim:
