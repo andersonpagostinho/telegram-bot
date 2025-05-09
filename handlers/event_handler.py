@@ -22,7 +22,8 @@ from services.firebase_service_async import (
     buscar_subcolecao,
     salvar_dados,
     atualizar_dado_em_path,
-    buscar_dado_em_path
+    buscar_dado_em_path,
+    salvar_evento
 )
 from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento 
