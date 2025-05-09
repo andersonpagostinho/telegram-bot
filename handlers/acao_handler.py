@@ -96,7 +96,26 @@ async def tratar_mensagem_usuario(user_id, mensagem):
         disponiveis = sessao.get("disponiveis", [])
 
         if profissional_escolhido not in disponiveis:
-            return f"❌ {profissional_escolhido} não está disponível para esse horário. Escolha entre: {', '.join(disponiveis)}."
+            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+
+            conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                user_id=user_id,
+                data=sessao["data"],
+                hora_inicio=sessao["hora"],
+                duracao_min=60,
+                profissional=profissional_escolhido,
+                servico=sessao.get("servico", "")
+            )
+
+            resposta = f"⚠️ {profissional_escolhido} está com horário ocupado para {sessao['hora']}.\n"
+
+            if conflito_info["sugestoes"]:
+                resposta += "🕒 Horários alternativos disponíveis:\n" + "\n".join([f"🔄 {h}" for h in conflito_info["sugestoes"]]) + "\n"
+
+            if conflito_info["profissional_alternativo"]:
+                resposta += f"💡 Para esse mesmo horário, {conflito_info['profissional_alternativo']} está disponível.\nDeseja agendar com ela?"
+
+            return resposta
 
         cliente = await buscar_cliente(user_id)
         is_dono = cliente.get("tipo_usuario") == "dono"
