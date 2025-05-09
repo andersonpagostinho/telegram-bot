@@ -355,7 +355,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "link": ""
         }
 
+        print("📦 Disparando salvar_evento com:", evento_data)
         await salvar_evento(user_id, evento_data)
+        print("✅ Evento salvo")
 
         mensagem = (
             f"📝 {descricao.capitalize()}\n"
