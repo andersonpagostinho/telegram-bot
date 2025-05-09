@@ -15,10 +15,22 @@ from services.email_service import ler_emails_google, filtrar_emails_por_nome
 from unidecode import unidecode
 from services.notificacao_service import criar_notificacao_agendada
 from utils.context_manager import salvar_contexto_temporario
+from utils.interpretador_datas import interpretar_intervalo_de_datas
 import json
 import pprint
 import re
 import sys
+
+def extrair_data_de_texto(ev_texto):
+    """
+    Extrai a primeira data no formato dd/mm/aaaa de um texto.
+    Retorna datetime.date, ou datetime.min.date() se nada for encontrado.
+    """
+    match = re.search(r"(\d{2})/(\d{2})/(\d{4})", ev_texto)
+    if match:
+        d, m, y = map(int, match.groups())
+        return datetime(y, m, d).date()
+    return datetime.min.date()
 
 async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("🚀 Entrou no processar_texto()")
@@ -65,8 +77,14 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         eventos = await buscar_eventos_por_intervalo(user_id, dias=0)
     elif any(p in texto_baixo for p in ["amanhã", "tenho amanhã", "eventos amanhã"]):
         eventos = await buscar_eventos_por_intervalo(user_id, dias=1)
-    elif any(p in texto_baixo for p in ["semana", "essa semana", "eventos semana"]):
-        eventos = await buscar_eventos_por_intervalo(user_id, semana=True)
+    # 🔍 Verificação inteligente para semana, intervalo ou datas flexíveis
+    elif "semana" in texto_baixo or "entre os dias" in texto_baixo or "semana do" in texto_baixo or "próxima semana" in texto_baixo or "proxima semana" in texto_baixo:
+        data_inicio, data_fim = interpretar_intervalo_de_datas(texto_baixo)
+        eventos_todos = await buscar_eventos_por_intervalo(user_id, semana=True)
+        eventos = [
+            ev for ev in eventos_todos
+            if data_inicio <= extrair_data_de_texto(ev) <= data_fim
+        ]
     else:
         eventos = None  # Não foi uma pergunta óbvia → deixa pro GPT
 
