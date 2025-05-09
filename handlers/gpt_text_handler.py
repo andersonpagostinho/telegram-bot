@@ -267,31 +267,31 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     # 🧠 Processar com GPT
-resultado_raw = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
-print("🔍 Resultado bruto do GPT:", resultado_raw)
+    resultado_raw = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
+    print("🔍 Resultado bruto do GPT:", resultado_raw)
 
-if isinstance(resultado_raw, dict) and resultado_raw.get("acao") == "criar_evento":
-    # 🧠 Detecta se há referência a e-mail (origem provável do evento)
-    if any(palavra in texto.lower() for palavra in ["e-mail", "email", "recebi", "mensagem de", "assunto do email"]):
-        context.user_data["origem_email_detectado"] = True
-        await update.message.reply_text("📬 Um novo evento foi criado com base em um e-mail importante:")
+    if isinstance(resultado_raw, dict) and resultado_raw.get("acao") == "criar_evento":
+        # 🧠 Detecta se há referência a e-mail (origem provável do evento)
+        if any(palavra in texto.lower() for palavra in ["e-mail", "email", "recebi", "mensagem de", "assunto do email"]):
+            context.user_data["origem_email_detectado"] = True
+            await update.message.reply_text("📬 Um novo evento foi criado com base em um e-mail importante:")
 
-    await executar_acao_gpt(update, context, resultado_raw["acao"], resultado_raw["dados"])
+        await executar_acao_gpt(update, context, resultado_raw["acao"], resultado_raw["dados"])
 
-    # 🔄 Limpa a flag após uso
-    context.user_data.pop("origem_email_detectado", None)
+        # 🔄 Limpa a flag após uso
+        context.user_data.pop("origem_email_detectado", None)
 
-    await salvar_contexto_temporario(user_id, {"evento_criado": False})
-    await atualizar_contexto(user_id, {"usuario": texto, "bot": resultado_raw["resposta"]})
-    return
+        # 🐞 Opcional: debug
+        payload_debug = {
+            "texto": texto,
+            "contexto": contexto,
+            "instrucoes": INSTRUCAO_SECRETARIA[:500] + "..."
+        }
+        print(json.dumps(payload_debug, indent=2))
 
-    payload_debug = {
-        "texto": texto,
-        "contexto": contexto,
-        "instrucoes": INSTRUCAO_SECRETARIA[:500] + "..."  # Se quiser cortar para não poluir
-    }
-
-    print(json.dumps(payload_debug, indent=2))
+        await salvar_contexto_temporario(user_id, {"evento_criado": False})
+        await atualizar_contexto(user_id, {"usuario": texto, "bot": resultado_raw["resposta"]})
+        return
 
     try:
         resultado = json.loads(resultado_raw) if isinstance(resultado_raw, str) else resultado_raw
