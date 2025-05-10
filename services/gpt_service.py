@@ -274,51 +274,59 @@ Lembre-se: responda SEMPRE em JSON com os campos 'resposta', 'acao' e 'dados'.
             memoria_nova["data_hora"] = resultado["dados"]["data_hora"]
 
 
-        # ✅ Antes de salvar, verifique se já dá para agendar
-        profissional = memoria_nova.get("profissional_escolhido")
-        servico = memoria_nova.get("servico")
-        data_hora = memoria_nova.get("data_hora")
+       # ✅ Antes de salvar, verifique se já dá para agendar
+       profissional = memoria_nova.get("profissional_escolhido")
+       servico = memoria_nova.get("servico")
+       data_hora = memoria_nova.get("data_hora")
 
-        if profissional and servico and data_hora:
-            duracao = estimar_duracao(servico)
-            start_dt = datetime.fromisoformat(data_hora)
-            data = start_dt.strftime("%Y-%m-%d")
-            hora = start_dt.strftime("%H:%M")
+       if profissional and servico and data_hora:
+           duracao = estimar_duracao(servico)
+           start_dt = datetime.fromisoformat(data_hora)
+           data = start_dt.strftime("%Y-%m-%d")
+           hora = start_dt.strftime("%H:%M")
 
-            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
-            conflito_info = await verificar_conflito_e_sugestoes_profissional(
-                user_id=user_id,
-                data=data,
-                hora_inicio=hora,
-                duracao_min=duracao,
-                profissional=profissional,
-                servico=servico
-            )
+           from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+           conflito_info = await verificar_conflito_e_sugestoes_profissional(
+               user_id=user_id,
+               data=data,
+               hora_inicio=hora,
+               duracao_min=duracao,
+               profissional=profissional,
+               servico=servico
+           )
 
-            if conflito_info["conflito"]:
-                sugestoes_txt = "\n".join([f"🔄 {h}" for h in conflito_info["sugestoes"]]) if conflito_info["sugestoes"] else ""
-                alternativa_txt = f"\n💡 Porém, {conflito_info['profissional_alternativo']} está disponível nesse mesmo horário." if conflito_info["profissional_alternativo"] else ""
+           if conflito_info["conflito"]:
+               sugestoes_txt = "\n".join([f"🔄 {h}" for h in conflito_info["sugestoes"]]) if conflito_info["sugestoes"] else ""
+               alternativa_txt = f"\n💡 Porém, {conflito_info['profissional_alternativo']} está disponível nesse mesmo horário." if conflito_info["profissional_alternativo"] else ""
 
-                await salvar_contexto_temporario(user_id, {
-                    "profissional_escolhido": profissional,
-                    "servico": servico,
-                    "data_hora": data_hora,
-                    "sugestoes": conflito_info["sugestoes"],
-                    "alternativa_profissional": conflito_info["profissional_alternativo"]
-                })
+               await salvar_contexto_temporario(user_id, {
+                   "profissional_escolhido": profissional,
+                   "servico": servico,
+                   "data_hora": data_hora,
+                   "sugestoes": conflito_info["sugestoes"],
+                   "alternativa_profissional": conflito_info["profissional_alternativo"]
+               })
 
-                resultado = {
-                    "resposta": f"⚠️ {profissional} está ocupado nesse horário.{sugestoes_txt and f'\n{sugestoes_txt}'}{alternativa_txt}\n\nDeseja escolher outro horário ou prefere agendar com {conflito_info['profissional_alternativo']}?",
-                    "acao": None,
-                    "dados": {}
-                }
-            else:
-                resultado["acao"] = "criar_evento"
-                resultado["dados"] = {
-                    "data_hora": data_hora,
-                    "descricao": formatar_descricao_evento(servico, profissional),
-                    "duracao": duracao
-                }
+               sugestao_formatada = f"\n{sugestoes_txt}" if sugestoes_txt else ""
+               alternativa_formatada = alternativa_txt
+
+               resultado = {
+                   "resposta": (
+                       f"⚠️ {profissional} está ocupado nesse horário."
+                       f"{sugestao_formatada}"
+                       f"{alternativa_formatada}"
+                       f"\n\nDeseja escolher outro horário ou prefere agendar com {conflito_info['profissional_alternativo']}?"
+                   ),
+                   "acao": None,
+                   "dados": {}
+               }
+           else:
+               resultado["acao"] = "criar_evento"
+               resultado["dados"] = {
+                   "data_hora": data_hora,
+                   "descricao": formatar_descricao_evento(servico, profissional),
+                   "duracao": duracao
+               }
 
         # ✅ Salvar tudo junto
         if memoria_nova:
