@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-From services.event_service_async import verificar_conflito
+from services.event_service_async import verificar_conflito
 from services.firebase_service_async import (
     salvar_dado_em_path,
     buscar_subcolecao,
