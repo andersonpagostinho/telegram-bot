@@ -288,8 +288,12 @@ Lembre-se: responda SEMPRE em JSON com os campos 'resposta', 'acao' e 'dados'.
         ])
 
         if (
-            intencao_listagem_ampla and contexto.get("profissionais")
+            intencao_listagem_ampla
+            and contexto.get("profissionais")
+            and not resultado.get("acao")
+            and not resultado.get("resposta")
         ):
+
             profissionais_formatados = [
                 f"- {p['nome']}: {', '.join(p['servicos'])}" for p in contexto["profissionais"]
             ]
