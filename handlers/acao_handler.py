@@ -265,8 +265,3 @@ async def tratar_mensagem_usuario(user_id, mensagem):
     else:
         return "Algo deu errado. Vamos começar de novo?"
 
-# ✅ Exporte aqui para evitar erros de importação
-executar_fluxo_com_gpt = tratar_mensagem_usuario
-tratar_mensagem_gpt = tratar_mensagem_usuario
-
-__all__ = ["executar_fluxo_com_gpt", "tratar_mensagem_gpt"]
