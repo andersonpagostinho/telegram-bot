@@ -7,6 +7,7 @@ from unidecode import unidecode
 from utils.interpretador_datas import interpretar_data_e_hora
 
 async def verificar_disponibilidade_profissional(data, user_id):
+    print("⚠️ [acao_handler] tratador direto foi chamado!")
     """
     Verifica se os profissionais solicitados estão livres no horário desejado.
     Espera os campos: 'data_hora' (ISO), 'duracao' (minutos), 'profissionais' (lista de nomes)
@@ -41,7 +42,7 @@ async def verificar_disponibilidade_profissional(data, user_id):
     }
 
 async def tratar_mensagem_usuario(user_id, mensagem):
-    print("✅ FUNÇÃO tratar_mensagem_usuario FOI CHAMADA")
+    print("⚠️ [acao_handler] tratador direto foi chamado!")
     sessao = pegar_sessao(user_id)
 
     if not sessao:
@@ -265,3 +266,4 @@ async def tratar_mensagem_usuario(user_id, mensagem):
     else:
         return "Algo deu errado. Vamos começar de novo?"
 
+__all__ = ["executar_fluxo_com_gpt"]
