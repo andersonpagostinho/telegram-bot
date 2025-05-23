@@ -148,8 +148,8 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         "tá bom", "tudo certo", "ok", "isso", "agendar", "sim", "beleza", "claro"
     ]
     resposta_curta = (
-        any(p in resposta_direta for p in palavras_confirmacao)
-        and len(resposta_direta.split()) <= 4  # ✅ Evita pegar frases longas
+        any(p == resposta_direta or resposta_direta.startswith(p) for p in palavras_confirmacao)
+        and len(resposta_direta.split()) <= 4
     )
 
     if resposta_curta and contexto_salvo:
