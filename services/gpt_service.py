@@ -55,14 +55,14 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
     contexto_salvo = await carregar_contexto_temporario(user_id) or {}
    
     # 🔒 Verifica se há sessão pendente (ex: aguardando_profissional)
-    sessao = pegar_sessao(user_id)
-    if sessao and sessao.get("estado") in ["aguardando_profissional", "aguardando_nome_cliente"]:
-        resposta = await tratar_mensagem_usuario(user_id, texto_usuario)
-        return {
-            "resposta": resposta,
-            "acao": None,
-            "dados": {}
-        }
+    #sessao = pegar_sessao(user_id)
+    #if sessao and sessao.get("estado") in ["aguardando_profissional", "aguardando_nome_cliente"]:
+    #    resposta = await tratar_mensagem_usuario(user_id, texto_usuario)
+    #    return {
+    #        "resposta": resposta,
+    #        "acao": None,
+    #        "dados": {}
+    #    }
 
     contexto = contexto or {}  # <- esta linha precisa vir ANTES do .get
     profissionais = contexto.get("profissionais", [])
@@ -211,8 +211,8 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
         contexto["profissionais"] = profissionais_disponiveis
     else:
-        contexto["profissionais"] = profissionais_filtrados
         profissionais_disponiveis = profissionais_filtrados
+        contexto["profissionais"] = profissionais_disponiveis
 
     # ✅ Novo: se temos profissionais disponíveis, mas ainda não há um escolhido, sugerimos nomes
     if profissionais_disponiveis and not contexto_salvo.get("profissional_escolhido"):
