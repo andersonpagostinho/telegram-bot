@@ -212,6 +212,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         contexto["profissionais"] = profissionais_disponiveis
     else:
         contexto["profissionais"] = profissionais_filtrados
+        profissionais_disponiveis = profissionais_filtrados
 
     # ✅ Novo: se temos profissionais disponíveis, mas ainda não há um escolhido, sugerimos nomes
     if profissionais_disponiveis and not contexto_salvo.get("profissional_escolhido"):
