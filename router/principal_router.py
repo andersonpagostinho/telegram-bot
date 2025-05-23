@@ -10,6 +10,7 @@ from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_co
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 
 async def roteador_principal(user_id: str, mensagem: str, update=None, context=None):
+    print("🚨 [principal_router] Arquivo carregado")
     # 🔍 Buscar dados do usuário em Clientes/{user_id}/Usuarios/{user_id}
     usuario_dados = await buscar_documento(f"Clientes/{user_id}/Usuarios/{user_id}")
     
@@ -45,6 +46,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     sessao = pegar_sessao(user_id)
     if sessao and sessao.get("estado"):
         print(f"🔁 Sessão ativa: {sessao['estado']}")
+        print("📤 Chamando tratar_mensagem_gpt via principal_router")
         resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem)
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
         return resposta_fluxo
