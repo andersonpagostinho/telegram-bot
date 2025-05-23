@@ -173,8 +173,8 @@ async def tratar_mensagem_usuario(user_id, mensagem):
                 profissional_escolhido = nome
                 break
 
-        if not profissional_escolhido:
-            return "🔄 Estamos no meio de um agendamento. Por favor, diga o nome da profissional, a data ou o horário desejado para continuar."
+        #if not profissional_escolhido:
+        #    return "🔄 Estamos no meio de um agendamento. Por favor, diga o nome da profissional, a data ou o horário desejado para continuar."
 
         # ⛔ Verifica conflitos
         if profissional_escolhido not in disponiveis:
