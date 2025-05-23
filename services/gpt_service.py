@@ -12,6 +12,7 @@ from services.session_service import pegar_sessao
 from utils.context_manager import atualizar_contexto
 import unidecode
 import importlib
+import inspect
 
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -37,7 +38,13 @@ async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
 
 async def tratar_mensagem_usuario(user_id, mensagem):
     print("🔥 [gpt_service] Entrou no tratar_mensagem_usuario via importlib")
-    # Carrega a função original dinamicamente para evitar importação circular
+
+    # 👇 Essa linha mostra de onde a função está sendo chamada
+    print("📍 Stack de chamada:")
+    for frame in inspect.stack()[1:5]:  # mostra os 4 níveis anteriores
+        print(f" - Arquivo: {frame.filename}, Linha: {frame.lineno}, Função: {frame.function}")
+
+    # Carrega a função original dinamicamente
     acao_handler = importlib.import_module("handlers.acao_handler")
     return await acao_handler.tratar_mensagem_usuario(user_id, mensagem)
 
