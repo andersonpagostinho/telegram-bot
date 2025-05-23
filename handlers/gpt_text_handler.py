@@ -8,6 +8,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from handlers.acao_handler import pegar_sessao
 from services.gpt_service import tratar_mensagem_usuario
+print("🔍 IMPORT de tratar_mensagem_usuario feito a partir do gpt_service")
 from datetime import datetime, timedelta
 from services.event_service_async import buscar_eventos_por_intervalo
 from handlers.email_handler import enviar_email_natural
@@ -106,6 +107,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sessao = pegar_sessao(user_id)
     if sessao and sessao.get("estado") != "completo":
         resposta_fluxo = await tratar_mensagem_usuario(user_id, texto)
+        print("🚦 Vai chamar tratar_mensagem_usuario agora")
         await update.message.reply_text(resposta_fluxo)
 
         # Atualiza contexto após fluxo
