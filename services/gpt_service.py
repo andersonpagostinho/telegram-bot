@@ -43,6 +43,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
 # ✅ GPT com contexto e resposta estruturada em JSON (ação + dados)
 async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
+    print("🚨 [gpt_service] Arquivo carregado")
     user_id = str(contexto.get('usuario', {}).get('user_id', 'desconhecido'))
     contexto_salvo = await carregar_contexto_temporario(user_id) or {}
    
