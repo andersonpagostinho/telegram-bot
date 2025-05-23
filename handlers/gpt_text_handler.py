@@ -102,17 +102,17 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return  # Não segue pro GPT
 
     # ⚡ Etapa 1: Verifica se está no meio de um fluxo de agendamento
-    sessao = pegar_sessao(user_id)
-    if sessao and sessao.get("estado") != "completo":
-        import importlib
-        print("🚦 Vai chamar tratar_mensagem_usuario agora")
-    
-        gpt_service = importlib.import_module("services.gpt_service")
-        resposta_fluxo = await gpt_service.tratar_mensagem_usuario(user_id, texto)
-    
-        await update.message.reply_text(resposta_fluxo)
-        await atualizar_contexto(user_id, {"usuario": texto, "bot": resposta_fluxo})
-        return
+    #sessao = pegar_sessao(user_id)
+    #if sessao and sessao.get("estado") != "completo":
+    #    import importlib
+    #   print("🚦 Vai chamar tratar_mensagem_usuario agora")
+    #
+    #    gpt_service = importlib.import_module("services.gpt_service")
+    #    resposta_fluxo = await gpt_service.tratar_mensagem_usuario(user_id, texto)
+    #
+    #    await update.message.reply_text(resposta_fluxo)
+    #    await atualizar_contexto(user_id, {"usuario": texto, "bot": resposta_fluxo})
+    #    return
 
         
     # 🛡️ Verifica se o cliente está cadastrado
