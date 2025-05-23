@@ -102,12 +102,12 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             }
 
     # 🔄 Caso esteja no meio de um agendamento, ignora o "oi"
-    else:
-        return {
-            "resposta": "🔄 Estamos no meio de um agendamento. Por favor, diga o nome da profissional, a data ou o horário desejado para continuar.",
-            "acao": None,
-            "dados": {}
-        }
+    #else:
+    #    return {
+    #        "resposta": "🔄 Estamos no meio de um agendamento. Por favor, diga o nome da profissional, a data ou o horário desejado para continuar.",
+    #        "acao": None,
+    #        "dados": {}
+    #    }
 
     # 🔍 Detecta intenção de listar todos os profissionais
     intencao_listagem_ampla = any(p in texto_normalizado for p in [
