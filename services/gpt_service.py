@@ -551,11 +551,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         temperature=0.5,
         messages=messages
     )
-        firestore_client = firestore.client()
-        await registrar_custo_gpt(resposta, "gpt-3.5-turbo", user_id, firestore_client)
+    firestore_client = firestore.client()
+    await registrar_custo_gpt(resposta, "gpt-3.5-turbo", user_id, firestore_client)
 
-        conteudo = resposta.choices[0].message.content.strip()
-        resultado = json.loads(conteudo)
+    conteudo = resposta.choices[0].message.content.strip()
+    resultado = json.loads(conteudo)
 
         # 🟡 Salve também o serviço e a data_hora se existirem, mesmo que estejam fora de 'dados'
         if "descricao" in resultado.get("dados", {}):
