@@ -317,7 +317,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if not profissional:
                 print("⚠️ Nenhum profissional foi identificado. Abortando salvamento.")
                 await update.message.reply_text("❌ Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
-        return False
+                return False
 
         if not descricao or not data_hora_str:
             await update.message.reply_text("❌ Dados insuficientes para criar o evento.")
