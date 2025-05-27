@@ -54,6 +54,33 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
     user_id = str(contexto.get('usuario', {}).get('user_id', 'desconhecido'))
     contexto_salvo = await carregar_contexto_temporario(user_id) or {}
 
+    # 🧠 Extração antecipada
+    texto_normalizado = unidecode.unidecode(texto_usuario.lower())
+    data_hora_detectada = interpretar_data_e_hora(texto_usuario)
+    servico_mencionado = None
+
+    for p in contexto.get("profissionais", []):
+        for s in p.get("servicos", []):
+            if s.lower() in texto_normalizado:
+                servico_mencionado = s.lower()
+                break
+
+    profissional_mencionado = None
+    for p in contexto.get("profissionais", []):
+        if p["nome"].lower() in texto_normalizado:
+            profissional_mencionado = p["nome"]
+            break
+
+    # Atualiza contexto
+    if profissional_mencionado and not contexto_salvo.get("profissional_escolhido"):
+        contexto_salvo["profissional_escolhido"] = profissional_mencionado
+    if servico_mencionado and not contexto_salvo.get("servico"):
+        contexto_salvo["servico"] = servico_mencionado
+    if data_hora_detectada and not contexto_salvo.get("data_hora"):
+        contexto_salvo["data_hora"] = data_hora_detectada.replace(second=0, microsecond=0).isoformat()
+
+    await salvar_contexto_temporario(user_id, contexto_salvo)
+
     # ✅ Tenta agendar diretamente se contexto completo
     if all(contexto_salvo.get(k) for k in ["profissional_escolhido", "servico", "data_hora"]):
         profissional = contexto_salvo["profissional_escolhido"]
