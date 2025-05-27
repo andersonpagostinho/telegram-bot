@@ -81,6 +81,41 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
     await salvar_contexto_temporario(user_id, contexto_salvo)
 
+    # ✅ Verifica se há novos dados antes de seguir
+    tem_novos_dados = profissional_mencionado or servico_mencionado or data_hora_detectada
+
+    # Se o usuário não trouxe novos dados, e já temos um contexto anterior incompleto
+    if not tem_novos_dados:
+        if all(contexto_salvo.get(k) for k in ["profissional_escolhido", "servico", "data_hora"]):
+            return {
+                "resposta": (
+                    f"Você mencionou um {contexto_salvo['servico']} com "
+                    f"{contexto_salvo['profissional_escolhido']} para "
+                    f"{formatar_data(contexto_salvo['data_hora'])}. "
+                    "Deseja confirmar, alterar ou cancelar?"
+                ),
+                "acao": None,
+                "dados": {}
+            }
+        elif any(contexto_salvo.get(k) for k in ["servico", "data_hora", "profissional_escolhido"]):
+            partes = []
+            if contexto_salvo.get("servico"):
+                partes.append(f"um {contexto_salvo['servico']}")
+            if contexto_salvo.get("profissional_escolhido"):
+                partes.append(f"com {contexto_salvo['profissional_escolhido']}")
+            if contexto_salvo.get("data_hora"):
+                partes.append(f"para {formatar_data(contexto_salvo['data_hora'])}")
+
+            resumo = " ".join(partes) if partes else "um agendamento"
+            return {
+                "resposta": (
+                    f"Você estava iniciando {resumo}. "
+                    "Deseja continuar ou começar algo novo?"
+                ),
+                "acao": None,
+                "dados": {}
+            }
+
     # ✅ Tenta agendar diretamente se contexto completo
     if all(contexto_salvo.get(k) for k in ["profissional_escolhido", "servico", "data_hora"]):
         profissional = contexto_salvo["profissional_escolhido"]
