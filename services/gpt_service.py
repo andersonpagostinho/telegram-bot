@@ -16,6 +16,42 @@ import inspect
 
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+def montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuario):
+    profissionais = [p["nome"] for p in contexto.get("profissionais", [])]
+    tarefas = contexto.get("tarefas", [])
+    eventos = contexto.get("eventos", [])
+    emails = contexto.get("emails", [])
+    usuario = contexto.get("usuario", {})
+
+    return [
+        {"role": "system", "content": instrucao},
+        {"role": "user", "content": f"""
+📌 CONTEXTO ATUAL DO ATENDIMENTO:
+
+📅 Data atual: {datetime.now().strftime('%Y-%m-%d')}
+👤 Nome: {usuario.get('nome', 'Desconhecido')}
+📌 Plano ativo: {usuario.get('pagamentoAtivo', False)}
+🔐 Módulos: {', '.join(usuario.get('planosAtivos', []))}
+🏢 Tipo de negócio: {usuario.get('tipo_negocio', usuario.get('tipoNegocio', 'não informado'))}
+🧑‍💼 Profissionais: {', '.join(profissionais) or 'Nenhum'}
+
+📋 Tarefas:
+{chr(10).join(f"- {t}" for t in tarefas) or 'Nenhuma'}
+
+📆 Eventos:
+{chr(10).join(f"- {e}" for e in eventos) or 'Nenhum'}
+
+📧 E-mails:
+{chr(10).join(f"- {e}" for e in emails) or 'Nenhum'}
+
+📂 Contexto salvo:
+{json.dumps(contexto_salvo or {}, indent=2, ensure_ascii=False)}
+
+🗣️ Mensagem do usuário:
+\"{texto_usuario}\"
+"""}
+    ]
+
 # ✅ GPT simples para respostas diretas (sem contexto)
 async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
     try:
@@ -508,51 +544,18 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                         }
                     }
 
-    # Gera prompt com contexto se ainda não for possível agendar
-    contexto_salvo = await carregar_contexto_temporario(user_id)
-    prompt = f"""
-{instrucao}
+    messages = montar_prompt_com_contexto(INSTRUCAO_SECRETARIA, contexto, contexto_salvo, texto_usuario)
 
---- CONTEXTO DO USUÁRIO ---
-📅 Data atual: {datetime.now().strftime('%Y-%m-%d')}
-👤 Nome: {contexto['usuario'].get('nome', 'Desconhecido')}
-📌 Plano ativo: {contexto['usuario'].get('pagamentoAtivo', False)}
-🔐 Módulos: {', '.join(contexto['usuario'].get('planosAtivos', []))}
-🏢 Tipo de negócio: {contexto['usuario'].get('tipo_negocio', contexto['usuario'].get('tipoNegocio', 'não informado'))}
+    resposta = await client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        temperature=0.5,
+        messages=messages
+    )
+    firestore_client = firestore.client()
+    await registrar_custo_gpt(resposta, "gpt-3.5-turbo", user_id, firestore_client)
 
-📋 Tarefas:
-{chr(10).join(f"- {t}" for t in contexto['tarefas']) or 'Nenhuma'}
-
-📆 Eventos:
-{chr(10).join(f"- {e}" for e in contexto['eventos']) or 'Nenhum'}
-
-📧 E-mails:
-{chr(10).join(f"- {e}" for e in contexto['emails']) or 'Nenhum'}
-
---- CONTEXTO TEMPORÁRIO ---
-{json.dumps(contexto_salvo or {}, ensure_ascii=False, indent=2)}
-
---- PEDIDO DO USUÁRIO ---
-🗣️ "{texto_usuario}"
-
-Lembre-se: responda SEMPRE em JSON com os campos 'resposta', 'acao' e 'dados'.
-"""
-
-    try:
-        resposta = await client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            temperature=0.5,
-            messages=[
-                {"role": "system", "content": instrucao},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        firestore_client = firestore.client()
-        await registrar_custo_gpt(resposta, "gpt-3.5-turbo", user_id, firestore_client)
-        conteudo = resposta.choices[0].message.content.strip()
-
-
-        resultado = json.loads(conteudo)
+    conteudo = resposta.choices[0].message.content.strip()
+    resultado = json.loads(conteudo)
 
         # 🟡 Salve também o serviço e a data_hora se existirem, mesmo que estejam fora de 'dados'
         if "descricao" in resultado.get("dados", {}):
