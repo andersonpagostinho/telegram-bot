@@ -334,6 +334,45 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
     contexto_salvo = await carregar_contexto_temporario(user_id)
     print("📥 Contexto salvo atual:", contexto_salvo)  # 👈 Coloque aqui
 
+    # ✅ Novo: o usuário respondeu diretamente com um nome da última sugestão?
+    resposta_direta = texto_usuario.strip().title()
+    opcoes_anteriores = contexto_salvo.get("ultima_opcao_profissionais", [])
+
+    if any(resposta_direta.lower() in nome.lower() for nome in opcoes_anteriores):
+        profissional = next((n for n in opcoes_anteriores if resposta_direta.lower() in n.lower()), resposta_direta)
+        servico = contexto_salvo.get("servico")
+        data_hora = contexto_salvo.get("data_hora")
+
+        if servico and data_hora:
+            duracao = estimar_duracao(servico)
+            await salvar_contexto_temporario(user_id, {
+                "profissional_escolhido": profissional,
+                "servico": servico,
+                "data_hora": data_hora,
+                "evento_criado": True
+            })
+
+            return {
+                "resposta": f"{servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}. ✂️",
+                "acao": "criar_evento",
+                "dados": {
+                    "data_hora": data_hora,
+                    "descricao": formatar_descricao_evento(servico, profissional),
+                    "duracao": duracao,
+                    "profissional": profissional
+                }
+            }
+        else:
+            # salva apenas o nome, continua a coleta
+            await salvar_contexto_temporario(user_id, {
+                "profissional_escolhido": profissional
+            })
+            return {
+                "resposta": f"Perfeito! {profissional} foi selecionada. Agora diga a data e o horário que você prefere.",
+                "acao": None,
+                "dados": {}
+            }
+
     # ⏰ Novo trecho: captura horário direto se já tem profissional e serviço
     hora_encontrada = re.search(r'\b(\d{1,2})(?:[:h](\d{2}))?\b', resposta_direta)
     if hora_encontrada:
