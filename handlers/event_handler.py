@@ -416,6 +416,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         await responder_em_audio(update, context, mensagem_gpt_limpa)
         await update.message.reply_text(mensagem_gpt)
+        await salvar_contexto_temporario(user_id, {})  # Limpa o contexto ao fim
+
+        await update.message.reply_text("😄 Agendamento concluído! Se precisar de mais alguma coisa, é só me chamar.")
 
         return True
 
