@@ -1,0 +1,19 @@
+<<<<<<< HEAD
+buildCommand: |
+  python -m venv venv
+  . venv/bin/activate
+  pip install --upgrade pip setuptools wheel
+  pip install -r requirements.txt
+startCommand: . venv/bin/activate && python bot.py
+=======
+services:
+  - type: web
+    name: telegram-bot
+    env: python
+    buildCommand: cd telegram-bot-organizado && pip install -r requirements.txt
+    startCommand: cd telegram-bot-organizado && python main.py
+    envVars:
+      - key: RENDER_SERVICE_NAME
+        value: telegram-bot-a7a7
+
+>>>>>>> 196971d (Corrige conflito e prepara deploy)
