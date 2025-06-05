@@ -131,10 +131,11 @@ async def executar_acao_por_nome(update, context, acao, dados):
         
                 if servico_identificado:
                     print(f"🔍 Intenção de consulta de preço detectada: {servico_identificado}")
-                    await consultar_preco_servico(update, context, {"servico": servico_identificado})
+                    return await consultar_preco_servico(update, context, {"servico": servico_identificado})
+
                 else:
                     print("⚠️ Nenhum serviço identificado, mostrando tabela geral")
-                    await consultar_tabela_geral_de_precos(update, user_id)
+                    return await consultar_tabela_geral_de_precos(update, user_id)
 
                 return
 
@@ -240,3 +241,8 @@ async def consultar_tabela_geral_de_precos(update, user_id):
             resposta += f"- {prof}: R$ {valor:.2f}\n"
 
     await update.message.reply_text(resposta, parse_mode="Markdown")
+    return {
+        "resposta": resposta,
+        "acao": "tabela_geral_precos",
+        "dados": precos
+    }
