@@ -38,6 +38,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         contexto.setdefault("followups", [])
 
         resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
+        print("🧠 resposta_gpt retornada:", resposta_gpt)
 
         if resposta_gpt:
             resposta_texto = resposta_gpt.get("resposta")
