@@ -30,6 +30,11 @@ async def executar_acao_por_nome(update, context, acao, dados):
             texto = await gerar_texto_tarefas(user_id)
             resposta = dados.get("resposta") or "Aqui estão suas tarefas:"
             await update.message.reply_text(f"{resposta}\n\n{texto}", parse_mode="Markdown")
+            return {
+                "resposta": f"{resposta}\n\n{texto}",
+                "acao": "buscar_tarefas_do_usuario",
+                "dados": {"tarefas": texto}
+            }
 
         elif acao == "criar_evento":
             from .event_handler import add_evento_por_gpt
@@ -56,6 +61,11 @@ async def executar_acao_por_nome(update, context, acao, dados):
 
             resposta = await organizar_semana_com_gpt(tarefas, eventos)
             await update.message.reply_text(resposta, parse_mode="Markdown")
+            return {
+                "resposta": resposta,
+                "acao": "organizar_semana",
+                "dados": {"tarefas": tarefas, "eventos": eventos}
+            }
 
         elif acao == "criar_followup":
             from .followup_handler import criar_followup_por_gpt
@@ -108,6 +118,11 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 mensagem += f"• *{nome}* – {servicos}\n"
 
             await update.message.reply_text(mensagem, parse_mode="Markdown")
+            return {
+                "resposta": mensagem,
+                "acao": "listar_profissionais",
+                "dados": profissionais
+            }
 
         elif intencao == "CONSULTAR":
             texto_lower = texto_usuario.lower()
@@ -141,6 +156,11 @@ async def executar_acao_por_nome(update, context, acao, dados):
             }, user_id)
 
             await update.message.reply_text(resultado["resposta"], parse_mode="Markdown")
+            return {
+                "resposta": resultado["resposta"],
+                "acao": "verificar_disponibilidade_profissional",
+                "dados": resultado
+            }
 
         elif acao == "consultar_preco_servico":
             await consultar_preco_servico(update, context, dados)
@@ -158,8 +178,13 @@ async def consultar_preco_servico(update, context, dados):
     profissional_nome = dados.get("profissional")
 
     if not servico:
-        await update.message.reply_text("❌ Não consegui identificar o serviço.")
-        return
+        msg = "❌ Não consegui identificar o serviço."
+        await update.message.reply_text(msg)
+        return {
+            "resposta": msg,
+            "acao": "erro_consulta_preco",
+            "dados": {}
+        }
 
     if profissional_nome:
         preco = await obter_precos_servico(user_id, servico, profissional_nome)
@@ -176,7 +201,11 @@ async def consultar_preco_servico(update, context, dados):
                 f"Infelizmente não temos o preço de {servico} com {profissional_nome} ainda."
             )
         await update.message.reply_text(resposta, parse_mode="Markdown")
-        return
+        return {
+            "resposta": resposta,
+            "acao": "resposta_preco",
+            "dados": {"servico": servico, "profissional": profissional_nome}
+        }
 
     precos = await obter_precos_servico(user_id, servico)
 
@@ -192,6 +221,11 @@ async def consultar_preco_servico(update, context, dados):
         resposta = f"Infelizmente não temos esse preço ainda."
 
     await update.message.reply_text(resposta, parse_mode="Markdown")
+    return {
+        "resposta": resposta,
+        "acao": "resposta_preco",
+        "dados": {"servico": servico}
+    }
 
 async def consultar_tabela_geral_de_precos(update, user_id):
     precos = await obter_precos_servico(user_id)
