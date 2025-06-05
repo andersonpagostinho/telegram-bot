@@ -124,21 +124,6 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 "dados": profissionais
             }
 
-        elif intencao == "CONSULTAR":
-            texto_lower = texto_usuario.lower()
-            if any(p in texto_lower for p in ["preço", "preços", "valor", "tabela"]):
-                servico_identificado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
-        
-                if servico_identificado:
-                    print(f"🔍 Intenção de consulta de preço detectada: {servico_identificado}")
-                    return await consultar_preco_servico(update, context, {"servico": servico_identificado})
-
-                else:
-                    print("⚠️ Nenhum serviço identificado, mostrando tabela geral")
-                    return await consultar_tabela_geral_de_precos(update, user_id)
-
-                return
-
         elif acao == "verificar_disponibilidade_profissional":
             from services.profissional_service import buscar_profissionais_por_servico
             from .acao_handler import verificar_disponibilidade_profissional

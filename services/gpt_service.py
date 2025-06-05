@@ -164,13 +164,22 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
             # 👇 Se for uma consulta, redireciona para o GPT simples
             if intencao == "CONSULTAR":
-                from services.gpt_service import processar_com_gpt
-                resposta = await processar_com_gpt(texto_usuario, user_id)
-                return {
-                    "resposta": resposta,
-                    "acao": None,
-                    "dados": {}
-                }
+                texto_lower = texto_usuario.lower()
+                if any(p in texto_lower for p in ["preço", "preços", "valor", "tabela"]):
+                    servico_identificado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
+
+                    if servico_identificado:
+                        return {
+                            "acao": "consultar_preco_servico",
+                            "dados": {"servico": servico_identificado},
+                            "resposta": None  # será preenchida depois
+                        }
+                    else:
+                        return {
+                            "acao": "consultar_preco_servico",
+                            "dados": {},  # sem serviço, cairá na tabela geral
+                            "resposta": None
+                        }
 
         # 🚫 Detecta intenção de cancelamento explícita
         texto_lower = texto_usuario.strip().lower()
