@@ -162,25 +162,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             await resetar_sessao(user_id)
             contexto_salvo = {}
 
-            # 👇 Se for uma consulta, redireciona para o GPT simples
-            if intencao == "CONSULTAR":
-                texto_lower = texto_usuario.lower()
-                if any(p in texto_lower for p in ["preço", "preços", "valor", "tabela"]):
-                    servico_identificado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
-
-                    if servico_identificado:
-                        return {
-                            "acao": "consultar_preco_servico",
-                            "dados": {"servico": servico_identificado},
-                            "resposta": f"🔍 Verificando o preço de {servico_identificado}..."
-                        }
-                    else:
-                        return {
-                            "acao": "consultar_preco_servico",
-                            "dados": {},  # sem serviço, cairá na tabela geral
-                            "resposta": "🔍 Buscando tabela geral de preços..."
-                        }
-
         # 🚫 Detecta intenção de cancelamento explícita
         texto_lower = texto_usuario.strip().lower()
         palavras_cancelamento = [
@@ -279,7 +260,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 {"usuario": texto_usuario, "bot": resposta},
             )
 
-            return {"resposta": resposta, "acao": None, "dados": {}}
+            return {
+                "resposta": "❌ Não consegui identificar o serviço para informar o preço. Você pode tentar reformular a pergunta?",
+                "acao": None,
+                "dados": {}
+            }
 
         # ⚡ Reconhecer respostas curtas de confirmação
         resposta_direta = texto_usuario.strip().lower()
