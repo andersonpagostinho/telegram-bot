@@ -38,9 +38,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         contexto.setdefault("followups", [])
 
         resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
-        await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_gpt["resposta"]})
-        await executar_acao_gpt(update, context, resposta_gpt["acao"], resposta_gpt["dados"])
-        return
+
+        if resposta_gpt:
+            resposta_texto = resposta_gpt.get("resposta")
+            if resposta_texto:
+                await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
+
+            await executar_acao_gpt(update, context, resposta_gpt.get("acao"), resposta_gpt.get("dados", {}))
+            return resposta_texto
+        else:
+            await update.message.reply_text("❌ Ocorreu um erro ao interpretar sua mensagem.")
+            return "❌ Ocorreu um erro ao interpretar sua mensagem."
 
     # 🔄 Sessão ativa (ex: agendamento em andamento)
     sessao = await pegar_sessao(user_id)
@@ -74,7 +82,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "dados": {}
         }
 
-    await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_gpt["resposta"]})
+    resposta_texto = resposta_gpt.get("resposta") if resposta_gpt else None
+    if resposta_texto:
+        await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
+
 
     # 🛡️ Valida se a ação é suportada
     ACOES_SUPORTADAS = {
@@ -97,11 +108,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "buscar_eventos_do_dia",
     }
 
-    acao = resposta_gpt.get("acao")
-    if acao and acao not in ACOES_SUPORTADAS:
-        print(f"⚠️ Ação '{acao}' não suportada. Ignorando...")
-        resposta_gpt["acao"] = None
-        resposta_gpt["dados"] = {}
+    if resposta_gpt:
+        acao = resposta_gpt.get("acao")
+        if acao and acao not in ACOES_SUPORTADAS:
+            print(f"⚠️ Ação '{acao}' não suportada. Ignorando...")
+            resposta_gpt["acao"] = None
+            resposta_gpt["dados"] = {}
 
-    await executar_acao_gpt(update, context, resposta_gpt["acao"], resposta_gpt["dados"])
-    return resposta_gpt["resposta"]
+        await executar_acao_gpt(update, context, resposta_gpt.get("acao"), resposta_gpt.get("dados", {}))
+        return resposta_gpt.get("resposta")
+
+    await update.message.reply_text("❌ Não consegui interpretar sua mensagem.")
+    return "❌ Não consegui interpretar sua mensagem."
+
