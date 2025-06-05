@@ -83,12 +83,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "dados": {}
         }
 
-    resposta_texto = resposta_gpt.get("resposta") if resposta_gpt else None
+    # 🛡️ Validação robusta
+    if not resposta_gpt or not isinstance(resposta_gpt, dict):
+        print("⚠️ Resposta do GPT inválida ou vazia:", resposta_gpt)
+        await context.bot.send_message(chat_id=user_id, text="❌ Ocorreu um erro ao interpretar sua mensagem.")
+        return
+
+    resposta_texto = resposta_gpt.get("resposta")
+    acao = resposta_gpt.get("acao")
+    dados = resposta_gpt.get("dados", {})
+
     if resposta_texto:
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
 
-
-    # 🛡️ Valida se a ação é suportada
+    # ✅ Valida se a ação é suportada antes de executar
     ACOES_SUPORTADAS = {
         "consultar_preco_servico",
         "criar_evento",
@@ -109,16 +117,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "buscar_eventos_do_dia",
     }
 
-    if resposta_gpt:
-        acao = resposta_gpt.get("acao")
-        if acao and acao not in ACOES_SUPORTADAS:
+    if acao:
+        if acao not in ACOES_SUPORTADAS:
             print(f"⚠️ Ação '{acao}' não suportada. Ignorando...")
-            resposta_gpt["acao"] = None
-            resposta_gpt["dados"] = {}
+            acao = None
+            dados = {}
+        await executar_acao_gpt(update, context, acao, dados)
+    else:
+        await context.bot.send_message(chat_id=user_id, text=resposta_texto or "❌ Sem ação definida.")
 
-        await executar_acao_gpt(update, context, resposta_gpt.get("acao"), resposta_gpt.get("dados", {}))
-        return resposta_gpt.get("resposta")
+    return resposta_texto or "❌ Não consegui interpretar sua mensagem."
 
-    await update.message.reply_text("❌ Não consegui interpretar sua mensagem.")
-    return "❌ Não consegui interpretar sua mensagem."
 
