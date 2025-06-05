@@ -164,7 +164,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
             }
 
         elif acao == "consultar_preco_servico":
-            await consultar_preco_servico(update, context, dados)
+             return await consultar_preco_servico(update, context, dados)
 
         else:
             await update.message.reply_text(f"⚠️ Ação desconhecida: {acao}")
