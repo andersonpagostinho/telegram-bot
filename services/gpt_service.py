@@ -261,10 +261,15 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             )
 
             return {
-                "resposta": "❌ Não consegui identificar o serviço para informar o preço. Você pode tentar reformular a pergunta?",
+                "resposta": resposta,
                 "acao": None,
                 "dados": {}
             }
+        return {
+            "resposta": "❌ Não consegui identificar o serviço para informar o preço. Você pode tentar reformular a pergunta?",
+            "acao": None,
+            "dados": {}
+        }
 
         # ⚡ Reconhecer respostas curtas de confirmação
         resposta_direta = texto_usuario.strip().lower()
