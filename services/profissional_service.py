@@ -2,6 +2,7 @@
 
 from services.firebase_service_async import buscar_subcolecao
 from datetime import datetime, timedelta
+import difflib
 
 async def buscar_profissionais_por_servico(servicos: list[str], user_id: str) -> dict:
     """
@@ -135,6 +136,16 @@ async def obter_precos_servico(user_id: str, servico: str, profissional: str | N
         for nome_serv, valor in precos.items():
             if isinstance(nome_serv, str) and nome_serv.lower() == servico_lower:
                 return valor
+
+        # Matching aproximado caso não haja correspondência exata
+        nomes_cadastrados = [n.lower() for n in precos.keys() if isinstance(n, str)]
+        match = difflib.get_close_matches(servico_lower, nomes_cadastrados, n=1, cutoff=0.6)
+        if match:
+            nome_correspondente = match[0]
+            for nome_serv, valor in precos.items():
+                if isinstance(nome_serv, str) and nome_serv.lower() == nome_correspondente:
+                    return valor
+
         return None
 
     if profissional:

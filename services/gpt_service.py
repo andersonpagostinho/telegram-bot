@@ -222,47 +222,59 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             chave in texto_normalizado for chave in ["preco", "preço", "valor", "custa", "quanto custa"]
         )
 
-        if menciona_preco and servico_mencionado:
+        if menciona_preco:
             from services.profissional_service import obter_precos_servico
+            from services.normalizacao_service import encontrar_servico_mais_proximo
 
-            if profissional_mencionado:
-                preco = await obter_precos_servico(user_id, servico_mencionado, profissional_mencionado)
-                if preco is not None:
-                    try:
-                        valor_formatado = f"{float(preco):.2f}"
-                    except Exception:
-                        valor_formatado = str(preco)
-                    resposta = (
-                        f"O preço de *{servico_mencionado}* com *{profissional_mencionado}* é R$ {valor_formatado}"
+            if not servico_mencionado:
+                servico_mencionado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
+
+            if servico_mencionado:
+                if profissional_mencionado:
+                    preco = await obter_precos_servico(
+                        user_id, servico_mencionado, profissional_mencionado
                     )
-                else:
-                    resposta = (
-                        f"Infelizmente não temos o preço de {servico_mencionado} com {profissional_mencionado} ainda."
-                    )
-            else:
-                precos = await obter_precos_servico(user_id, servico_mencionado)
-                if precos:
-                    resposta = f"Valores de *{servico_mencionado}*:\n"
-                    for nome, preco_val in precos.items():
+                    if preco is not None:
                         try:
-                            valor_formatado = f"{float(preco_val):.2f}"
+                            valor_formatado = f"{float(preco):.2f}"
                         except Exception:
-                            valor_formatado = str(preco_val)
-                        resposta += f"- *{nome}*: R$ {valor_formatado}\n"
+                            valor_formatado = str(preco)
+                        resposta = (
+                            f"O preço de *{servico_mencionado}* com *{profissional_mencionado}* é R$ {valor_formatado}"
+                        )
+                    else:
+                        resposta = (
+                            f"Infelizmente não temos o preço de {servico_mencionado} com {profissional_mencionado} ainda."
+                        )
                 else:
-                    resposta = "Infelizmente não temos esse preço ainda."
+                    precos = await obter_precos_servico(user_id, servico_mencionado)
+                    if not precos:
+                        # tenta normalizar o serviço se não encontrou nenhum preço
+                        servico_sugerido = await encontrar_servico_mais_proximo(texto_usuario, user_id)
+                        if servico_sugerido and servico_sugerido != servico_mencionado:
+                            servico_mencionado = servico_sugerido
+                            precos = await obter_precos_servico(user_id, servico_mencionado)
+
+                    if precos:
+                        resposta = f"Valores de *{servico_mencionado}*:\n"
+                        for nome, preco_val in precos.items():
+                            try:
+                                valor_formatado = f"{float(preco_val):.2f}"
+                            except Exception:
+                                valor_formatado = str(preco_val)
+                            resposta += f"- *{nome}*: R$ {valor_formatado}\n"
+                    else:
+                        resposta = "Infelizmente não temos esse preço ainda."
+            else:
+                resposta = "❌ Não consegui identificar o serviço para informar o preço. Você pode tentar reformular a pergunta?"
 
             await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta})
+
             return {
                 "resposta": resposta,
                 "acao": None,
                 "dados": {}
             }
-        return {
-            "resposta": "❌ Não consegui identificar o serviço para informar o preço. Você pode tentar reformular a pergunta?",
-            "acao": None,
-            "dados": {}
-        }
 
         # ⚡ Reconhecer respostas curtas de confirmação
         resposta_direta = texto_usuario.strip().lower()
