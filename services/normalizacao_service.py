@@ -8,7 +8,10 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str) -> st
     Recebe um texto do usuário e tenta encontrar o serviço mais próximo
     baseado nos serviços cadastrados dos profissionais do cliente.
     """
-    texto_usuario = texto_usuario.lower().strip()
+    # Normaliza o texto do usuário removendo acentos e pontuação
+    texto_normalizado = unidecode.unidecode(
+        re.sub(r"[^\w\s]", " ", texto_usuario.lower())
+    )
 
     profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
 
@@ -20,6 +23,21 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str) -> st
 
     # Usa matching aproximado
     candidatos = list(todos_servicos)
-    mais_proximo = difflib.get_close_matches(texto_usuario, candidatos, n=1, cutoff=0.6)
+    
+    # 1) verifica se algum serviço aparece como substring
+    for candidato in candidatos:
+        if re.search(rf"\b{re.escape(candidato)}\b", texto_normalizado):
+            return candidato
 
-    return mais_proximo[0] if mais_proximo else None
+    # 2) tenta matching aproximado com a frase completa
+    match = difflib.get_close_matches(texto_normalizado, candidatos, n=1, cutoff=0.6)
+    if match:
+        return match[0]
+
+    # 3) tenta matching aproximado palavra a palavra
+    for palavra in texto_normalizado.split():
+        match = difflib.get_close_matches(palavra, candidatos, n=1, cutoff=0.8)
+        if match:
+            return match[0]
+
+    return None
