@@ -217,19 +217,19 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
         await salvar_contexto_temporario(user_id, contexto_salvo)
 
-       # 🗂️ Detectar pedido de todos os preços
-       pedir_todos_precos = any(
-       frase in texto_normalizado for frase in [
-           "todos os preços", "traga todos os preços", "mostrar todos os preços",
-           "quais os preços", "listar preços", "preços de tudo", "todos preços", "preços completos", "me traga todos os preços"
-       ])      
+        # 🗂️ Detectar pedido de todos os preços
+        pedir_todos_precos = any(
+        frase in texto_normalizado for frase in [
+            "todos os preços", "traga todos os preços", "mostrar todos os preços",
+            "quais os preços", "listar preços", "preços de tudo", "todos preços", "preços completos", "me traga todos os preços"
+        ])      
 
-       if pedir_todos_precos:
+        if pedir_todos_precos:
             precos_texto = await consultar_todos_precos(user_id)
             await enviar_resposta(update, precos_texto)
             return  # não continua, já respondeu  
  
-       # 💰 Consulta de preço tratada localmente (sem chamar o GPT)
+        # 💰 Consulta de preço tratada localmente (sem chamar o GPT)
         menciona_preco = any(
             chave in texto_normalizado for chave in ["preco", "preço", "valor", "custa", "quanto custa"]
         )
