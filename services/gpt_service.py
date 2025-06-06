@@ -221,6 +221,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         menciona_preco = any(
             chave in texto_normalizado for chave in ["preco", "preço", "valor", "custa", "quanto custa"]
         )
+        print(f"🟡 servico_mencionado antes da normalização: {servico_mencionado}")
 
         if menciona_preco:
             from services.profissional_service import obter_precos_servico
