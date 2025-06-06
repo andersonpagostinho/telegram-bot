@@ -217,19 +217,16 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
         await salvar_contexto_temporario(user_id, contexto_salvo)
 
-        # 💰 Tratamento direto para consultas de preço sem depender do GPT
+        # 💰 Consulta de preço tratada localmente (sem chamar o GPT)
         menciona_preco = any(
-            chave in texto_normalizado
-            for chave in ["preco", "preço", "valor", "custa", "quanto custa"]
+            chave in texto_normalizado for chave in ["preco", "preço", "valor", "custa", "quanto custa"]
         )
 
         if menciona_preco and servico_mencionado:
             from services.profissional_service import obter_precos_servico
 
             if profissional_mencionado:
-                preco = await obter_precos_servico(
-                    user_id, servico_mencionado, profissional_mencionado
-                )
+                preco = await obter_precos_servico(user_id, servico_mencionado, profissional_mencionado)
                 if preco is not None:
                     try:
                         valor_formatado = f"{float(preco):.2f}"
@@ -255,11 +252,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 else:
                     resposta = "Infelizmente não temos esse preço ainda."
 
-            await atualizar_contexto(
-                user_id,
-                {"usuario": texto_usuario, "bot": resposta},
-            )
-
+            await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta})
             return {
                 "resposta": resposta,
                 "acao": None,

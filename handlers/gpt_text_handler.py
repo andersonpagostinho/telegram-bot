@@ -22,6 +22,7 @@ import json
 import pprint
 import re
 import sys
+import difflib
 
 def extrair_data_de_texto(ev_texto):
     """
@@ -166,11 +167,24 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     servico_mencionado = None
     texto_baixo = unidecode(texto.lower())
 
-    # 🎯 Detecção de serviço mencionando e adaptação por tipo de negócio
-    for s in servicos_disponiveis:
-        if re.search(rf'\b{s.lower()}\b', texto_baixo):
-            servico_mencionado = s.lower()
+    # 🎯 Detecção inteligente de serviço mencionado
+    servico_mencionado = None
+    texto_baixo = unidecode(texto.lower())
+
+    # Cria um mapeamento de serviços para match
+    servicos_lista = list(servicos_disponiveis)
+
+    # Primeiro tenta um match direto com 'in' (mais tolerante que \b...\b)
+    for s in servicos_lista:
+        if s in texto_baixo:
+            servico_mencionado = s
             break
+
+    # Se não achou, tenta fuzzy match com difflib
+    if not servico_mencionado:
+        possiveis = difflib.get_close_matches(texto_baixo, servicos_lista, n=1, cutoff=0.6)
+        if possiveis:
+            servico_mencionado = possiveis[0]
 
     # 💡 Correção semântica baseada no tipo de negócio
     tipo_negocio = contexto.get("usuario", {}).get("tipo_negocio", "").lower()
