@@ -218,16 +218,15 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         await salvar_contexto_temporario(user_id, contexto_salvo)
 
         # 🗂️ Detectar pedido de todos os preços
-        pedir_todos_precos = any(
-        frase in texto_normalizado for frase in [
+        gatilhos_todos_precos = [
             "todos os precos", "traga todos os precos", "mostrar todos os precos",
             "quais os precos", "listar precos", "precos de tudo", "todos precos", "precos completos", "me traga todos os precos",
             "todos os valores", "traga todos os valores", "mostrar todos os valores",
             "quais os valores", "listar valores", "valores de tudo", "todos valores", "valores completos", "me traga todos os valores"
-        ])      
+        ]
 
         pedir_todos_precos = any(
-        frase in texto_normalizado for frase in gatilhos_todos_precos
+            frase in texto_normalizado for frase in gatilhos_todos_precos
         )
 
         if pedir_todos_precos:
