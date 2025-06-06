@@ -218,9 +218,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         await salvar_contexto_temporario(user_id, contexto_salvo)
 
         # 💰 Consulta de preço tratada localmente (sem chamar o GPT)
+        print("⚪ Verificando se menciona preço...")
         menciona_preco = any(
             chave in texto_normalizado for chave in ["preco", "preço", "valor", "custa", "quanto custa"]
         )
+        print(f"🟡 menciona_preco: {menciona_preco}")
         print(f"🟡 servico_mencionado antes da normalização: {servico_mencionado}")
 
         if menciona_preco:
