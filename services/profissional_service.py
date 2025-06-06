@@ -3,6 +3,8 @@
 from services.firebase_service_async import buscar_subcolecao
 from datetime import datetime, timedelta
 import difflib
+import unidecode
+import re
 
 async def buscar_profissionais_por_servico(servicos: list[str], user_id: str) -> dict:
     """
@@ -162,13 +164,13 @@ async def obter_precos_servico(user_id: str, servico: str, profissional: str | N
 
     return precos if precos else None
 
-async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None) -> str:
+async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None) -> str | None:
     """
     Tenta encontrar o serviço mais próximo com base nas palavras do usuário.
     Se user_id for passado, busca serviços reais do banco. Caso contrário, usa um exemplo fixo.
     """
 
-    texto = unidecode.unidecode(texto_usuario.lower())
+    texto = unidecode.unidecode(re.sub(r"[^\w\s]", " ", texto_usuario.lower()))
 
     # Lista de serviços a partir do banco
     servicos_disponiveis = set()
@@ -194,4 +196,18 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None
             if palavra in servico or servico in palavra:
                 return servico
 
-    return ""
+    return None
+
+async def consultar_todos_precos(user_id: str) -> str:
+    profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+    resposta = "📋 *Lista completa de preços:*\n"
+
+    for dados in profissionais.values():
+        nome_prof = dados.get("nome", "Desconhecido")
+        precos = dados.get("precos", {})
+        if precos:
+            resposta += f"\n*{nome_prof}*:\n"
+            for servico, preco in precos.items():
+                resposta += f"- {servico.capitalize()}: R$ {float(preco):.2f}\n"
+
+    return resposta
