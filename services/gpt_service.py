@@ -228,6 +228,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
             if not servico_mencionado:
                 servico_mencionado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
+                print(f"🔍 Serviço mencionado após normalização: {servico_mencionado}")
 
             if servico_mencionado:
                 if profissional_mencionado:
