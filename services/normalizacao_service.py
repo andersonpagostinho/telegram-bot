@@ -1,6 +1,7 @@
 # services/normalizacao_service.py
 
 import difflib
+import unidecode
 from services.firebase_service_async import buscar_subcolecao
 
 async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str) -> str | None:
