@@ -217,7 +217,19 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
         await salvar_contexto_temporario(user_id, contexto_salvo)
 
-        # 💰 Consulta de preço tratada localmente (sem chamar o GPT)
+       # 🗂️ Detectar pedido de todos os preços
+       pedir_todos_precos = any(
+       frase in texto_normalizado for frase in [
+           "todos os preços", "traga todos os preços", "mostrar todos os preços",
+           "quais os preços", "listar preços", "preços de tudo", "todos preços", "preços completos", "me traga todos os preços"
+       ])      
+
+       if pedir_todos_precos:
+            precos_texto = await consultar_todos_precos(user_id)
+            await enviar_resposta(update, precos_texto)
+            return  # não continua, já respondeu  
+ 
+       # 💰 Consulta de preço tratada localmente (sem chamar o GPT)
         menciona_preco = any(
             chave in texto_normalizado for chave in ["preco", "preço", "valor", "custa", "quanto custa"]
         )
@@ -225,17 +237,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         if menciona_preco:
             from services.profissional_service import obter_precos_servico
             from services.normalizacao_service import encontrar_servico_mais_proximo
-
-            # ⚠️ Tratamento especial: se o usuário pedir todos os preços
-            pedir_todos_precos = any(frase in texto_normalizado for frase in [
-                "todos os preços", "traga todos os preços", "mostrar todos os preços",
-                "quais os preços", "listar preços", "preços de tudo", "todos preços"
-            ])
-
-            if pedir_todos_precos:
-                precos_texto = await consultar_todos_precos(user_id)
-                await enviar_resposta(update, precos_texto)
-                return  # não continua, já respondeu
 
             if not servico_mencionado:
                 servico_mencionado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
