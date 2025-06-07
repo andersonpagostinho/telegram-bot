@@ -360,10 +360,12 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     resultado_raw = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
     print("🔍 Resultado bruto do GPT:", resultado_raw)
 
-    # ✅ Se for resposta curta com confirmação, ela já vem no formato final
-    if isinstance(resultado_raw, dict) and resultado_raw.get("acao") and resultado_raw.get("resposta"):
-        # 🔄 Atualiza o histórico para manter coerência
+    # ✅ Se for resposta simples sem ação (exemplo: saudação "oi"), responde e sai
+    if isinstance(resultado_raw, dict) and resultado_raw.get("acao") is None and resultado_raw.get("resposta"):
+        await update.message.reply_text(resultado_raw["resposta"])
+        # 🔄 Atualiza o histórico também
         await atualizar_contexto(user_id, {"usuario": texto, "bot": resultado_raw["resposta"]})
+        return
 
         # ✅ Executa ação se for "criar_evento"
         if resultado_raw["acao"] == "criar_evento":
