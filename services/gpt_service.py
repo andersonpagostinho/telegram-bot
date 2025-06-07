@@ -232,8 +232,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         if pedir_todos_precos:
             print(f"✅ Gatilho acionado para TODOS PREÇOS. Texto: {texto_normalizado}")
             precos_texto = await consultar_todos_precos(user_id)
-            await enviar_resposta(update, precos_texto)
-            return  # não continua, já respondeu
+            return {
+                "resposta": precos_texto,
+                "acao": "responder_informacao",
+                "dados": {}
+            }
  
         # 💰 Consulta de preço tratada localmente (sem chamar o GPT)
         menciona_preco = any(
