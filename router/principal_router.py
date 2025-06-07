@@ -8,6 +8,7 @@ from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import buscar_subcolecao, buscar_documento
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
+from unidecode import unidecode
 
 async def roteador_principal(user_id: str, mensagem: str, update=None, context=None):
     print("🚨 [principal_router] Arquivo carregado")
