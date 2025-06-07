@@ -171,8 +171,9 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     # 🔁 Chamada para o novo roteador inteligente
     resposta = await roteador_principal(user_id, mensagem, update, context)
 
-    if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
-        await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
+    # ✅ resposta é sempre string — basta enviar
+    if resposta:
+        await update.message.reply_text(resposta, parse_mode="Markdown")
 
 # ✅ Comando /custosapi – uso total da API por todos os usuários (somente dono)
 async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
