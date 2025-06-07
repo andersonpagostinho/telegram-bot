@@ -72,6 +72,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # 🧠 Fallback inteligente com GPT contextualizado
     contexto = await carregar_contexto_temporario(user_id) or {}
+
+    # 🚨 Intercepta se usuário aceitou alternativa_profissional
+    alternativa_profissional = contexto.get("alternativa_profissional")
+    if alternativa_profissional:
+        alt_normalizado = unidecode(alternativa_profissional.lower())
+        texto_normalizado = unidecode(mensagem.lower())
+        if alt_normalizado in texto_normalizado:
+            print("✅ Usuário aceitou alternativa_profissional no fallback!", alternativa_profissional)
+            from handlers.acao_handler import tratar_mensagem_usuario
+            resposta_fluxo = await tratar_mensagem_usuario(user_id, mensagem)
+            await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
+            await context.bot.send_message(chat_id=user_id, text=resposta_fluxo or "✅ Agendado com profissional alternativo.")
+            return resposta_fluxo
+
     contexto["usuario"] = usuario_dados
     contexto.setdefault("tarefas", [])
     contexto.setdefault("eventos", [])
