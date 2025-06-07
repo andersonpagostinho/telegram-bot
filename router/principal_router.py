@@ -20,7 +20,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if resposta_informativa:
         print("🔍 Consulta informativa detectada. Respondendo diretamente.")
         await context.bot.send_message(chat_id=user_id, text=resposta_informativa, parse_mode="Markdown")
-        return resposta_informativa
+        return None
 
     # 🔍 Buscar dados do usuário em Clientes/{user_id}/Usuarios/{user_id}
     usuario_dados = await buscar_documento(f"Clientes/{user_id}/Usuarios/{user_id}")
@@ -86,11 +86,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 resposta_fluxo = await tratar_mensagem_usuario(user_id, mensagem)
                 await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
                 await context.bot.send_message(chat_id=user_id, text=resposta_fluxo or "✅ Agendado com profissional alternativo.")
-                return resposta_fluxo
+                return None  # 👈 IMPORTANTE para evitar resposta duplicada!
             except Exception as e:
                 print(f"❌ Erro ao tratar alternativa_profissional: {e}")
                 await context.bot.send_message(chat_id=user_id, text="❌ Erro ao processar sua escolha de profissional. Tente novamente.")
-                return "❌ Erro ao processar sua escolha de profissional."
+                return None  # 👈 IMPORTANTE
+
+    # 🚨 Intercepta se existem sugestões pendentes (novo bloco recomendado)
+    if contexto.get("sugestoes"):
+        print("✅ Existem sugestões pendentes no contexto. Aguardando resposta do usuário.")
+        return None  # 👈 IMPORTANTE
 
     contexto["usuario"] = usuario_dados
     contexto.setdefault("tarefas", [])
@@ -114,7 +119,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         }
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_gpt["resposta"]})
         await context.bot.send_message(chat_id=user_id, text=resposta_gpt["resposta"])
-        return resposta_gpt["resposta"]
+        return None  # 👈 EVITA DUPLICAR no tratar_mensagens_gerais
 
     # 🛡️ Validação robusta
     if not resposta_gpt or not isinstance(resposta_gpt, dict):
