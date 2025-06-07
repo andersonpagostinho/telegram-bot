@@ -39,8 +39,15 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             return True
 
         elif acao == "criar_evento":
+            from utils.context_manager import carregar_contexto_temporario
+            user_id = str(update.message.from_user.id)
+            contexto_salvo = await carregar_contexto_temporario(user_id)
+            if contexto_salvo.get("sugestoes") or contexto_salvo.get("alternativa_profissional"):
+                print("⛔ Existem sugestões no contexto, não executar 'criar_evento' ainda.")
+                return False
+
             sucesso = await add_evento_por_gpt(update, context, dados)
-            return sucesso  # ✅ True se criou, False se houve conflito
+            return sucesso
 
         elif acao == "remover_tarefa":
             descricao = dados.get("descricao")
