@@ -55,7 +55,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
     if not sessao:
         await criar_ou_atualizar_sessao(user_id, {"estado": "aguardando_servico"})
-        await sincronizar_contexto(user_id, pegar_sessao(user_id))
+        await sincronizar_contexto(user_id, await pegar_sessao(user_id))
         return "Oi! Qual serviço você deseja agendar?"
 
     elif sessao["estado"] == "aguardando_servico":
@@ -81,7 +81,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             "estado": "aguardando_data",
             "servico": servico_normalizado
         })
-        await sincronizar_contexto(user_id, pegar_sessao(user_id))
+        await sincronizar_contexto(user_id, await pegar_sessao(user_id))
         return f"Beleza! Qual a data para o serviço *{servico_normalizado}*?"
 
     elif sessao["estado"] == "aguardando_data":
@@ -90,7 +90,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             "estado": "aguardando_horario",
             "data": mensagem
         })
-        await sincronizar_contexto(user_id, pegar_sessao(user_id))
+        await sincronizar_contexto(user_id, await pegar_sessao(user_id))
         return f"Perfeito. E qual horário?"
 
     elif sessao["estado"] == "aguardando_horario":
@@ -126,7 +126,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
                 "hora": hora,
                 "disponiveis": list(disponiveis.keys())
             })
-            await sincronizar_contexto(user_id, pegar_sessao(user_id))
+            await sincronizar_contexto(user_id, await pegar_sessao(user_id))
 
             mensagem = gerar_mensagem_profissionais_disponiveis(
                 servico=servico,
@@ -166,7 +166,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
                     "alternativa_profissional": None,
                     "sugestoes": None
                 })
-                await sincronizar_contexto(user_id, pegar_sessao(user_id))
+                await sincronizar_contexto(user_id, await pegar_sessao(user_id))
 
                 # Rechama o próprio tratar para cair no fluxo final de confirmação
                 return await tratar_mensagem_usuario(user_id, "")
@@ -201,7 +201,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
                     "disponiveis": list(disponiveis.keys()),
                     "estado": "aguardando_profissional"
                 })
-                await sincronizar_contexto(user_id, pegar_sessao(user_id))
+                await sincronizar_contexto(user_id, await pegar_sessao(user_id))
 
                 if not disponiveis:
                     return f"❌ Nenhum profissional disponível para {nova_data} às {nova_hora}. Deseja tentar outro horário?"
@@ -248,7 +248,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             "estado": "aguardando_nome_cliente" if is_dono else "completo",
             "profissional": profissional_escolhido
         })
-        await sincronizar_contexto(user_id, pegar_sessao(user_id))
+        await sincronizar_contexto(user_id, await pegar_sessao(user_id))
 
         if is_dono:
             return "👤 Para quem é esse agendamento? (digite o nome da cliente ou deixe em branco)"
@@ -300,7 +300,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             "estado": "completo",
             "nome_cliente": nome_cliente if nome_cliente else None
         })
-        await sincronizar_contexto(user_id, pegar_sessao(user_id))
+        await sincronizar_contexto(user_id, await pegar_sessao(user_id))
         return await tratar_mensagem_usuario(user_id, "")
 
     else:
