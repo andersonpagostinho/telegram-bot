@@ -82,10 +82,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if alt_normalizado in texto_normalizado:
             print("✅ Usuário aceitou alternativa_profissional no fallback!", alternativa_profissional)
             from handlers.acao_handler import tratar_mensagem_usuario
-            resposta_fluxo = await tratar_mensagem_usuario(user_id, mensagem)
-            await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
-            await context.bot.send_message(chat_id=user_id, text=resposta_fluxo or "✅ Agendado com profissional alternativo.")
-            return resposta_fluxo
+            try:
+                resposta_fluxo = await tratar_mensagem_usuario(user_id, mensagem)
+                await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
+                await context.bot.send_message(chat_id=user_id, text=resposta_fluxo or "✅ Agendado com profissional alternativo.")
+                return resposta_fluxo
+            except Exception as e:
+                print(f"❌ Erro ao tratar alternativa_profissional: {e}")
+                await context.bot.send_message(chat_id=user_id, text="❌ Erro ao processar sua escolha de profissional. Tente novamente.")
+                return "❌ Erro ao processar sua escolha de profissional."
 
     contexto["usuario"] = usuario_dados
     contexto.setdefault("tarefas", [])
@@ -107,6 +112,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "acao": None,
             "dados": {}
         }
+        await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_gpt["resposta"]})
+        await context.bot.send_message(chat_id=user_id, text=resposta_gpt["resposta"])
+        return resposta_gpt["resposta"]
 
     # 🛡️ Validação robusta
     if not resposta_gpt or not isinstance(resposta_gpt, dict):
