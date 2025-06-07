@@ -1009,6 +1009,8 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                         "acao": None,
                         "dados": {}
                     }
+                    return resultado 
+
                 else:
                     resultado["acao"] = "criar_evento"
                     resultado["dados"] = {
