@@ -23,6 +23,7 @@ import pprint
 import re
 import sys
 import difflib
+import string
 
 def extrair_data_de_texto(ev_texto):
     """
@@ -551,11 +552,12 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     # 💬 Responder usuário
-    print(f"📤 Resposta final: {resposta}")
-    try:
-        await update.message.reply_text(resposta, parse_mode=None)
-    except Exception as e:
-        print(f"❌ Erro ao enviar resposta: {e}")
+    if not resposta_ja_enviada:
+        print(f"📤 Resposta final: {resposta}")
+        try:
+            await update.message.reply_text(resposta, parse_mode=None)
+        except Exception as e:
+            print(f"❌ Erro ao enviar resposta: {e}")
 
     # 🧠 Atualiza o contexto após a resposta
     await atualizar_contexto(user_id, {"usuario": texto, "bot": resposta})
