@@ -445,7 +445,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         return True
 
     except Exception as e:
+        import traceback
         print(f"❌ Erro inesperado em add_evento_por_gpt: {e}")
+        traceback.print_exc()
         await update.message.reply_text("❌ Ocorreu um erro ao tentar criar o evento.")
         return False
 
