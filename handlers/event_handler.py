@@ -312,19 +312,6 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         user_id = str(update.message.from_user.id)  # ✅ precisa vir aqui!
 
-        # 🔁 Corrigir profissional com base em resposta do usuário, se necessário
-        from services.session_service import carregar_contexto_temporario
-        contexto = await carregar_contexto_temporario(user_id)
-
-        resposta_usuario = update.message.text.lower()
-        alternativa = contexto.get("alternativa_profissional", "").lower() if contexto else ""
-
-        # Se o usuário digitou o nome da alternativa, troca o profissional
-        if alternativa and alternativa in resposta_usuario:
-            print(f"🔁 Substituindo profissional '{profissional}' pela alternativa escolhida '{alternativa}'")
-            profissional = alternativa.capitalize()
-
-
         if not profissional:
             profissional = await obter_profissional_para_evento(user_id, descricao)
             if not profissional:
