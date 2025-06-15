@@ -784,6 +784,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
             # Permite detectar frases como "pela Carla", "com a Carla", "Carla"
             if re.search(rf"\b(pela|com|com a|a|para|por)?\s*{prof_normalizado}\b", texto_normalizado):
+                contexto_salvo["profissional_escolhido"] = prof.capitalize()
                 opcoes_disponiveis = contexto_salvo.get("ultima_opcao_profissionais") or []
 
                 # 🔁 Fallback inteligente: se não houver lista, usa alternativa_profissional
