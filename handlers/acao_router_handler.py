@@ -2,7 +2,7 @@
 import inspect
 from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path
 from services.profissional_service import obter_precos_servico, encontrar_servico_mais_proximo
-from services.session_service import carregar_contexto_temporario
+from utils.contexto_temporario import carregar_contexto_temporario
 
 async def executar_acao_por_nome(update, context, acao, dados):
     user_id = str(update.message.from_user.id)
