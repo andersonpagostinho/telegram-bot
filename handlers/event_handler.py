@@ -318,10 +318,11 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         ultima_pergunta = contexto.get("historico", [])[-1]["bot"].lower() if contexto.get("historico") else ""
         resposta_usuario = update.message.text.lower()
 
-        if alternativa and alternativa.lower() in resposta_usuario and alternativa.lower() in ultima_pergunta:
-            print(f"🔁 Substituindo profissional '{profissional}' por alternativa '{alternativa}' com base na resposta do usuário.")
-            profissional = alternativa.capitalize()
-            dados["profissional"] = profissional  # ✅ garante que o salvamento use a alternativa correta
+        # 🔄 Substitui profissional se o contexto tiver uma alternativa salva
+        if contexto.get("alternativa_profissional"):
+            profissional = contexto["alternativa_profissional"].capitalize()
+            dados["profissional"] = profissional
+            print(f"🔁 Profissional substituído com sucesso: {profissional}")
 
         if not profissional:
             profissional = await obter_profissional_para_evento(user_id, descricao)
