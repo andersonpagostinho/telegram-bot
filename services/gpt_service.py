@@ -29,6 +29,7 @@ from services.gpt_actions import (
 )
 
 from services.firebase_service_async import buscar_cliente
+from services.gpt_service import executar_confirmacao_generica
 
 # ✅ GPT simples para respostas diretas (com plano e módulos no prompt)
 async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
@@ -300,8 +301,31 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 "dados": {}
             }
 
-        # ⚡ Reconhecer respostas curtas de confirmação
+        # ⚡ Detecta troca direta para profissional sugerido (ex: "agende com a Carla")
         resposta_direta = texto_usuario.strip().lower()
+        texto_normalizado = unidecode.unidecode(resposta_direta)
+        alternativa = contexto_salvo.get("alternativa_profissional", "").lower()
+
+        if alternativa and alternativa in texto_normalizado:
+            contexto_salvo["profissional_escolhido"] = alternativa.capitalize()
+            await salvar_contexto_temporario(user_id, contexto_salvo)
+
+            servico = contexto_salvo.get("servico")
+            data_hora = contexto_salvo.get("data_hora")
+
+            if servico and data_hora:
+                duracao = estimar_duracao(servico)
+                return {
+                    "resposta": f"✅ {servico.capitalize()} agendado com {alternativa.capitalize()} para {formatar_data(data_hora)}.",
+                    "acao": "criar_evento",
+                    "dados": {
+                        "data_hora": data_hora,
+                        "descricao": formatar_descricao_evento(servico, alternativa.capitalize()),
+                        "duracao": duracao
+                    }
+                }
+
+        # ⚡ Reconhecer respostas curtas de confirmação
         palavras_confirmacao = [
             "confirmar", "pode ser", "pode marcar", "fechar",
             "tá bom", "tudo certo", "ok", "isso", "agendar", "sim", "beleza", "claro",
@@ -313,7 +337,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         )
 
         if resposta_curta and contexto_salvo.get("ultima_acao"):
-            from services.gpt_service import executar_confirmacao_generica
             print("✅ Detectada confirmação de continuidade.")
 
             # ✅ Verifica se a última mensagem do BOT foi uma sugestão ou pergunta
