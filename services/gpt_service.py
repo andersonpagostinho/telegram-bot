@@ -777,15 +777,18 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 }
 
         # 🎯 Verifica se a resposta menciona diretamente um profissional
+        import unidecode
+        import re
+
         texto_normalizado = unidecode.unidecode(resposta_direta.lower())
 
         for prof in nomes_profissionais:
             prof_normalizado = unidecode.unidecode(prof.lower())
-        
+
             # Permite detectar frases como "pela Carla", "com a Carla", "Carla"
             if re.search(rf"\b(pela|com|com a|a|para|por)?\s*{prof_normalizado}\b", texto_normalizado):
                 opcoes_disponiveis = contexto_salvo.get("ultima_opcao_profissionais") or []
-                
+
                 # 🔁 Fallback inteligente: se não houver lista, usa alternativa_profissional
                 if not opcoes_disponiveis and contexto_salvo.get("alternativa_profissional"):
                     opcoes_disponiveis = [contexto_salvo["alternativa_profissional"]]
@@ -793,7 +796,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 servico = contexto_salvo.get("servico")
                 data_hora = contexto_salvo.get("data_hora")
 
-                print(f"🔍 Verificação de dados: profissional={prof.capitalize()}, servico={servico}, data_hora={data_hora}, opções={opcoes_disponiveis}")
+                print(f"🔍 Verificação de dados: profissional={prof.capitalize()}, servico={servico}, data_hora={data_hora},    opções={opcoes_disponiveis}")
 
                 if prof.capitalize() in opcoes_disponiveis and servico and data_hora:
                     duracao = estimar_duracao(servico)
@@ -819,9 +822,9 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
                     if contexto_salvo.get("evento_criado"):
                         return {
-                            "resposta": "✅ O agendamento já foi registrado anteriormente.",
-                            "acao": None,
-                            "dados": {}
+                             "resposta": "✅ O agendamento já foi registrado anteriormente.",
+                             "acao": None,
+                             "dados": {}
                         }
 
                     profissional = contexto_salvo.get("profissional_escolhido")
