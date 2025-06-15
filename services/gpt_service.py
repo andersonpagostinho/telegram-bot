@@ -777,9 +777,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 }
 
         # 🎯 Verifica se a resposta menciona diretamente um profissional
-        import unidecode
-        import re
-
         texto_normalizado = unidecode.unidecode(resposta_direta.lower())
 
         for prof in nomes_profissionais:
