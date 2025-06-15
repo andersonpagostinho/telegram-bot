@@ -342,8 +342,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             return False
 
         end_time = start_time + timedelta(minutes=duracao_minutos)
-        user_id = str(update.message.from_user.id)
-
+       
         # 🔍 Buscar eventos existentes do dia
         eventos_do_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date())
         if not eventos_do_dia:
@@ -439,9 +438,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await update.message.reply_text(mensagem_gpt)
         await update.message.reply_text("😄 Agendamento concluído! Se precisar de mais alguma coisa, é só me chamar.")
 
-        # 🔄 Limpa o contexto temporário
-        await salvar_contexto_temporario(user_id, {})
-
+        # 🔄 Limpa o restante do contexto, mantendo apenas histórico (se existir)
+        for chave in ["alternativa_profissional", "sugestoes", "profissional_escolhido", "dados_anteriores", "ultima_acao",    "evento_criado", "servico"]:
+            contexto.pop(chave, None)
+        await salvar_contexto_temporario(user_id, contexto)
         return True
 
     except Exception as e:
