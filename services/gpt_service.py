@@ -784,7 +784,12 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         
             # Permite detectar frases como "pela Carla", "com a Carla", "Carla"
             if re.search(rf"\b(pela|com|com a|a|para|por)?\s*{prof_normalizado}\b", texto_normalizado):
-                opcoes_disponiveis = contexto_salvo.get("ultima_opcao_profissionais", [])
+                opcoes_disponiveis = contexto_salvo.get("ultima_opcao_profissionais") or []
+                
+                # 🔁 Fallback inteligente: se não houver lista, usa alternativa_profissional
+                if not opcoes_disponiveis and contexto_salvo.get("alternativa_profissional"):
+                    opcoes_disponiveis = [contexto_salvo["alternativa_profissional"]]
+
                 servico = contexto_salvo.get("servico")
                 data_hora = contexto_salvo.get("data_hora")
 
@@ -811,7 +816,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     # 🧠 Salva o profissional escolhido e tenta completar depois
                     await salvar_contexto_temporario(user_id, {"profissional_escolhido": prof.capitalize()})
                     contexto_salvo = await carregar_contexto_temporario(user_id)
-                
 
                     if contexto_salvo.get("evento_criado"):
                         return {
@@ -819,16 +823,14 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                             "acao": None,
                             "dados": {}
                         }
- 
+
                     profissional = contexto_salvo.get("profissional_escolhido")
                     servico = contexto_salvo.get("servico")
                     data_hora = contexto_salvo.get("data_hora")
 
                     if profissional and servico and data_hora:
                         duracao = estimar_duracao(servico)
-
                         await salvar_contexto_temporario(user_id, {"evento_criado": True})
-
                         return {
                             "resposta": f"{servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}. ✂️",
                             "acao": "criar_evento",
@@ -839,13 +841,12 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                             }
                         }
 
-            # 🔍 Garante que os dados do cliente estejam no contexto
-            cliente = await buscar_cliente(user_id)
-            if cliente:
-                contexto["usuario"] = cliente
-                contexto["pagamentoAtivo"] = cliente.get("pagamentoAtivo", False)
-                contexto["planosAtivos"] = cliente.get("planosAtivos", [])
-
+        # 🔍 Garante que os dados do cliente estejam no contexto
+        cliente = await buscar_cliente(user_id)
+        if cliente:
+            contexto["usuario"] = cliente
+            contexto["pagamentoAtivo"] = cliente.get("pagamentoAtivo", False)
+            contexto["planosAtivos"] = cliente.get("planosAtivos", [])
 
             messages = montar_prompt_com_contexto(INSTRUCAO_SECRETARIA, contexto, contexto_salvo, texto_usuario)
 
