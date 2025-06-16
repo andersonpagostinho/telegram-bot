@@ -439,3 +439,33 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
     finally:
         context.chat_data.pop("evento_via_gpt", None)
+
+async def enviar_agenda_excel(update: Update, context: ContextTypes.DEFAULT_TYPE, intervalo: str = "hoje"):
+    if not await verificar_pagamento(update, context): return
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    user_id = str(update.message.from_user.id)
+
+    if intervalo == "hoje":
+        eventos = await buscar_eventos_por_intervalo(user_id, dias=0)
+    elif intervalo == "amanha":
+        eventos = await buscar_eventos_por_intervalo(user_id, dias=1)
+    elif intervalo == "semana":
+        eventos = await buscar_eventos_por_intervalo(user_id, semana=True)
+    else:
+        eventos = await buscar_eventos_por_intervalo(user_id, dias=-365)
+
+    if not eventos:
+        await update.message.reply_text("📭 Nenhum evento encontrado para gerar a agenda.")
+        await responder_em_audio(update, context, "Nenhum evento disponível para gerar a agenda.")
+        return
+
+    # 🧾 Gera planilha em memória
+    excel_stream = await gerar_excel_agenda(user_id, eventos)
+
+    await update.message.reply_document(
+        document=InputFile(excel_stream, filename="agenda_neoagenda.xlsx"),
+        caption="📎 Aqui está sua agenda exportada com sucesso."
+    )
+
+    await responder_em_audio(update, context, "Sua agenda em Excel foi gerada e enviada.")  
