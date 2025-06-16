@@ -15,7 +15,7 @@ from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento
 from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
-from utils.contexto_temporario import salvar_contexto_temporario
+from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario
 
 from services.firebase_service_async import (
     salvar_cliente,
@@ -298,6 +298,7 @@ async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAU
 
 # ✅ Criar evento via GPT com verificação de conflito
 async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict):
+    print("⚙️ Executando add_evento_por_gpt")
     if not await verificar_pagamento(update, context): return False
     if not await verificar_acesso_modulo(update, context, "secretaria"): return False
 
@@ -312,6 +313,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         duracao_minutos = dados.get("duracao", 60)
 
         user_id = str(update.message.from_user.id)  # ✅ precisa vir aqui!
+
+        print("🔍 Entrou na verificação de profissional alternativo")
+        print("🧪 carregar_contexto_temporario =", carregar_contexto_temporario)
 
         # 🔄 Substitui profissional se o usuário aceitou a alternativa
         print("🧪 carregar_contexto_temporario =", carregar_contexto_temporario)
