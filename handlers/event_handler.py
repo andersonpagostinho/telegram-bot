@@ -102,7 +102,8 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "hora_fim": hora_fim,
         "duracao": duracao_minutos,
         "confirmado": False,
-        "link": ""
+        "link": "",
+        "profissional": dados.get("profissional", "").capitalize()
     }
 
     sucesso = await salvar_evento(user_id, evento)
