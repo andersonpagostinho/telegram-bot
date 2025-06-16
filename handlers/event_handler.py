@@ -15,7 +15,7 @@ from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento
 from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
-from utils.contexto_temporario import carregar_contexto_temporario
+from utils.contexto_temporario import salvar_contexto_temporario
 
 from services.firebase_service_async import (
     salvar_cliente,
@@ -442,6 +442,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # 🔄 Limpa o restante do contexto, mantendo apenas histórico (se existir)
         for chave in ["alternativa_profissional", "sugestoes", "profissional_escolhido", "dados_anteriores", "ultima_acao",    "evento_criado", "servico"]:
             contexto.pop(chave, None)
+        print("🧪 salvar_contexto_temporario =", salvar_contexto_temporario)
         await salvar_contexto_temporario(user_id, contexto)
         return True
 
