@@ -311,29 +311,27 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         profissional = dados.get("profissional")
         data_hora_str = dados.get("data_hora")  # ISO string
         duracao_minutos = dados.get("duracao", 60)
+        user_id = str(update.message.from_user.id)
 
-        user_id = str(update.message.from_user.id)  # ✅ precisa vir aqui!
-
-        print("🔍 Entrou na verificação de profissional alternativo")
-        print("🧪 carregar_contexto_temporario =", carregar_contexto_temporario)
-
-        # 🔄 Substitui profissional se o usuário aceitou a alternativa
-        print("🧪 carregar_contexto_temporario =", carregar_contexto_temporario)
+        # 🧠 Carrega contexto e trata profissional alternativo
         contexto = await carregar_contexto_temporario(user_id)
-        alternativa = contexto.get("alternativa_profissional")
-        ultima_pergunta = contexto.get("historico", [])[-1]["bot"].lower() if contexto.get("historico") else ""
         resposta_usuario = update.message.text.lower()
+        alternativa = contexto.get("alternativa_profissional")
 
-        # 🔄 Substitui profissional se o contexto tiver uma alternativa salva
-        if contexto.get("alternativa_profissional"):
-            profissional = contexto["alternativa_profissional"].capitalize()
-            dados["profissional"] = profissional
-            print(f"🔁 Profissional substituído com sucesso: {profissional}")
+        if alternativa:
+            if alternativa.lower() in resposta_usuario:
+                profissional = alternativa.capitalize()
+                dados["profissional"] = profissional
+                print(f"🔁 Profissional substituído com sucesso: {profissional}")
+            else:
+                # ❌ Usuário não confirmou a alternativa → limpa
+                contexto.pop("alternativa_profissional", None)
+                contexto.pop("sugestoes", None)
+                await salvar_contexto_temporario(user_id, contexto)
 
         if not profissional:
             profissional = await obter_profissional_para_evento(user_id, descricao)
             if not profissional:
-                print("⚠️ Nenhum profissional foi identificado. Abortando salvamento.")
                 await update.message.reply_text("❌ Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
                 return False
 
@@ -348,18 +346,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             return False
 
         end_time = start_time + timedelta(minutes=duracao_minutos)
-       
-        # 🔍 Buscar eventos existentes do dia
-        eventos_do_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date())
-        if not eventos_do_dia:
-            eventos_do_dia = []  # Garante que não seja None
 
-        # ⛔ Verificar conflitos
+        eventos_do_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date()) or []
         ocupados = []
         for ev in eventos_do_dia:
             if ev.get("profissional", "").lower() != profissional.lower():
-                continue  # Ignora eventos de outros profissionais
-
+                continue
             try:
                 ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
                 ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
@@ -385,7 +377,6 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 )
             return False
 
-        # ✅ Se não houve conflito, montar o evento
         evento_data = {
             "descricao": descricao,
             "data": start_time.strftime("%Y-%m-%d"),
@@ -401,19 +392,11 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await salvar_evento(user_id, evento_data)
         print("✅ Evento salvo")
 
-        # 🧼 Limpa partes específicas do contexto (manutenção inteligente)
-        if contexto:
-            contexto.pop("alternativa_profissional", None)
-            contexto.pop("sugestoes", None)
-            contexto.pop("profissional_escolhido", None)
-            await salvar_contexto_temporario(user_id, contexto)
-
         mensagem_confirmacao = (
             f"📝 {descricao.capitalize()}\n"
             f"📅 {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}"
         )
 
-        # Se origem foi email, ajusta a mensagem
         if context.user_data.get("origem_email_detectado"):
             mensagem_confirmacao = (
                 "📬 Um novo evento foi criado com base em um e-mail importante:\n\n"
@@ -421,34 +404,30 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
         context.user_data.pop("origem_email_detectado", None)
 
-        # Envia para Telegram (via Bot API)
         try:
             from main import application
             await application.bot.send_message(chat_id=user_id, text=mensagem_confirmacao)
         except Exception as e:
             print(f"❌ Erro ao enviar notificação Telegram: {e}")
 
-        # Envia para WhatsApp (se integrado)
         try:
             from utils.whatsapp_utils import enviar_mensagem_whatsapp
             await enviar_mensagem_whatsapp(user_id, mensagem_confirmacao)
         except Exception as e:
             print(f"❌ Erro ao enviar WhatsApp: {e}")
 
-        # Mensagem final para o usuário
         mensagem_gpt = f"{descricao.capitalize()} marcada com sucesso para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
         mensagem_gpt_limpa = re.sub(r"[^\w\s,.:áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ]", "", mensagem_gpt)
 
-        # Envia áudio e resposta final
         await responder_em_audio(update, context, mensagem_gpt_limpa)
         await update.message.reply_text(mensagem_gpt)
         await update.message.reply_text("😄 Agendamento concluído! Se precisar de mais alguma coisa, é só me chamar.")
 
-        # 🔄 Limpa o restante do contexto, mantendo apenas histórico (se existir)
-        for chave in ["alternativa_profissional", "sugestoes", "profissional_escolhido", "dados_anteriores", "ultima_acao",    "evento_criado", "servico"]:
+        # 🧼 Limpa o restante do contexto (exceto histórico)
+        for chave in ["alternativa_profissional", "sugestoes", "profissional_escolhido", "dados_anteriores", "ultima_acao", "evento_criado", "servico"]:
             contexto.pop(chave, None)
-        print("🧪 salvar_contexto_temporario =", salvar_contexto_temporario)
         await salvar_contexto_temporario(user_id, contexto)
+
         return True
 
     except Exception as e:
@@ -460,33 +439,3 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
     finally:
         context.chat_data.pop("evento_via_gpt", None)
-
-async def enviar_agenda_excel(update: Update, context: ContextTypes.DEFAULT_TYPE, intervalo: str = "hoje"):
-    if not await verificar_pagamento(update, context): return
-    if not await verificar_acesso_modulo(update, context, "secretaria"): return
-
-    user_id = str(update.message.from_user.id)
-
-    if intervalo == "hoje":
-        eventos = await buscar_eventos_por_intervalo(user_id, dias=0)
-    elif intervalo == "amanha":
-        eventos = await buscar_eventos_por_intervalo(user_id, dias=1)
-    elif intervalo == "semana":
-        eventos = await buscar_eventos_por_intervalo(user_id, semana=True)
-    else:
-        eventos = await buscar_eventos_por_intervalo(user_id, dias=-365)
-
-    if not eventos:
-        await update.message.reply_text("📭 Nenhum evento encontrado para gerar a agenda.")
-        await responder_em_audio(update, context, "Nenhum evento disponível para gerar a agenda.")
-        return
-
-    # 🧾 Gera planilha em memória
-    excel_stream = await gerar_excel_agenda(user_id, eventos)
-
-    await update.message.reply_document(
-        document=InputFile(excel_stream, filename="agenda_neoagenda.xlsx"),
-        caption="📎 Aqui está sua agenda exportada com sucesso."
-    )
-
-    await responder_em_audio(update, context, "Sua agenda em Excel foi gerada e enviada.")
