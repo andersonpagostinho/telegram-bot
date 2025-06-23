@@ -106,6 +106,7 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "profissional": profissional
     }
 
+    print("📦 Salvando evento com os dados:", evento)
     sucesso = await salvar_evento(user_id, evento)
     if sucesso:
         await update.message.reply_text(
