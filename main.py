@@ -74,7 +74,7 @@ def webhook():
             raise RuntimeError("❌ Loop do bot não inicializado")
 
         future = asyncio.run_coroutine_threadsafe(webhook_process(update), bot_loop)
-        future.result(timeout=20)
+        future.result(timeout=60)
 
         return jsonify({"ok": True}), 200
 
