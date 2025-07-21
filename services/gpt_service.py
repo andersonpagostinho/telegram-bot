@@ -304,7 +304,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         # ⚡ Detecta troca direta para profissional sugerido (ex: "agende com a Carla")
         resposta_direta = texto_usuario.strip().lower()
         texto_normalizado = unidecode.unidecode(resposta_direta)
-        alternativa = contexto_salvo.get("alternativa_profissional", "").lower()
+        alternativa = (contexto_salvo.get("alternativa_profissional") or "").lower() if contexto_salvo else ""
 
         if alternativa and alternativa in texto_normalizado:
             contexto_salvo["profissional_escolhido"] = alternativa.capitalize()
@@ -585,6 +585,13 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
         
         if memoria_nova:
+            # 🧼 Remove data_hora antiga se não vier nova
+            if "data_hora" in memoria_nova:
+                contexto_salvo["data_hora"] = memoria_nova["data_hora"]
+            elif "data_hora" in contexto_salvo:
+                print("🧹 Removendo data_hora antiga do contexto")
+                del contexto_salvo["data_hora"]
+
             contexto_salvo.update(memoria_nova)
             await salvar_contexto_temporario(user_id, contexto_salvo)
             contexto_salvo = await carregar_contexto_temporario(user_id) or {}
