@@ -301,6 +301,25 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 "dados": {}
             }
 
+        # 🧠 Verifica se o usuário respondeu com um horário contido nas sugestões anteriores
+        if contexto_salvo and contexto_salvo.get("sugestoes") and not contexto_salvo.get("data_hora_confirmada"):
+            data_base = contexto_salvo.get("data_hora", "")[:10]
+            sugestoes = contexto_salvo.get("sugestoes", [])
+            texto_normalizado = unidecode.unidecode(texto_usuario.lower())
+
+            # Tenta extrair horário do texto do usuário
+            match_horario = re.search(r"\b(\d{1,2}):(\d{2})\b", texto_normalizado)
+            if match_horario and data_base:
+                hora_encontrada = match_horario.group(0)  # ex: "08:00"
+                for sugestao in sugestoes:
+                    if sugestao.startswith(hora_encontrada):
+                        nova_data_hora = f"{data_base}T{hora_encontrada}:00"
+                        contexto_salvo["data_hora"] = nova_data_hora
+                        contexto_salvo["data_hora_confirmada"] = True  # evita substituir depois
+                        print(f"🕓 Horário confirmado manualmente: {nova_data_hora}")
+                        await salvar_contexto_temporario(user_id, contexto_salvo)
+                        break
+
         # ⚡ Detecta troca direta para profissional sugerido (ex: "agende com a Carla")
         resposta_direta = texto_usuario.strip().lower()
         texto_normalizado = unidecode.unidecode(resposta_direta)
