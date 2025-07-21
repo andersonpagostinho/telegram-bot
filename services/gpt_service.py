@@ -320,6 +320,9 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                         await salvar_contexto_temporario(user_id, contexto_salvo)
                         break
 
+                print(f"🧠 [DEBUG CONTEXTO] após confirmação manual: {json.dumps(contexto_salvo, indent=2, ensure_ascii=False)}")
+
+
         # ⚡ Detecta troca direta para profissional sugerido (ex: "agende com a Carla")
         resposta_direta = texto_usuario.strip().lower()
         texto_normalizado = unidecode.unidecode(resposta_direta)
