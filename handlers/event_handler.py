@@ -239,7 +239,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             except:
                 continue
 
-        conflito = any(start_time < fim and end_time > inicio for inicio, fim in ocupados)
+        conflito = any(start_time < fim and end_time > inicio for inicio, fim in ocupados if fim > inicio)
 
         if conflito:
             sugestoes = gerar_sugestoes_de_horario(start_time, ocupados)
@@ -362,8 +362,13 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 print(f"⚠️ Erro ao processar evento: {e}")
                 continue
 
+        # 📌 DEBUG dos horários ocupados e do novo agendamento
+        print(f"📌 Novo agendamento solicitado: {start_time} → {end_time}")
+        for i, (ini, fim) in enumerate(ocupados):
+            print(f"❗ Evento ocupado {i}: {ini} → {fim} | Conflita? {not (end_time <= ini or start_time >= fim)}")
+
         # Verifica se há conflito real com esse horário
-        conflito = any(start_time < fim and end_time > inicio for inicio, fim in ocupados)
+        conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados)
 
         if conflito:
             # ⚠️ Aqui sim faz sentido sugerir horários alternativos
