@@ -362,14 +362,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 print(f"⚠️ Erro ao processar evento: {e}")
                 continue
 
+        # Verifica se há conflito real com esse horário
         conflito = any(start_time < fim and end_time > inicio for inicio, fim in ocupados)
 
         if conflito:
+            # ⚠️ Aqui sim faz sentido sugerir horários alternativos
             sugestoes = gerar_sugestoes_de_horario(start_time, ocupados, max_sugestoes=3)
             if sugestoes:
                 sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes])
                 await update.message.reply_text(
-                    f"⚠️ Já existe um evento para *{profissional}* nesse horário.\n\nSugestões de horários alternativos:\n{sugestoes_formatadas}",
+                    f"⚠️ Já existe um evento para *{profissional}* nesse horário.\n\n🕓 Horários disponíveis:\n{sugestoes_formatadas}",
                     parse_mode="Markdown"
                 )
             else:
@@ -377,7 +379,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     f"⚠️ Já existe um evento para *{profissional}* nesse horário e não há horários livres disponíveis.",
                     parse_mode="Markdown"
                 )
-            return False
+            return False  # ⛔️ Não agenda nesse momento
 
         evento_data = {
             "descricao": descricao,
