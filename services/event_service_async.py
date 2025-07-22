@@ -20,6 +20,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
             data=evento["data"],
             hora_inicio=evento["hora_inicio"],
             duracao_min=evento.get("duracao", 60)
+            profissional=evento.get("profissional", "")
         )
         if conflitos:
             print("⛔ Conflito de horário detectado. Evento não será salvo.")
@@ -122,7 +123,7 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
         return []
 
 # 🔍 Verificar conflito de horário para um novo evento
-async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_min: int = 60) -> list:
+async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_min: int = 60, profissional: str = "") -> list:
     from datetime import datetime, timedelta
 
     try:
@@ -137,7 +138,9 @@ async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_
         for ev in eventos.values():
             if ev.get("data") != data:
                 continue
-            if not ev.get("profissional"):  # ✅ Adicione isso!
+            if not ev.get("profissional"):
+                continue
+            if ev.get("profissional", "").lower() != profissional.lower():
                 continue
             try:
                 ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
