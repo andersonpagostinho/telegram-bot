@@ -146,8 +146,14 @@ async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_
                 ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
                 ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
                 if inicio_novo < ev_fim and fim_novo > ev_inicio:
+
+                    print(f"⛔ Conflito detectado com evento existente: {ev}")
+                    print(f"📅 Horário novo: {inicio_novo} até {fim_novo}")
+                    print(f"📅 Evento conflitante: {ev_inicio} até {ev_fim}")
+
                     conflitos.append((ev_inicio, ev_fim))
-            except:
+            except Exception as e:
+                print(f"⚠️ Erro ao interpretar evento existente: {ev} — {e}")
                 continue
 
         return conflitos
