@@ -19,7 +19,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
             user_id=user_id,
             data=evento["data"],
             hora_inicio=evento["hora_inicio"],
-            duracao_min=evento.get("duracao", 60)
+            duracao_min=evento.get("duracao", 60),
             profissional=evento.get("profissional", "")
         )
         if conflitos:
