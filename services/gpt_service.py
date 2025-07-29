@@ -486,6 +486,14 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 data = datetime.fromisoformat(data_hora).strftime("%Y-%m-%d")
                 hora = datetime.fromisoformat(data_hora).strftime("%H:%M")
 
+                print("🔍 [1] Chamando verificar_conflito_e_sugestoes_profissional() com:")
+                print(f"user_id: {user_id}")
+                print(f"data: {data}")
+                print(f"hora: {hora}")
+                print(f"duracao: {duracao}")
+                print(f"profissional: {profissional}")
+                print(f"servico: {servico}")
+
                 conflito = await verificar_conflito_e_sugestoes_profissional(
                     user_id=user_id,
                     data=data,
@@ -653,6 +661,15 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
             profissionais_disponiveis = []
             for prof in profissionais_filtrados:
+
+                print("🔍 [1] Chamando verificar_conflito_e_sugestoes_profissional() com:")
+                print(f"   🔹 user_id: {user_id}")
+                print(f"   🔹 data: {data_str}")
+                print(f"   🔹 hora: {hora_str}")
+                print(f"   🔹 duracao: {duracao}")
+                print(f"   🔹 profissional: {prof['nome']}")
+                print(f"   🔹 servico: {servico_mencionado or ''}")
+
                 conflito = await verificar_conflito_e_sugestoes_profissional(
                     user_id=user_id,
                     data=data_str,
