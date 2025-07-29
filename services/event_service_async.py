@@ -188,7 +188,15 @@ def formatar_evento(evento: dict) -> str:
     desc = evento.get("descricao", "Sem título")
     return f"📝 {desc} – {data} das {inicio} às {fim}"
 
-async def verificar_conflito_e_sugestoes_profissional(user_id: str, data: str, hora_inicio: str, duracao_min: int, profissional: str, servico: str) -> dict:
+async def verificar_conflito_e_sugestoes_profissional(
+    user_id: str,
+    data: str,
+    hora_inicio: str,
+    duracao_min: int,
+    profissional: str,
+    servico: str,
+    event_id: str = None  # 👈 NOVO PARÂMETRO
+) -> dict:
     from datetime import datetime, timedelta
 
     # 1. Converte a hora para datetime
@@ -205,7 +213,9 @@ async def verificar_conflito_e_sugestoes_profissional(user_id: str, data: str, h
 
     # 4. Verifica conflitos para o profissional
     ocupados = []
-    for ev in eventos.values():
+    for eid, ev in eventos.items():
+        if eid == event_id:  # 👈 IGNORA o próprio evento (caso esteja atualizando)
+            continue
         if ev.get("data") != data:
             continue
         if not ev.get("profissional"):
@@ -229,9 +239,10 @@ async def verificar_conflito_e_sugestoes_profissional(user_id: str, data: str, h
         if p.get("nome", "").lower() == profissional.lower():
             continue
         if servico.lower() in [s.lower() for s in p.get("servicos", [])]:
-            # verifica agenda dele
             conflitos = []
-            for ev in eventos.values():
+            for eid, ev in eventos.items():
+                if eid == event_id:  # 👈 também ignora aqui, por segurança
+                    continue
                 if ev.get("data") != data:
                     continue
                 if p.get("nome", "").lower() not in ev.get("descricao", "").lower():
@@ -252,4 +263,3 @@ async def verificar_conflito_e_sugestoes_profissional(user_id: str, data: str, h
         "sugestoes": sugestoes,
         "profissional_alternativo": alternativo
     }
-
