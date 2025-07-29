@@ -217,6 +217,11 @@ async def verificar_conflito_e_sugestoes_profissional(
     eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
     profissionais = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Profissionais") or {}
 
+    # 🧪 Diagnóstico
+    import json
+    print(f"🧪 Dados recebidos: user_id={user_id}, data={data}, hora_inicio={hora_inicio}, duracao_min={duracao_min},        profissional={profissional}, servico={servico}")
+    print(f"📦 Eventos existentes:\n{json.dumps(eventos, indent=2, default=str)}")
+
     # 🔄 Normaliza o nome do profissional para evitar conflitos por acento, espaço ou maiúscula
     prof_norm = unidecode(profissional.strip().lower())
 
@@ -280,7 +285,7 @@ async def verificar_conflito_e_sugestoes_profissional(
             if not conflitos:
                 alternativo = p.get("nome")
                 break
-
+    print(f"✅ Resultado: conflito={bool(ocupados)}, sugestões={sugestoes}, alternativo={alternativo}")
     return {
         "conflito": bool(ocupados),
         "sugestoes": sugestoes,
