@@ -262,7 +262,7 @@ async def verificar_conflito_e_sugestoes_profissional(
                 if data_evento != inicio_novo.date():
                     continue
 
-                if p.get("nome", "").lower() not in ev.get("descricao", "").lower():
+                if ev.get("profissional", "").lower() != p.get("nome", "").lower():
                     continue
                 try:
                     ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
