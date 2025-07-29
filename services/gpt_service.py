@@ -8,12 +8,12 @@ import inspect
 import unidecode
 from datetime import datetime, timedelta
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
-from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario, limpar_contexto_agendamento
+from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
 from utils.custos_gpt import registrar_custo_gpt
 from firebase_admin import firestore
 from utils.interpretador_datas import interpretar_data_e_hora
 from services.session_service import pegar_sessao, resetar_sessao
-from utils.context_manager import atualizar_contexto, limpar_contexto
+from utils.context_manager import atualizar_contexto, limpar_contexto, limpar_contexto_agendamento
 from services.profissional_service import listar_servicos_cadastrados, obter_precos_servico, encontrar_servico_mais_proximo, consultar_todos_precos
 from services.gpt_client import client
 from utils.gpt_utils import (
