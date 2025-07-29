@@ -8,7 +8,7 @@ import inspect
 import unidecode
 from datetime import datetime, timedelta
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
-from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
+from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario, limpar_contexto_agendamento
 from utils.custos_gpt import registrar_custo_gpt
 from firebase_admin import firestore
 from utils.interpretador_datas import interpretar_data_e_hora
@@ -111,6 +111,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             try:
                 # 👋 Oi depois de agendamento concluído → limpar contexto
                 if contexto_salvo.get("evento_criado") and contexto_salvo.get("ultima_acao") == "criar_evento":
+                    await limpar_contexto_agendamento(user_id)  # 🧹 limpa apenas dados de agendamento
                     await limpar_contexto(user_id)
                     return {
                         "resposta": "👋 Olá! Em que mais posso te ajudar hoje?",
@@ -174,6 +175,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         ]
         if any(p in texto_lower for p in palavras_cancelamento):
             print("🛑 Cancelamento detectado. Limpando contexto.")
+            await limpar_contexto_agendamento(user_id)
             await limpar_contexto(user_id)
             await resetar_sessao(user_id)
             contexto_salvo = {}
@@ -424,6 +426,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     "duracao": estimar_duracao(contexto_salvo.get("servico", ""))
                 }
                 await salvar_contexto_temporario(user_id, contexto_salvo)
+                await limpar_contexto_agendamento(user_id)
 
                 return {
                     "resposta": (
@@ -485,15 +488,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
                 data = datetime.fromisoformat(data_hora).strftime("%Y-%m-%d")
                 hora = datetime.fromisoformat(data_hora).strftime("%H:%M")
-
-                print("🔍 [1] Chamando verificar_conflito_e_sugestoes_profissional() com:")
-                print(f"user_id: {user_id}")
-                print(f"data: {data}")
-                print(f"hora: {hora}")
-                print(f"duracao: {duracao}")
-                print(f"profissional: {profissional}")
-                print(f"servico: {servico}")
-
+                
                 conflito = await verificar_conflito_e_sugestoes_profissional(
                     user_id=user_id,
                     data=data,
@@ -662,14 +657,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             profissionais_disponiveis = []
             for prof in profissionais_filtrados:
 
-                print("🔍 [1] Chamando verificar_conflito_e_sugestoes_profissional() com:")
-                print(f"   🔹 user_id: {user_id}")
-                print(f"   🔹 data: {data_str}")
-                print(f"   🔹 hora: {hora_str}")
-                print(f"   🔹 duracao: {duracao}")
-                print(f"   🔹 profissional: {prof['nome']}")
-                print(f"   🔹 servico: {servico_mencionado or ''}")
-
                 conflito = await verificar_conflito_e_sugestoes_profissional(
                     user_id=user_id,
                     data=data_str,
@@ -787,6 +774,8 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     }
                 })
 
+                await limpar_contexto_agendamento(user_id)
+
                 return {
                     "resposta": f"{servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}. ✂️",
                     "acao": "criar_evento",
@@ -802,6 +791,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 await salvar_contexto_temporario(user_id, {
                     "profissional_escolhido": profissional
                 })
+                await limpar_contexto_agendamento(user_id)
                 return {
                     "resposta": f"Perfeito! {profissional} foi selecionada. Agora diga a data e o horário que você prefere.",
                     "acao": None,
@@ -833,6 +823,8 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     "data_hora": nova_data_hora,
                     "evento_criado": True
                 })
+
+                await limpar_contexto_agendamento(user_id)
 
                 return {
                     "resposta": f"{servico.capitalize()} agendado com {profissional} para {formatar_data(nova_data_hora)}. ✂️",
@@ -873,6 +865,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                         "data_hora": data_hora,
                         "evento_criado": True
                     })
+                    await limpar_contexto_agendamento(user_id)
                     return {
                         "resposta": f"{servico.capitalize()} agendado com {prof.capitalize()} para {formatar_data(data_hora)}. ✂️",
                         "acao": "criar_evento",
@@ -901,6 +894,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     if profissional and servico and data_hora:
                         duracao = estimar_duracao(servico)
                         await salvar_contexto_temporario(user_id, {"evento_criado": True})
+                        await limpar_contexto_agendamento(user_id)
                         return {
                             "resposta": f"{servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}. ✂️",
                             "acao": "criar_evento",
@@ -1220,6 +1214,8 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     "dados_anteriores": resultado["dados"],
                     "ultima_intencao": resultado.get("acao")  # 👈 mesma ação por padrão
                 })
+                if resultado["acao"] == "criar_evento":
+                    await limpar_contexto_agendamento(user_id)  # ✅ ADICIONE AQUI
 
             # 🧠 Se houver intenção nova e não estiver em meio a execução de ação, pode limpar contexto
             if resultado.get("acao") is None and intencao not in ["AGENDAR", "DESCONHECIDO"]:
@@ -1231,19 +1227,14 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
              # ✅ Verificações finais após processar toda a lógica principal
             if contexto_salvo.get("evento_criado") and not contexto_salvo.get("ultima_acao"):
-                for chave in [
-                    "evento_criado", "data_hora", "servico", "profissional_escolhido",
-                    "ultima_opcao_profissionais", "ultima_acao", "dados_anteriores", "ultima_intencao"
-                ]:
-                    contexto_salvo.pop(chave, None)
-
-                await salvar_contexto_temporario(user_id, contexto_salvo)
+                await limpar_contexto_agendamento(user_id)
 
                 return {
                     "resposta": "👋 Olá! Em que mais posso te ajudar hoje?",
                     "acao": None,
                     "dados": {}
                 }
+
             elif any(contexto_salvo.get(k) for k in ["servico", "data_hora", "profissional_escolhido"]):
                 return {
                     "resposta": "😊 Podemos continuar de onde paramos. Deseja confirmar o profissional ou horário?",

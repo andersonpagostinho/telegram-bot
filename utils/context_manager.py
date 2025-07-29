@@ -29,3 +29,28 @@ async def atualizar_contexto(user_id: str, nova_interacao: dict):
 async def limpar_contexto(user_id: str):
     await salvar_contexto_temporario(user_id, {"historico": []})
     return True
+
+# 🧹 Limpa apenas o contexto relacionado a agendamento
+async def limpar_contexto_agendamento(user_id: str):
+    contexto = await carregar_contexto_temporario(user_id) or {}
+
+    campos_para_remover = [
+        "data_hora",
+        "servico",
+        "profissional_escolhido",
+        "ultima_opcao_profissionais",
+        "sugestoes",
+        "alternativa_profissional",
+        "evento_criado",
+        "ultima_acao",
+        "ultima_intencao",
+        "dados_anteriores",
+        "data_hora_confirmada"
+    ]
+
+    for campo in campos_para_remover:
+        contexto.pop(campo, None)
+
+    await salvar_contexto_temporario(user_id, contexto)
+    print("🧹 Contexto de agendamento limpo com sucesso.")
+
