@@ -136,7 +136,12 @@ async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_
 
         conflitos = []
         for ev in eventos.values():
-            if ev.get("data") != data:
+            try:
+                data_evento = datetime.strptime(ev.get("data", ""), "%Y-%m-%d").date()
+            except:
+                continue
+
+            if data_evento != inicio_novo.date():
                 continue
             if not ev.get("profissional"):
                 continue
@@ -216,8 +221,14 @@ async def verificar_conflito_e_sugestoes_profissional(
     for eid, ev in eventos.items():
         if eid == event_id:  # 👈 IGNORA o próprio evento (caso esteja atualizando)
             continue
-        if ev.get("data") != data:
+        try:
+            data_evento = datetime.strptime(ev.get("data", ""), "%Y-%m-%d").date()
+        except:
             continue
+
+        if data_evento != inicio_novo.date():
+            continue
+
         if not ev.get("profissional"):
             continue
         if ev.get("profissional", "").lower() != profissional.lower():
@@ -243,8 +254,14 @@ async def verificar_conflito_e_sugestoes_profissional(
             for eid, ev in eventos.items():
                 if eid == event_id:  # 👈 também ignora aqui, por segurança
                     continue
-                if ev.get("data") != data:
+                try:
+                    data_evento = datetime.strptime(ev.get("data", ""), "%Y-%m-%d").date()
+                except:
                     continue
+
+                if data_evento != inicio_novo.date():
+                    continue
+
                 if p.get("nome", "").lower() not in ev.get("descricao", "").lower():
                     continue
                 try:
