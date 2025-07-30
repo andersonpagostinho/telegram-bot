@@ -759,6 +759,46 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
             if servico and data_hora:
                 duracao = estimar_duracao(servico)
+                data_obj = datetime.fromisoformat(data_hora)
+                data_str = data_obj.strftime("%Y-%m-%d")
+                hora_str = data_obj.strftime("%H:%M")
+
+                from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+                conflito = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=user_id,
+                    data=data_str,
+                    hora_inicio=hora_str,
+                    duracao_min=duracao,
+                    profissional=profissional,
+                    servico=servico
+                )
+ 
+                if conflito["conflito"]:
+                    sugestoes = conflito.get("sugestoes", [])
+                    alternativa = conflito.get("profissional_alternativo")
+                    sugestoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes)
+                    alternativa_txt = f"\n💡 Porém, {alternativa} está disponível nesse mesmo horário." if alternativa else ""
+
+                    await salvar_contexto_temporario(user_id, {
+                        "profissional_escolhido": profissional,
+                        "servico": servico,
+                        "data_hora": data_hora,
+                        "sugestoes": sugestoes,
+                        "alternativa_profissional": alternativa
+                    })
+
+                    return {
+                        "resposta": (
+                            f"⚠️ {profissional} está ocupado nesse horário."
+                            f"\n{sugestoes_txt}"
+                            f"{alternativa_txt}"
+                            "\n\nDeseja escolher outro horário ou prefere agendar com outro profissional?"
+                        ),
+                        "acao": None,
+                        "dados": {}
+                    }
+
+                # ✅ Se não houver conflito
                 await salvar_contexto_temporario(user_id, {
                     "profissional_escolhido": profissional,
                     "servico": servico,
@@ -786,8 +826,8 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                         "profissional": profissional
                     }
                 }
+
             else:
-                # salva apenas o nome, continua a coleta
                 await salvar_contexto_temporario(user_id, {
                     "profissional_escolhido": profissional
                 })
