@@ -331,24 +331,26 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         alternativa = (contexto_salvo.get("alternativa_profissional") or "").lower() if contexto_salvo else ""
 
         if alternativa and alternativa in texto_normalizado:
-            contexto_salvo["profissional_escolhido"] = alternativa.capitalize()
+            profissional = alternativa.capitalize()
+            contexto_salvo["profissional_escolhido"] = profissional
             await salvar_contexto_temporario(user_id, contexto_salvo)
 
             servico = contexto_salvo.get("servico")
             data_hora = contexto_salvo.get("data_hora")
+            duracao = estimar_duracao(servico)
 
             if servico and data_hora:
-                duracao = estimar_duracao(servico)
                 return {
-                    "resposta": f"✅ {servico.capitalize()} agendado com {alternativa.capitalize()} para {formatar_data(data_hora)}.",
+                    "resposta": f"✅ {servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}.",
                     "acao": "criar_evento",
                     "dados": {
+                        "profissional": profissional,
+                        "servico": servico,
                         "data_hora": data_hora,
-                        "descricao": formatar_descricao_evento(servico, alternativa.capitalize()),
-                        "duracao": duracao
+                        "duracao": duracao,
+                        "descricao": formatar_descricao_evento(servico, profissional)
                     }
                 }
-
         # ⚡ Reconhecer respostas curtas de confirmação
         palavras_confirmacao = [
             "confirmar", "pode ser", "pode marcar", "fechar",
