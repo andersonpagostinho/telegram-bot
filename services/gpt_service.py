@@ -957,11 +957,12 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     await salvar_contexto_temporario(user_id, {"profissional_escolhido": prof.capitalize()})
                     contexto_salvo = await carregar_contexto_temporario(user_id)
 
-                    if contexto_salvo.get("evento_criado"):
+                    if contexto_salvo.get("evento_criado") and not contexto_salvo.get("ultima_acao"):
+                        await limpar_contexto_agendamento(user_id)
                         return {
-                             "resposta": "✅ O agendamento já foi registrado anteriormente.",
-                             "acao": None,
-                             "dados": {}
+                            "resposta": "✅ O agendamento anterior foi registrado com sucesso. Podemos seguir com outro pedido?",
+                            "acao": None,
+                            "dados": {}
                         }
 
                     profissional = contexto_salvo.get("profissional_escolhido")
