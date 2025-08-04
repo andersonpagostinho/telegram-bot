@@ -15,7 +15,7 @@ def gerar_sugestoes_de_horario(inicio_base: datetime, ocupados: list, duracao_ev
     """
     duracao = timedelta(minutes=duracao_evento_minutos)
     sugestoes = []
-    atual = datetime.combine(inicio_base.date(), time(8, 0))
+    atual = inicio_base - timedelta(minutes=duracao_evento_minutos)
     fim_dia = datetime.combine(inicio_base.date(), time(18, 0))
 
     while atual + duracao <= fim_dia:
