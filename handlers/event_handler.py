@@ -232,7 +232,6 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         for ev in eventos:
             try:
-                ev_data = datetime.strptime(ev.get("data"), "%Y-%m-%d").date()
                 ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
                 ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
                 ocupados.append((ev_inicio, ev_fim))
@@ -242,7 +241,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
 
         if conflito:
-            sugestoes = gerar_sugestoes_de_horario(start_time, ocupados)
+            sugestoes = gerar_sugestoes_de_horario(start_time, ocupados, duracao_evento_minutos=duracao)
             resposta = "⚠️ Já existe um evento nesse horário.\n"
             if sugestoes:
                 resposta += "\nSugestões de horário:\n" + "\n".join([f"🔄 {s}" for s in sugestoes])
@@ -371,8 +370,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
 
         if conflito:
-            # ⚠️ Aqui sim faz sentido sugerir horários alternativos
-            sugestoes = gerar_sugestoes_de_horario(start_time, ocupados, max_sugestoes=3)
+            # ⚠️ Aqui sim faz sentido sugerir horários alternativos com base no horário solicitado
+            sugestoes = gerar_sugestoes_de_horario(start_time, ocupados, duracao_evento_minutos=duracao_minutos, max_sugestoes=3)
             if sugestoes:
                 sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes])
                 await update.message.reply_text(
