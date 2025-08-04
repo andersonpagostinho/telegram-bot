@@ -333,24 +333,59 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         if alternativa and alternativa in texto_normalizado:
             profissional = alternativa.capitalize()
             contexto_salvo["profissional_escolhido"] = profissional
-            await salvar_contexto_temporario(user_id, contexto_salvo)
 
             servico = contexto_salvo.get("servico")
             data_hora = contexto_salvo.get("data_hora")
             duracao = estimar_duracao(servico)
 
             if servico and data_hora:
-                return {
-                    "resposta": f"✅ {servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}.",
-                    "acao": "criar_evento",
-                    "dados": {
-                        "profissional": profissional,
-                        "servico": servico,
-                        "data_hora": data_hora,
-                        "duracao": duracao,
-                        "descricao": formatar_descricao_evento(servico, profissional)
+                # ⚠️ Verifica se o novo profissional está realmente disponível no mesmo horário
+                from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+                data_str = datetime.fromisoformat(data_hora).strftime("%Y-%m-%d")
+                hora_str = datetime.fromisoformat(data_hora).strftime("%H:%M")
+
+                conflito = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=user_id,
+                    data=data_str,
+                    hora_inicio=hora_str,
+                    duracao_min=duracao,
+                    profissional=profissional,
+                    servico=servico
+                )
+
+                if not conflito["conflito"]:
+                    contexto_salvo.update({
+                        "profissional_escolhido": profissional,
+                        "evento_criado": True,
+                        "ultima_acao": "criar_evento",
+                        "ultima_intencao": "criar_evento",
+                        "dados_anteriores": {
+                            "data_hora": data_hora,
+                            "descricao": formatar_descricao_evento(servico, profissional),
+                            "duracao": duracao,
+                            "profissional": profissional
+                        }
+                    })
+                    await salvar_contexto_temporario(user_id, contexto_salvo)
+
+                    return {
+                        "resposta": f"✅ {servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}.",
+                        "acao": "criar_evento",
+                        "dados": {
+                            "profissional": profissional,
+                            "servico": servico,
+                            "data_hora": data_hora,
+                            "duracao": duracao,
+                            "descricao": formatar_descricao_evento(servico, profissional)
+                        }
                     }
-                }
+                else:
+                    return {
+                        "resposta": f"⚠️ {profissional} está ocupado nesse horário. Deseja escolher outro horário ou outra profissional?",
+                        "acao": None,
+                        "dados": {}
+                    }
+
         # ⚡ Reconhecer respostas curtas de confirmação
         palavras_confirmacao = [
             "confirmar", "pode ser", "pode marcar", "fechar",
