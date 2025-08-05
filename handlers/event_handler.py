@@ -10,7 +10,7 @@ from datetime import datetime, time, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
 from utils.tts_utils import responder_em_audio
-from utils.formatters import formatar_horario_atual, gerar_sugestoes_de_horario, adaptar_genero
+from utils.formatters import formatar_horario_atual, gerar_sugestoes_de_horario,
 from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento
