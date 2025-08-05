@@ -366,6 +366,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         for i, (ini, fim) in enumerate(ocupados):
             print(f"❗ Evento ocupado {i}: {ini} → {fim} | Conflita? {not (end_time <= ini or start_time >= fim)}")
 
+        print("🔍 Entrando no bloco de verificação de conflitos...")
         # Verifica se há conflito real com esse horário
         conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
 
