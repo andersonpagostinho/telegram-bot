@@ -97,7 +97,7 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
         texto = re.sub(r"(\d{1,2}) ?h", r"\1:00", texto)
 
         # 🧠 Detecta "dia 5 às 10" e completa a data
-        match = re.search(r"dia (\d{1,2})(?: de (\w+))?(?: às (\d{1,2})(?::(\d{2}))?)?", texto)
+        match = re.search(r"dia (\d{1,2})(?: de (\w+))?(?: (?:às|as) (\d{1,2})(?::(\d{2}))?)?", texto)
         if match:
             dia = int(match.group(1))
             mes_nome = match.group(2)
