@@ -226,7 +226,16 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         duracao = 60
         titulo = "Reunião agendada por voz"
 
-        # 🔍 Verifica conflitos usando eventos do Firebase
+        # 🧠 Recupera contexto e profissional alternativo
+        contexto = await carregar_contexto_temporario(user_id)
+        profissional = contexto.get("profissional")  # vem do contexto anterior
+        alternativa = contexto.get("alternativa_profissional")
+
+        if not profissional:
+            await update.message.reply_text("❌ Não consegui identificar a profissional. Pode repetir dizendo quem irá atender?")
+            return
+
+        # 🔍 Verifica conflitos
         eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date())
         ocupados = []
 
@@ -245,7 +254,6 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             sugestoes = gerar_sugestoes_de_horario(start_time, ocupados, duracao_evento_minutos=duracao)
             sugestoes_formatadas = "\n".join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
 
-            alternativa = contexto.get("alternativa_profissional")
             alternativa_txt = (
                 f"\n\n💡 Porém, *{alternativa}* está disponível exatamente às {start_time.strftime('%H:%M')}."
                 if alternativa else ""
