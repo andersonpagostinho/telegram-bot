@@ -10,7 +10,7 @@ from datetime import datetime, time, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
 from utils.tts_utils import responder_em_audio
-from utils.formatters import formatar_horario_atual, gerar_sugestoes_de_horario
+from utils.formatters import formatar_horario_atual, gerar_sugestoes_de_horario, adaptar_genero
 from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento
@@ -260,7 +260,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
 
             mensagem_sugestao = (
-                f"⚠️ {profissional} está ocupada às {start_time.strftime('%H:%M')}."
+                f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} às {start_time.strftime('%H:%M')}."
                 f"\n\n📌 Horários disponíveis com *{profissional}*:\n{sugestoes_formatadas}"
                 f"{alternativa_txt}"
                 "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
@@ -408,7 +408,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
 
             mensagem_sugestao = (
-                f"⚠️ {profissional} está ocupada às {start_time.strftime('%H:%M')}."
+                f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} às {start_time.strftime('%H:%M')}."
                 f"\n\n📌 Horários disponíveis com *{profissional}*:\n{sugestoes_formatadas}"
                 f"{alternativa_txt}"
                 "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"

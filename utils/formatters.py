@@ -8,6 +8,9 @@ def formatar_horario_atual(date_utc):
     hora_str = data_local.strftime("%H:%M")
     return f"No momento são {data_str} e o horário é {hora_str}."
 
+def adaptar_genero(profissional: str, palavra: str) -> str:
+    return palavra + "a" if profissional.strip().lower().endswith("a") else palavra + "o"
+
 def gerar_sugestoes_de_horario(inicio_base: datetime, ocupados: list, duracao_evento_minutos: int = 60, max_sugestoes: int = 3) -> list:
     """
     Gera sugestões de horários disponíveis com base na hora solicitada (inicio_base),
