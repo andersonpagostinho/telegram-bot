@@ -118,7 +118,9 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
                     mes = 1
                     ano += 1
 
-            return datetime(ano, mes, dia, hora, minuto)
+            from pytz import timezone
+            fuso = timezone("America/Sao_Paulo")
+            return fuso.localize(datetime(ano, mes, dia, hora, minuto)).replace(tzinfo=None)
 
         # Se não caiu em nenhuma lógica especial, usa o dateparser normal
         return dateparser.parse(
