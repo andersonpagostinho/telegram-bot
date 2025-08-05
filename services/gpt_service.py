@@ -602,7 +602,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
                     return {
                         "resposta": (
-                            f"⚠️ {profissional} está ocupado nesse horário."
+                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} nesse horário."
                             f"{sugestao_formatada}"
                             f"{alternativa_formatada}"
                             f"\n\nDeseja escolher outro horário ou prefere agendar com {conflito['profissional_alternativo']}?"
@@ -835,7 +835,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
                     return {
                         "resposta": (
-                            f"⚠️ {profissional} está ocupado nesse horário."
+                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} nesse horário."
                             f"\n{sugestoes_txt}"
                             f"{alternativa_txt}"
                             "\n\nDeseja escolher outro horário ou prefere agendar com outro profissional?"
@@ -1206,7 +1206,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
                     resultado = {
                         "resposta": (
-                            f"⚠️ {profissional} está ocupado nesse horário."
+                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} nesse horário."
                             f"{sugestao_formatada}"
                             f"{alternativa_formatada}"
                             f"\n\nDeseja escolher outro horário ou prefere agendar com {conflito_info['profissional_alternativo']}?"
