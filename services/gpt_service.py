@@ -187,13 +187,13 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             }
 
         # ✅ Atualiza data/hora inteligente no contexto se aplicável
-        if not contexto_salvo.get("data_hora"):
-            data_inteligente = interpretar_data_e_hora(texto_usuario)
-            if data_inteligente:
-                contexto_salvo["data_hora"] = data_inteligente.replace(second=0, microsecond=0).isoformat()
-                print(f"🧠 Data/hora interpretada e salva de forma inteligente: {contexto_salvo['data_hora']}")
+        data_inteligente = interpretar_data_e_hora(texto_usuario)
+        if data_inteligente:
+            nova_data_iso = data_inteligente.replace(second=0, microsecond=0).isoformat()
+            if nova_data_iso != contexto_salvo.get("data_hora"):
+                contexto_salvo["data_hora"] = nova_data_iso
+                print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
                 await salvar_contexto_temporario(user_id, contexto_salvo)
-
 
         # 🧠 Extração antecipada
         texto_normalizado = unidecode.unidecode(texto_usuario.lower())
@@ -514,6 +514,15 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             )
             return {"resposta": resposta, "acao": None, "dados": {}}
 
+        # ✅ Atualiza a data/hora com base na nova mensagem, se for diferente
+        nova_data = interpretar_data_e_hora(texto_usuario)
+        if nova_data:
+            nova_data_iso = nova_data.replace(second=0, microsecond=0).isoformat()
+            if nova_data_iso != contexto_salvo.get("data_hora"):
+                print(f"🆕 Substituindo data/hora antiga ({contexto_salvo.get('data_hora')}) por nova ({nova_data_iso})")
+                contexto_salvo["data_hora"] = nova_data_iso
+                await salvar_contexto_temporario(user_id, contexto_salvo)
+
         # ✅ Tenta agendar diretamente se contexto completo
         if all(contexto_salvo.get(k) for k in ["profissional_escolhido", "servico", "data_hora"]):
             try:
@@ -660,13 +669,13 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             if contexto_salvo.get("profissional_escolhido"):
                 contexto_salvo.pop("ultima_opcao_profissionais", None)
 
-            if not contexto_salvo.get("data_hora"):
-                data_inteligente = interpretar_data_e_hora(texto_usuario)
-                if data_inteligente:
-                    contexto_salvo["data_hora"] = data_inteligente.replace(second=0, microsecond=0).isoformat()
-                    print(f"🧠 Data/hora interpretada e salva de forma inteligente: {contexto_salvo['data_hora']}")
+            data_inteligente = interpretar_data_e_hora(texto_usuario)
+            if data_inteligente:
+                nova_data_iso = data_inteligente.replace(second=0, microsecond=0).isoformat()
+                if nova_data_iso != contexto_salvo.get("data_hora"):
+                    contexto_salvo["data_hora"] = nova_data_iso
+                    print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
                     await salvar_contexto_temporario(user_id, contexto_salvo)
-
 
         if contexto_salvo is None:
             contexto_salvo = {}  # 🔧 Garante que temos ao menos um dicionário vazio
@@ -771,13 +780,13 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             if contexto_salvo.get("profissional_escolhido"):
                 contexto_salvo.pop("ultima_opcao_profissionais", None)
 
-            if not contexto_salvo.get("data_hora"):
-                data_inteligente = interpretar_data_e_hora(texto_usuario)
-                if data_inteligente:
-                    contexto_salvo["data_hora"] = data_inteligente.replace(second=0, microsecond=0).isoformat()
-                    print(f"🧠 Data/hora interpretada e salva de forma inteligente: {contexto_salvo['data_hora']}")
+            data_inteligente = interpretar_data_e_hora(texto_usuario)
+            if data_inteligente:
+                nova_data_iso = data_inteligente.replace(second=0, microsecond=0).isoformat()
+                if nova_data_iso != contexto_salvo.get("data_hora"):
+                    contexto_salvo["data_hora"] = nova_data_iso
+                    print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
                     await salvar_contexto_temporario(user_id, contexto_salvo)
-
 
         nomes_profissionais = [p["nome"].lower() for p in contexto["profissionais"]]
         resposta_direta = texto_usuario.strip().lower()
@@ -1221,11 +1230,12 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 if contexto_salvo.get("profissional_escolhido"):
                     contexto_salvo.pop("ultima_opcao_profissionais", None)
 
-                if not contexto_salvo.get("data_hora"):
-                    data_inteligente = interpretar_data_e_hora(texto_usuario)
-                    if data_inteligente:
-                        contexto_salvo["data_hora"] = data_inteligente.replace(second=0, microsecond=0).isoformat()
-                        print(f"🧠 Data/hora interpretada e salva de forma inteligente: {contexto_salvo['data_hora']}")
+                data_inteligente = interpretar_data_e_hora(texto_usuario)
+                if data_inteligente:
+                    nova_data_iso = data_inteligente.replace(second=0, microsecond=0).isoformat()
+                    if nova_data_iso != contexto_salvo.get("data_hora"):
+                        contexto_salvo["data_hora"] = nova_data_iso
+                        print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
                         await salvar_contexto_temporario(user_id, contexto_salvo)
 
                 contexto_salvo.update(memoria_nova)
