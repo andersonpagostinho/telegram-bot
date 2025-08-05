@@ -393,6 +393,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
             )
 
+            print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
             await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
             return False  # ⛔️ Não agenda nesse momento
 
