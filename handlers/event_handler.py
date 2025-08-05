@@ -238,16 +238,28 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             except:
                 continue
 
+        print("🧪 TESTE - checando conflito...")
         conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
 
         if conflito:
             sugestoes = gerar_sugestoes_de_horario(start_time, ocupados, duracao_evento_minutos=duracao)
-            resposta = "⚠️ Já existe um evento nesse horário.\n"
-            if sugestoes:
-                resposta += "\nSugestões de horário:\n" + "\n".join([f"🔄 {s}" for s in sugestoes])
-            else:
-                resposta += "\n❌ Nenhum horário alternativo disponível."
-            await update.message.reply_text(resposta)
+            sugestoes_formatadas = "\n".join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
+
+            alternativa = contexto.get("alternativa_profissional")
+            alternativa_txt = (
+                f"\n\n💡 Porém, *{alternativa}* está disponível exatamente às {start_time.strftime('%H:%M')}."
+                if alternativa else ""
+            )
+
+            mensagem_sugestao = (
+                f"⚠️ {profissional} está ocupada às {start_time.strftime('%H:%M')}."
+                f"\n\n📌 Horários disponíveis com *{profissional}*:\n{sugestoes_formatadas}"
+                f"{alternativa_txt}"
+                "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
+            )
+
+            print(f"📤 Mensagem enviada ao usuário:\n{mensagem_sugestao}")
+            await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
             return
 
         # ✅ Salva o evento no Firebase
