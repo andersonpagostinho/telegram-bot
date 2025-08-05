@@ -371,18 +371,29 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         if conflito:
             # ⚠️ Aqui sim faz sentido sugerir horários alternativos com base no horário solicitado
-            sugestoes = gerar_sugestoes_de_horario(start_time, ocupados, duracao_evento_minutos=duracao_minutos, max_sugestoes=3)
-            if sugestoes:
-                sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes])
-                await update.message.reply_text(
-                    f"⚠️ Já existe um evento para *{profissional}* nesse horário.\n\n🕓 Horários disponíveis:\n{sugestoes_formatadas}",
-                    parse_mode="Markdown"
-                )
-            else:
-                await update.message.reply_text(
-                    f"⚠️ Já existe um evento para *{profissional}* nesse horário e não há horários livres disponíveis.",
-                    parse_mode="Markdown"
-                )
+            sugestoes = gerar_sugestoes_de_horario(
+                start_time,
+                ocupados,
+                duracao_evento_minutos=duracao_minutos,
+                max_sugestoes=3
+            )
+
+            alternativa = contexto.get("alternativa_profissional")
+            sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
+
+            alternativa_txt = (
+                f"\n\n💡 Porém, *{alternativa}* está disponível exatamente às {start_time.strftime('%H:%M')}."
+                if alternativa else ""
+            )
+
+            mensagem_sugestao = (
+                f"⚠️ {profissional} está ocupada às {start_time.strftime('%H:%M')}."
+                f"\n\n📌 Horários disponíveis com *{profissional}*:\n{sugestoes_formatadas}"
+                f"{alternativa_txt}"
+                "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
+            )
+
+            await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
             return False  # ⛔️ Não agenda nesse momento
 
         evento_data = {
