@@ -632,19 +632,3 @@ Exemplo de resposta para isso:
 
 Se não souber o e-mail da pessoa mencionada, deixe o campo "email_detectado" em branco.
 """
-
-CLASSIFICADOR_INTENCAO = """
-Você é uma IA que detecta a intenção de comandos de agendamento.
-
-Analise frases e classifique a intenção em apenas UMA palavra, sendo:
-- AGENDAR (quando o usuário quer marcar algo)
-- CONSULTAR (quando o usuário quer ver agenda, horários ou profissionais)
-- CANCELAR (quando o usuário quer desmarcar algo)
-- DESCONHECIDO (quando não for possível saber a intenção)
-
-Exemplos:
-"quero agendar um corte amanhã" -> AGENDAR
-"quem está disponível amanhã às 10h?" -> CONSULTAR
-"quero cancelar meu horário" -> CANCELAR
-"oi" -> DESCONHECIDO
-"""
