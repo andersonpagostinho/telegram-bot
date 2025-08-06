@@ -1,8 +1,7 @@
 # router/principal_router.py
 
-from utils.intencao_utils import identificar_intencao
 from services.session_service import pegar_sessao
-from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt  # ✅ Correto
+from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt, processar_com_gpt_com_acao
 from utils.context_manager import atualizar_contexto, carregar_contexto_temporario
 from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import buscar_subcolecao, buscar_documento
@@ -21,9 +20,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         await context.bot.send_message(chat_id=user_id, text=resposta_informativa, parse_mode="Markdown")
         return resposta_informativa
 
-    # 🔍 Buscar dados do usuário em Clientes/{user_id}/Usuarios/{user_id}
+    # 🔍 Buscar dados do usuário
     usuario_dados = await buscar_documento(f"Clientes/{user_id}/Usuarios/{user_id}")
-
     if not usuario_dados:
         usuario_dados = {
             "user_id": user_id,
@@ -35,35 +33,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "tipo_usuario": "dono"
         }
 
-    # ✅ Novo fluxo baseado no GPT completo
-    contexto = await carregar_contexto_temporario(user_id) or {}
-    contexto["usuario"] = usuario_dados
-    contexto.setdefault("tarefas", [])
-    contexto.setdefault("eventos", [])
-    contexto.setdefault("emails", [])
-    contexto.setdefault("profissionais", [])
-    contexto.setdefault("followups", [])
-
-    # 🧠 Usa o GPT com ação e dados
-    resposta_gpt = await processar_com_gpt_com_acao(mensagem, contexto, INSTRUCAO_SECRETARIA)
-    print("🧠 resposta_gpt retornada:", resposta_gpt)
-
-    if resposta_gpt:
-        resposta_texto = resposta_gpt.get("resposta")
-        if resposta_texto:
-            await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
-
-        await executar_acao_gpt(update, context, resposta_gpt.get("acao"), resposta_gpt.get("dados", {}))
-        return resposta_texto
-    else:
-        await update.message.reply_text("❌ Ocorreu um erro ao interpretar sua mensagem.")
-        return "❌ Ocorreu um erro ao interpretar sua mensagem."
-
-    # 🔄 Sessão ativa (ex: agendamento em andamento)
+    # 🔄 Sessão ativa (ex: agendamento, tarefa etc.)
     sessao = await pegar_sessao(user_id)
     if sessao and sessao.get("estado"):
         print(f"🔁 Sessão ativa: {sessao['estado']}")
-        print("📤 Chamando tratar_mensagem_gpt via principal_router")
         resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem)
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
         return resposta_fluxo
@@ -81,6 +54,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     contexto["profissionais"] = list(profissionais_dict.values())
 
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
+    print("🧠 resposta_gpt retornada:", resposta_gpt)
 
     # 🤝 Cumprimento amigável
     cumprimentos = ["oi", "olá", "bom dia", "boa tarde", "boa noite", "e aí", "tudo bem?"]
