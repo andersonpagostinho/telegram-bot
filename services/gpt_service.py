@@ -96,6 +96,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         user_id = str(contexto.get('usuario', {}).get('user_id', 'desconhecido'))
         texto_normalizado = unidecode.unidecode(texto_usuario.lower().strip())
 
+        # ✅ Carrega o contexto antes de usar
+        contexto_salvo = await carregar_contexto_temporario(user_id) or {}
+        if contexto_salvo.get("profissional_escolhido"):
+            contexto_salvo.pop("ultima_opcao_profissionais", None)
+
         # 🛡️ Evita resposta repetitiva com 'None' após conversa concluída
         SAUDACOES_INICIAIS = [
             "oi", "ola", "olá", "opa", "e aí", "eaí", "bom dia", "boa tarde", "boa noite",
@@ -148,10 +153,34 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     "dados": {}
                 }
 
-        # ✅ Carrega o contexto antes de usar
-        contexto_salvo = await carregar_contexto_temporario(user_id) or {}
-        if contexto_salvo.get("profissional_escolhido"):
-            contexto_salvo.pop("ultima_opcao_profissionais", None)
+        # ✅ Chamada ao GPT com contexto
+        prompt = montar_prompt_com_contexto(texto_usuario, contexto, instrucao)
+
+        resposta = await client.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.4,
+            messages=[
+                {"role": "system", "content": instrucao},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        # 🔍 Registrar custo da chamada
+        firestore_client = firestore.client()
+        await registrar_custo_gpt(resposta, "gpt-4o", user_id, firestore_client)
+
+        # 🧠 Processa o JSON retornado
+        conteudo = resposta.choices[0].message.content.strip()
+        try:
+            resultado = json.loads(conteudo)
+        except Exception as e:
+            print(f"❌ Erro ao interpretar JSON da resposta do GPT: {e}")
+            print("🧾 Conteúdo recebido:", conteudo)
+            return {
+                "resposta": "❌ Não consegui entender a resposta da IA.",
+                "acao": None,
+                "dados": {}
+            }
 
         # 🧼 Se a ação detectada não for de agendamento e havia contexto salvo, limpa tudo
         if resultado.get("acao") not in ["agendar"] and any(
