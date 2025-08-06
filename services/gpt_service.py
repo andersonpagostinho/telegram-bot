@@ -153,11 +153,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         if contexto_salvo.get("profissional_escolhido"):
             contexto_salvo.pop("ultima_opcao_profissionais", None)
 
-        # 🧼 Se a intenção mudou e temos contexto salvo de agendamento, limpa tudo
-        if intencao not in ["AGENDAR", "DESCONHECIDO"] and any(
+        # 🧼 Se a ação detectada não for de agendamento e havia contexto salvo, limpa tudo
+        if resultado.get("acao") not in ["agendar"] and any(
             contexto_salvo.get(k) for k in ["profissional_escolhido", "servico", "data_hora"]
         ):
-            print("🔄 Mudança de intenção detectada. Limpando contexto antigo.")
+            print("🔄 Ação mudou e há contexto antigo. Limpando contexto.")
             await limpar_contexto(user_id)
             await resetar_sessao(user_id)
             contexto_salvo = {}

@@ -35,31 +35,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "tipo_usuario": "dono"
         }
 
-    # 🔁 Verifica intenção direta (ex: criar tarefa, perguntar preço etc.)
-    intencao = identificar_intencao(mensagem)
-    if intencao:
-        print(f"🚀 Intenção detectada: {intencao}")
-        contexto = await carregar_contexto_temporario(user_id) or {}
-        contexto["usuario"] = usuario_dados
-        contexto.setdefault("tarefas", [])
-        contexto.setdefault("eventos", [])
-        contexto.setdefault("emails", [])
-        contexto.setdefault("profissionais", [])
-        contexto.setdefault("followups", [])
+    # ✅ Novo fluxo baseado no GPT completo
+    contexto = await carregar_contexto_temporario(user_id) or {}
+    contexto["usuario"] = usuario_dados
+    contexto.setdefault("tarefas", [])
+    contexto.setdefault("eventos", [])
+    contexto.setdefault("emails", [])
+    contexto.setdefault("profissionais", [])
+    contexto.setdefault("followups", [])
 
-        resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
-        print("🧠 resposta_gpt retornada:", resposta_gpt)
+    # 🧠 Usa o GPT com ação e dados
+    resposta_gpt = await processar_com_gpt_com_acao(mensagem, contexto, INSTRUCAO_SECRETARIA)
+    print("🧠 resposta_gpt retornada:", resposta_gpt)
 
-        if resposta_gpt:
-            resposta_texto = resposta_gpt.get("resposta")
-            if resposta_texto:
-                await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
+    if resposta_gpt:
+        resposta_texto = resposta_gpt.get("resposta")
+        if resposta_texto:
+            await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
 
-            await executar_acao_gpt(update, context, resposta_gpt.get("acao"), resposta_gpt.get("dados", {}))
-            return resposta_texto
-        else:
-            await update.message.reply_text("❌ Ocorreu um erro ao interpretar sua mensagem.")
-            return "❌ Ocorreu um erro ao interpretar sua mensagem."
+        await executar_acao_gpt(update, context, resposta_gpt.get("acao"), resposta_gpt.get("dados", {}))
+        return resposta_texto
+    else:
+        await update.message.reply_text("❌ Ocorreu um erro ao interpretar sua mensagem.")
+        return "❌ Ocorreu um erro ao interpretar sua mensagem."
 
     # 🔄 Sessão ativa (ex: agendamento em andamento)
     sessao = await pegar_sessao(user_id)
