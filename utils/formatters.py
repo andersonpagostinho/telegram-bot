@@ -14,29 +14,31 @@ def adaptar_genero(profissional: str, palavra: str) -> str:
 def gerar_sugestoes_de_horario(inicio_base: datetime, ocupados: list, duracao_evento_minutos: int = 60, max_sugestoes: int = 3) -> list:
     """
     Gera sugestões de horários disponíveis com base na hora solicitada (inicio_base),
-    buscando horários vizinhos (antes e depois) com base na duração.
+    evitando blocos que entram em conflito com a lista de horários ocupados.
     """
     duracao = timedelta(minutes=duracao_evento_minutos)
     sugestoes = []
 
-    # Base: uma antes, a própria, e uma depois
-    blocos = [
+    # Blocos candidatos: anterior, posterior, e mais ao redor
+    candidatos = [
         inicio_base - duracao,
-        inicio_base,
-        inicio_base + duracao
+        inicio_base + duracao,
+        inicio_base + 2 * duracao,
+        inicio_base - 2 * duracao,
     ]
 
-    for atual in blocos:
+    for atual in candidatos:
         if len(sugestoes) >= max_sugestoes:
             break
 
         fim_dia = datetime.combine(atual.date(), time(18, 0))
         if atual + duracao > fim_dia:
-            continue  # pula se passar do horário final
+            continue
 
-        livre = all(not (atual < fim and atual + duracao > inicio) for inicio, fim in ocupados)
+        # Verifica se há conflito com eventos existentes
+        conflito = any(not (atual + duracao <= inicio or atual >= fim) for inicio, fim in ocupados)
 
-        if livre:
+        if not conflito:
             sugestoes.append(f"{atual.strftime('%H:%M')} - {(atual + duracao).strftime('%H:%M')}")
 
     return sugestoes
