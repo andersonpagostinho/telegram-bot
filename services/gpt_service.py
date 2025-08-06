@@ -23,7 +23,6 @@ from utils.gpt_utils import (
     estimar_duracao,
     formatar_data,
 )
-from services.gpt_intent import classificar_intencao_usuario
 from services.gpt_actions import (
     executar_acao_gpt_por_confirmacao,
     executar_confirmacao_generica,
@@ -96,11 +95,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
     try:
         user_id = str(contexto.get('usuario', {}).get('user_id', 'desconhecido'))
         texto_normalizado = unidecode.unidecode(texto_usuario.lower().strip())
-
-
-        # 📍 Detecta intenção do usuário
-        intencao = await classificar_intencao_usuario(texto_usuario)
-        print(f"🎯 Intenção detectada: {intencao}")
 
         # 🛡️ Evita resposta repetitiva com 'None' após conversa concluída
         SAUDACOES_INICIAIS = [
