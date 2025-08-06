@@ -580,11 +580,15 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                         if conflito["sugestoes"]
                         else ""
                     )
-                    alternativa_txt = (
-                        f"\n💡 Porém, {conflito['profissional_alternativo']} está disponível nesse mesmo horário."
-                        if conflito["profissional_alternativo"]
-                        else ""
+                    sugestao_formatada = (
+                        f"\n\n📌 *Horários disponíveis com {profissional}:*\n{sugestoes_txt}"
+                        if sugestoes_txt else ""
                     )
+                    alternativa_formatada = (
+                        f"\n\n💡 {conflito['profissional_alternativo']} está disponível às {hora}."
+                        if conflito.get("profissional_alternativo") else ""
+                    )
+
                     await salvar_contexto_temporario(
                         user_id,
                         {
@@ -592,21 +596,16 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                             "servico": servico,
                             "data_hora": data_hora,
                             "sugestoes": conflito["sugestoes"],
-                            "alternativa_profissional": conflito[
-                                "profissional_alternativo"
-                            ],
+                            "alternativa_profissional": conflito["profissional_alternativo"],
                         },
                     )
 
-                    sugestao_formatada = f"\n{sugestoes_txt}" if sugestoes_txt else ""
-                    alternativa_formatada = alternativa_txt
-
                     return {
                         "resposta": (
-                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} nesse horário."
+                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} às {hora}."
                             f"{sugestao_formatada}"
                             f"{alternativa_formatada}"
-                            f"\n\nDeseja escolher outro horário ou prefere agendar com {conflito['profissional_alternativo']}?"
+                            f"\n\nDeseja escolher outro horário com {profissional} ou prefere agendar com {conflito['profissional_alternativo']}?"
                         ),
                         "acao": None,
                         "dados": {},
@@ -803,7 +802,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             profissional = next((n for n in opcoes_anteriores if resposta_direta.lower() in n.lower()), resposta_direta)
             servico = contexto_salvo.get("servico")
             data_hora = contexto_salvo.get("data_hora")
-
+  
             if servico and data_hora:
                 duracao = estimar_duracao(servico)
                 data_obj = datetime.fromisoformat(data_hora)
@@ -819,12 +818,22 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     profissional=profissional,
                     servico=servico
                 )
- 
+
                 if conflito["conflito"]:
                     sugestoes = conflito.get("sugestoes", [])
                     alternativa = conflito.get("profissional_alternativo")
-                    sugestoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes)
-                    alternativa_txt = f"\n💡 Porém, {alternativa} está disponível nesse mesmo horário." if alternativa else ""
+                    sugestoes_txt = (
+                        "\n".join(f"🔄 {h}" for h in sugestoes)
+                        if sugestoes else ""
+                    )
+                    sugestao_formatada = (
+                        f"\n\n📌 *Horários disponíveis com {profissional}:*\n{sugestoes_txt}"
+                        if sugestoes_txt else ""
+                    )
+                    alternativa_formatada = (
+                         f"\n\n💡 {alternativa} está disponível às {hora_str}."
+                        if alternativa else ""
+                    )
 
                     await salvar_contexto_temporario(user_id, {
                         "profissional_escolhido": profissional,
@@ -836,10 +845,10 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
                     return {
                         "resposta": (
-                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} nesse horário."
-                            f"\n{sugestoes_txt}"
-                            f"{alternativa_txt}"
-                            "\n\nDeseja escolher outro horário ou prefere agendar com outro profissional?"
+                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} às {hora_str}."
+                            f"{sugestao_formatada}"
+                            f"{alternativa_formatada}"
+                            f"\n\nDeseja escolher outro horário com {profissional} ou prefere agendar com {alternativa}?"
                         ),
                         "acao": None,
                         "dados": {}
@@ -1173,7 +1182,6 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             servico = memoria_nova.get("servico") or contexto_salvo.get("servico")
             data_hora = memoria_nova.get("data_hora") or contexto_salvo.get("data_hora")
 
-
             if profissional and servico and data_hora:
                 duracao = estimar_duracao(servico)
                 start_dt = datetime.fromisoformat(data_hora)
@@ -1191,31 +1199,40 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 )
 
                 if conflito_info["conflito"]:
-                    sugestoes_txt = "\n".join([f"🔄 {h}" for h in conflito_info["sugestoes"]]) if conflito_info["sugestoes"] else ""
-                    alternativa_txt = f"\n💡 Porém, {conflito_info['profissional_alternativo']} está disponível nesse mesmo horário." if conflito_info["profissional_alternativo"] else ""
+                    sugestoes = conflito_info.get("sugestoes", [])
+                    alternativa = conflito_info.get("profissional_alternativo")
+                    sugestoes_txt = (
+                        "\n".join(f"🔄 {h}" for h in sugestoes)
+                        if sugestoes else ""
+                    )
+                    sugestao_formatada = (
+                        f"\n\n📌 *Horários disponíveis com {profissional}:*\n{sugestoes_txt}"
+                        if sugestoes_txt else ""
+                    )
+                    alternativa_formatada = (
+                        f"\n\n💡 {alternativa} está disponível às {hora}."
+                        if alternativa else ""
+                    )
 
                     await salvar_contexto_temporario(user_id, {
                         "profissional_escolhido": profissional,
                         "servico": servico,
                         "data_hora": data_hora,
-                        "sugestoes": conflito_info["sugestoes"],
-                        "alternativa_profissional": conflito_info["profissional_alternativo"]
+                        "sugestoes": sugestoes,
+                        "alternativa_profissional": alternativa
                     })
-
-                    sugestao_formatada = f"\n{sugestoes_txt}" if sugestoes_txt else ""
-                    alternativa_formatada = alternativa_txt
 
                     resultado = {
                         "resposta": (
-                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} nesse horário."
+                            f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} às {hora}."
                             f"{sugestao_formatada}"
                             f"{alternativa_formatada}"
-                            f"\n\nDeseja escolher outro horário ou prefere agendar com {conflito_info['profissional_alternativo']}?"
+                            f"\n\nDeseja escolher outro horário com {profissional} ou prefere agendar com {alternativa}?"
                         ),
                         "acao": None,
                         "dados": {}
                     }
-                    return resultado 
+                    return resultado
 
                 else:
                     resultado["acao"] = "criar_evento"
