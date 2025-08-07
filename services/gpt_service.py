@@ -153,6 +153,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                     "dados": {}
                 }
 
+        # 🔄 Garante que plano e módulos estejam atualizados no contexto
+        contexto["usuario"] = await buscar_cliente(user_id) or {}
+        contexto["pagamentoAtivo"] = contexto["usuario"].get("pagamentoAtivo", False)
+        contexto["planosAtivos"] = contexto["usuario"].get("planosAtivos", [])
+
         # ✅ Chamada ao GPT com contexto
         prompt = montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuario)
 
