@@ -167,17 +167,21 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         await registrar_custo_gpt(resposta, "gpt-4o", user_id, firestore_client)
 
         # 🧠 Processa o JSON retornado
+        resultado = {
+            "resposta": "❌ Não consegui entender a resposta da IA.",
+            "acao": None,
+            "dados": {}
+        }
+
         try:
             conteudo = resposta.choices[0].message.content.strip()
-            print("📦 Conteúdo recebido da IA:\n", conteudo)
+            print("📦 Conteúdo recebido da IA:\n", conteudo, flush=True)
+            resultado = json.loads(conteudo)
         except Exception as e:
-            print(f"❌ Erro ao acessar resposta da IA: {e}")
+            print(f"❌ Erro ao acessar ou interpretar a resposta da IA: {e}")
             print(f"↩️ Objeto resposta:\n{resposta}")
-            return {
-                "resposta": "❌ Não consegui acessar a resposta da IA.",
-                "acao": None,
-                "dados": {}
-            }
+
+        return resultado
 
         # 🧼 Se a ação detectada não for de agendamento e havia contexto salvo, limpa tudo
         if resultado.get("acao") not in ["agendar"] and any(
