@@ -168,6 +168,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
 
         # 🧠 Processa o JSON retornado
         conteudo = resposta.choices[0].message.content.strip()
+        print("📦 Conteúdo recebido da IA:\n", conteudo)
         try:
             resultado = json.loads(conteudo)
         except Exception as e:
