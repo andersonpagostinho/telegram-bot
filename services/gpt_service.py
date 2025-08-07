@@ -154,15 +154,12 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 }
 
         # ✅ Chamada ao GPT com contexto
-        prompt = montar_prompt_com_contexto(texto_usuario, contexto, instrucao)
+        prompt = montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuario)
 
         resposta = await client.chat.completions.create(
             model="gpt-4o",
             temperature=0.4,
-            messages=[
-                {"role": "system", "content": instrucao},
-                {"role": "user", "content": prompt}
-            ]
+            messages=prompt
         )
 
         # 🔍 Registrar custo da chamada
