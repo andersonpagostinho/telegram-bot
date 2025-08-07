@@ -167,15 +167,14 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         await registrar_custo_gpt(resposta, "gpt-4o", user_id, firestore_client)
 
         # 🧠 Processa o JSON retornado
-        conteudo = resposta.choices[0].message.content.strip()
-        print("📦 Conteúdo recebido da IA:\n", conteudo)
         try:
-            resultado = json.loads(conteudo)
+            conteudo = resposta.choices[0].message.content.strip()
+            print("📦 Conteúdo recebido da IA:\n", conteudo)
         except Exception as e:
-            print(f"❌ Erro ao interpretar JSON da resposta do GPT: {e}")
-            print("🧾 Conteúdo recebido:", conteudo)
+            print(f"❌ Erro ao acessar resposta da IA: {e}")
+            print(f"↩️ Objeto resposta:\n{resposta}")
             return {
-                "resposta": "❌ Não consegui entender a resposta da IA.",
+                "resposta": "❌ Não consegui acessar a resposta da IA.",
                 "acao": None,
                 "dados": {}
             }
