@@ -176,6 +176,11 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
         try:
             conteudo = resposta.choices[0].message.content.strip()
             print("📦 Conteúdo recebido da IA:\n", conteudo, flush=True)
+
+            # Remove blocos de markdown se existirem
+            if conteudo.startswith("```") and conteudo.endswith("```"):
+                conteudo = "\n".join(conteudo.split("\n")[1:-1])  # Remove primeira e última linha
+
             resultado = json.loads(conteudo)
         except Exception as e:
             print(f"❌ Erro ao acessar ou interpretar a resposta da IA: {e}")
