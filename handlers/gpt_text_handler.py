@@ -18,6 +18,7 @@ from utils.context_manager import salvar_contexto_temporario, limpar_contexto, c
 from utils.interpretador_datas import interpretar_intervalo_de_datas
 from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
 from services.informacao_service import responder_consulta_informativa
+from handlers.task_handler import obter_tarefas_lista
 import json
 import pprint
 import re
@@ -144,17 +145,43 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     id_dono = await obter_id_dono(user_id)  # 🧠 garante que pega o ID do dono mesmo se for cliente
 
-    # 🔍 Buscar tarefas e eventos ainda são do usuário atual
-    tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas")
-    eventos_dict = await buscar_subcolecao(f"Clientes/{user_id}/Eventos")
+    # 🔍 Buscar tarefas e eventos ainda são do usuário atual (DADOS REAIS)
+    tarefas = await obter_tarefas_lista(user_id)  # lista de dicts: {"descricao","prioridade"}
+
+    eventos_dict = await buscar_subcolecao(f"Clientes/{user_id}/Eventos") or {}
+    eventos = [
+        e["descricao"] for e in eventos_dict.values()
+        if isinstance(e, dict) and e.get("descricao")
+    ]
+
+    # 🔎 Monta blocos factuais (sem “fechar a resposta”)
+    if tarefas:
+        bloco_tarefas = f"{len(tarefas)} tarefa(s):\n" + "\n".join(
+            f"- {t['descricao']} ({t['prioridade']})" for t in tarefas[:10]
+        )
+    else:
+        bloco_tarefas = "Nenhuma"
+
+    if eventos:
+        bloco_eventos = f"{len(eventos)} evento(s):\n" + "\n".join(
+            f"- {desc}" for desc in eventos[:10]
+        )
+    else:
+        bloco_eventos = "Nenhum"
+
+    # ✅ Resumo para ser injetado no prompt
+    resumo_contexto = (
+        f"📋 Tarefas:\n{bloco_tarefas}\n\n"
+        f"📆 Eventos:\n{bloco_eventos}\n\n"
+        "⚠️ Este é um RESUMO. Não conclua estado com base nele; "
+        "SEMPRE retorne uma AÇÃO para consultar os dados reais quando o usuário pedir."
+    )
+    context.user_data["resumo_contexto"] = resumo_contexto
 
     # ✅ PROFISSIONAIS devem ser buscados pelo ID DO DONO
     id_negocio = await obter_id_dono(user_id)
     profissionais_dict = await buscar_subcolecao(f"Clientes/{id_negocio}/Profissionais")
     print("📂 profissionais_dict recebido:", profissionais_dict)
-
-    tarefas = [t["descricao"] for t in tarefas_dict.values() if isinstance(t, dict) and "descricao" in t]
-    eventos = [e["descricao"] for e in eventos_dict.values() if isinstance(e, dict) and "descricao" in e]
 
     profissionais = []
     if isinstance(profissionais_dict, dict):
@@ -165,6 +192,9 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if nome and isinstance(servicos, list):
                     profissionais.append({"nome": nome, "servicos": servicos})
     print("👥 Profissionais encontrados:", profissionais)
+
+    # 💡 Correção semântica baseada no tipo de negócio (usa dados_usuario, não 'contexto')
+    tipo_negocio = (dados_usuario.get("tipo_negocio", "") or "").lower()
 
     # 🔍 Detectar serviço mencionado
     servicos_disponiveis = {s.lower() for p in profissionais for s in p.get("servicos", [])}
@@ -362,8 +392,23 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return  # ⛔️ Evita seguir para o GPT
 
     # 🧠 Processar com GPT
-    resultado_raw = await processar_com_gpt_com_acao(texto, contexto, INSTRUCAO_SECRETARIA)
+    resultado_raw = await processar_com_gpt_com_acao(
+        user_id=user_id,
+        texto_usuario=texto,
+        contexto=contexto,
+        instrucao=INSTRUCAO_SECRETARIA,
+        resumo_contexto=context.user_data.get("resumo_contexto"),  # ⬅️ novo
+    )
     print("🔍 Resultado bruto do GPT:", resultado_raw)
+
+    # 🛡️ Guard-rail: se o usuário pediu tarefas e o GPT veio sem ação, força buscar no Firestore
+    texto_baixo = (texto or "").lower()
+    pediu_tarefas = any(k in texto_baixo for k in ("tarefa", "tarefas", "to-do", "pendên", "afazer", "afazeres"))
+
+    if isinstance(resultado_raw, dict) and resultado_raw.get("acao") is None and pediu_tarefas:
+        from handlers.acao_router_handler import executar_acao_por_nome
+        dados = {"resposta": "Aqui estão suas tarefas:"}
+        return await executar_acao_por_nome(update, context, "buscar_tarefas_do_usuario", dados)
 
     # ✅ Se for resposta simples sem ação (exemplo: saudação "oi"), responde e sai
     if isinstance(resultado_raw, dict) and resultado_raw.get("acao") is None and resultado_raw.get("resposta"):
