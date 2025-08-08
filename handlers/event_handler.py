@@ -78,16 +78,16 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 🔄 Verificar conflitos com base nos horários
     conflitos = []
-        for ev in eventos_dia:
-            try:
-                ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
-                ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
-            except Exception:
-                # fallback: ignora eventos mal formatados
-                continue
+    for ev in eventos_dia:
+        try:
+            ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
+            ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
+        except Exception:
+            # fallback: ignora eventos mal formatados
+            continue
 
-            if inicio < ev_fim and fim > ev_inicio:
-                conflitos.append((ev_inicio, ev_fim))
+        if inicio < ev_fim and fim > ev_inicio:
+            conflitos.append((ev_inicio, ev_fim))
 
     if conflitos:
         sugestoes = []
