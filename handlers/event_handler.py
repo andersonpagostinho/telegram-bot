@@ -4,6 +4,7 @@ import logging
 import dateparser
 import re
 import io
+import unidecode  # no topo, junto dos imports
 from openpyxl import Workbook
 from telegram import InputFile
 from datetime import datetime, time, timedelta
@@ -26,12 +27,25 @@ from services.firebase_service_async import (
     salvar_dados,
     atualizar_dado_em_path,
     buscar_dado_em_path,
-    salvar_evento
 )
 from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento 
 
 logger = logging.getLogger(__name__)
+
+def _precisa_profissional(contexto: dict, descricao: str) -> bool:
+    """
+    Só exige 'profissional' quando for recepção de salão (atendimento_cliente).
+    Reuniões/agenda pessoal não precisam.
+    """
+    contexto = contexto or {}
+    usuario = (contexto.get("usuario") or {})
+    modo_uso = contexto.get("modo_uso") or usuario.get("modo_uso") or "interno"
+    tipo_negocio = (contexto.get("tipoNegocio") or contexto.get("tipo_negocio") or "")
+    desc = unidecode.unidecode((descricao or "").lower())
+
+    eh_reuniao = "reuni" in desc  # pega 'reunião'/'reuniao'
+    return (modo_uso == "atendimento_cliente" and "sala" in unidecode.unidecode(tipo_negocio.lower()) and not eh_reuniao)
 
 async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
@@ -64,17 +78,16 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 🔄 Verificar conflitos com base nos horários
     conflitos = []
-    for ev in eventos_dia:
-        match = re.search(r"em \d{2}/\d{2} às (\d{2}:\d{2})", ev)
-        if not match:
-            continue
+        for ev in eventos_dia:
+            try:
+                ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
+                ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
+            except Exception:
+                # fallback: ignora eventos mal formatados
+                continue
 
-        hora_ev = match.group(1)
-        inicio_existente = datetime.fromisoformat(f"{data}T{hora_ev}")
-        fim_existente = inicio_existente + timedelta(minutes=duracao_minutos)
-
-        if inicio < fim_existente and fim > inicio_existente:
-            conflitos.append((inicio_existente, fim_existente))
+            if inicio < ev_fim and fim > ev_inicio:
+                conflitos.append((ev_inicio, ev_fim))
 
     if conflitos:
         sugestoes = []
@@ -102,8 +115,7 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "hora_fim": hora_fim,
         "duracao": duracao_minutos,
         "confirmado": False,
-        "link": "",
-        "profissional": profissional
+        "link": ""
     }
 
     print("📦 Salvando evento com os dados:", evento)
@@ -227,12 +239,15 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         titulo = "Reunião agendada por voz"
 
         # 🧠 Recupera contexto e profissional alternativo
-        contexto = await carregar_contexto_temporario(user_id)
+        contexto = await carregar_contexto_temporario(user_id) or {}
         profissional = contexto.get("profissional")  # vem do contexto anterior
         alternativa = contexto.get("alternativa_profissional")
 
-        if not profissional:
-            await update.message.reply_text("❌ Não consegui identificar a profissional. Pode repetir dizendo quem irá atender?")
+        # 🔍 Só exige profissional se o tipo de evento precisar
+        if _precisa_profissional(contexto, titulo) and not profissional:
+            await update.message.reply_text(
+                "❌ Não consegui identificar a profissional. Pode repetir dizendo quem irá atender?"
+            )
             return
 
         # 🔍 Verifica conflitos
@@ -279,8 +294,9 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "duracao": duracao,
             "confirmado": False,
             "link": "",
-            "profissional": profissional
         }
+        if profissional:
+            evento_data["profissional"] = profissional  # ✅ só se tiver
 
         print(f"👤 Profissional detectado: {profissional}")
         sucesso = await salvar_evento(user_id, evento_data)
@@ -350,11 +366,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 contexto.pop("sugestoes", None)
                 await salvar_contexto_temporario(user_id, contexto)
 
+        contexto = await carregar_contexto_temporario(user_id) or {}
         if not profissional:
-            profissional = await obter_profissional_para_evento(user_id, descricao)
-            if not profissional:
-                await update.message.reply_text("❌ Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
-                return False
+            # Só tenta descobrir/exigir profissional se realmente precisar
+            if _precisa_profissional(contexto, descricao):
+                profissional = await obter_profissional_para_evento(user_id, descricao)
+                if not profissional:
+                    await update.message.reply_text("❌ Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
+                    return False
+            else:
+                profissional = None  # reunião/agenda pessoal não precisa
 
         if not descricao or not data_hora_str:
             await update.message.reply_text("❌ Dados insuficientes para criar o evento.")
@@ -371,8 +392,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         eventos_do_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date()) or []
         ocupados = []
         for ev in eventos_do_dia:
-            if ev.get("profissional", "").lower() != profissional.lower():
-                continue
+            # Se houver profissional, filtra por ele; se não, considera todos
+            if profissional:
+                if ev.get("profissional", "").lower() != profissional.lower():
+                    continue
             try:
                 ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
                 ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
@@ -426,8 +449,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "duracao": duracao_minutos,
             "confirmado": False,
             "link": "",
-            "profissional": profissional
         }
+        if profissional:
+            evento_data["profissional"] = profissional
 
         print("📦 Disparando salvar_evento com:", evento_data)
         await salvar_evento(user_id, evento_data)
