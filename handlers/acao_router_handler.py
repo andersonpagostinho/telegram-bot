@@ -7,6 +7,24 @@ from utils.contexto_temporario import carregar_contexto_temporario
 async def executar_acao_por_nome(update, context, acao, dados):
     user_id = str(update.message.from_user.id)
 
+    # 🔤 Normaliza nomes de ação vindos do LLM (sinônimos/variações)
+    def normalizar_acao(nome: str | None) -> str | None:
+        if not nome:
+            return None
+        mapa = {
+            "listar_tarefas": "buscar_tarefas_do_usuario",
+            "ver_tarefas": "buscar_tarefas_do_usuario",
+            "mostrar_tarefas": "buscar_tarefas_do_usuario",
+            "minhas_tarefas": "buscar_tarefas_do_usuario",
+            # extras relacionadas a tarefas
+            "listar_prioridade": "listar_tarefas_por_prioridade",
+            "limpar_tarefas": "limpar_tarefas_do_usuario",
+            "adicionar_tarefa": "criar_tarefa",
+        }
+        return mapa.get(nome, nome)
+
+    acao = normalizar_acao(acao)
+
     async def executar_se_coroutine(func, *args):
         print(f"⚙️ Função chamada: {func.__name__}")
         resultado = func(*args)
@@ -35,6 +53,26 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 "resposta": f"{resposta}\n\n{texto}",
                 "acao": "buscar_tarefas_do_usuario",
                 "dados": {"tarefas": texto}
+            }
+
+        # 🆕 Listar tarefas por prioridade
+        elif acao == "listar_tarefas_por_prioridade":
+            from .task_handler import list_tasks_by_priority
+            await executar_se_coroutine(list_tasks_by_priority, update, context)
+            return {
+                "resposta": "Listando tarefas por prioridade…",
+                "acao": "listar_tarefas_por_prioridade",
+                "dados": {}
+            }
+
+        # 🧹 Limpar todas as tarefas
+        elif acao == "limpar_tarefas_do_usuario":
+            from .task_handler import clear_tasks
+            await executar_se_coroutine(clear_tasks, update, context)
+            return {
+                "resposta": "Limpando tarefas do usuário…",
+                "acao": "limpar_tarefas_do_usuario",
+                "dados": {}
             }
 
         elif acao == "criar_evento":
