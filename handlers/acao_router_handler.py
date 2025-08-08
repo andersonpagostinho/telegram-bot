@@ -58,7 +58,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
         # 🆕 Listar tarefas por prioridade
         elif acao == "listar_tarefas_por_prioridade":
             from .task_handler import list_tasks_by_priority
-            await executar_se_coroutine(list_tasks_by_priority, update, context)
+            await executar_se_coroutine(list_tasks_by_priority, update, context, {})
             return {
                 "resposta": "Listando tarefas por prioridade…",
                 "acao": "listar_tarefas_por_prioridade",
@@ -68,7 +68,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
         # 🧹 Limpar todas as tarefas
         elif acao == "limpar_tarefas_do_usuario":
             from .task_handler import clear_tasks
-            await executar_se_coroutine(clear_tasks, update, context)
+            await executar_se_coroutine(clear_tasks, update, context, {})
             return {
                 "resposta": "Limpando tarefas do usuário…",
                 "acao": "limpar_tarefas_do_usuario",
