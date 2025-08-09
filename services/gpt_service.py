@@ -187,10 +187,43 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
                 conteudo = "\n".join(conteudo.split("\n")[1:-1])  # Remove primeira e última linha
 
             resultado = json.loads(conteudo)
+
         except Exception as e:
             print(f"❌ Erro ao acessar ou interpretar a resposta da IA: {e}")
             print(f"↩️ Objeto resposta:\n{resposta}")
 
+        # 🛡️ Guard-rail: usuário pediu tarefas e o GPT veio sem ação → força buscar no Firestore
+        texto_baixo_guard = (texto_usuario or "").lower()
+        pediu_tarefas = any(
+            gatilho in texto_baixo_guard
+            for gatilho in [
+                "listar tarefas",
+                "liste as tarefas",
+                "liste todas as tarefas",
+                "minhas tarefas",
+                "quais são as minhas tarefas",
+                "quais sao as minhas tarefas",
+                "ver tarefas",
+                "mostrar tarefas",
+                "tarefas",
+                "to-do",
+                "afazeres",
+                "pendências",
+                "pendencias",
+            ]
+        )
+
+        if pediu_tarefas and (
+            resultado.get("acao") is None
+            or resultado.get("acao") not in {"buscar_tarefas_do_usuario", "criar_tarefa", "remover_tarefa"}
+        ):
+            return {
+                "resposta": "Aqui estão suas tarefas:",
+                "acao": "buscar_tarefas_do_usuario",
+                "dados": {}
+            }
+
+        # ⚠️ Não retornar aqui. As correções/guard-rails virão abaixo.
         return resultado
 
         # 🧼 Se a ação detectada não for de agendamento e havia contexto salvo, limpa tudo

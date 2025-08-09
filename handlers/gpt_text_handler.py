@@ -456,9 +456,6 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             print(f"💾 Profissional detectado salvo: {prof_detectado}")
 
-        # 👥 Fallback inteligente para exibir profissionais, se a IA esquecer
-        tipo_negocio = contexto.get("usuario", {}).get("tipo_negocio", "").lower()
-
         negocios_com_profissionais = [
             "salao", "salão", "clinica", "clínica", "consultorio", "consultório", "escritorio", "escritório",
             "estetica", "estética", "agencia", "agência", "studio", "atendimento", "terapias"
