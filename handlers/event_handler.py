@@ -125,6 +125,26 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
             parse_mode="Markdown"
         )
+        # 🔔 Agendar lembretes padrão
+        try:
+            await criar_notificacao_agendada(
+                user_id=user_id,
+                descricao=descricao,
+                data=data,
+                hora_inicio=hora_inicio,
+                minutos_antes=60,
+                canal="telegram",
+            )
+            await criar_notificacao_agendada(
+                user_id=user_id,
+                descricao=descricao,
+                data=data,
+                hora_inicio=hora_inicio,
+                minutos_antes=10,
+                canal="telegram",
+            )
+        except Exception as e:
+            print(f"⚠️ Falha ao agendar lembretes (add_agenda): {e}")
     else:
         await update.message.reply_text("❌ Ocorreu um erro ao tentar salvar o evento.")
 
@@ -303,6 +323,26 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if sucesso:
             msg = f"✅ Reunião marcada para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
             await responder_em_audio(update, context, msg)
+            # 🔔 Agendar lembretes padrão
+            try:
+                await criar_notificacao_agendada(
+                    user_id=user_id,
+                    descricao=titulo,
+                    data=start_time.strftime("%Y-%m-%d"),
+                    hora_inicio=start_time.strftime("%H:%M"),
+                    minutos_antes=60,
+                    canal="telegram",
+                )
+                await criar_notificacao_agendada(
+                    user_id=user_id,
+                    descricao=titulo,
+                    data=start_time.strftime("%Y-%m-%d"),
+                    hora_inicio=start_time.strftime("%H:%M"),
+                    minutos_antes=10,
+                    canal="telegram",
+                )
+            except Exception as e:
+                print(f"⚠️ Falha ao agendar lembretes (voz): {e}")
         else:
             await update.message.reply_text("❌ Não foi possível salvar o evento.")
 
@@ -456,6 +496,27 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         print("📦 Disparando salvar_evento com:", evento_data)
         await salvar_evento(user_id, evento_data)
         print("✅ Evento salvo")
+
+        # 🔔 Agendar lembretes (ex.: 60min e 10min antes)
+        try:
+            await criar_notificacao_agendada(
+                user_id=user_id,
+                descricao=descricao,
+                data=start_time.strftime("%Y-%m-%d"),
+                hora_inicio=start_time.strftime("%H:%M"),
+                minutos_antes=60,
+                canal="telegram",
+            )
+            await criar_notificacao_agendada(
+                user_id=user_id,
+                descricao=descricao,
+                data=start_time.strftime("%Y-%m-%d"),
+                hora_inicio=start_time.strftime("%H:%M"),
+                minutos_antes=10,
+                canal="telegram",
+            )
+        except Exception as e:
+            print(f"⚠️ Falha ao agendar lembretes do evento: {e}")
 
         mensagem_confirmacao = (
             f"📝 {descricao.capitalize()}\n"
