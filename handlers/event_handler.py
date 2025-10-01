@@ -121,25 +121,25 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("📦 Salvando evento com os dados:", evento)
     sucesso = await salvar_evento(user_id, evento)
     if sucesso:
-    await update.message.reply_text(
-        f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
-        parse_mode="Markdown"
-    )
+        await update.message.reply_text(
+            f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
+            parse_mode="Markdown"
+        )
 
-    from services.notificacao_service import criar_notificacao_agendada
+        from services.notificacao_service import criar_notificacao_agendada
 
-    await criar_notificacao_agendada(
-        user_id=user_id,
-        descricao=descricao,
-        data=data,
-        hora_inicio=hora_inicio,
-        canal="telegram",
-        minutos_antes=30,
-        destinatario_user_id=user_id,  # dono recebe o aviso
-        alvo_evento={"data": data, "hora_inicio": hora_inicio}
-    )
-else:
-    await update.message.reply_text("❌ Ocorreu um erro ao tentar salvar o evento.")
+        await criar_notificacao_agendada(
+            user_id=user_id,
+            descricao=descricao,
+            data=data,
+            hora_inicio=hora_inicio,
+            canal="telegram",
+            minutos_antes=30,
+            destinatario_user_id=user_id,  # dono recebe o aviso
+            alvo_evento={"data": data, "hora_inicio": hora_inicio}
+        )
+    else:
+        await update.message.reply_text("❌ Ocorreu um erro ao tentar salvar o evento.")
 
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
