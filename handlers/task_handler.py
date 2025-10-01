@@ -70,11 +70,12 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
             from services.notificacao_service import criar_notificacao_agendada
             await criar_notificacao_agendada(
                 user_id=user_id,
-                descricao=descricao,
-                data=datetime.now().strftime("%Y-%m-%d"),
-                hora_inicio=(datetime.now() + timedelta(minutes=30)).strftime("%H:%M"),
+                descricao=descricao_tarefa,
+                data=data,
+                hora_inicio=hora_inicio,
                 minutos_antes=0,
-                canal="telegram"
+                destinatario_user_id=user_id,
+                alvo_evento={"data": data, "hora_inicio": hora_inicio}
             )
         except Exception as e:
             print(f"⚠️ Erro ao criar notificação da tarefa: {e}")

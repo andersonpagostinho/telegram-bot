@@ -146,11 +146,12 @@ async def criar_followup_por_gpt(update: Update, context: ContextTypes.DEFAULT_T
         try:
             await criar_notificacao_agendada(
                 user_id=user_id,
-                descricao=f"Follow-up com {nome_cliente}",
-                data=data,
-                hora_inicio=hora,
-                canal="telegram",
-                minutos_antes=30
+                descricao=f"Follow-up: {nome_cliente}",
+                data=data,              # "YYYY-MM-DD"
+                hora_inicio=hora,       # "HH:MM"
+                minutos_antes=30,
+                destinatario_user_id=user_id,  # quem vai fazer o follow-up recebe o aviso
+                alvo_evento={"data": data, "hora_inicio": hora}
             )
         except Exception as e:
             print(f"⚠️ Erro ao agendar follow-up: {e}")

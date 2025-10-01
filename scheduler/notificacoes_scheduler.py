@@ -12,54 +12,100 @@ logger = logging.getLogger(__name__)
 
 FUSO_BR = timezone("America/Sao_Paulo")
 
+def _parse_iso_br(dt_str: str):
+    """Aceita ISO com/sem timezone. Se vier naive, assume FUSO_BR."""
+    try:
+        # remove Z -> +00:00 para fromisoformat entender
+        s = (dt_str or "").replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            # assume horário de São Paulo quando for naive
+            return FUSO_BR.localize(dt)
+        return dt.astimezone(FUSO_BR)
+    except Exception as e:
+        logger.error(f"parse data_hora inválida: {dt_str} -> {e}")
+        return None
+
 async def processar_notificacoes_agendadas():
     print("⏰ Verificando notificações agendadas...")
 
     try:
-        # 🔍 Itera por todos os usuários
-        clientes = await buscar_subcolecao("Clientes")
+        clientes = await buscar_subcolecao("Clientes") or {}
         agora = datetime.now(FUSO_BR)
+
+        # usa a instância do bot já criada em main (evita depender de env TOKEN aqui)
+        try:
+            from main import application
+            bot = application.bot
+        except Exception as e:
+            logger.error(f"Não consegui obter application.bot: {e}")
+            return
 
         for user_id in clientes.keys():
             path = f"Clientes/{user_id}/NotificacoesAgendadas"
-            notificacoes = await buscar_subcolecao(path)
-
-            if not notificacoes:
-                continue
+            notificacoes = await buscar_subcolecao(path) or {}
 
             for notif_id, notif in notificacoes.items():
-                if notif.get("avisado"):
+                if not isinstance(notif, dict):
                     continue
 
-                data_hora_str = notif.get("data_hora")
-                canal = notif.get("canal", "telegram")
-                mensagem = notif.get("mensagem", "📌 Lembrete")
+                # compat: considerado “já enviado” se avisado=True OU status='enviado'
+                avisado = bool(notif.get("avisado"))
+                status = (notif.get("status") or "").lower()
+                if avisado or status == "enviado":
+                    continue
+
+                dt = _parse_iso_br(notif.get("data_hora", ""))
+                if not dt:
+                    # marca erro para não ficar reprocessando sempre
+                    await atualizar_dado_em_path(f"{path}/{notif_id}", {
+                        "status": "erro",
+                        "erro": "data_hora inválida",
+                        "atualizado_em": agora.isoformat()
+                    })
+                    continue
+
+                # só dispara se já passou da hora no fuso BR
+                if dt > agora:
+                    continue
+
+                # monta mensagem (fallbacks)
+                mensagem = notif.get("mensagem")
+                if not mensagem:
+                    desc = notif.get("descricao", "Lembrete")
+                    alvo = notif.get("alvo_evento") or {}
+                    quando = ""
+                    if alvo.get("data") and alvo.get("hora_inicio"):
+                        quando = f"\n🗓️ {alvo['data']} às {alvo['hora_inicio']}"
+                    mensagem = f"⏰ {desc}{quando}"
+
+                canal = (notif.get("canal") or "telegram").lower()
 
                 try:
-                    data_hora = datetime.fromisoformat(data_hora_str).astimezone(FUSO_BR)
+                    if canal == "telegram":
+                        await bot.send_message(chat_id=int(user_id), text=mensagem)
+                    elif canal == "whatsapp":
+                        from services.whatsapp_service import enviar_mensagem_whatsapp
+                        await enviar_mensagem_whatsapp(user_id, mensagem)
+                    else:
+                        # canal desconhecido → tenta telegram
+                        await bot.send_message(chat_id=int(user_id), text=mensagem)
+
+                    # marca como enviado (compat com ambos esquemas)
+                    await atualizar_dado_em_path(f"{path}/{notif_id}", {
+                        "avisado": True,
+                        "status": "enviado",
+                        "enviado_em": agora.isoformat()
+                    })
+                    print(f"✅ Notificação enviada para {user_id} via {canal}: {mensagem}")
+
                 except Exception as e:
-                    logger.error(f"Erro ao converter data_hora da notificação: {e}")
-                    continue
-
-                if data_hora <= agora:
-                    try:
-                        if canal == "telegram":
-                            bot = Bot(token=os.getenv("TOKEN"))
-                            await bot.send_message(chat_id=int(user_id), text=mensagem)
-
-                        elif canal == "whatsapp":
-                            from services.whatsapp_service import enviar_mensagem_whatsapp
-                            await enviar_mensagem_whatsapp(user_id, mensagem)
-
-                        else:
-                            logger.warning(f"🔁 Canal desconhecido '{canal}' para {user_id}")
-
-                        # 🔁 Marca como avisado
-                        await atualizar_dado_em_path(f"{path}/{notif_id}", {"avisado": True})
-                        print(f"✅ Notificação enviada para {user_id} via {canal}: {mensagem}")
-
-                    except Exception as e:
-                        logger.error(f"Erro ao enviar notificação para {user_id} via {canal}: {e}")
+                    logger.error(f"Erro ao enviar notificação para {user_id} via {canal}: {e}")
+                    await atualizar_dado_em_path(f"{path}/{notif_id}", {
+                        "status": "erro",
+                        "erro": str(e),
+                        "atualizado_em": agora.isoformat()
+                    })
 
     except Exception as e:
         logger.error(f"❌ Erro na rotina de notificações: {e}")
@@ -123,10 +169,12 @@ async def enviar_resumo_diario():
 
 def start_notificacao_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
+
+    # ✅ verificação a cada 15 minuto
     scheduler.add_job(processar_notificacoes_agendadas, "interval", minutes=15)
 
-    # 🕗 Agenda o envio diário da agenda às 08:00
+    # 🕗 resumo diário às 08:00
     scheduler.add_job(enviar_resumo_diario, "cron", hour=8, minute=0)
 
     scheduler.start()
-    print("✅ Scheduler de notificações iniciado com envio diário às 08:00.")
+    print("✅ Scheduler de notificações iniciado (loop a cada 15 minuto, resumo 08:00).")

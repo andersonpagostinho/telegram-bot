@@ -53,19 +53,31 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
         print(f"✅ Evento salvo para {user_id_efetivo} com ID {event_id}: {evento}")
 
         # 🔔 Enviar notificação só para o cliente (e não para o dono)
-        cliente_id = evento.get("cliente_id")
-        if cliente_id and cliente_id != user_id_efetivo:
+        from services.notificacao_service import criar_notificacao_agendada
+
+        cliente_id = (evento.get("cliente_id") or "").strip()
+        data_ev = evento.get("data")
+        hora_ev = evento.get("hora_inicio")
+        descricao_ev = evento.get("descricao", "Compromisso")
+
+        # user_id_efetivo = quem está criando/operando (dono/atendente)
+        # garanta que essa variável exista no escopo; se não existir, use user_id
+        origem_user = user_id_efetivo if "user_id_efetivo" in locals() else user_id
+
+        if cliente_id and cliente_id != origem_user and data_ev and hora_ev:
             try:
                 await criar_notificacao_agendada(
-                    user_id=cliente_id,
-                    descricao=evento.get("descricao", "Compromisso"),
-                    data=evento.get("data"),
-                    hora_inicio=evento.get("hora_inicio"),
+                    user_id=origem_user,              # quem originou a criação
+                    descricao=descricao_ev,
+                    data=data_ev,
+                    hora_inicio=hora_ev,
                     canal="telegram",
-                    minutos_antes=30
+                    minutos_antes=30,
+                    destinatario_user_id=cliente_id,  # 🔑 notifica o CLIENTE
+                    alvo_evento={"data": data_ev, "hora_inicio": hora_ev, "descricao": descricao_ev}
                 )
             except Exception as e:
-                print(f"⚠️ Erro ao agendar notificação: {e}")
+                print(f"⚠️ Erro ao agendar notificação para cliente {cliente_id}: {e}")
 
         return True
     except Exception as e:

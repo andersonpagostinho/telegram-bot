@@ -257,13 +257,13 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             from services.notificacao_service import criar_notificacao_agendada
             await criar_notificacao_agendada(
                 user_id=user_id,
-                descricao=f"{evento['descricao']} para {evento.get('nome_cliente', '')}".strip(),
-                data=data_hora_inicio.strftime("%Y-%m-%d"),
-                hora_inicio=data_hora_inicio.strftime("%H:%M"),
-                canal="telegram",
-                minutos_antes=30
+                descricao=descricao,
+                data=data,
+                hora_inicio=hora_inicio,
+                minutos_antes=30,
+                destinatario_user_id=user_id,  # padrão: quem está no chat recebe
+                alvo_evento={"data": data, "hora_inicio": hora_inicio}
             )
-
             await resetar_sessao(user_id)
 
             return f"✅ Agendamento confirmado com *{profissional_escolhido}* para *{servico}* em *{data}* às *{hora}*."

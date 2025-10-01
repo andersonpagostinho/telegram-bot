@@ -121,32 +121,25 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("📦 Salvando evento com os dados:", evento)
     sucesso = await salvar_evento(user_id, evento)
     if sucesso:
-        await update.message.reply_text(
-            f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
-            parse_mode="Markdown"
-        )
-        # 🔔 Agendar lembretes padrão
-        try:
-            await criar_notificacao_agendada(
-                user_id=user_id,
-                descricao=descricao,
-                data=data,
-                hora_inicio=hora_inicio,
-                minutos_antes=60,
-                canal="telegram",
-            )
-            await criar_notificacao_agendada(
-                user_id=user_id,
-                descricao=descricao,
-                data=data,
-                hora_inicio=hora_inicio,
-                minutos_antes=10,
-                canal="telegram",
-            )
-        except Exception as e:
-            print(f"⚠️ Falha ao agendar lembretes (add_agenda): {e}")
-    else:
-        await update.message.reply_text("❌ Ocorreu um erro ao tentar salvar o evento.")
+    await update.message.reply_text(
+        f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
+        parse_mode="Markdown"
+    )
+
+    from services.notificacao_service import criar_notificacao_agendada
+
+    await criar_notificacao_agendada(
+        user_id=user_id,
+        descricao=descricao,
+        data=data,
+        hora_inicio=hora_inicio,
+        canal="telegram",
+        minutos_antes=30,
+        destinatario_user_id=user_id,  # dono recebe o aviso
+        alvo_evento={"data": data, "hora_inicio": hora_inicio}
+    )
+else:
+    await update.message.reply_text("❌ Ocorreu um erro ao tentar salvar o evento.")
 
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
@@ -318,29 +311,27 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if profissional:
             evento_data["profissional"] = profissional  # ✅ só se tiver
 
-        print(f"👤 Profissional detectado: {profissional}")
+        print(f"👤 Profissional detectado: {profissional}") 
         sucesso = await salvar_evento(user_id, evento_data)
         if sucesso:
             msg = f"✅ Reunião marcada para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
             await responder_em_audio(update, context, msg)
-            # 🔔 Agendar lembretes padrão
+
+            # 🔔 Lembretes para o DONO (quem executou o comando / a conta que está usando o bot)
+            from services.notificacao_service import criar_notificacao_agendada
             try:
+                # 30 min antes
                 await criar_notificacao_agendada(
                     user_id=user_id,
                     descricao=titulo,
                     data=start_time.strftime("%Y-%m-%d"),
                     hora_inicio=start_time.strftime("%H:%M"),
-                    minutos_antes=60,
                     canal="telegram",
+                    minutos_antes=30,
+                    destinatario_user_id=user_id,  # dono recebe
+                    alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")}
                 )
-                await criar_notificacao_agendada(
-                    user_id=user_id,
-                    descricao=titulo,
-                    data=start_time.strftime("%Y-%m-%d"),
-                    hora_inicio=start_time.strftime("%H:%M"),
-                    minutos_antes=10,
-                    canal="telegram",
-                )
+                
             except Exception as e:
                 print(f"⚠️ Falha ao agendar lembretes (voz): {e}")
         else:
@@ -497,24 +488,27 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await salvar_evento(user_id, evento_data)
         print("✅ Evento salvo")
 
-        # 🔔 Agendar lembretes (ex.: 60min e 10min antes)
+        # 🔔 Lembretes (60 e 10 min antes)
+        from services.notificacao_service import criar_notificacao_agendada
         try:
+            # Decide quem recebe o lembrete:
+            # - se veio cliente_user_id (atendimento ao cliente) -> notifica o cliente
+            # - senão -> notifica o dono (quem está usando o bot)
+            cliente_user_id = dados.get("cliente_user_id") if isinstance(dados, dict) else None
+            destinatario = cliente_user_id or user_id
+
+            # 30 min antes
             await criar_notificacao_agendada(
                 user_id=user_id,
                 descricao=descricao,
                 data=start_time.strftime("%Y-%m-%d"),
                 hora_inicio=start_time.strftime("%H:%M"),
-                minutos_antes=60,
                 canal="telegram",
+                minutos_antes=30,
+                destinatario_user_id=destinatario,
+                alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")}
             )
-            await criar_notificacao_agendada(
-                user_id=user_id,
-                descricao=descricao,
-                data=start_time.strftime("%Y-%m-%d"),
-                hora_inicio=start_time.strftime("%H:%M"),
-                minutos_antes=10,
-                canal="telegram",
-            )
+
         except Exception as e:
             print(f"⚠️ Falha ao agendar lembretes do evento: {e}")
 
