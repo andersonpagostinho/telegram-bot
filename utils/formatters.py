@@ -8,8 +8,21 @@ def formatar_horario_atual(date_utc):
     hora_str = data_local.strftime("%H:%M")
     return f"No momento são {data_str} e o horário é {hora_str}."
 
-def adaptar_genero(profissional: str, palavra: str) -> str:
-    return palavra + "a" if profissional.strip().lower().endswith("a") else palavra + "o"
+def adaptar_genero(nome: str | None, radical: str) -> str:
+    """
+    Retorna o radical flexionado por gênero com base no nome.
+    Se nome terminar com 'a' -> feminino (ex.: 'ocupada'), senão -> masculino ('ocupado').
+    Suporta None, string vazia e espaços sem quebrar.
+    """
+    try:
+        if not nome:
+            # neutro/seguro quando não há nome
+            return radical + "o"
+        n = nome.strip().lower()
+        return radical + ("a" if n.endswith("a") else "o")
+    except Exception:
+        # fallback ultra-seguro
+        return radical + "o"
 
 def gerar_sugestoes_de_horario(inicio_base: datetime, ocupados: list, duracao_evento_minutos: int = 60, max_sugestoes: int = 3) -> list:
     """
