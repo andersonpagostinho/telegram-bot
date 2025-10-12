@@ -200,8 +200,14 @@ async def enviar_resumo_diario():
 def start_notificacao_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
 
-    # verifica notificações a cada 15 minutos
-    scheduler.add_job(processar_notificacoes_agendadas, "interval", minutes=15)
+    # roda a cada 1 minuto, junta execuções atrasadas e tolera pequenos “misfires”
+    scheduler.add_job(
+        processar_notificacoes_agendadas,
+        "interval",
+        seconds=60,
+        coalesce=True,
+        misfire_grace_time=120
+    )
 
     # resumo diário às 08:00
     scheduler.add_job(enviar_resumo_diario, "cron", hour=8, minute=0)
