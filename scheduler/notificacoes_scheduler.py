@@ -91,17 +91,28 @@ async def processar_notificacoes_agendadas():
                 if dt > agora:
                     continue
 
-                # mensagem
+                # monta mensagem (fallbacks)
                 mensagem = notif.get("mensagem")
                 if not mensagem:
-                    desc = notif.get("descricao", "Lembrete")
+                    desc = (notif.get("descricao") or "compromisso").strip()
                     alvo = notif.get("alvo_evento") or {}
-                    quando = ""
-                    if alvo.get("data") and alvo.get("hora_inicio"):
-                        quando = f"\n🗓️ {alvo['data']} às {alvo['hora_inicio']}"
-                    mensagem = f"⏰ {desc}{quando}"
+                    data_ev = (alvo.get("data") or "")
+                    hora_ev = (alvo.get("hora_inicio") or "")
+                    min_antes = int(notif.get("minutos_antes") or 30)
 
-                canal = (notif.get("canal") or "telegram").lower()
+                    # tenta identificar "reunião" pela descrição
+                    desc_lower = desc.lower()
+                    tipo_legivel = "reunião" if "reuni" in desc_lower else desc_lower
+
+                    # formata quando (se houver data/hora do evento)
+                    quando = ""
+                    if data_ev and hora_ev:
+                        quando = f" — hoje às {hora_ev}" if data_ev == datetime.now(FUSO_BR).strftime("%Y-%m-%d") else f" — {data_ev} às {hora_ev}"
+
+                    # singular/plural
+                    sufixo_min = "minuto" if min_antes == 1 else "minutos"
+
+                    mensagem = f"🔔 Não esqueça: sua {tipo_legivel} começa em {min_antes} {sufixo_min}{quando}."
 
                 try:
                     if canal == "telegram":
@@ -213,4 +224,4 @@ def start_notificacao_scheduler():
     scheduler.add_job(enviar_resumo_diario, "cron", hour=8, minute=0)
 
     scheduler.start()
-    print("✅ Scheduler de notificações iniciado (loop a cada 15 min, resumo 08:00).")
+    print("✅ Scheduler de notificações iniciado (loop a cada 1 min, resumo 08:00).")
