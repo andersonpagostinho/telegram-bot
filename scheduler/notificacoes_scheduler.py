@@ -4,6 +4,7 @@ from datetime import datetime
 from pytz import timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from services.firebase_service_async import buscar_subcolecao, atualizar_dado_em_path
+from services.recorrencia_service import checar_e_propor_recorrencias_todos
 import logging
 import os
 
@@ -54,20 +55,12 @@ async def processar_notificacoes_agendadas():
     logger.info("⏰ processar_notificacoes_agendadas() iniciado...")
 
     try:
+        bot = await _get_bot()
+        if bot is None:
+            return
+
         clientes = await buscar_subcolecao("Clientes") or {}
         agora = datetime.now(FUSO_BR)
-
-        # usa a instância do bot já criada em main; se falhar, tenta TOKEN
-        try:
-            from main import application
-            bot = application.bot
-        except Exception as e:
-            logger.warning(f"Não consegui importar application.bot ({e}); tentando fallback por TOKEN.")
-            token = os.getenv("TOKEN")
-            if not token:
-                logger.error("Sem TOKEN para fallback; abortando ciclo de notificações.")
-                return
-            bot = Bot(token=token)
 
         for user_id in clientes.keys():
             path = f"Clientes/{user_id}/NotificacoesAgendadas"
@@ -77,13 +70,13 @@ async def processar_notificacoes_agendadas():
                 if not isinstance(notif, dict):
                     continue
 
+                # já enviada?
                 avisado = bool(notif.get("avisado"))
                 status = (notif.get("status") or "").lower()
                 if avisado or status == "enviado":
-                    # já resolvida
                     continue
 
-                # fuso/horário do disparo
+                # quando disparar
                 dt = _parse_iso_br(notif.get("data_hora", ""))
                 if not dt:
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
@@ -93,13 +86,11 @@ async def processar_notificacoes_agendadas():
                     })
                     continue
                 if dt > agora:
-                    # ainda não é hora
                     continue
 
-                # 🔧 defina o canal ANTES do try (para existir no except)
                 canal = (notif.get("canal") or "telegram").lower()
 
-                # ✅ mensagem clara (fallback se não vier pronta)
+                # mensagem clara (fallback)
                 mensagem = notif.get("mensagem")
                 if not mensagem:
                     desc = (notif.get("descricao") or "compromisso").strip()
@@ -136,10 +127,9 @@ async def processar_notificacoes_agendadas():
                         "status": "enviado",
                         "enviado_em": agora.isoformat()
                     })
-                    logger.info(f"✅ Notificação enviada [{user_id}] via {canal}: {mensagem}")
+                    logger.info(f"✅ Notificação enviado [{user_id}] via {canal}: {mensagem}")
 
                 except Exception as e:
-                    # aqui 'canal' SEMPRE existe
                     logger.error(f"Erro ao enviar notificação para {user_id} via {canal}: {e}")
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
                         "status": "erro",
@@ -183,7 +173,7 @@ async def enviar_resumo_diario():
             else:
                 partes_resumo.append("📝 Nenhuma tarefa registrada.")
 
-            # follow-ups do dia (coleção antiga/legada)
+            # follow-ups (coleção antiga/legada)
             followups_dict = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps") or {}
             pendentes = []
             for f in followups_dict.values():
@@ -214,17 +204,37 @@ async def enviar_resumo_diario():
 def start_notificacao_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
 
-    # roda a cada 1 minuto, junta execuções atrasadas e tolera pequenos “misfires”
+    # 🔔 Notificações a cada 1 minuto (coalesce + tolerância a misfire)
     scheduler.add_job(
         processar_notificacoes_agendadas,
         "interval",
         seconds=60,
         coalesce=True,
-        misfire_grace_time=120
+        misfire_grace_time=120,
+        id="notificacoes_intervalo_1min",
+        replace_existing=True,
     )
 
-    # resumo diário às 08:00
-    scheduler.add_job(enviar_resumo_diario, "cron", hour=8, minute=0)
+    # 📨 Resumo diário às 08:00
+    scheduler.add_job(
+        enviar_resumo_diario,
+        "cron",
+        hour=8,
+        minute=0,
+        id="resumo_diario_08h",
+        replace_existing=True,
+    )
+
+    # 🤖 Recorrência inteligente às 08:00
+    scheduler.add_job(
+        checar_e_propor_recorrencias_todos,
+        "cron",
+        hour=8,
+        minute=0,
+        id="recorrencia_diaria_08h",
+        replace_existing=True,
+    )
 
     scheduler.start()
-    print("✅ Scheduler de notificações iniciado (loop a cada 1 min, resumo 08:00).")
+    print("✅ Scheduler de notificações iniciado (loop a cada 1 min, resumo 08:00, recorrência 08:00).")
+    logger.info("✅ Scheduler de notificações iniciado (loop a cada 1 min, resumo 08:00, recorrência 08:00).")
