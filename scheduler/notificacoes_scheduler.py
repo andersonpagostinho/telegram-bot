@@ -52,14 +52,22 @@ async def _get_bot():
 
 async def processar_notificacoes_agendadas():
     logger.info("⏰ processar_notificacoes_agendadas() iniciado...")
-    try:
-        bot = await _get_bot()
-        if bot is None:
-            # sem bot não dá pra enviar nada
-            return
 
+    try:
         clientes = await buscar_subcolecao("Clientes") or {}
         agora = datetime.now(FUSO_BR)
+
+        # usa a instância do bot já criada em main; se falhar, tenta TOKEN
+        try:
+            from main import application
+            bot = application.bot
+        except Exception as e:
+            logger.warning(f"Não consegui importar application.bot ({e}); tentando fallback por TOKEN.")
+            token = os.getenv("TOKEN")
+            if not token:
+                logger.error("Sem TOKEN para fallback; abortando ciclo de notificações.")
+                return
+            bot = Bot(token=token)
 
         for user_id in clientes.keys():
             path = f"Clientes/{user_id}/NotificacoesAgendadas"
@@ -71,27 +79,27 @@ async def processar_notificacoes_agendadas():
 
                 avisado = bool(notif.get("avisado"))
                 status = (notif.get("status") or "").lower()
-                logger.debug(f"[{user_id}] notif {notif_id}: avisado={avisado} status={status} data_hora={notif.get('data_hora')}")
-
-                # já enviada?
                 if avisado or status == "enviado":
+                    # já resolvida
                     continue
 
+                # fuso/horário do disparo
                 dt = _parse_iso_br(notif.get("data_hora", ""))
                 if not dt:
-                    # marca erro para não reprocessar eternamente
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
                         "status": "erro",
                         "erro": "data_hora inválida",
                         "atualizado_em": agora.isoformat()
                     })
                     continue
-
-                # ainda não é hora
                 if dt > agora:
+                    # ainda não é hora
                     continue
 
-                # monta mensagem (fallbacks)
+                # 🔧 defina o canal ANTES do try (para existir no except)
+                canal = (notif.get("canal") or "telegram").lower()
+
+                # ✅ mensagem clara (fallback se não vier pronta)
                 mensagem = notif.get("mensagem")
                 if not mensagem:
                     desc = (notif.get("descricao") or "compromisso").strip()
@@ -100,35 +108,29 @@ async def processar_notificacoes_agendadas():
                     hora_ev = (alvo.get("hora_inicio") or "")
                     min_antes = int(notif.get("minutos_antes") or 30)
 
-                    # tenta identificar "reunião" pela descrição
+                    # tenta identificar reunião
                     desc_lower = desc.lower()
                     tipo_legivel = "reunião" if "reuni" in desc_lower else desc_lower
 
-                    # formata quando (se houver data/hora do evento)
+                    # hoje ou outra data
+                    hoje_str = datetime.now(FUSO_BR).strftime("%Y-%m-%d")
                     quando = ""
                     if data_ev and hora_ev:
-                        quando = f" — hoje às {hora_ev}" if data_ev == datetime.now(FUSO_BR).strftime("%Y-%m-%d") else f" — {data_ev} às {hora_ev}"
+                        quando = f" — hoje às {hora_ev}" if data_ev == hoje_str else f" — {data_ev} às {hora_ev}"
 
-                    # singular/plural
                     sufixo_min = "minuto" if min_antes == 1 else "minutos"
-
                     mensagem = f"🔔 Não esqueça: sua {tipo_legivel} começa em {min_antes} {sufixo_min}{quando}."
 
                 try:
                     if canal == "telegram":
                         await bot.send_message(chat_id=int(user_id), text=mensagem)
                     elif canal == "whatsapp":
-                        try:
-                            from services.whatsapp_service import enviar_mensagem_whatsapp
-                            await enviar_mensagem_whatsapp(user_id, mensagem)
-                        except Exception as e_wpp:
-                            logger.error(f"[{user_id}] Falha WhatsApp, tentando Telegram: {e_wpp}")
-                            await bot.send_message(chat_id=int(user_id), text=mensagem)
+                        from services.whatsapp_service import enviar_mensagem_whatsapp
+                        await enviar_mensagem_whatsapp(user_id, mensagem)
                     else:
                         # canal desconhecido → tenta telegram
                         await bot.send_message(chat_id=int(user_id), text=mensagem)
 
-                    # marca como enviado (compat com ambos campos)
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
                         "avisado": True,
                         "status": "enviado",
@@ -137,6 +139,7 @@ async def processar_notificacoes_agendadas():
                     logger.info(f"✅ Notificação enviada [{user_id}] via {canal}: {mensagem}")
 
                 except Exception as e:
+                    # aqui 'canal' SEMPRE existe
                     logger.error(f"Erro ao enviar notificação para {user_id} via {canal}: {e}")
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
                         "status": "erro",
