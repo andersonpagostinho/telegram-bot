@@ -29,9 +29,8 @@ from handlers.followup_handler import criar_followup, listar_followups, verifica
 from handlers.test_handler import testar_avisos
 from handlers.gpt_text_handler import processar_texto
 from datetime import datetime, timedelta
-
-
-
+from handlers.encaixe_handler import handle_pedido_encaixe
+from handlers.reagendamento_handler import handle_resposta_reagendamento
 logger = logging.getLogger(__name__)
 
 # ✅ Comando /start
@@ -268,6 +267,8 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("enviar_agenda_excel", enviar_agenda_excel))
         application.add_handler(CommandHandler("custosapi", custos_api_handler))
         application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), tratar_mensagens_gerais))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_pedido_encaixe))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_resposta_reagendamento))
         application.add_handler(MessageHandler(
             filters.Document.MimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             importar_profissionais_handler
