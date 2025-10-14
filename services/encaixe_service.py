@@ -323,7 +323,7 @@ async def solicitar_encaixe(
 
         prof_txt = f" com {ev.get('profissional')}" if ev.get("profissional") else ""
         msg = (
-            ⚠️ Oi! Surgiu uma urgência e estamos tentando realocar um horário.\n\n"
+            "⚠️ Oi! Surgiu uma urgência e estamos tentando realocar um horário.\n\n"
             f"Você topa mover o seu agendamento{prof_txt} *({ev.get('descricao')})* para um destes horários?\n\n"
             + "\n".join(linhas) +
             "\n\nResponda *1*, *2* ou *3* aqui no chat para confirmar. Obrigado! 🙏"
