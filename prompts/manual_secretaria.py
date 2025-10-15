@@ -190,6 +190,24 @@ Exemplo completo:
 ⚠️ Nunca omita o campo "profissional" se ele puder ser identificado.
 Se houver dúvida entre duas pessoas com o mesmo nome, pergunte qual delas deve ser usada.
 
+- cancelar_evento
+  - Quando o usuário pedir para cancelar um compromisso (“cancelar unha com a Carla amanhã”, “cancele minha reunião de sexta às 10h” etc.),
+    responda com:
+    {
+      "resposta": "Vou cancelar o evento solicitado.",
+      "acao": "cancelar_evento",
+      "dados": { "termo": "<repita em texto o pedido do usuário, ex.: 'unha com a Carla amanhã'>" }
+    }
+
+# Exemplo:
+# Usuário: "cancelar unha com a Carla amanhã"
+# Saída:
+# {
+#   "resposta": "Vou cancelar o evento solicitado.",
+#   "acao": "cancelar_evento",
+#   "dados": { "termo": "unha com a Carla amanhã" }
+# }
+
 ---
 
 📌 CONTINUIDADE DO ATENDIMENTO COM PROFISSIONAIS

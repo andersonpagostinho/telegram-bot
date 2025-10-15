@@ -157,9 +157,22 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             return True
 
         elif acao == "cancelar_evento":
-            termo = dados.get("termo") or texto_usuario  # fallback no que o usuário disse
+            # tenta usar o termo vindo do modelo;
+            # fallback para o próprio texto do usuário, se necessário
+            termo = (dados or {}).get("termo")
+            if not termo:
+                # se você tiver o update/context aqui, pode usar o texto recebido
+                termo = getattr(getattr(update, "message", None), "text", "")
+
             ok, msg = await cancelar_evento_por_texto(user_id, termo)
-            await update.message.reply_text(msg)
+            # responda ao usuário
+            if ok:
+                await update.message.reply_text(msg)
+            else:
+                # mensagem de ajuda com reforço do termo usado
+                ajuda = "Me diga algo como: 'cancelar corte amanhã às 10h com Joana' ou 'cancelar reunião de 25/10 às 14:00'."
+                txt = f"{msg}\n\n{ajuda}"
+                await update.message.reply_text(txt)
 
         # 🚀 Novas ações para eventos:
         elif acao == "buscar_eventos_da_semana":

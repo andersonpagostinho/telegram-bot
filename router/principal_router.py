@@ -96,6 +96,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "verificar_acesso_modulo",
         "responder_audio",
         "criar_followup",
+        "cancelar_evento",
         "buscar_eventos_do_dia",
     }
 
