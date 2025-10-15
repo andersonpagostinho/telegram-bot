@@ -1,20 +1,23 @@
 from datetime import datetime, timedelta
+from pytz import timezone
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from services.firebase_service_async import (
     salvar_dado_em_path,
     buscar_subcolecao,
     deletar_dado_em_path,
     obter_id_dono,
-    buscar_dado_em_path
+    buscar_dado_em_path,
+    atualizar_dado_em_path,   # ✅ necessário para cancelar_evento
 )
 from services.notificacao_service import criar_notificacao_agendada
 from utils.formatters import gerar_sugestoes_de_horario
 
+FUSO_BR = timezone("America/Sao_Paulo")
+
 # 🔁 Salvar ou atualizar um evento
 async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> bool:
     try:
-        # ✅ Verifica conflitos antes de salvar
-        from .event_service_async import verificar_conflito
+        # ✅ Verifica conflitos antes de salvar (chama direto, sem import interno)
         conflitos = await verificar_conflito(
             user_id=user_id,
             data=evento["data"],
@@ -116,6 +119,10 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
         resultado = []
 
         for evento in eventos.values():
+            # ❗ Ignora cancelados
+            if (evento.get("status") or "").lower() == "cancelado":
+                continue
+
             data_str = evento.get("data")
             if not data_str:
                 continue
@@ -133,6 +140,78 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
     except Exception as e:
         print(f"❌ Erro ao buscar eventos: {e}")
         return []
+async def cancelar_evento(user_id: str, event_id: str) -> bool:
+    """
+    Marca um evento como cancelado (soft delete).
+    Resolve user_id efetivo (dono) quando a chamada vier do cliente.
+    """
+    try:
+        # resolve o id efetivo como nos outros métodos
+        dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+        user_id_efetivo = user_id
+        if dados_usuario:
+            tipo = dados_usuario.get("tipo_usuario", "cliente")
+            modo = dados_usuario.get("modo_uso", "")
+            if tipo == "cliente" or modo == "atendimento_cliente":
+                user_id_efetivo = await obter_id_dono(user_id)
+
+        path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
+        payload = {
+            "status": "cancelado",
+            "cancelado_em": datetime.now(FUSO_BR).isoformat()
+        }
+        await atualizar_dado_em_path(path, payload)
+        return True
+    except Exception as e:
+        print(f"❌ cancelar_evento: {e}")
+        return False
+
+async def cancelar_evento_por_texto(user_id: str, termo: str) -> tuple[bool, str]:
+    termo_l = (termo or "").strip().lower()
+    if not termo_l:
+        return False, "⚠️ Informe parte do título/data para eu encontrar o evento."
+
+    # resolve id efetivo
+    dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+    user_id_efetivo = user_id
+    if dados_usuario:
+        tipo = dados_usuario.get("tipo_usuario", "cliente")
+        modo = dados_usuario.get("modo_uso", "")
+        if tipo == "cliente" or modo == "atendimento_cliente":
+            user_id_efetivo = await obter_id_dono(user_id)
+
+    eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
+    candidatos = []
+    for eid, ev in eventos.items():
+        if not isinstance(ev, dict):
+            continue
+        if (ev.get("status") or "").lower() == "cancelado":
+            continue
+        blob = f"{ev.get('descricao','')} {ev.get('data','')} {ev.get('hora_inicio','')} {ev.get('hora_fim','')}".lower()
+        if termo_l in blob:
+            candidatos.append((eid, ev))
+
+    if not candidatos:
+        return False, "❌ Não encontrei nenhum evento correspondente."
+
+    from datetime import datetime as _dt  # evitar sombra
+    def _score(ev):
+        try:
+            return _dt.fromisoformat(f"{ev['data']}T{ev['hora_inicio']}:00")
+        except Exception:
+            return _dt.max
+
+    futuros = [(eid, ev) for eid, ev in candidatos if _score(ev) >= _dt.now()]
+    eid_escolhido, ev_escolhido = (min(futuros, key=lambda x: _score(x[1])) if futuros else candidatos[0])
+
+    ok = await cancelar_evento(user_id, eid_escolhido)
+    if not ok:
+        return False, "❌ Tive um problema ao cancelar no sistema."
+
+    desc = ev_escolhido.get("descricao", "Evento")
+    data = ev_escolhido.get("data", "")
+    hora = ev_escolhido.get("hora_inicio", "")
+    return True, f"✅ {desc} em {data} às {hora} foi cancelado e liberou o horário."
 
 # 🔍 Verificar conflito de horário para um novo evento
 async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_min: int = 60, profissional: str = "") -> list:
@@ -148,6 +227,10 @@ async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_
 
         conflitos = []
         for ev in eventos.values():
+             # ❗ Ignora cancelados
+            if (ev.get("status") or "").lower() == "cancelado":
+                continue
+
             try:
                 data_evento = datetime.strptime(ev.get("data", ""), "%Y-%m-%d").date()
             except:

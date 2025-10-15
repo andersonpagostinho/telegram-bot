@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from handlers.task_handler import add_task, list_tasks, list_tasks_by_priority, clear_tasks
 from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, conectar_email
-from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, confirmar_presenca, debug_eventos
+from handlers.event_handler import add_agenda, list_events, confirmar_reuniao, confirmar_presenca, debug_eventos, cancelar_evento_cmd
 from services.firebase_service_async import buscar_cliente, salvar_cliente, verificar_firebase, buscar_documento
 from handlers.test_handler import testar_firebase, testar_avisos
 from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_relatorio_email
@@ -269,6 +269,7 @@ def register_handlers(application: Application):
         application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), tratar_mensagens_gerais))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_pedido_encaixe))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_resposta_reagendamento))
+        application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
         application.add_handler(MessageHandler(
             filters.Document.MimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             importar_profissionais_handler

@@ -156,6 +156,11 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             await consultar_preco_servico(update, context, dados)
             return True
 
+        elif acao == "cancelar_evento":
+            termo = dados.get("termo") or texto_usuario  # fallback no que o usuário disse
+            ok, msg = await cancelar_evento_por_texto(user_id, termo)
+            await update.message.reply_text(msg)
+
         # 🚀 Novas ações para eventos:
         elif acao == "buscar_eventos_da_semana":
             user_id = str(update.message.from_user.id)

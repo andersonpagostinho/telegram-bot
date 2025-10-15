@@ -28,7 +28,7 @@ from services.firebase_service_async import (
     atualizar_dado_em_path,
     buscar_dado_em_path,
 )
-from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo
+from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo, cancelar_evento_por_texto
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento 
 
 logger = logging.getLogger(__name__)
@@ -343,6 +343,18 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
     finally:
         context.chat_data.pop("evento_via_gpt", None)
+
+async def cancelar_evento_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    termo = " ".join(context.args) if context.args else ""
+    if not termo:
+        await update.message.reply_text(
+            "Uso: /cancelar <parte do título/data/hora>\nEx.: /cancelar reunião 15:00 ou /cancelar 2025-10-12"
+        )
+        return
+
+    ok, msg = await cancelar_evento_por_texto(user_id, termo)
+    await update.message.reply_text(msg)
 
 # ✅ definição de duração de eventos
 async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAULT_TYPE, mensagem: str):
