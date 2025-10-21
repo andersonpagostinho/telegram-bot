@@ -13,6 +13,7 @@ from utils.tts_utils import responder_em_audio
 from services.firebase_service_async import buscar_subcolecao
 from datetime import datetime
 from services.email_service import enviar_email_google
+from services.event_service_async import cancelar_evento_por_texto
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
@@ -47,6 +48,24 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             if descricao:
                 await remover_tarefa_por_descricao(update, context, descricao)
             return True
+
+        elif acao == "cancelar_evento":
+        # tenta usar o termo vindo do modelo;
+        # fallback para o próprio texto do usuário, se necessário
+        termo = (dados or {}).get("termo")
+        if not termo:
+            # se você tiver o update/context aqui, pode usar o texto recebido
+            termo = getattr(getattr(update, "message", None), "text", "")
+
+        ok, msg = await cancelar_evento_por_texto(user_id, termo)
+        # responda ao usuário
+        if ok:
+            await update.message.reply_text(msg)
+        else:
+            # mensagem de ajuda com reforço do termo usado
+            ajuda = "Me diga algo como: 'cancelar corte amanhã às 10h com Joana' ou 'cancelar reunião de 25/10 às 14:00'."
+            txt = f"{msg}\n\n{ajuda}"
+            await update.message.reply_text(txt)
 
         elif acao == "enviar_email":
             destinatario = dados.get("destinatario")

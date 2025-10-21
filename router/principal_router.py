@@ -85,6 +85,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "buscar_eventos_da_semana",
         "criar_tarefa",
         "remover_tarefa",
+        "cancelar_evento"
         "listar_followups",
         "cadastrar_profissional",
         "aguardar_arquivo_importacao",
