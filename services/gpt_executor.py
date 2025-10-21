@@ -13,10 +13,29 @@ from utils.tts_utils import responder_em_audio
 from services.firebase_service_async import buscar_subcolecao
 from datetime import datetime
 from services.email_service import enviar_email_google
-from services.event_service_async import cancelar_evento_por_texto
+from services.event_service_async import cancelar_evento_por_texto, buscar_eventos_por_termo_avancado, cancelar_evento
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
+
+def _obter_user_id(update, context) -> str:
+    # tenta pegar da mensagem/chat
+    uid = None
+    try:
+        if getattr(update, "effective_user", None) and getattr(update.effective_user, "id", None):
+            uid = update.effective_user.id
+        elif getattr(update, "message", None) and getattr(update.message, "chat", None):
+            uid = update.message.chat.id
+    except Exception:
+        pass
+
+    # fallback: context storages
+    if not uid:
+        uid = (context.user_data.get("user_id")
+               or context.chat_data.get("user_id")
+               or context.bot_data.get("user_id"))
+
+    return str(uid) if uid else ""
 
 async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, acao: str, dados: dict):
     try:
@@ -50,26 +69,49 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             return True
 
         elif acao == "cancelar_evento":
-            # termo vindo do modelo (ex.: "unha com a Carla amanhã")
-            termo = (dados or {}).get("termo")
-            if not termo:
-                # fallback: usa o texto bruto da mensagem se o modelo não mandou "termo"
-                termo = getattr(getattr(update, "message", None), "text", "") or ""
+            user_id = _obter_user_id(update, context)
+            if not user_id:
+                await update.message.reply_text("⚠️ Não consegui identificar quem está solicitando o cancelamento.")
+                return True
+
+            termo = (dados or {}).get("termo") or getattr(getattr(update, "message", None), "text", "") or ""
 
             try:
-                ok, msg = await cancelar_evento_por_texto(user_id, termo)
+                candidatos = await buscar_eventos_por_termo_avancado(user_id, termo)
             except Exception as e:
-                ok, msg = False, f"❌ Erro ao processar cancelamento: {e}"
+                candidatos = []
+                print(f"buscar_eventos_por_termo_avancado falhou: {e}")
+  
+            # 0) nada encontrado → mensagem útil
+            if not candidatos:
+                await update.message.reply_text("❌ Não encontrei nenhum evento correspondente ao que você quer cancelar.")
+                return True
 
-            if ok:
-                await update.message.reply_text(msg)
-            else:
-                ajuda = (
-                    "Me diga algo como:\n"
-                    "• cancelar corte amanhã às 10:00 com Joana\n"
-                    "• cancelar unha com Carla dia 20/10 às 15:30"
-                )
-                await update.message.reply_text(f"{msg}\n\n{ajuda}")
+            # 1) se já existir um “cancelamento pendente”, libera/atualiza
+            context.user_data.pop("cancelamento_pendente", None)
+
+            # 2) 1 candidato → cancela direto
+            if len(candidatos) == 1:
+                eid, ev = candidatos[0]
+                ok = await cancelar_evento(user_id, eid)
+                if ok:
+                    await update.message.reply_text(f"✅ Cancelei: {ev.get('descricao','Evento')} em {ev.get('data','')} às  {ev.get('hora_inicio','')}.")
+                else:
+                    await update.message.reply_text("❌ Tive um problema ao cancelar. Pode tentar novamente?")
+                return True
+
+            # 3) Vários → lista e armazena estado
+            linhas = []
+            for i, (eid, ev) in enumerate(candidatos, start=1):
+                linhas.append(f"{i}) {ev.get('descricao','(Sem título)')} — {ev.get('data','')} às {ev.get('hora_inicio','')} (prof: {ev.get('profissional','-')})")
+            txt = "Encontrei mais de um. Qual você deseja cancelar?\n\n" + "\n".join(linhas) + "\n\nResponda com o número da opção."
+            context.user_data["cancelamento_pendente"] = {
+                "user_id": user_id,
+                "candidatos": [eid for eid, _ in candidatos],
+                "criado_em": datetime.now().isoformat()
+            }
+            await update.message.reply_text(txt)
+            return True
 
         elif acao == "enviar_email":
             destinatario = dados.get("destinatario")
@@ -178,24 +220,6 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             from handlers.acao_router_handler import consultar_preco_servico
             await consultar_preco_servico(update, context, dados)
             return True
-
-        elif acao == "cancelar_evento":
-            # tenta usar o termo vindo do modelo;
-            # fallback para o próprio texto do usuário, se necessário
-            termo = (dados or {}).get("termo")
-            if not termo:
-                # se você tiver o update/context aqui, pode usar o texto recebido
-                termo = getattr(getattr(update, "message", None), "text", "")
-
-            ok, msg = await cancelar_evento_por_texto(user_id, termo)
-            # responda ao usuário
-            if ok:
-                await update.message.reply_text(msg)
-            else:
-                # mensagem de ajuda com reforço do termo usado
-                ajuda = "Me diga algo como: 'cancelar corte amanhã às 10h com Joana' ou 'cancelar reunião de 25/10 às 14:00'."
-                txt = f"{msg}\n\n{ajuda}"
-                await update.message.reply_text(txt)
 
         # 🚀 Novas ações para eventos:
         elif acao == "buscar_eventos_da_semana":

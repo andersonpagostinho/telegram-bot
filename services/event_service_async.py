@@ -1,3 +1,5 @@
+import re
+from unidecode import unidecode
 from datetime import datetime, timedelta
 from pytz import timezone
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
@@ -279,6 +281,116 @@ async def deletar_evento(user_id: str, event_id: str) -> bool:
     except Exception as e:
         print(f"❌ Erro ao deletar evento: {e}")
         return False
+
+def _normaliza_txt(s: str) -> str:
+    return unidecode((s or "").strip().lower())
+
+def _interpreta_data_relativa(termo: str, hoje: datetime.date) -> tuple[datetime.date|None, datetime.date|None]:
+    t = _normaliza_txt(termo)
+    if "hoje" in t:
+        return hoje, hoje
+    if "amanha" in t or "amanhã" in termo:
+        d = hoje + timedelta(days=1)
+        return d, d
+    # semana/intervalo simples (opcional)
+    return None, None
+
+def _extrai_data_explicita(termo: str) -> datetime.date|None:
+    # aceita 20/10, 20-10, 2025-10-21, 21/10/2025 etc.
+    t = termo
+    padroes = [
+        r"\b(\d{2})[/-](\d{2})[/-](\d{4})\b",   # DD/MM/YYYY
+        r"\b(\d{4})-(\d{2})-(\d{2})\b",         # YYYY-MM-DD
+        r"\b(\d{2})[/-](\d{2})\b"               # DD/MM (assume ano atual)
+    ]
+    for p in padroes:
+        m = re.search(p, t)
+        if m:
+            try:
+                if len(m.groups()) == 3 and p.startswith(r"\b(\d{2})"):
+                    d, mth, y = map(int, m.groups())
+                    return datetime(y, mth, d).date()
+                if len(m.groups()) == 3 and p.startswith(r"\b(\d{4})"):
+                    y, mth, d = map(int, m.groups())
+                    return datetime(y, mth, d).date()
+                if len(m.groups()) == 2:
+                    d, mth = map(int, m.groups())
+                    y = datetime.now().year
+                    return datetime(y, mth, d).date()
+            except Exception:
+                return None
+    return None
+
+async def buscar_eventos_por_termo_avancado(user_id: str, termo: str) -> list[tuple[str, dict]]:
+    """
+    Retorna [(event_id, evento)] que combinem com:
+      - serviço/descrição (ex.: 'corte', 'unha', 'reunião')
+      - profissional (ex.: 'Carla', 'Joana')
+      - data relativa ('hoje', 'amanhã') ou explícita (20/10, 2025-10-21)
+    Ignora eventos cancelados.
+    """
+    termo_norm = _normaliza_txt(termo)
+    if not termo_norm:
+        return []
+
+    # resolve id efetivo (dono) como no restante do serviço
+    dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+    user_id_efetivo = user_id
+    if dados_usuario:
+        tipo = dados_usuario.get("tipo_usuario", "cliente")
+        modo = dados_usuario.get("modo_uso", "")
+        if tipo == "cliente" or modo == "atendimento_cliente":
+            user_id_efetivo = await obter_id_dono(user_id)
+
+    eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
+    hoje = datetime.now().date()
+
+    # filtros por data
+    d1, d2 = _interpreta_data_relativa(termo, hoje)
+    data_exp = _extrai_data_explicita(termo)
+    if data_exp:
+        d1 = d2 = data_exp
+
+    def _match(ev: dict) -> bool:
+        if (ev.get("status") or "").lower() == "cancelado":
+            return False
+
+        blob = _normaliza_txt(
+            f"{ev.get('descricao','')} {ev.get('profissional','')} {ev.get('data','')} {ev.get('hora_inicio','')}"
+        )
+
+        # serviço/profissional palavras presentes?
+        palavras = [p for p in termo_norm.split() if p not in {"o","a","de","do","da","com","as","os","um","uma"}]
+        if not all(p in blob for p in palavras if len(p) > 2):  # ignora partículas curtas
+            return False
+
+        # data bate?
+        if d1 and d2:
+            try:
+                data_ev = datetime.strptime(ev.get("data",""), "%Y-%m-%d").date()
+                if not (d1 <= data_ev <= d2):
+                    return False
+            except Exception:
+                return False
+
+        return True
+
+    candidatos = []
+    for eid, ev in eventos.items():
+        if not isinstance(ev, dict):
+            continue
+        if _match(ev):
+            candidatos.append((eid, ev))
+
+    # heurística: ordenar por (data/hora asc) para cancelar o mais próximo primeiro
+    def _key(item):
+        _, e = item
+        try:
+            return datetime.fromisoformat(f"{e['data']}T{e['hora_inicio']}:00")
+        except Exception:
+            return datetime.max
+    candidatos.sort(key=_key)
+    return candidatos
 
 # 🧾 Formatador para exibição
 def formatar_evento(evento: dict) -> str:

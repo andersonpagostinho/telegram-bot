@@ -1,6 +1,7 @@
 import logging
 import urllib.parse
 from telegram import Update
+from telegram.ext import DispatcherHandlerStop
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from handlers.task_handler import add_task, list_tasks, list_tasks_by_priority, clear_tasks
 from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, conectar_email
@@ -11,6 +12,7 @@ from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_
 from handlers.importacao_handler import importar_profissionais_handler
 from handlers.event_handler import enviar_agenda_excel
 from router.principal_router import roteador_principal
+from services.event_service_async import cancelar_evento
 from firebase_admin import firestore
 from handlers.perfil_handler import (
     set_tipo_negocio,
@@ -32,6 +34,43 @@ from datetime import datetime, timedelta
 from handlers.encaixe_handler import handle_pedido_encaixe
 from handlers.reagendamento_handler import handle_resposta_reagendamento
 logger = logging.getLogger(__name__)
+
+async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("📥 Entrou no tratar_mensagens_gerais()")
+
+    # --- atalho para concluir cancelamento pendente por número ---
+    pend = context.user_data.get("cancelamento_pendente")
+    msg_txt = (getattr(update.message, "text", "") or "").strip()
+    if pend and msg_txt.isdigit():
+        idx = int(msg_txt) - 1
+        cands = pend.get("candidatos", [])
+        user_id = str(pend.get("user_id") or update.effective_user.id)
+
+        if 0 <= idx < len(cands):
+            try:
+                eid_escolhido = cands[idx]
+                ok = await cancelar_evento(user_id, eid_escolhido)
+                if ok:
+                    await update.message.reply_text("✅ Cancelamento concluído. Horário liberado.")
+                else:
+                    await update.message.reply_text("❌ Não consegui cancelar. Pode tentar novamente?")
+            finally:
+                context.user_data.pop("cancelamento_pendente", None)
+
+            # impede que outros handlers peguem essa mesma mensagem
+            raise DispatcherHandlerStop
+        else:
+            await update.message.reply_text("⚠️ Número inválido. Envie apenas o número da opção listada.")
+            raise DispatcherHandlerStop
+    # --- fim do atalho ---
+
+    user_id = str(update.message.from_user.id)
+    mensagem = msg_txt
+
+    # 🔁 Chamada para o roteador inteligente (segue fluxo normal)
+    resposta = await roteador_principal(user_id, mensagem, update, context)
+    if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
+        await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
 
 # ✅ Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -161,18 +200,6 @@ async def meus_dados(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("⚠️ Nenhum dado encontrado para sua conta.")
 
-async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("📥 Entrou no tratar_mensagens_gerais()")
-    
-    user_id = str(update.message.from_user.id)
-    mensagem = update.message.text.strip()
-
-    # 🔁 Chamada para o novo roteador inteligente
-    resposta = await roteador_principal(user_id, mensagem, update, context)
-
-    if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
-        await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
-
 # ✅ Comando /custosapi – uso total da API por todos os usuários (somente dono)
 async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
@@ -233,24 +260,29 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler("tarefa", add_task))
         application.add_handler(CommandHandler("listar", list_tasks))
         application.add_handler(CommandHandler("limpar", clear_tasks))
-        application.add_handler(CommandHandler("ler_emails","leremails", ler_emails_command))
-        application.add_handler(CommandHandler("emails_prioritarios","emailsprioritarios", listar_emails_prioritarios))
+
+        application.add_handler(CommandHandler(["ler_emails", "leremails"], ler_emails_command))
+        application.add_handler(CommandHandler(["emails_prioritarios", "emailsprioritarios"], listar_emails_prioritarios))
+        application.add_handler(CommandHandler(["conectar_email", "conectaremail"], conectar_email))
+
         application.add_handler(CommandHandler("agenda", add_agenda))
         application.add_handler(CommandHandler("eventos", list_events))
-        application.add_handler(CommandHandler("confirmar_reuniao","confirmarreuniao", confirmar_reuniao))
-        application.add_handler(CommandHandler("confirmar_presenca","confirmarpresenca", confirmar_presenca))
-        application.add_handler(CommandHandler("meus_dados", meus_dados, "meusdados"))
-        application.add_handler(CommandHandler("conectar_email","conectaremail", conectar_email))
-        application.add_handler(CommandHandler("debug_eventos", debug_eventos))
-        application.add_handler(CommandHandler("relatorio_diario", "relatoriodiario", relatorio_diario))
-        application.add_handler(CommandHandler("relatorio_semanal", "relatoriosemanal", relatorio_semanal))
-        application.add_handler(CommandHandler("enviar_relatorio_email", "enviarrelatorioemail", enviar_relatorio_email))
+        application.add_handler(CommandHandler(["confirmar_reuniao", "confirmarreuniao"], confirmar_reuniao))
+        application.add_handler(CommandHandler(["confirmar_presenca", "confirmarpresenca"], confirmar_presenca))
+        application.add_handler(CommandHandler(["debug_eventos"], debug_eventos))
+
+        application.add_handler(CommandHandler(["relatorio_diario", "relatoriodiario"], relatorio_diario))
+        application.add_handler(CommandHandler(["relatorio_semanal", "relatoriosemanal"], relatorio_semanal))
+        application.add_handler(CommandHandler(["enviar_agenda_excel"], enviar_agenda_excel))
+
         application.add_handler(CommandHandler(["tipo_negocio", "tiponegocio"], set_tipo_negocio))
         application.add_handler(CommandHandler(["estilo"], set_estilo_mensagem))
         application.add_handler(CommandHandler(["nome_negocio", "nomenegocio"], set_nome_negocio))
         application.add_handler(CommandHandler(["meu_estilo", "meuestilo"], meu_estilo))
         application.add_handler(CommandHandler(["meu_email", "meuemail"], set_email))
+
         application.add_handler(MessageHandler(filters.VOICE, handle_voice))
+
         application.add_handler(CommandHandler("meuplano", meu_plano))
         application.add_handler(CommandHandler("followup", criar_followup))
         application.add_handler(CommandHandler("meusfollowups", listar_followups))
@@ -261,15 +293,19 @@ def register_handlers(application: Application):
         application.add_handler(CommandHandler(["tipo_usuario", "tipousuario"], set_tipo_usuario))
         application.add_handler(CommandHandler(["modo_uso", "modouso"], set_modo_uso))
         application.add_handler(CommandHandler(["listar_profissionais", "listarprofissionais"], listar_profissionais))
-        application.add_handler(CommandHandler(["importar_profissionais", "importarprofissionais"], importar_profissionais_handler))
-        application.add_handler(CommandHandler("conectar_email", conectar_email))
-        application.add_handler(CommandHandler("conectaremail", conectar_email))
-        application.add_handler(CommandHandler("enviar_agenda_excel", enviar_agenda_excel))
         application.add_handler(CommandHandler("custosapi", custos_api_handler))
-        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), tratar_mensagens_gerais))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_pedido_encaixe))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_resposta_reagendamento))
+        application.add_handler(CommandHandler(["meus_dados", "meusdados"], meus_dados))
+
+        # (opcional) filtro que evita números puros irem para handlers gerais
+        so_texto_nao_num = filters.TEXT & ~filters.COMMAND & ~filters.Regex(r"^\d+$")
+
+        # a ORDEM importa: geral primeiro
+        application.add_handler(MessageHandler(so_texto_nao_num, tratar_mensagens_gerais))
+        application.add_handler(MessageHandler(so_texto_nao_num, handle_pedido_encaixe))
+        application.add_handler(MessageHandler(so_texto_nao_num, handle_resposta_reagendamento))
+
         application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
+
         application.add_handler(MessageHandler(
             filters.Document.MimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             importar_profissionais_handler
@@ -278,13 +314,12 @@ def register_handlers(application: Application):
             filters.Document.MimeType("text/csv"),
             importar_profissionais_handler
         ))
-        
-        print("📌 Handlers do bot.py carregados")
 
-        # 🚀 Adicionando os comandos de teste do Firebase
+        # Comandos de teste do Firebase
         application.add_handler(CommandHandler("testar_firebase", testar_firebase))
         application.add_handler(CommandHandler("verificar_firebase", verificar_firebase))
 
+        print("📌 Handlers do bot.py carregados")
         logger.info("✅ Handlers registrados com sucesso!")
     except Exception as e:
         logger.error(f"❌ Erro ao registrar handlers: {e}", exc_info=True)
