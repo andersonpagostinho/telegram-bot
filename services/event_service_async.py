@@ -142,6 +142,7 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
     except Exception as e:
         print(f"❌ Erro ao buscar eventos: {e}")
         return []
+
 async def cancelar_evento(user_id: str, event_id: str) -> bool:
     """
     Marca um evento como cancelado (soft delete).
@@ -168,52 +169,34 @@ async def cancelar_evento(user_id: str, event_id: str) -> bool:
         print(f"❌ cancelar_evento: {e}")
         return False
 
-async def cancelar_evento_por_texto(user_id: str, termo: str) -> tuple[bool, str]:
-    termo_l = (termo or "").strip().lower()
-    if not termo_l:
-        return False, "⚠️ Informe parte do título/data para eu encontrar o evento."
-
-    # resolve id efetivo
-    dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
-    user_id_efetivo = user_id
-    if dados_usuario:
-        tipo = dados_usuario.get("tipo_usuario", "cliente")
-        modo = dados_usuario.get("modo_uso", "")
-        if tipo == "cliente" or modo == "atendimento_cliente":
-            user_id_efetivo = await obter_id_dono(user_id)
-
-    eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
-    candidatos = []
-    for eid, ev in eventos.items():
-        if not isinstance(ev, dict):
-            continue
-        if (ev.get("status") or "").lower() == "cancelado":
-            continue
-        blob = f"{ev.get('descricao','')} {ev.get('data','')} {ev.get('hora_inicio','')} {ev.get('hora_fim','')}".lower()
-        if termo_l in blob:
-            candidatos.append((eid, ev))
+async def cancelar_evento_por_texto(user_id: str, termo: str):
+    """
+    Encontra por texto e cancela.
+    Se houver 1 candidato -> cancela direto.
+    Se houver vários -> retorna lista para confirmação (quem guarda estado é o handler).
+    """
+    candidatos = await buscar_eventos_por_termo_avancado(user_id, termo)
 
     if not candidatos:
-        return False, "❌ Não encontrei nenhum evento correspondente."
+        return False, "❌ Não encontrei nenhum evento correspondente ao que você quer cancelar."
 
-    from datetime import datetime as _dt  # evitar sombra
-    def _score(ev):
-        try:
-            return _dt.fromisoformat(f"{ev['data']}T{ev['hora_inicio']}:00")
-        except Exception:
-            return _dt.max
+    if len(candidatos) == 1:
+        eid, ev = candidatos[0]
+        ok = await cancelar_evento(user_id, eid)
+        if not ok:
+            return False, "❌ Tive um problema ao cancelar no sistema."
+        desc = ev.get("descricao", "Evento")
+        data = ev.get("data", "")
+        hora = ev.get("hora_inicio", "")
+        return True, f"✅ {desc} em {data} às {hora} foi cancelado e liberou o horário."
 
-    futuros = [(eid, ev) for eid, ev in candidatos if _score(ev) >= _dt.now()]
-    eid_escolhido, ev_escolhido = (min(futuros, key=lambda x: _score(x[1])) if futuros else candidatos[0])
+    # Vários candidatos — deixe o handler listar e pedir número
+    linhas = []
+    for i, (eid, ev) in enumerate(candidatos, start=1):
+        linhas.append(f"{i}) {ev.get('descricao','(sem título)')} — {ev.get('data','????-??-??')} às {ev.get('hora_inicio','??:??')}")
 
-    ok = await cancelar_evento(user_id, eid_escolhido)
-    if not ok:
-        return False, "❌ Tive um problema ao cancelar no sistema."
+    return False, "Encontrei mais de um. Envie o número da opção para cancelar:\n" + "\n".join(linhas)
 
-    desc = ev_escolhido.get("descricao", "Evento")
-    data = ev_escolhido.get("data", "")
-    hora = ev_escolhido.get("hora_inicio", "")
-    return True, f"✅ {desc} em {data} às {hora} foi cancelado e liberou o horário."
 
 # 🔍 Verificar conflito de horário para um novo evento
 async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_min: int = 60, profissional: str = "") -> list:
@@ -285,19 +268,21 @@ async def deletar_evento(user_id: str, event_id: str) -> bool:
 def _normaliza_txt(s: str) -> str:
     return unidecode((s or "").strip().lower())
 
-def _interpreta_data_relativa(termo: str, hoje: date) -> tuple[date | None, date | None]:
-    t = _normaliza_txt(termo)
+def _interpreta_data_relativa(termo: str, hoje: datetime.date):
+    """
+    Retorna (data_inicial, data_final) se houver termo relativo (hoje/amanhã).
+    Caso contrário, (None, None).
+    """
+    t = unidecode((termo or "").strip().lower())
     if "hoje" in t:
         return hoje, hoje
-    if "amanha" in t or "amanhã" in termo:
+    if "amanha" in t:  # já normalizado sem acento
         d = hoje + timedelta(days=1)
         return d, d
-    # semana/intervalo simples (opcional)
     return None, None
 
-def _extrai_data_explicita(termo: str) -> date | None:
-    # aceita 20/10, 20-10, 2025-10-21, 21/10/2025 etc.
-    t = termo
+def _extrai_data_explicita(termo: str):
+    t = (termo or "")
     padroes = [
         r"\b(\d{2})[/-](\d{2})[/-](\d{4})\b",   # DD/MM/YYYY
         r"\b(\d{4})-(\d{2})-(\d{2})\b",         # YYYY-MM-DD
@@ -321,19 +306,18 @@ def _extrai_data_explicita(termo: str) -> date | None:
                 return None
     return None
 
-async def buscar_eventos_por_termo_avancado(user_id: str, termo: str) -> list[tuple[str, dict]]:
+async def buscar_eventos_por_termo_avancado(user_id: str, termo: str):
     """
-    Retorna [(event_id, evento)] que combinem com:
-      - serviço/descrição (ex.: 'corte', 'unha', 'reunião')
-      - profissional (ex.: 'Carla', 'Joana')
-      - data relativa ('hoje', 'amanhã') ou explícita (20/10, 2025-10-21)
+    Retorna lista [(event_id, evento)] que combinem com:
+      - palavras úteis do texto (ex.: 'corte', 'unha', 'reuniao', 'carla')
+      - data relativa ('hoje', 'amanha') ou explícita (20/10, 2025-10-21)
     Ignora eventos cancelados.
     """
-    termo_norm = _normaliza_txt(termo)
+    termo_norm = unidecode((termo or "").strip().lower())
     if not termo_norm:
         return []
 
-    # resolve id efetivo (dono) como no restante do serviço
+    # resolve id efetivo (dono)
     dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
     user_id_efetivo = user_id
     if dados_usuario:
@@ -345,24 +329,40 @@ async def buscar_eventos_por_termo_avancado(user_id: str, termo: str) -> list[tu
     eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
     hoje = datetime.now().date()
 
-    # filtros por data
-    d1, d2 = _interpreta_data_relativa(termo, hoje)
+    # datas
+    d1, d2 = _interpreta_data_relativa(termo_norm, hoje)
     data_exp = _extrai_data_explicita(termo)
     if data_exp:
         d1 = d2 = data_exp
+
+    # stopwords + verbos de intenção + palavras de data que NÃO devem pesar no match textual
+    STOP = {"o","a","os","as","um","uma","de","do","da","dos","das","com","no","na","nos","nas","para","pro","pra"}
+    INTENCOES = {"cancelar","cancela","cancele","remover","excluir","apagar","tirar","tira"}
+    DATAS = {"hoje","amanha"}  # já sem acento
+
+    tokens_util = [p for p in re.split(r"\s+", termo_norm)
+                   if p and p not in STOP and p not in INTENCOES and p not in DATAS]
 
     def _match(ev: dict) -> bool:
         if (ev.get("status") or "").lower() == "cancelado":
             return False
 
-        blob = _normaliza_txt(
-            f"{ev.get('descricao','')} {ev.get('profissional','')} {ev.get('data','')} {ev.get('hora_inicio','')}"
-        )
+        blob = unidecode((" ".join([
+            str(ev.get("descricao","")),
+            str(ev.get("profissional","")),
+            str(ev.get("data","")),
+            str(ev.get("hora_inicio","")),
+            str(ev.get("hora_fim","")),
+        ])).strip().lower())
 
-        # serviço/profissional palavras presentes?
-        palavras = [p for p in termo_norm.split() if p not in {"o","a","de","do","da","com","as","os","um","uma"}]
-        if not all(p in blob for p in palavras if len(p) > 2):  # ignora partículas curtas
-            return False
+        # precisa conter TODAS as tokens úteis (se tiverem sobrado)
+        if tokens_util:
+            for p in tokens_util:
+                # ignore tokens muito curtos (<=2) para não falsear
+                if len(p) <= 2:
+                    continue
+                if p not in blob:
+                    return False
 
         # data bate?
         if d1 and d2:
@@ -382,15 +382,17 @@ async def buscar_eventos_por_termo_avancado(user_id: str, termo: str) -> list[tu
         if _match(ev):
             candidatos.append((eid, ev))
 
-    # heurística: ordenar por (data/hora asc) para cancelar o mais próximo primeiro
+    # ordenar por data/hora (mais próximo primeiro)
     def _key(item):
         _, e = item
         try:
             return datetime.fromisoformat(f"{e['data']}T{e['hora_inicio']}:00")
         except Exception:
             return datetime.max
+
     candidatos.sort(key=_key)
     return candidatos
+
 
 # 🧾 Formatador para exibição
 def formatar_evento(evento: dict) -> str:
