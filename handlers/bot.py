@@ -1,7 +1,7 @@
 import logging
 import urllib.parse
 from telegram import Update
-from telegram.ext import DispatcherHandlerStop
+from telegram.ext import ApplicationHandlerStop
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from handlers.task_handler import add_task, list_tasks, list_tasks_by_priority, clear_tasks
 from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, conectar_email
@@ -58,7 +58,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 context.user_data.pop("cancelamento_pendente", None)
 
             # impede que outros handlers peguem essa mesma mensagem
-            raise DispatcherHandlerStop
+            raise ApplicationHandlerStop
         else:
             await update.message.reply_text("⚠️ Número inválido. Envie apenas o número da opção listada.")
             raise DispatcherHandlerStop
