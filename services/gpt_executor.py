@@ -50,22 +50,26 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             return True
 
         elif acao == "cancelar_evento":
-        # tenta usar o termo vindo do modelo;
-        # fallback para o próprio texto do usuário, se necessário
-        termo = (dados or {}).get("termo")
-        if not termo:
-            # se você tiver o update/context aqui, pode usar o texto recebido
-            termo = getattr(getattr(update, "message", None), "text", "")
+            # termo vindo do modelo (ex.: "unha com a Carla amanhã")
+            termo = (dados or {}).get("termo")
+            if not termo:
+                # fallback: usa o texto bruto da mensagem se o modelo não mandou "termo"
+                termo = getattr(getattr(update, "message", None), "text", "") or ""
 
-        ok, msg = await cancelar_evento_por_texto(user_id, termo)
-        # responda ao usuário
-        if ok:
-            await update.message.reply_text(msg)
-        else:
-            # mensagem de ajuda com reforço do termo usado
-            ajuda = "Me diga algo como: 'cancelar corte amanhã às 10h com Joana' ou 'cancelar reunião de 25/10 às 14:00'."
-            txt = f"{msg}\n\n{ajuda}"
-            await update.message.reply_text(txt)
+            try:
+                ok, msg = await cancelar_evento_por_texto(user_id, termo)
+            except Exception as e:
+                ok, msg = False, f"❌ Erro ao processar cancelamento: {e}"
+
+            if ok:
+                await update.message.reply_text(msg)
+            else:
+                ajuda = (
+                    "Me diga algo como:\n"
+                    "• cancelar corte amanhã às 10:00 com Joana\n"
+                    "• cancelar unha com Carla dia 20/10 às 15:30"
+                )
+                await update.message.reply_text(f"{msg}\n\n{ajuda}")
 
         elif acao == "enviar_email":
             destinatario = dados.get("destinatario")
