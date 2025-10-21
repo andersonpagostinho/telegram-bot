@@ -1,6 +1,6 @@
 import re
 from unidecode import unidecode
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from pytz import timezone
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from services.firebase_service_async import (
@@ -90,7 +90,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
         return False
 
 # 🔎 Buscar eventos por data (hoje, amanhã, etc.)
-async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool = False, dia_especifico: datetime.date = None):
+async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool = False, dia_especifico: date | None = None):
     from services.firebase_service_async import buscar_dado_em_path, obter_id_dono
 
     try:
@@ -285,7 +285,7 @@ async def deletar_evento(user_id: str, event_id: str) -> bool:
 def _normaliza_txt(s: str) -> str:
     return unidecode((s or "").strip().lower())
 
-def _interpreta_data_relativa(termo: str, hoje: datetime.date) -> tuple[datetime.date|None, datetime.date|None]:
+def _interpreta_data_relativa(termo: str, hoje: date) -> tuple[date | None, date | None]:
     t = _normaliza_txt(termo)
     if "hoje" in t:
         return hoje, hoje
@@ -295,7 +295,7 @@ def _interpreta_data_relativa(termo: str, hoje: datetime.date) -> tuple[datetime
     # semana/intervalo simples (opcional)
     return None, None
 
-def _extrai_data_explicita(termo: str) -> datetime.date|None:
+def _extrai_data_explicita(termo: str) -> date | None:
     # aceita 20/10, 20-10, 2025-10-21, 21/10/2025 etc.
     t = termo
     padroes = [
