@@ -288,7 +288,7 @@ async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # =========================
 def register_handlers(application: Application):
     try:
-        # Comandos
+        # === COMANDOS ===
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
         application.add_handler(CommandHandler("tarefa", add_task))
@@ -340,24 +340,35 @@ def register_handlers(application: Application):
             importar_profissionais_handler
         ))
 
-        # ORDEM DOS HANDLERS DE TEXTO IMPORTA:
-        # 1) números puros (para concluir cancelamento pendente)
+        # === ORDEM DOS HANDLERS DE TEXTO ===
+        # 1) NÚMEROS puros – finalização de cancelamento
         application.add_handler(MessageHandler(filters.Regex(r"^\d+$"), tratar_mensagens_gerais))
 
-        # 2) texto geral (exclui comandos e números puros)
-        so_texto_nao_num = filters.TEXT & ~filters.COMMAND & ~filters.Regex(r"^\d+$")
-        application.add_handler(MessageHandler(so_texto_nao_num, tratar_mensagens_gerais))
-        application.add_handler(MessageHandler(so_texto_nao_num, handle_pedido_encaixe))
-        application.add_handler(MessageHandler(so_texto_nao_num, handle_resposta_reagendamento))
+        # 2) TEXTO GERAL (sem comandos) – fluxo normal
+        so_texto_sem_cmd = filters.TEXT & ~filters.COMMAND
+        application.add_handler(MessageHandler(so_texto_sem_cmd, tratar_mensagens_gerais))
+        application.add_handler(MessageHandler(so_texto_sem_cmd, handle_pedido_encaixe))
+        application.add_handler(MessageHandler(so_texto_sem_cmd, handle_resposta_reagendamento))
+
+        # 3) Fallback de segurança: loga qualquer coisa não pega acima
+        async def _fallback_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            try:
+                t = getattr(update.message, "text", None)
+                logging.warning(f"[FALLBACK] Mensagem não roteada: {t!r}")
+                # Não responde para não duplicar, só loga
+            except Exception:
+                pass
+        application.add_handler(MessageHandler(filters.ALL, _fallback_log))
 
         # Cancelamento por comando (manual)
         application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
 
-        # Comandos de teste do Firebase
+        # Testes Firebase
         application.add_handler(CommandHandler("testar_firebase", testar_firebase))
         application.add_handler(CommandHandler("verificar_firebase", verificar_firebase))
 
         print("📌 Handlers do bot.py carregados")
         logger.info("✅ Handlers registrados com sucesso!")
+
     except Exception as e:
         logger.error(f"❌ Erro ao registrar handlers: {e}", exc_info=True)
