@@ -90,76 +90,100 @@ async def tratar_mensagem_usuario(user_id, mensagem):
     return await acao_handler.tratar_mensagem_usuario(user_id, mensagem)
 
 # ✅ GPT com contexto e resposta estruturada em JSON (ação + dados)
-async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
+async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao, *, forcar_plano_ativo: bool = False):
     print("🚨 [gpt_service] Arquivo carregado")
     try:
-        user_id = str(contexto.get('usuario', {}).get('user_id', 'desconhecido'))
-        texto_normalizado = unidecode.unidecode(texto_usuario.lower().strip())
+        # ---------- Identificação robusta do user_id ----------
+        ctx_in = dict(contexto or {})
+        usr_in = dict((ctx_in.get("usuario") or {}))
+        user_id = str(
+            usr_in.get("user_id")
+            or usr_in.get("id")
+            or ctx_in.get("user_id")
+            or ctx_in.get("chat_id")
+            or "desconhecido"
+        )
 
-        # ✅ Carrega o contexto antes de usar
-        contexto_salvo = await carregar_contexto_temporario(user_id) or {}
+        import unidecode as _un
+        texto_normalizado = _un.unidecode(texto_usuario.lower().strip())
+
+        # ---------- Contexto temporário salvo ----------
+        try:
+            contexto_salvo = await carregar_contexto_temporario(user_id) if user_id != "desconhecido" else {}
+        except Exception as _e:
+            print(f⚠️ Falha ao carregar contexto temporário: {_e}")
+            contexto_salvo = {}
+
         if contexto_salvo.get("profissional_escolhido"):
             contexto_salvo.pop("ultima_opcao_profissionais", None)
 
-        # 🛡️ Evita resposta repetitiva com 'None' após conversa concluída
-        SAUDACOES_INICIAIS = [
-            "oi", "ola", "olá", "opa", "e aí", "eaí", "bom dia", "boa tarde", "boa noite",
-            "tudo bem", "como vai", "beleza", "salve", "fala aí", "fala", "oiê", "oi oi"
-        ]
+        # ---------- Saudações curtas ----------
+        SAUDACOES_INICIAIS = {
+            "oi","ola","olá","opa","e aí","eaí","bom dia","boa tarde","boa noite",
+            "tudo bem","como vai","beleza","salve","fala aí","fala","oiê","oi oi"
+        }
 
         if texto_normalizado in SAUDACOES_INICIAIS:
             try:
                 # 👋 Oi depois de agendamento concluído → limpar contexto
                 if contexto_salvo.get("evento_criado") and contexto_salvo.get("ultima_acao") == "criar_evento":
-                    await limpar_contexto_agendamento(user_id)  # 🧹 limpa apenas dados de agendamento
-                    await limpar_contexto(user_id)
-                    return {
-                        "resposta": "👋 Olá! Em que mais posso te ajudar hoje?",
-                        "acao": None,
-                        "dados": {}
-                    }
+                    if user_id != "desconhecido":
+                        await limpar_contexto_agendamento(user_id)
+                        await limpar_contexto(user_id)
+                    return {"resposta": "👋 Olá! Em que mais posso te ajudar hoje?", "acao": None, "dados": {}}
 
-                # 😎 Oi durante um fluxo incompleto → retomar de onde parou
-                elif any(contexto_salvo.get(k) for k in ["servico", "data_hora", "profissional_escolhido"]):
+                # 😎 Oi durante um fluxo incompleto → retomar
+                elif any(contexto_salvo.get(k) for k in ["servico","data_hora","profissional_escolhido"]):
                     partes = []
-                    if contexto_salvo.get("servico"):
-                        partes.append(f"{contexto_salvo['servico']}")
-                    if contexto_salvo.get("profissional_escolhido"):
-                        partes.append(f"com {contexto_salvo['profissional_escolhido']}")
-                    if contexto_salvo.get("data_hora"):
-                        partes.append(f"para {formatar_data(contexto_salvo['data_hora'])}")
-
+                    if contexto_salvo.get("servico"): partes.append(f"{contexto_salvo['servico']}")
+                    if contexto_salvo.get("profissional_escolhido"): partes.append(f"com {contexto_salvo['profissional_escolhido']}")
+                    if contexto_salvo.get("data_hora"): partes.append(f"para {formatar_data(contexto_salvo['data_hora'])}")
                     resumo = " ".join(partes)
+                    return {"resposta": f"Estamos no meio de um agendamento de {resumo}. Deseja confirmar, alterar ou cancelar?", "acao": None, "dados": {}}
 
-                    return {
-                        "resposta": f"Estamos no meio de um agendamento de {resumo}. Deseja confirmar, alterar ou cancelar?",
-                        "acao": None,
-                        "dados": {}
-                    }
-
-                # 👋 Oi fora de qualquer fluxo → início normal
+                # 👋 Oi fora de fluxo
                 else:
-                    return {
-                        "resposta": "👋 Olá! Como posso te ajudar hoje?",
-                        "acao": None,
-                        "dados": {}
-                    }
+                    return {"resposta": "👋 Olá! Como posso te ajudar hoje?", "acao": None, "dados": {}}
 
             except Exception as e:
                 print(f"⚠️ Erro ao tratar saudação com contexto: {e}")
-                return {
-                    "resposta": "👋 Olá! Como posso te ajudar hoje?",
-                    "acao": None,
-                    "dados": {}
-                }
+                return {"resposta": "👋 Olá! Como posso te ajudar hoje?", "acao": None, "dados": {}}
 
-        # 🔄 Garante que plano e módulos estejam atualizados no contexto
-        contexto["usuario"] = await buscar_cliente(user_id) or {}
-        contexto["pagamentoAtivo"] = contexto["usuario"].get("pagamentoAtivo", False)
-        contexto["planosAtivos"] = contexto["usuario"].get("planosAtivos", [])
+        # ---------- Garantir usuário e módulos dentro de `usuario` ----------
+        ctx = dict(ctx_in)                    # cópia para não mutar o original
+        user = dict(usr_in)                   # idem
 
-        # ✅ Chamada ao GPT com contexto
-        prompt = montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuario)
+        # Se não vier usuário do handler, tenta buscar no Firestore
+        if not user and user_id != "desconhecido":
+            try:
+                fetched = await buscar_cliente(user_id) or {}
+                if fetched:
+                    user = dict(fetched)
+            except Exception as e:
+                print(f"[gpt] buscar_cliente falhou: {e}")
+
+        # Defaults seguros (não derrubam plano por campo ausente)
+        if "pagamentoAtivo" not in user:
+            user["pagamentoAtivo"] = True   # default otimista p/ não bloquear por falha de leitura
+        if not user.get("planosAtivos"):
+            user["planosAtivos"] = ["secretaria"]
+
+        # Se for fluxo de voz (ou você quiser), pode forçar ativo
+        if forcar_plano_ativo:
+            user["pagamentoAtivo"] = True
+            planos = set([str(p).lower() for p in (user.get("planosAtivos") or [])])
+            planos.add("secretaria")
+            user["planosAtivos"] = list(planos)
+
+        # Grava de volta apenas em `usuario`
+        ctx["usuario"] = user
+
+        # Remove duplicatas no nível raiz (evita o bug do "plano inativo")
+        ctx.pop("pagamentoAtivo", None)
+        ctx.pop("planosAtivos", None)
+
+        # ---------- Monta prompt e chama o modelo ----------
+        prompt = montar_prompt_com_contexto(instrucao, ctx, contexto_salvo, texto_usuario)
 
         resposta = await client.chat.completions.create(
             model="gpt-4o",
@@ -167,30 +191,30 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao):
             messages=prompt
         )
 
-        # 🔍 Registrar custo da chamada
+        # ---------- Custo ----------
         firestore_client = firestore.client()
         await registrar_custo_gpt(resposta, "gpt-4o", user_id, firestore_client)
 
-        # 🧠 Processa o JSON retornado
-        resultado = {
-            "resposta": "❌ Não consegui entender a resposta da IA.",
-            "acao": None,
-            "dados": {}
-        }
-
+        # ---------- Interpretação do JSON ----------
+        resultado = {"resposta": "❌ Não consegui entender a resposta da IA.", "acao": None, "dados": {}}
         try:
             conteudo = resposta.choices[0].message.content.strip()
             print("📦 Conteúdo recebido da IA:\n", conteudo, flush=True)
 
-            # Remove blocos de markdown se existirem
             if conteudo.startswith("```") and conteudo.endswith("```"):
-                conteudo = "\n".join(conteudo.split("\n")[1:-1])  # Remove primeira e última linha
+                conteudo = "\n".join(conteudo.split("\n")[1:-1])
 
             resultado = json.loads(conteudo)
 
         except Exception as e:
             print(f"❌ Erro ao acessar ou interpretar a resposta da IA: {e}")
             print(f"↩️ Objeto resposta:\n{resposta}")
+
+        return resultado
+
+    except Exception as e:
+        print(f"❌ Erro em processar_com_gpt_com_acao: {e}")
+        return {"resposta": f"❌ Ocorreu um erro ao processar sua solicitação: {e}", "acao": None, "dados": {}}
 
         # 🛡️ Guard-rail: usuário pediu tarefas e o GPT veio sem ação → força buscar no Firestore
         texto_baixo_guard = (texto_usuario or "").lower()
