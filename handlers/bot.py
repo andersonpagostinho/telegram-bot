@@ -50,15 +50,14 @@ from handlers.test_handler import testar_firebase, testar_avisos
 from handlers.encaixe_handler import handle_pedido_encaixe
 from handlers.reagendamento_handler import handle_resposta_reagendamento
 
+# 👉 Se esses não existirem no seu repo, comente este import e os CommandHandler lá embaixo
 from handlers.report_handler import (
     relatorio_diario,
     relatorio_semanal,
-    enviar_relatorio_email,  # se você usar esse comando
+    enviar_relatorio_email,
 )
-from handlers.event_handler import enviar_agenda_excel  # se já não estiver importado
 
 logger = logging.getLogger(__name__)
-
 
 # ============== HANDLERS DE MENSAGEM (ORDEM IMPORTA) ==============
 
@@ -101,7 +100,6 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                     await update.message.reply_text("❌ Não consegui cancelar. Pode tentar novamente?")
             finally:
                 context.user_data.pop("cancelamento_pendente", None)
-
             # para aqui — não deixa outros handlers pegarem esta mesma msg
             raise ApplicationHandlerStop
         else:
@@ -130,7 +128,6 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     except Exception as e:
         logger.exception(f"❌ Erro no roteador_principal: {e}")
         await update.message.reply_text("⚠️ Tive um problema para processar sua solicitação agora. Pode repetir?")
-
 
 
 # ============== COMANDOS ==============
@@ -202,45 +199,37 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("📖 Comando /help recebido!")
     await update.message.reply_text(
         "ℹ️ *Comandos disponíveis:*\n\n"
-
         "🟢 *Básico*\n"
         "/start - Inicia o bot\n"
         "/help - Mostra esta mensagem\n"
         "/meus_dados - Ver seus dados cadastrados\n"
         "/meu_estilo - Ver estilo e tipo de negócio salvos\n"
         "/meuplano - Ver informações do seu plano atual\n\n"
-
         "📝 *Tarefas*\n"
         "/tarefa - Adiciona uma nova tarefa\n"
         "/listar - Lista todas as tarefas\n"
         "/listar_prioridade - Lista tarefas por prioridade\n"
         "/limpar - Remove todas as tarefas\n\n"
-
         "📅 *Agenda e Eventos*\n"
         "/agenda - Adiciona um novo evento\n"
         "/eventos - Lista eventos agendados\n"
         "/confirmar_reuniao - Confirma uma reunião\n"
         "/confirmar_presenca - Confirma presença em um evento\n"
         "/debug_eventos - Verifica eventos internos\n\n"
-
         "📧 *E-mails*\n"
         "/conectar_email - Conectar seu e-mail (Google)\n"
         "/ler_emails - Lê os últimos e-mails\n"
         "/emails_prioritarios - Lista e-mails importantes\n"
         "/enviar_email - Envia um e-mail\n"
         "/meu_email - Define o e-mail de envio manual\n\n"
-
         "📊 *Relatórios*\n"
         "/relatorio_diario - Gera relatório diário\n"
         "/relatorio_semanal - Gera relatório semanal\n"
         "/enviar_agenda_excel - Exporta a agenda em Excel\n\n"
-
         "🗣️ *Comando por voz*\n"
         "Envie áudio com pedidos (ex.: “nova tarefa pagar contas”, “agendar corte amanhã 10h com Carla”).\n\n"
-
         "🔁 *Avisos e Follow-ups*\n"
         "/configuraravisos • /verificaravisos • /followup • /meusfollowups\n\n"
-
         "🎯 *Personalização*\n"
         "/tipo_negocio • /estilo • /nome_negocio • /listar_profissionais\n",
         parse_mode="Markdown"
@@ -271,20 +260,20 @@ async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         docs = db.collection("custos_usuarios").stream()
 
-        total_geral = 0
+        total_geral = 0.0
         por_usuario = {}
 
         for doc in docs:
             data = doc.to_dict()
             uid = data.get("user_id", "desconhecido")
-            custo = data.get("custo_usd", 0.0)
+            custo = float(data.get("custo_usd", 0.0) or 0.0)
 
             if uid not in por_usuario:
                 por_usuario[uid] = {"custo": 0.0, "reqs": 0}
 
-            por_usuario[uid]["custo"] += float(custo or 0)
+            por_usuario[uid]["custo"] += custo
             por_usuario[uid]["reqs"] += 1
-            total_geral += float(custo or 0)
+            total_geral += custo
 
         if not por_usuario:
             await update.message.reply_text("🔍 Nenhum uso registrado da API ainda.")
@@ -300,7 +289,7 @@ async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         await update.message.reply_text(resposta, parse_mode="Markdown")
     except Exception as e:
-        logger.exception("❌ Erro ao consultar custos da API:", exc_info=e)
+        logger.exception("❌ Erro ao consultar custos da API")
         await update.message.reply_text("❌ Ocorreu um erro ao consultar os dados.")
 
 
@@ -340,7 +329,7 @@ def register_handlers(application: Application):
     application.add_handler(CommandHandler("enviar_agenda_excel", enviar_agenda_excel))
     application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
 
-    # relatórios  ✅ (os que causaram NameError)
+    # relatórios  ✅ (comente se não existir no seu repo)
     application.add_handler(CommandHandler(["relatorio_diario", "relatoriodiario"], relatorio_diario))
     application.add_handler(CommandHandler(["relatorio_semanal", "relatoriosemanal"], relatorio_semanal))
     application.add_handler(CommandHandler("enviar_relatorio_email", enviar_relatorio_email))
@@ -384,7 +373,3 @@ def register_handlers(application: Application):
     application.add_handler(CommandHandler("verificar_firebase", verificar_firebase))
 
     logger.info("✅ Handlers registrados com sucesso!")
-
-    except Exception as e:
-        logger.error("❌ Erro ao registrar handlers", exc_info=True)
-        raise  # <- importante
