@@ -74,26 +74,26 @@ def montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuari
 
 "📌 CONTEXTO ATUAL DO ATENDIMENTO:"
 
-📅 Data atual: {datetime.now().strftime('%Y-%m-%d')}
-👤 Nome: {usuario.get('nome', 'Desconhecido')}
-📌 Plano ativo: {pagamento_ativo}
-🔐 Módulos: {', '.join(planos_ativos) or 'Nenhum'}
-🏢 Tipo de negócio: {usuario.get('tipo_negocio', usuario.get('tipoNegocio', 'não informado'))}
-🧑‍💼 Profissionais: {', '.join(profissionais) or 'Nenhum'}
+f"📅 Data atual: {datetime.now().strftime('%Y-%m-%d')}"
+"👤 Nome: {usuario.get('nome', 'Desconhecido')}"
+"📌 Plano ativo: {pagamento_ativo}"
+"🔐 Módulos: {', '.join(planos_ativos) or 'Nenhum'}"
+"🏢 Tipo de negócio: {usuario.get('tipo_negocio', usuario.get('tipoNegocio', 'não informado'))}"
+"🧑‍💼 Profissionais: {', '.join(profissionais) or 'Nenhum'}"
 
-📋 Tarefas:
+"📋 Tarefas:"
 {chr(10).join(f"- {t}" for t in tarefas) or 'Nenhuma'}
 
-📆 Eventos:
+"📆 Eventos:"
 {chr(10).join(f"- {e}" for e in eventos) or 'Nenhum'}
 
-📧 E-mails:
+"📧 E-mails:"
 {chr(10).join(f"- {e}" for e in emails) or 'Nenhum'}
 
-📂 Contexto salvo:
+"📂 Contexto salvo:"
 {json.dumps(contexto_salvo or {}, indent=2, ensure_ascii=False)}
 
-🗣️ Mensagem do usuário:
+"🗣️ Mensagem do usuário:"
 \"{texto_usuario}\"
 """}]
 
