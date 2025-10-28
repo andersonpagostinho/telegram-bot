@@ -1,11 +1,11 @@
-#gpt Service
+# gpt Service
 import os
 import json
 import re
 import traceback
 import importlib
 import inspect
-import unidecode
+import unidecode  # se preferir, troque por: from unidecode import unidecode
 from datetime import datetime, timedelta
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
@@ -15,7 +15,10 @@ from utils.formatters import adaptar_genero
 from utils.interpretador_datas import interpretar_data_e_hora
 from services.session_service import pegar_sessao, resetar_sessao
 from utils.context_manager import atualizar_contexto, limpar_contexto, limpar_contexto_agendamento
-from services.profissional_service import listar_servicos_cadastrados, obter_precos_servico, encontrar_servico_mais_proximo, consultar_todos_precos
+from services.profissional_service import (
+    listar_servicos_cadastrados, obter_precos_servico,
+    encontrar_servico_mais_proximo, consultar_todos_precos
+)
 from services.gpt_client import client
 from utils.gpt_utils import (
     montar_prompt_com_contexto,
@@ -29,7 +32,6 @@ from services.gpt_actions import (
 )
 
 from services.firebase_service_async import buscar_cliente
-from services.gpt_service import executar_confirmacao_generica
 
 # ✅ GPT simples para respostas diretas (com plano e módulos no prompt)
 async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
@@ -108,13 +110,15 @@ async def processar_com_gpt_com_acao(
         ).strip() or "desconhecido"
 
         texto_usuario = (texto_usuario or "").strip()
-        texto_normalizado = unidecode(texto_usuario.lower().strip())
+        # 👇 ajuste do unidecode (opção 1: usando o módulo)
+        texto_normalizado = unidecode.unidecode(texto_usuario.lower().strip())
+        # (opção 2 seria: from unidecode import unidecode; e então texto_normalizado = unidecode(...))
 
         # --- 2) Contexto temporário salvo (sempre por UID correto) ---
         try:
             contexto_salvo = await carregar_contexto_temporario(uid) if uid != "desconhecido" else {}
         except Exception as _e:
-            print(f"⚠️ Falha ao carregar contexto temporário: {_e}", flush=True)
+            print(f⚠️ Falha ao carregar contexto temporário: {_e}", flush=True)
             contexto_salvo = {}
 
         if contexto_salvo.get("profissional_escolhido"):
@@ -128,14 +132,11 @@ async def processar_com_gpt_com_acao(
         }
         if texto_normalizado in SAUDACOES_INICIAIS:
             try:
-                # 👋 Oi depois de agendamento concluído → limpar contexto
                 if contexto_salvo.get("evento_criado") and contexto_salvo.get("ultima_acao") == "criar_evento":
                     if uid != "desconhecido":
                         await limpar_contexto_agendamento(uid)
                         await limpar_contexto(uid)
                     return {"resposta": "👋 Olá! Em que mais posso te ajudar hoje?", "acao": None, "dados": {}}
-
-                # 😎 Oi durante um fluxo incompleto → retomar
                 elif any(contexto_salvo.get(k) for k in ["servico", "data_hora", "profissional_escolhido"]):
                     partes = []
                     if contexto_salvo.get("servico"):
@@ -150,11 +151,8 @@ async def processar_com_gpt_com_acao(
                         "acao": None,
                         "dados": {},
                     }
-
-                # 👋 Oi fora de fluxo
                 else:
                     return {"resposta": "👋 Olá! Como posso te ajudar hoje?", "acao": None, "dados": {}}
-
             except Exception as e:
                 print(f"⚠️ Erro ao tratar saudação com contexto: {e}", flush=True)
                 return {"resposta": "👋 Olá! Como posso te ajudar hoje?", "acao": None, "dados": {}}
@@ -166,7 +164,6 @@ async def processar_com_gpt_com_acao(
             print(f"[gpt_service] buscar_cliente falhou para uid={uid}: {e}", flush=True)
             cliente = {}
 
-        # 🔒 ANTI-BLOQUEIO: força plano ativo + módulo 'secretaria' se algo vier faltando
         if "pagamentoAtivo" not in cliente:
             cliente["pagamentoAtivo"] = True
         if not cliente.get("planosAtivos"):
@@ -174,7 +171,6 @@ async def processar_com_gpt_com_acao(
         elif "secretaria" not in cliente["planosAtivos"]:
             cliente["planosAtivos"] = list(set(cliente["planosAtivos"] + ["secretaria"]))
 
-        # mantém quaisquer campos do contexto, dando prioridade ao banco
         usuario_merge = {**(contexto.get("usuario") or {}), **cliente}
 
         contexto["usuario"] = usuario_merge
@@ -199,7 +195,6 @@ async def processar_com_gpt_com_acao(
         try:
             firestore_client = firestore.Client()
         except TypeError:
-            # caso esteja usando cliente async ou outro factory no seu projeto
             firestore_client = firestore.client()
         await registrar_custo_gpt(resposta, "gpt-4o", uid, firestore_client)
 
@@ -209,25 +204,21 @@ async def processar_com_gpt_com_acao(
             conteudo = (resposta.choices[0].message.content or "").strip()
             print("📦 Conteúdo recebido da IA:\n", conteudo, flush=True)
 
-            # remove cercas de markdown se vier em bloco
             if conteudo.startswith("```") and conteudo.endswith("```"):
                 linhas = conteudo.splitlines()
-                # remove a 1ª e a última linha (```json / ```)
                 conteudo = "\n".join(linhas[1:-1]).strip()
 
             resultado = json.loads(conteudo)
             if not isinstance(resultado, dict):
                 raise ValueError("Resposta não é um objeto JSON.")
-            # saneamento mínimo
             resultado.setdefault("resposta", "OK")
             resultado.setdefault("acao", None)
             resultado.setdefault("dados", {})
-
         except Exception as e:
             print(f"❌ Erro ao acessar/interpretar a resposta da IA: {e}", flush=True)
             print(f"↩️ Objeto resposta:\n{resposta}", flush=True)
 
-        # --- 8) Persistir pequeno histórico útil (ajuda na retomada por voz) ---
+        # --- 8) Persistir pequeno histórico ---
         try:
             if uid != "desconhecido":
                 hist = (contexto_salvo.get("historico") or [])[-9:]
