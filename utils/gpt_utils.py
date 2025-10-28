@@ -72,7 +72,7 @@ def montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuari
     # Retorna a lista de mensagens para o chat.completions
     return [system_msg, contexto_assistant, user_msg]
 
-📌 CONTEXTO ATUAL DO ATENDIMENTO:
+"📌 CONTEXTO ATUAL DO ATENDIMENTO:"
 
 📅 Data atual: {datetime.now().strftime('%Y-%m-%d')}
 👤 Nome: {usuario.get('nome', 'Desconhecido')}
