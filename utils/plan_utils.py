@@ -2,31 +2,41 @@ from services.firebase_service_async import buscar_cliente
 from telegram import Update
 from telegram.ext import ContextTypes
 
-# ✅ Verifica se o pagamento está ativo
+# --- alias simples de módulos para seus planos reais ---
+def _normalizar_modulo(modulo: str) -> str:
+    m = (modulo or "").strip().lower()
+    alias = {
+        "voz": "secretaria",
+        "áudio": "secretaria",
+        "audio": "secretaria",
+        "asr": "secretaria",
+        # adicione outros atalhos se precisar
+    }
+    return alias.get(m, m)
+
 async def verificar_pagamento(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     user_id = str(update.message.from_user.id)
     cliente = await buscar_cliente(user_id)
 
-    if not cliente or not cliente.get("pagamentoAtivo", False):
+    if not cliente:
+        await update.message.reply_text("⚠️ Não encontramos seu cadastro. Use /start para começar.")
+        return False
+
+    if not cliente.get("pagamentoAtivo", False):
         await update.message.reply_text("⚠️ Seu plano está inativo. Acesse o painel para renovar.")
         return False
 
     return True
 
-# ✅ Verifica se o usuário pode usar um módulo (sem mensagens)
 async def verificar_plano(user_id: str, modulo: str) -> bool:
     cliente = await buscar_cliente(user_id)
-
-    if not cliente:
+    if not cliente or not cliente.get("pagamentoAtivo", False):
         return False
 
-    if not cliente.get("pagamentoAtivo", False):
-        return False
+    planos = [str(p).lower() for p in (cliente.get("planosAtivos") or [])]
+    modulo_norm = _normalizar_modulo(modulo)
+    return modulo_norm in planos
 
-    planos = cliente.get("planosAtivos", [])
-    return modulo in planos
-
-# ✅ Verifica com mensagens (para comandos via bot)
 async def verificar_acesso_modulo(update: Update, context: ContextTypes.DEFAULT_TYPE, modulo: str) -> bool:
     user_id = str(update.message.from_user.id)
     cliente = await buscar_cliente(user_id)
@@ -39,37 +49,17 @@ async def verificar_acesso_modulo(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("⚠️ Seu plano está inativo. Acesse o painel para renovar.")
         return False
 
-    planos = cliente.get("planosAtivos", [])
-    if modulo not in planos:
+    planos = [str(p).lower() for p in (cliente.get("planosAtivos") or [])]
+    modulo_norm = _normalizar_modulo(modulo)
+    if modulo_norm not in planos:
         await update.message.reply_text(
-            f"🚫 Este comando faz parte do módulo *{modulo}*, que não está ativo na sua conta.",
+            f"🚫 Este comando faz parte do módulo *{modulo_norm}*, que não está ativo na sua conta.",
             parse_mode="Markdown"
         )
         return False
 
     return True
 
-# ✅ Detecta qual módulo é necessário com base na intenção
 def identificar_plano_por_intencao(intencao: str) -> str:
-    if intencao in [
-        "adicionar_tarefa", "listar_tarefas", "listar_prioridade", "limpar_tarefas"
-    ]:
-        return "secretaria"
-    elif intencao in [
-        "adicionar_evento", "listar_eventos", "confirmar_reuniao", "confirmar_presenca", "debug_eventos"
-    ]:
-        return "secretaria"
-    elif intencao in [
-        "conectar_email", "ler_emails", "emails_prioritarios", "enviar_email", "meu_email", "authcallback"
-    ]:
-        return "secretaria"
-    elif intencao in [
-        "relatorio_diario", "relatorio_semanal", "enviar_relatorio_email"
-    ]:
-        return "secretaria"
-    elif intencao in [
-        "definir_tipo_negocio", "definir_estilo", "definir_nome_negocio"
-    ]:
-        return "secretaria"
-    else:
-        return "secretaria"
+    # Você já mapeia tudo para 'secretaria'; mantenho assim
+    return "secretaria"
