@@ -111,7 +111,7 @@ async def processar_com_gpt_com_acao(texto_usuario, contexto, instrucao, *, forc
         try:
             contexto_salvo = await carregar_contexto_temporario(user_id) if user_id != "desconhecido" else {}
         except Exception as _e:
-            print(f⚠️ Falha ao carregar contexto temporário: {_e}")
+            print(f"⚠️ Falha ao carregar contexto temporário: {_e}")
             contexto_salvo = {}
 
         if contexto_salvo.get("profissional_escolhido"):
