@@ -1,5 +1,5 @@
+# handlers/bot.py
 import logging
-import urllib.parse
 from datetime import datetime, timedelta
 
 from telegram import Update
@@ -9,55 +9,83 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     filters,
-    ApplicationHandlerStop,  # ✅ para interromper a cadeia de handlers
+    ApplicationHandlerStop,  # ✅ PTB v20+
 )
 
 from firebase_admin import firestore
 
-# Cadastro inicial (onboarding)
+# --- serviços/handlers próprios ---
+from services.firebase_service_async import (
+    buscar_cliente,
+    salvar_cliente,
+    verificar_firebase,
+)
+from services.event_service_async import cancelar_evento
 from services.cadastro_inicial_service import (
     precisa_onboarding,
     mensagem_onboarding,
     processar_texto_cadastro,
 )
 
-# Tarefas / E-mails / Eventos / Perfil
-from handlers.task_handler import add_task, list_tasks, list_tasks_by_priority, clear_tasks
+from router.principal_router import roteador_principal
+
+from handlers.task_handler import add_task, list_tasks, clear_tasks, list_tasks_by_priority
 from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, conectar_email
 from handlers.event_handler import (
     add_agenda, list_events, confirmar_reuniao, confirmar_presenca,
     debug_eventos, cancelar_evento_cmd, enviar_agenda_excel
 )
+from handlers.importacao_handler import importar_profissionais_handler
 from handlers.perfil_handler import (
     set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo,
-    set_email, meu_plano, meu_perfil, set_tipo_usuario, set_modo_uso, listar_profissionais
+    set_email, meu_plano, meu_perfil, set_tipo_usuario, set_modo_uso,
+    listar_profissionais
 )
 from handlers.voice_handler import handle_voice
-from handlers.followup_handler import criar_followup, listar_followups, verificar_avisos, configurar_avisos
+from handlers.followup_handler import (
+    criar_followup, listar_followups, verificar_avisos, configurar_avisos
+)
 from handlers.test_handler import testar_firebase, testar_avisos
-from handlers.importacao_handler import importar_profissionais_handler
 
-# Fluxos inteligentes
-from router.principal_router import roteador_principal
 from handlers.encaixe_handler import handle_pedido_encaixe
 from handlers.reagendamento_handler import handle_resposta_reagendamento
 
-# Firebase utils
-from services.firebase_service_async import buscar_cliente, salvar_cliente, verificar_firebase, buscar_documento
-from services.event_service_async import cancelar_evento
+from handlers.report_handler import (
+    relatorio_diario,
+    relatorio_semanal,
+    enviar_relatorio_email,  # se você usar esse comando
+)
+from handlers.event_handler import enviar_agenda_excel  # se já não estiver importado
 
 logger = logging.getLogger(__name__)
 
 
-# =========================
-# Mensagens gerais (texto)
-# =========================
+# ============== HANDLERS DE MENSAGEM (ORDEM IMPORTA) ==============
+
+async def _debug_primeiro_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handler de diagnóstico (alta prioridade).
+    Apenas registra no log que um texto passou pela pilha de handlers.
+    Não responde ao usuário.
+    """
+    txt = (getattr(update.message, "text", "") or "").strip()
+    uid = str(update.effective_user.id) if update.effective_user else "?"
+    logger.info(f"🧭 [DEBUG-H0] Texto capturado: '{txt}' de {uid}")
+
+
 async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Pipeline padrão:
+    1) Atalho de cancelamento por número (estado em user_data)
+    2) Fluxo de cadastro inicial (voz/texto: profissional/serviço/preço/duração)
+    3) Roteador inteligente (IA)
+    """
     print("📥 Entrou no tratar_mensagens_gerais()")
 
-    # --- atalho para concluir cancelamento pendente por número ---
+    # --- 1) atalho: concluir cancelamento pendente por número ---
     pend = context.user_data.get("cancelamento_pendente")
     msg_txt = (getattr(update.message, "text", "") or "").strip()
+
     if pend and msg_txt.isdigit():
         idx = int(msg_txt) - 1
         cands = pend.get("candidatos", [])
@@ -73,7 +101,8 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                     await update.message.reply_text("❌ Não consegui cancelar. Pode tentar novamente?")
             finally:
                 context.user_data.pop("cancelamento_pendente", None)
-            # impede que outros handlers processem esta mesma mensagem
+
+            # para aqui — não deixa outros handlers pegarem esta mesma msg
             raise ApplicationHandlerStop
         else:
             await update.message.reply_text("⚠️ Número inválido. Envie apenas o número da opção listada.")
@@ -83,24 +112,29 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     user_id = str(update.message.from_user.id)
     mensagem = msg_txt
 
-    # 1) fluxo de configuração (cadastrar profissional/VER CONFIG/ajuda)
+    # --- 2) fluxo de configuração inicial (voz/texto) ---
     try:
-        resp_cfg = await processar_texto_cadastro(user_id, mensagem)
-        if resp_cfg:
-            await update.message.reply_text(resp_cfg, parse_mode="Markdown")
+        resposta_cfg = await processar_texto_cadastro(user_id, mensagem)
+        if resposta_cfg:
+            # Se o fluxo de cadastro entendeu e gerou resposta, envia e encerra
+            await update.message.reply_text(resposta_cfg, parse_mode="Markdown")
             raise ApplicationHandlerStop
     except Exception as e:
-        logging.warning(f"[config] Erro ao processar cadastro inicial: {e}")
+        logger.warning(f"[config] Erro ao processar cadastro inicial: {e}")
 
-    # 2) segue o roteador inteligente (IA)
-    resposta = await roteador_principal(user_id, mensagem, update, context)
-    if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
-        await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
+    # --- 3) roteador inteligente (IA) ---
+    try:
+        resposta = await roteador_principal(user_id, mensagem, update, context)
+        if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
+            await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
+    except Exception as e:
+        logger.exception(f"❌ Erro no roteador_principal: {e}")
+        await update.message.reply_text("⚠️ Tive um problema para processar sua solicitação agora. Pode repetir?")
 
 
-# ===========
-# /start
-# ===========
+
+# ============== COMANDOS ==============
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = str(user.id)
@@ -116,7 +150,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     modo_uso = "interno" if tipo_usuario == "dono" else "atendimento_cliente"
 
-    # 💾 Dados para salvar ou atualizar
     dados = {
         "nome": f"{user.first_name} {user.last_name or ''}".strip(),
         "email": "",
@@ -128,7 +161,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "modo_uso": modo_uso,
         "id_negocio": id_negocio,
         "tipo_negocio": "",
-        "estilo": "",
+        "estilo": ""
     }
 
     await salvar_cliente(user_id, dados)
@@ -155,73 +188,65 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"😉 Se precisar de algo mais, estou aqui!"
         )
 
-    # 🔔 onboarding quando houver pendências de configuração
+    # Onboarding (primeira configuração)
     try:
         if await precisa_onboarding(user_id):
             await update.message.reply_text(mensagem_onboarding(), parse_mode="Markdown")
     except Exception as e:
-        logging.warning(f"[start] Falha ao checar onboarding: {e}")
+        logger.warning(f"[start] Falha ao checar onboarding: {e}")
 
     await update.message.reply_text(mensagem, parse_mode="Markdown")
 
 
-# ===========
-# /help
-# ===========
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("📖 Comando /help recebido!")
     await update.message.reply_text(
         "ℹ️ *Comandos disponíveis:*\n\n"
+
         "🟢 *Básico*\n"
         "/start - Inicia o bot\n"
         "/help - Mostra esta mensagem\n"
         "/meus_dados - Ver seus dados cadastrados\n"
         "/meu_estilo - Ver estilo e tipo de negócio salvos\n"
         "/meuplano - Ver informações do seu plano atual\n\n"
+
         "📝 *Tarefas*\n"
         "/tarefa - Adiciona uma nova tarefa\n"
         "/listar - Lista todas as tarefas\n"
         "/listar_prioridade - Lista tarefas por prioridade\n"
         "/limpar - Remove todas as tarefas\n\n"
+
         "📅 *Agenda e Eventos*\n"
         "/agenda - Adiciona um novo evento\n"
         "/eventos - Lista eventos agendados\n"
         "/confirmar_reuniao - Confirma uma reunião\n"
         "/confirmar_presenca - Confirma presença em um evento\n"
         "/debug_eventos - Verifica eventos internos\n\n"
+
         "📧 *E-mails*\n"
         "/conectar_email - Conectar seu e-mail (Google)\n"
-        "/auth_callback - Finaliza autenticação de e-mail\n"
         "/ler_emails - Lê os últimos e-mails\n"
         "/emails_prioritarios - Lista e-mails importantes\n"
-        "/enviar_email - Envia um e-mail (por nome ou e-mail)\n"
+        "/enviar_email - Envia um e-mail\n"
         "/meu_email - Define o e-mail de envio manual\n\n"
+
         "📊 *Relatórios*\n"
         "/relatorio_diario - Gera relatório diário\n"
         "/relatorio_semanal - Gera relatório semanal\n"
-        "/enviar_relatorio_email - Envia relatório por e-mail\n\n"
+        "/enviar_agenda_excel - Exporta a agenda em Excel\n\n"
+
         "🗣️ *Comando por voz*\n"
-        "Você pode usar comandos de voz diretamente no chat\n"
-        "Ex: envie áudio dizendo *“nova tarefa lavar roupa”* ou *“me avise às 08:00, 12:00 e 18:00”*\n\n"
-        "🔁 *Avisos e Lembretes*\n"
-        "/configuraravisos - Define até 3 horários de lembrete\n"
-        "/verificaravisos - Ver seus horários de lembrete atuais\n\n"
-        "📌 *Follow-ups*\n"
-        "/followup Nome do cliente - Registra um follow-up\n"
-        "/meusfollowups - Lista seus follow-ups pendentes\n"
-        "/concluirfollowup Nome do cliente - Conclui e remove\n\n"
+        "Envie áudio com pedidos (ex.: “nova tarefa pagar contas”, “agendar corte amanhã 10h com Carla”).\n\n"
+
+        "🔁 *Avisos e Follow-ups*\n"
+        "/configuraravisos • /verificaravisos • /followup • /meusfollowups\n\n"
+
         "🎯 *Personalização*\n"
-        "/tipo_negocio - Define o tipo de negócio\n"
-        "/estilo - Define o estilo de mensagens\n"
-        "/nome_negocio - Define o nome do seu negócio\n"
-        "/profissional - Cadastra profissional com suas atividades (ex: /profissional Ana corte,escova)\n",
-        parse_mode="Markdown",
+        "/tipo_negocio • /estilo • /nome_negocio • /listar_profissionais\n",
+        parse_mode="Markdown"
     )
 
 
-# ===========
-# /meus_dados
-# ===========
 async def meus_dados(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
     cliente = await buscar_cliente(user_id)
@@ -233,14 +258,11 @@ async def meus_dados(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Nenhum dado encontrado para sua conta.")
 
 
-# ==================
-# /custosapi (admin)
-# ==================
 async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
     db = firestore.client()
 
-    ID_DONO = "7394370553"  # ajuste conforme seu admin
+    ID_DONO = "7394370553"  # ajuste se necessário
 
     if user_id != ID_DONO:
         await update.message.reply_text("⚠️ Este comando está disponível apenas para o administrador do sistema.")
@@ -255,14 +277,14 @@ async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         for doc in docs:
             data = doc.to_dict()
             uid = data.get("user_id", "desconhecido")
-            custo = data.get("custo_usd", 0)
+            custo = data.get("custo_usd", 0.0)
 
             if uid not in por_usuario:
-                por_usuario[uid] = {"custo": 0, "reqs": 0}
+                por_usuario[uid] = {"custo": 0.0, "reqs": 0}
 
-            por_usuario[uid]["custo"] += custo
+            por_usuario[uid]["custo"] += float(custo or 0)
             por_usuario[uid]["reqs"] += 1
-            total_geral += custo
+            total_geral += float(custo or 0)
 
         if not por_usuario:
             await update.message.reply_text("🔍 Nenhum uso registrado da API ainda.")
@@ -277,98 +299,92 @@ async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"💰 *Total geral:* ${total_geral:.4f}"
         )
         await update.message.reply_text(resposta, parse_mode="Markdown")
-
     except Exception as e:
-        print("❌ Erro ao consultar custos da API:", e)
+        logger.exception("❌ Erro ao consultar custos da API:", exc_info=e)
         await update.message.reply_text("❌ Ocorreu um erro ao consultar os dados.")
 
 
-# =========================
-# Registro de handlers
-# =========================
+# ============== REGISTRO DOS HANDLERS ==============
+
 def register_handlers(application: Application):
-    try:
-        # === COMANDOS ===
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        application.add_handler(CommandHandler("tarefa", add_task))
-        application.add_handler(CommandHandler("listar", list_tasks))
-        application.add_handler(CommandHandler("limpar", clear_tasks))
+    logger.info("✅ Registrando handlers...")
 
-        application.add_handler(CommandHandler(["ler_emails", "leremails"], ler_emails_command))
-        application.add_handler(CommandHandler(["emails_prioritarios", "emailsprioritarios"], listar_emails_prioritarios))
-        application.add_handler(CommandHandler(["conectar_email", "conectaremail"], conectar_email))
+    # 1) DEBUG (grupo 0)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _debug_primeiro_handler), group=0)
 
-        application.add_handler(CommandHandler("agenda", add_agenda))
-        application.add_handler(CommandHandler("eventos", list_events))
-        application.add_handler(CommandHandler(["confirmar_reuniao", "confirmarreuniao"], confirmar_reuniao))
-        application.add_handler(CommandHandler(["confirmar_presenca", "confirmarpresenca"], confirmar_presenca))
-        application.add_handler(CommandHandler(["debug_eventos"], debug_eventos))
+    # 2) COMANDOS
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("meus_dados", meus_dados))
+    application.add_handler(CommandHandler("meuestilo", meu_estilo))
+    application.add_handler(CommandHandler("meuplano", meu_plano))
+    application.add_handler(CommandHandler("custosapi", custos_api_handler))
 
-        application.add_handler(CommandHandler(["relatorio_diario", "relatoriodiario"], relatorio_diario))
-        application.add_handler(CommandHandler(["relatorio_semanal", "relatoriosemanal"], relatorio_semanal))
-        application.add_handler(CommandHandler(["enviar_agenda_excel"], enviar_agenda_excel))
+    # tarefas
+    application.add_handler(CommandHandler("tarefa", add_task))
+    application.add_handler(CommandHandler("listar", list_tasks))
+    application.add_handler(CommandHandler("listar_prioridade", list_tasks_by_priority))
+    application.add_handler(CommandHandler("limpar", clear_tasks))
 
-        application.add_handler(CommandHandler(["tipo_negocio", "tiponegocio"], set_tipo_negocio))
-        application.add_handler(CommandHandler(["estilo"], set_estilo_mensagem))
-        application.add_handler(CommandHandler(["nome_negocio", "nomenegocio"], set_nome_negocio))
-        application.add_handler(CommandHandler(["meu_estilo", "meuestilo"], meu_estilo))
-        application.add_handler(CommandHandler(["meu_email", "meuemail"], set_email))
+    # e-mails
+    application.add_handler(CommandHandler(["ler_emails", "leremails"], ler_emails_command))
+    application.add_handler(CommandHandler(["emails_prioritarios", "emailsprioritarios"], listar_emails_prioritarios))
+    application.add_handler(CommandHandler(["conectar_email", "conectaremail"], conectar_email))
 
-        application.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    # agenda/eventos
+    application.add_handler(CommandHandler("agenda", add_agenda))
+    application.add_handler(CommandHandler("eventos", list_events))
+    application.add_handler(CommandHandler(["confirmar_reuniao", "confirmarreuniao"], confirmar_reuniao))
+    application.add_handler(CommandHandler(["confirmar_presenca", "confirmarpresenca"], confirmar_presenca))
+    application.add_handler(CommandHandler("debug_eventos", debug_eventos))
+    application.add_handler(CommandHandler("enviar_agenda_excel", enviar_agenda_excel))
+    application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
 
-        application.add_handler(CommandHandler("meuplano", meu_plano))
-        application.add_handler(CommandHandler("followup", criar_followup))
-        application.add_handler(CommandHandler("meusfollowups", listar_followups))
-        application.add_handler(CommandHandler("verificaravisos", verificar_avisos))
-        application.add_handler(CommandHandler("configuraravisos", configurar_avisos))
-        application.add_handler(CommandHandler("testaravisos", testar_avisos))
-        application.add_handler(CommandHandler(["meu_perfil", "meuperfil"], meu_perfil))
-        application.add_handler(CommandHandler(["tipo_usuario", "tipousuario"], set_tipo_usuario))
-        application.add_handler(CommandHandler(["modo_uso", "modouso"], set_modo_uso))
-        application.add_handler(CommandHandler(["listar_profissionais", "listarprofissionais"], listar_profissionais))
-        application.add_handler(CommandHandler("custosapi", custos_api_handler))
-        application.add_handler(CommandHandler(["meus_dados", "meusdados"], meus_dados))
+    # relatórios  ✅ (os que causaram NameError)
+    application.add_handler(CommandHandler(["relatorio_diario", "relatoriodiario"], relatorio_diario))
+    application.add_handler(CommandHandler(["relatorio_semanal", "relatoriosemanal"], relatorio_semanal))
+    application.add_handler(CommandHandler("enviar_relatorio_email", enviar_relatorio_email))
 
-        # Upload de planilhas
-        application.add_handler(MessageHandler(
-            filters.Document.MimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-            importar_profissionais_handler
-        ))
-        application.add_handler(MessageHandler(
-            filters.Document.MimeType("text/csv"),
-            importar_profissionais_handler
-        ))
+    # perfil/negócio
+    application.add_handler(CommandHandler(["tipo_negocio", "tiponegocio"], set_tipo_negocio))
+    application.add_handler(CommandHandler(["estilo"], set_estilo_mensagem))
+    application.add_handler(CommandHandler(["nome_negocio", "nomenegocio"], set_nome_negocio))
+    application.add_handler(CommandHandler(["tipo_usuario", "tipousuario"], set_tipo_usuario))
+    application.add_handler(CommandHandler(["modo_uso", "modouso"], set_modo_uso))
+    application.add_handler(CommandHandler(["listar_profissionais", "listarprofissionais"], listar_profissionais))
 
-        # === ORDEM DOS HANDLERS DE TEXTO ===
-        # 1) NÚMEROS puros – finalização de cancelamento
-        application.add_handler(MessageHandler(filters.Regex(r"^\d+$"), tratar_mensagens_gerais))
+    # voz
+    application.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
-        # 2) TEXTO GERAL (sem comandos) – fluxo normal
-        so_texto_sem_cmd = filters.TEXT & ~filters.COMMAND
-        application.add_handler(MessageHandler(so_texto_sem_cmd, tratar_mensagens_gerais))
-        application.add_handler(MessageHandler(so_texto_sem_cmd, handle_pedido_encaixe))
-        application.add_handler(MessageHandler(so_texto_sem_cmd, handle_resposta_reagendamento))
+    # followups/avisos
+    application.add_handler(CommandHandler("followup", criar_followup))
+    application.add_handler(CommandHandler("meusfollowups", listar_followups))
+    application.add_handler(CommandHandler("verificaravisos", verificar_avisos))
+    application.add_handler(CommandHandler("configuraravisos", configurar_avisos))
+    application.add_handler(CommandHandler("testaravisos", testar_avisos))
 
-        # 3) Fallback de segurança: loga qualquer coisa não pega acima
-        async def _fallback_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            try:
-                t = getattr(update.message, "text", None)
-                logging.warning(f"[FALLBACK] Mensagem não roteada: {t!r}")
-                # Não responde para não duplicar, só loga
-            except Exception:
-                pass
-        application.add_handler(MessageHandler(filters.ALL, _fallback_log))
+    # importação (xlsx/csv)
+    application.add_handler(MessageHandler(
+        filters.Document.MimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        importar_profissionais_handler
+    ))
+    application.add_handler(MessageHandler(
+        filters.Document.MimeType("text/csv"),
+        importar_profissionais_handler
+    ))
 
-        # Cancelamento por comando (manual)
-        application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
+    # TEXTO LIVRE (ordem dos pipelines)
+    so_texto_nao_num = filters.TEXT & ~filters.COMMAND & ~filters.Regex(r"^\d+$")
+    application.add_handler(MessageHandler(so_texto_nao_num, tratar_mensagens_gerais), group=10)
+    application.add_handler(MessageHandler(so_texto_nao_num, handle_pedido_encaixe), group=20)
+    application.add_handler(MessageHandler(so_texto_nao_num, handle_resposta_reagendamento), group=21)
 
-        # Testes Firebase
-        application.add_handler(CommandHandler("testar_firebase", testar_firebase))
-        application.add_handler(CommandHandler("verificar_firebase", verificar_firebase))
+    # testes firebase
+    application.add_handler(CommandHandler("testar_firebase", testar_firebase))
+    application.add_handler(CommandHandler("verificar_firebase", verificar_firebase))
 
-        print("📌 Handlers do bot.py carregados")
-        logger.info("✅ Handlers registrados com sucesso!")
+    logger.info("✅ Handlers registrados com sucesso!")
 
     except Exception as e:
-        logger.error(f"❌ Erro ao registrar handlers: {e}", exc_info=True)
+        logger.error("❌ Erro ao registrar handlers", exc_info=True)
+        raise  # <- importante
