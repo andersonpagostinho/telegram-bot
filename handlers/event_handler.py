@@ -395,7 +395,11 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         # 🧠 Carrega contexto e trata profissional alternativo
         contexto = await carregar_contexto_temporario(user_id)
-        resposta_usuario = update.message.text.lower()
+        resposta_usuario = (
+            (getattr(getattr(update, "message", None), "text", None) or "")
+            .lower()
+            .strip()
+        )
         alternativa = contexto.get("alternativa_profissional")
 
         if alternativa:
