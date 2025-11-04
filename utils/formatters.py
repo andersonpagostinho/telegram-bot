@@ -67,3 +67,48 @@ def formatar_lista_emails(emails):
         f"🔗 {e.get('link', 'Sem link')}"
         for e in emails
     )
+
+def _formatar_data_br(data_str: str) -> str:
+    """Converte '2025-11-04' para '04/11/2025' se der, senão devolve original."""
+    try:
+        return datetime.strptime(data_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except Exception:
+        return data_str or "-"
+
+def _status_evento_humano(status: str | None) -> str:
+    status = (status or "").lower()
+    if status == "confirmado":
+        return "✅ Confirmado"
+    if status == "cancelado":
+        return "❌ Cancelado"
+    return "⏳ Pendente"
+
+def formatar_eventos_telegram(eventos: list[dict]) -> str:
+    """
+    Formata lista de eventos vinda do Firestore para uma mensagem legível
+    no Telegram e no WhatsApp.
+    """
+    if not eventos:
+        return "📅 Você não tem eventos agendados."
+
+    linhas = ["📅 *Seus eventos:*"]
+    for i, ev in enumerate(eventos, start=1):
+        # nomes possíveis porque às vezes vem com minúscula e às vezes não
+        data = ev.get("data") or ev.get("Data")
+        hora_inicio = ev.get("hora_inicio") or ev.get("horainicio") or ev.get("horaInicio") or "-"
+        hora_fim = ev.get("hora_fim") or ev.get("horafim") or ev.get("horaFim") or "-"
+        descricao = ev.get("descricao") or ev.get("titulo") or "Evento"
+        profissional = ev.get("profissional") or ev.get("prof") or "-"
+        status = ev.get("status")
+
+        data_fmt = _formatar_data_br(data)
+        status_fmt = _status_evento_humano(status)
+
+        linhas.append(
+            f"{i}. *{data_fmt}* ({hora_inicio}–{hora_fim})\n"
+            f"   • {descricao}\n"
+            f"   • Profissional: {profissional}\n"
+            f"   • Status: {status_fmt}"
+        )
+
+    return "\n".join(linhas)

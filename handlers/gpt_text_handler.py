@@ -1,7 +1,7 @@
 from services.gpt_service import processar_com_gpt_com_acao
 from services.firebase_service_async import buscar_cliente, buscar_subcolecao, salvar_dado_em_path, buscar_dado_em_path, obter_id_dono
 from services.gpt_executor import executar_acao_gpt
-from utils.formatters import formatar_horario_atual, formatar_lista_emails
+from utils.formatters import formatar_horario_atual, formatar_lista_emails, formatar_eventos_telegram
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA, EXTRACAO_DADOS_EMAIL
 from services.session_service import criar_ou_atualizar_sessao
 from telegram import Update
@@ -97,7 +97,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 🎯 Se detectou eventos direto, responde e encerra
     if eventos is not None:
         if eventos:
-            resposta = "📅 Seus eventos:\n" + "\n".join(f"- {e}" for e in eventos)
+            resposta = formatar_eventos_telegram(eventos)
         else:
             resposta = "📭 Nenhum evento encontrado para o período solicitado."
         await update.message.reply_text(resposta)

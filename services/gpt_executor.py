@@ -14,6 +14,7 @@ from services.firebase_service_async import buscar_subcolecao
 from datetime import datetime
 from services.email_service import enviar_email_google
 from services.event_service_async import cancelar_evento_por_texto, buscar_eventos_por_termo_avancado, cancelar_evento
+from utils.formatters import formatar_eventos_telegram
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
@@ -241,7 +242,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 eventos_reais = await buscar_eventos_por_intervalo(user_id, dias=dias)
 
             if eventos_reais:
-                resposta = f"📅 Seus eventos:\n" + "\n".join(f"- {e}" for e in eventos_reais)
+                resposta = formatar_eventos_telegram(eventos_reais)
             else:
                 resposta = "📭 Nenhum evento encontrado para o período solicitado."
 
