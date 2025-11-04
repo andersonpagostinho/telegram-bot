@@ -17,6 +17,13 @@ from scheduler.daily_summary import start_daily_summary
 from scheduler.email_to_event_loop import loop_verificacao_emails
 from handlers import register_handlers
 
+# 💡 TENTAR importar a função que processa notificações diretamente
+# (se não existir, a rota vai só dizer "não achei")
+try:
+    from scheduler.notificacoes_scheduler import processar_notificacoes_agendadas
+except Exception:
+    processar_notificacoes_agendadas = None
+
 # 🔧 Setup inicial
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
@@ -33,6 +40,9 @@ PORT = int(os.environ.get("PORT", 8080))
 RENDER_SERVICE_NAME = os.getenv("RENDER_SERVICE_NAME", "telegram-bot-a7a7")
 WEBHOOK_URL = f"https://{RENDER_SERVICE_NAME}.onrender.com/webhook"
 
+# 🔐 token do cron externo
+CRON_TOKEN = os.environ.get("CRON_TOKEN", "supersecreto123")
+
 # 🌐 App Flask
 app = Flask(__name__)
 application = Application.builder().token(TOKEN).build()
@@ -46,7 +56,7 @@ logger.info("✅ Registrando handlers...")
 register_handlers(application)
 logger.info("✅ Handlers registrados!")
 
-# ⏰ Agendadores
+# ⏰ Agendadores que você já tinha
 start_followup_scheduler()
 start_daily_summary(application)
 start_notificacao_scheduler()
@@ -54,6 +64,7 @@ start_notificacao_scheduler()
 # ⏰ Inicia verificação automática de e-mails a cada X minutos
 def iniciar_email_loop():
     asyncio.run(loop_verificacao_emails())
+
 threading.Thread(
     target=iniciar_email_loop,
     daemon=True
@@ -85,6 +96,39 @@ def webhook():
 @app.route("/", methods=["GET"])
 def health_check():
     return "🤖 Bot Online!", 200
+
+# ✅ ROTA PARA O CRON EXTERNO “ACORDAR” O APP
+@app.route("/cron/ping", methods=["GET", "POST"])
+def cron_ping():
+    # 1) segurança simples
+    token = request.args.get("token") or request.headers.get("X-CRON-TOKEN")
+    if token != CRON_TOKEN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    # 2) tenta rodar o processamento de notificações
+    try:
+        # se você tem a função direta
+        if processar_notificacoes_agendadas is not None:
+            # pode ser sync ou async
+            if asyncio.iscoroutinefunction(processar_notificacoes_agendadas):
+                # se o bot já tem loop rodando, usamos ele
+                if bot_loop is not None:
+                    fut = asyncio.run_coroutine_threadsafe(processar_notificacoes_agendadas(), bot_loop)
+                    fut.result(timeout=30)
+                else:
+                    asyncio.run(processar_notificacoes_agendadas())
+            else:
+                # função normal
+                processar_notificacoes_agendadas()
+            return jsonify({"ok": True, "message": "notificacoes processadas"}), 200
+        else:
+            # fallback: pelo menos confirma que acordou
+            logger.info("⚠️ /cron/ping chamado, mas não há processar_notificacoes_agendadas para rodar.")
+            return jsonify({"ok": True, "message": "cron ping ok (sem processamento direto)"}), 200
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao executar cron/ping: {e}", exc_info=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 # 🔗 Configura webhook no Telegram
 async def setup_webhook():
