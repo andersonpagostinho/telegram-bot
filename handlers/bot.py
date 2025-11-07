@@ -131,63 +131,66 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
 
 
 # ============== COMANDOS ==============
+OWNER_ID = "7394370553"  # <- coloca aqui o dono desse número/bot
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = str(user.id)
 
+    # 1) ver se já conheço esse usuário
     cliente_existente = await buscar_cliente(user_id)
 
     if cliente_existente:
+        # reaproveita o que já estava salvo
         tipo_usuario = cliente_existente.get("tipo_usuario") or "cliente"
-        id_negocio = cliente_existente.get("id_negocio") or user_id
+        id_negocio = cliente_existente.get("id_negocio") or OWNER_ID
     else:
-        tipo_usuario = "dono"
-        id_negocio = user_id
+        # usuário novo falando com ESTE número
+        if user_id == OWNER_ID:
+            # é o dono deste número
+            tipo_usuario = "dono"
+            id_negocio = user_id
+        else:
+            # qualquer outro que chegar aqui é cliente do dono
+            tipo_usuario = "cliente"
+            id_negocio = OWNER_ID
 
-    modo_uso = "interno" if tipo_usuario == "dono" else "atendimento_cliente"
+        # salva só se for novo
+        dados = {
+            "nome": f"{user.first_name} {user.last_name or ''}".strip(),
+            "email": "",
+            "pagamentoAtivo": True,
+            "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
+            "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+            "planosAtivos": ["secretaria"],
+            "tipo_usuario": tipo_usuario,
+            "modo_uso": "interno" if tipo_usuario == "dono" else "atendimento_cliente",
+            "id_negocio": id_negocio,
+            "tipo_negocio": "",
+            "estilo": ""
+        }
+        await salvar_cliente(user_id, dados)
 
-    dados = {
-        "nome": f"{user.first_name} {user.last_name or ''}".strip(),
-        "email": "",
-        "pagamentoAtivo": True,
-        "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
-        "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
-        "planosAtivos": ["secretaria"],
-        "tipo_usuario": tipo_usuario,
-        "modo_uso": modo_uso,
-        "id_negocio": id_negocio,
-        "tipo_negocio": "",
-        "estilo": ""
-    }
-
-    await salvar_cliente(user_id, dados)
-
+    # 2) mensagens diferentes
     if tipo_usuario == "dono":
         mensagem = (
-            f"👋 Olá, {user.first_name}! Detectei que você é o *dono* do negócio.\n\n"
-            f"🎯 O modo *interno* já foi ativado automaticamente.\n"
-            f"✅ Agora é só começar a usar! Você pode digitar /help para ver tudo que posso fazer.\n\n"
-            f"✨ Dica: personalize como quiser com os comandos:\n"
-            f"/tipo_negocio – ex: salão, clínica, etc.\n"
-            f"/estilo – formal ou casual\n"
-            f"/meu_email – para envio de mensagens\n"
-            f"/profissional – para cadastrar sua equipe"
+            f"👋 Olá, {user.first_name}! Detectei que você é o *dono* deste atendimento.\n\n"
+            f"Vou te ajudar a configurar por voz.\n"
+            f"👉 Diga: *quero configurar*.\n"
+            f"Assim eu cadastro o tipo de negócio, serviços (com preço e duração) e depois os profissionais."
         )
     else:
         mensagem = (
-            f"👋 Olá, {user.first_name}! Sou *NeoEve*, sua secretária virtual com inteligência contextual.\n\n"
-            f"📌 Você foi conectado ao sistema de atendimento do negócio.\n"
-            f"A qualquer momento, pode fazer perguntas como:\n"
-            f"• “Tem horário para corte amanhã?”\n"
-            f"• “Quem faz escova?”\n"
-            f"• “Quais horários disponíveis hoje?”\n\n"
-            f"😉 Se precisar de algo mais, estou aqui!"
+            f"👋 Olá, {user.first_name}! Você está falando com o atendimento do negócio.\n"
+            f"Pode perguntar preço ou horário, por exemplo:\n"
+            f"• tem horário amanhã?\n"
+            f"• quanto custa corte feminino?\n"
+            f"• quem faz escova?\n"
         )
 
-    # Onboarding (primeira configuração)
+    # 3) se for dono e ainda não terminou o onboarding, mostra as instruções
     try:
-        if await precisa_onboarding(user_id):
+        if tipo_usuario == "dono" and await precisa_onboarding(user_id):
             await update.message.reply_text(mensagem_onboarding(), parse_mode="Markdown")
     except Exception as e:
         logger.warning(f"[start] Falha ao checar onboarding: {e}")

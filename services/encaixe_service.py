@@ -13,6 +13,7 @@ from services.firebase_service_async import (
     buscar_subcolecao,
     salvar_dado_em_path,
     atualizar_dado_em_path,
+    obter_id_dono,              # 👈 acrescentado
 )
 from services.event_service_async import (
     buscar_eventos_por_intervalo,
@@ -39,26 +40,6 @@ def _dt(date_str: str, hhmm: str) -> datetime:
 
 def _to_date_hhmm(dt: datetime) -> Tuple[str, str]:
     return dt.strftime("%Y-%m-%d"), dt.strftime("%H:%M")
-
-
-def _eventos_ocupados_na_data(
-    dono_id: str, data: datetime.date, profissional: Optional[str] = None
-) -> List[Tuple[datetime, datetime]]:
-    """
-    Retorna pares (inicio,fim) timezone-aware de todos eventos do dia.
-    Se 'profissional' informado, filtra por ele.
-    """
-    eventos = []
-    br_date = data
-    encontrados = []
-
-    try:
-        encontrados = buscar_eventos_por_intervalo.__wrapped__  # type: ignore[attr-defined]
-    except Exception:
-        pass  # só pra agradar linters locais
-
-    # buscar_eventos_por_intervalo é async — chamaremos de fato abaixo na função chamadora
-    # aqui só definimos o formato do que vamos construir
 
 
 def _tem_conflito(inicio: datetime, fim: datetime, ocupados: List[Tuple[datetime, datetime]]) -> bool:
@@ -152,14 +133,18 @@ async def solicitar_encaixe(
     2) Senão -> escolhe 1–2 clientes com eventos conflitantes (com mesmo profissional se informado),
        gera 3 horários realmente livres p/ cada, envia proposta e guarda pendência.
     """
+    # 👇 garante que sempre trabalhamos no negócio do dono
+    dono_id = await obter_id_dono(user_id)
+
     dt_desejado = dt_desejado.astimezone(FUSO_BR)
     dia = dt_desejado.date()
     inicio = dt_desejado
     fim = dt_desejado + timedelta(minutes=duracao_min)
 
-    ocupados = await _carregar_ocupados(user_id, dia, profissional)
+    # ocupação sempre do dono
+    ocupados = await _carregar_ocupados(dono_id, dia, profissional)
     if not _tem_conflito(inicio, fim, ocupados):
-        # Livre → cria evento direto
+        # Livre → cria evento direto no dono
         ev = {
             "descricao": descricao or "Encaixe",
             "data": dia.strftime("%Y-%m-%d"),
@@ -174,7 +159,8 @@ async def solicitar_encaixe(
         if profissional:
             ev["profissional"] = profissional
 
-        await salvar_evento(user_id, ev)
+        # 👇 salva no dono
+        await salvar_evento(dono_id, ev)
 
         # lembrete ao solicitante
         try:
@@ -198,11 +184,8 @@ async def solicitar_encaixe(
         }
 
     # Conflito → procurar clientes candidatos (eventos que conflitam)
-    eventos_do_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=dia) or []
-    candidatos: List[Tuple[str, Dict[str, Any]]] = []  # (event_id, evento)
-    for ev_id, ev in ((k, v) for k, v in eventos_do_dia.items() if isinstance(eventos_do_dia, dict)) if isinstance(eventos_do_dia, dict) else []:
-        # se buscar_eventos_por_intervalo retorna lista, ajustamos:
-        pass
+    eventos_do_dia = await buscar_eventos_por_intervalo(dono_id, dia_especifico=dia) or []
+    candidatos: List[Tuple[str, Dict[str, Any]]] = []
 
     # Normalizar 'eventos_do_dia' em tuplas (id,ev)
     norm: List[Tuple[str, Dict[str, Any]]] = []
@@ -211,7 +194,6 @@ async def solicitar_encaixe(
             if isinstance(v, dict):
                 norm.append((k, v))
     elif isinstance(eventos_do_dia, list):
-        # quando serviço retorna lista simples (sem id), criamos ids voláteis
         for v in eventos_do_dia:
             if isinstance(v, dict):
                 norm.append((v.get("id") or f"ev_{uuid.uuid4()}", v))
@@ -225,13 +207,11 @@ async def solicitar_encaixe(
             ini = _dt(ev["data"], ev["hora_inicio"])
             fim_ev = _dt(ev["data"], ev["hora_fim"])
             if _overlap(inicio, fim, ini, fim_ev):
-                # precisa ter cliente_id (não realoque reuniões internas por padrão)
                 if ev.get("cliente_id"):
                     candidatos.append((ev_id, ev))
         except Exception:
             continue
 
-    # ordenar candidatos por "flex" aproximado: eventos com descricao curta ou recorrentes (heurística simples)
     candidatos = candidatos[:2]  # máximo 2 convites por tentativa
 
     if not candidatos:
@@ -240,9 +220,9 @@ async def solicitar_encaixe(
             "mensagem": "Sem clientes flexíveis/compatíveis para propor reagendamento neste horário.",
         }
 
-    # Para cada candidato, gerar 3 janelas realmente livres (considerando TODO O DIA) nos próximos 5 dias
+    # pendência sempre no dono
     pend_id = str(uuid.uuid4())
-    pend_path = f"Clientes/{user_id}/PendenciasEncaixe/{pend_id}"
+    pend_path = f"Clientes/{dono_id}/PendenciasEncaixe/{pend_id}"
 
     opcoes_por_cliente: Dict[str, List[Dict[str, str]]] = {}
     horizonte = 5  # dias
@@ -254,9 +234,8 @@ async def solicitar_encaixe(
         base_dia = dia
         for d in range(horizonte):
             dia_test = base_dia + timedelta(days=d)
-            ocp = await _carregar_ocupados(user_id, dia_test, profissional)
-            # Ao verificar slots, consideramos “livre” se o único conflito for o PRÓPRIO evento do cliente (pois ele será movido).
-            # Então removemos o slot do próprio evento da lista de ocupados.
+            ocp = await _carregar_ocupados(dono_id, dia_test, profissional)
+            # remover o próprio evento, porque ele será movido
             try:
                 ini_cli = _dt(ev["data"], ev["hora_inicio"])
                 fim_cli = _dt(ev["data"], ev["hora_fim"])
@@ -278,12 +257,12 @@ async def solicitar_encaixe(
 
         opcoes_por_cliente[cli_id] = achadas
 
-    # Guarda a pendência
+    # Guarda a pendência no dono
     pend_doc = {
         "status": "pendente",
         "criado_em": _local_now().isoformat(),
         "solicitante_user_id": solicitante_user_id,
-        "dono_id": user_id,
+        "dono_id": dono_id,
         "profissional": profissional,
         "duracao_min": duracao_min,
         "dt_desejado": dt_desejado.isoformat(),
@@ -312,11 +291,9 @@ async def solicitar_encaixe(
         cli_id = str(ev.get("cliente_id"))
         opcoes = opcoes_por_cliente.get(cli_id, [])
         if not opcoes:
-            # sem opções livres -> marca como sem_opcao (e segue para o próximo)
             await atualizar_dado_em_path(pend_path, {"status": "sem_opcao"})
             continue
 
-        # monta texto
         linhas = []
         for idx, o in enumerate(opcoes, start=1):
             linhas.append(f"{idx}) {o['data']} às {o['hora_inicio']}")
@@ -356,13 +333,8 @@ async def confirmar_reagendamento_por_opcao(
 ) -> Dict[str, Any]:
     """
     Chamado quando o cliente “flex” responde 1/2/3.
-    - Localiza a pendência mais recente onde esse cliente está como candidato 'aguardando'.
-    - Move o evento do cliente para a opção escolhida (valida conflito).
-    - Cria o evento do ENCAIXE para o solicitante no dt_desejado original.
-    - Notifica envolvidos e agenda lembretes.
     """
     pendencias = await buscar_subcolecao(f"Clientes/{dono_id}/PendenciasEncaixe") or {}
-    # pega a mais recente em status pendente contendo esse cliente
     alvo_id = None
     alvo_doc = None
     for pid, p in pendencias.items():
@@ -397,16 +369,14 @@ async def confirmar_reagendamento_por_opcao(
     nova_hora_inicio = opc["hora_inicio"]
     nova_hora_fim = opc["hora_fim"]
 
-    # valida de novo se não surgiu conflito (janela pode ter sido ocupada entre a proposta e a resposta)
+    # valida de novo se não surgiu conflito
     ocp = await _carregar_ocupados(dono_id, datetime.strptime(nova_data, "%Y-%m-%d").date(), alvo_doc.get("profissional"))
     ini_novo = _dt(nova_data, nova_hora_inicio)
     fim_novo = _dt(nova_data, nova_hora_fim)
     if _tem_conflito(ini_novo, fim_novo, ocp):
         return {"status": "erro", "mensagem": "Esse horário acabou de ficar indisponível. Pode escolher outra opção?"}
 
-    # 1) mover o evento do cliente (update simples: cria novo e recomenda-se cancelar o antigo; aqui sobrescrevemos)
     ev_ori = cand.get("evento_original") or {}
-    # salvamos um novo evento com os mesmos dados, porém nova data/hora
     novo_ev_cliente = {
         "descricao": ev_ori.get("descricao", "Atendimento"),
         "data": nova_data,
@@ -423,7 +393,6 @@ async def confirmar_reagendamento_por_opcao(
 
     await salvar_evento(dono_id, novo_ev_cliente)
 
-    # 2) criar o evento do ENCAIXE no horário originalmente desejado
     dt_desejado_str = alvo_doc.get("dt_desejado")
     dt_desejado = datetime.fromisoformat(dt_desejado_str).astimezone(FUSO_BR)
     data_encaixe, hora_encaixe = _to_date_hhmm(dt_desejado)
@@ -446,8 +415,7 @@ async def confirmar_reagendamento_por_opcao(
 
     await salvar_evento(dono_id, ev_encaixe)
 
-    # 3) atualizar pendência
-    # marca cliente como concluído, e pendência como concluída
+    # atualizar pendência
     for c in alvo_doc.get("candidatos", []):
         if c.get("cliente_id") == cliente_id:
             c["status_cliente"] = "remarcado"
@@ -461,14 +429,12 @@ async def confirmar_reagendamento_por_opcao(
     }
     await salvar_dado_em_path(f"Clientes/{dono_id}/PendenciasEncaixe/{alvo_id}", alvo_doc)
 
-    # 4) notificar envolvidos
-    # 4a) cliente flex (confirmação)
+    # notificações
     try:
         await _enviar_msg_telegram(
             cliente_id,
             f"✅ Obrigado! Seu horário foi remarcado para *{nova_data} às {nova_hora_inicio}*.",
         )
-        # lembrete do cliente para nova data
         await criar_notificacao_agendada(
             user_id=cliente_id,
             descricao=novo_ev_cliente["descricao"],
@@ -482,7 +448,6 @@ async def confirmar_reagendamento_por_opcao(
     except Exception as e:
         logger.warning(f"Falha ao notificar/lembrar cliente flex: {e}")
 
-    # 4b) solicitante (encaixe)
     solicitante = str(alvo_doc.get("solicitante_user_id"))
     try:
         prof_txt = f" com {ev_encaixe.get('profissional')}" if ev_encaixe.get("profissional") else ""
@@ -503,7 +468,6 @@ async def confirmar_reagendamento_por_opcao(
     except Exception as e:
         logger.warning(f"Falha ao notificar/lembrar solicitante do encaixe: {e}")
 
-    # 4c) dono (opcional)
     try:
         await _enviar_msg_telegram(
             dono_id,

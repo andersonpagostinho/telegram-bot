@@ -27,6 +27,7 @@ from services.firebase_service_async import (
     salvar_dados,
     atualizar_dado_em_path,
     buscar_dado_em_path,
+    obter_id_dono,
 )
 from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo, cancelar_evento_por_texto
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento 
@@ -167,13 +168,15 @@ async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = str(update.message.from_user.id)
-    eventos = await buscar_subcolecao(f"Clientes/{user_id}/Eventos")
+    dono_id = await obter_id_dono(user_id)   # 👈 garante que busca no dono
+
+    eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
 
     for event_id, evento in eventos.items():
         texto_evento = f"{evento.get('descricao', '')} {evento.get('data', '')} {evento.get('hora_inicio', '')} {evento.get('hora_fim', '')}".lower()
         if descricao.lower() in texto_evento:
             evento["confirmado"] = True
-            await salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{event_id}", evento)
+            await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento)
             await responder_em_audio(update, context, f"✅ Reunião confirmada: {evento['descricao']}")
             return
 
@@ -189,12 +192,14 @@ async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     user_id = str(update.message.from_user.id)
-    eventos = await buscar_subcolecao(f"Clientes/{user_id}/Eventos")
+    dono_id = await obter_id_dono(user_id)  # 👈 aqui
+
+    eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
 
     for event_id, evento in eventos.items():
         if descricao in evento.get("descricao", "").lower():
             evento["confirmado"] = True
-            await salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{event_id}", evento)
+            await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento)
             await responder_em_audio(update, context, f"✅ Presença confirmada para: {evento['descricao']}")
             return
 
@@ -205,6 +210,8 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
     user_id = str(update.message.from_user.id)
+    dono_id = await obter_id_dono(user_id)  # 👈 aqui
+
     event_id = "evento_debug"
     evento_data = {
         "descricao": "Evento de Teste via Bot",
@@ -215,12 +222,12 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "link": "https://exemplo.com/evento-debug"
     }
 
-    if await salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{event_id}", evento_data):
+    if await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento_data):
         await responder_em_audio(update, context, "✅ Evento de teste salvo com sucesso.")
     else:
         await update.message.reply_text("❌ Erro ao salvar evento de teste.")
 
-    eventos = await buscar_subcolecao(f"Clientes/{user_id}/Eventos")
+    eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
     if not eventos:
         await update.message.reply_text("📭 Nenhum evento encontrado.")
         return
@@ -365,7 +372,8 @@ async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAU
 
         if 15 <= minutos <= 180:
             user_id = str(update.message.from_user.id)
-            await atualizar_dado_em_path(f"Clientes/{user_id}/configuracoes", {"duracao_padrao_evento": minutos})
+            dono_id = await obter_id_dono(user_id)  # 👈 salva na config do dono
+            await atualizar_dado_em_path(f"Clientes/{dono_id}/configuracoes", {"duracao_padrao_evento": minutos})
 
             await update.message.reply_text(f"✅ Duração dos eventos ajustada para {minutos} minutos.")
             return True

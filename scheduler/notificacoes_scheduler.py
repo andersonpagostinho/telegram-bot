@@ -3,7 +3,11 @@
 from datetime import datetime
 from pytz import timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from services.firebase_service_async import buscar_subcolecao, atualizar_dado_em_path
+from services.firebase_service_async import (
+    buscar_subcolecao,
+    atualizar_dado_em_path,
+    buscar_dado_em_path,
+)
 from services.recorrencia_service import checar_e_propor_recorrencias_todos
 import logging
 import os
@@ -59,6 +63,7 @@ async def processar_notificacoes_agendadas():
         if bot is None:
             return
 
+        # aqui vêm TODOS os documentos de Clientes (dono + clientes)
         clientes = await buscar_subcolecao("Clientes") or {}
         agora = datetime.now(FUSO_BR)
 
@@ -70,13 +75,11 @@ async def processar_notificacoes_agendadas():
                 if not isinstance(notif, dict):
                     continue
 
-                # já enviada?
                 avisado = bool(notif.get("avisado"))
                 status = (notif.get("status") or "").lower()
                 if avisado or status == "enviado":
                     continue
 
-                # quando disparar
                 dt = _parse_iso_br(notif.get("data_hora", ""))
                 if not dt:
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
@@ -90,7 +93,12 @@ async def processar_notificacoes_agendadas():
 
                 canal = (notif.get("canal") or "telegram").lower()
 
-                # mensagem clara (fallback)
+                # 🔑 se o evento foi criado pelo dono, mas era para avisar o cliente,
+                # vamos usar o destinatário salvo no documento
+                destinatario_id = str(
+                    notif.get("destinatario_user_id") or user_id
+                )
+
                 mensagem = notif.get("mensagem")
                 if not mensagem:
                     desc = (notif.get("descricao") or "compromisso").strip()
@@ -99,38 +107,36 @@ async def processar_notificacoes_agendadas():
                     hora_ev = (alvo.get("hora_inicio") or "")
                     min_antes = int(notif.get("minutos_antes") or 30)
 
-                    # tenta identificar reunião
                     desc_lower = desc.lower()
                     tipo_legivel = "reunião" if "reuni" in desc_lower else desc_lower
 
-                    # hoje ou outra data
                     hoje_str = datetime.now(FUSO_BR).strftime("%Y-%m-%d")
-                    quando = ""
                     if data_ev and hora_ev:
                         quando = f" — hoje às {hora_ev}" if data_ev == hoje_str else f" — {data_ev} às {hora_ev}"
+                    else:
+                        quando = ""
 
                     sufixo_min = "minuto" if min_antes == 1 else "minutos"
                     mensagem = f"🔔 Não esqueça: sua {tipo_legivel} começa em {min_antes} {sufixo_min}{quando}."
 
                 try:
                     if canal == "telegram":
-                        await bot.send_message(chat_id=int(user_id), text=mensagem)
+                        await bot.send_message(chat_id=int(destinatario_id), text=mensagem)
                     elif canal == "whatsapp":
                         from services.whatsapp_service import enviar_mensagem_whatsapp
-                        await enviar_mensagem_whatsapp(user_id, mensagem)
+                        await enviar_mensagem_whatsapp(destinatario_id, mensagem)
                     else:
-                        # canal desconhecido → tenta telegram
-                        await bot.send_message(chat_id=int(user_id), text=mensagem)
+                        await bot.send_message(chat_id=int(destinatario_id), text=mensagem)
 
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
                         "avisado": True,
                         "status": "enviado",
                         "enviado_em": agora.isoformat()
                     })
-                    logger.info(f"✅ Notificação enviado [{user_id}] via {canal}: {mensagem}")
+                    logger.info(f"✅ Notificação enviada para {destinatario_id} via {canal}: {mensagem}")
 
                 except Exception as e:
-                    logger.error(f"Erro ao enviar notificação para {user_id} via {canal}: {e}")
+                    logger.error(f"Erro ao enviar notificação para {destinatario_id} via {canal}: {e}")
                     await atualizar_dado_em_path(f"{path}/{notif_id}", {
                         "status": "erro",
                         "erro": str(e),
@@ -149,23 +155,26 @@ async def enviar_resumo_diario():
             return
 
         from services.event_service_async import buscar_eventos_por_intervalo
-        from services.firebase_service_async import buscar_subcolecao
 
         clientes = await buscar_subcolecao("Clientes") or {}
         hoje = datetime.now(FUSO_BR).date()
         hoje_str = hoje.strftime("%Y-%m-%d")
 
         for user_id in clientes.keys():
+            # 👇 checa se esse documento é mesmo de DONO
+            doc_cli = await buscar_dado_em_path(f"Clientes/{user_id}")
+            tipo_usuario = (doc_cli or {}).get("tipo_usuario") or "cliente"
+            if tipo_usuario != "dono":
+                continue  # não manda resumo diário para cliente
+
             partes_resumo = []
 
-            # eventos do dia
             eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=hoje)
             if eventos:
                 partes_resumo.append("📅 *Eventos de hoje:*\n" + "\n".join(f"• {e}" for e in eventos))
             else:
                 partes_resumo.append("📅 Nenhum evento agendado.")
 
-            # tarefas
             tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
             tarefas = [t["descricao"] for t in tarefas_dict.values() if isinstance(t, dict) and t.get("descricao")]
             if tarefas:
@@ -173,7 +182,6 @@ async def enviar_resumo_diario():
             else:
                 partes_resumo.append("📝 Nenhuma tarefa registrada.")
 
-            # follow-ups (coleção antiga/legada)
             followups_dict = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps") or {}
             pendentes = []
             for f in followups_dict.values():
@@ -204,7 +212,7 @@ async def enviar_resumo_diario():
 def start_notificacao_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
 
-    # 🔔 Notificações a cada 1 minuto (coalesce + tolerância a misfire)
+    # 🔔 Notificações a cada 1 minuto
     scheduler.add_job(
         processar_notificacoes_agendadas,
         "interval",

@@ -9,7 +9,8 @@ from utils.formatters import formatar_horario_atual
 from services.firebase_service_async import (
     salvar_dado_em_path,
     buscar_subcolecao,
-    limpar_colecao
+    limpar_colecao,
+    obter_id_dono,   # 👈 adiciona
 )
 from utils.priority_utils import detectar_prioridade_tarefa
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento
@@ -17,7 +18,8 @@ from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento
 
 # ✅ Retorna dados puros de tarefas (para contexto e reutilização)
 async def obter_tarefas_lista(user_id: str):
-    tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
+    dono_id = await obter_id_dono(user_id)   # 👈 resolve o dono
+    tarefas_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Tarefas") or {}
     tarefas = []
     for t in tarefas_dict.values():
         if isinstance(t, dict) and t.get("descricao"):
@@ -26,7 +28,6 @@ async def obter_tarefas_lista(user_id: str):
                 "prioridade": t.get("prioridade", "baixa"),
             })
     return tarefas
-
 
 # ✅ Função auxiliar que retorna a lista como texto (para responder ao usuário)
 async def gerar_texto_tarefas(user_id: str):
@@ -43,7 +44,7 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
-    user_id = str(update.message.from_user.id)  # ✅ Define antes de usar
+    user_id = str(update.message.from_user.id)
     cliente = await buscar_cliente(user_id)
 
     if cliente.get("tipo_usuario") != "dono":
@@ -62,24 +63,12 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "prioridade": prioridade
     }
 
+    # 👇 salva sempre no dono
+    dono_id = await obter_id_dono(user_id)
     tarefa_id = str(datetime.now().timestamp()).replace(".", "")
-    path = f"Clientes/{user_id}/Tarefas/{tarefa_id}"
+    path = f"Clientes/{dono_id}/Tarefas/{tarefa_id}"
 
     if await salvar_dado_em_path(path, tarefa_data):
-        try:
-            from services.notificacao_service import criar_notificacao_agendada
-            await criar_notificacao_agendada(
-                user_id=user_id,
-                descricao=descricao_tarefa,
-                data=data,
-                hora_inicio=hora_inicio,
-                minutos_antes=0,
-                destinatario_user_id=user_id,
-                alvo_evento={"data": data, "hora_inicio": hora_inicio}
-            )
-        except Exception as e:
-            print(f"⚠️ Erro ao criar notificação da tarefa: {e}")
-
         await update.message.reply_text(f"✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})")
     else:
         await update.message.reply_text("❌ Erro ao salvar a tarefa. Tente novamente.")
@@ -97,7 +86,8 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Apenas o dono pode visualizar as tarefas.")
         return
 
-    resposta = await gerar_texto_tarefas(user_id)
+    dono_id = await obter_id_dono(user_id)
+    resposta = await gerar_texto_tarefas(dono_id)
     await update.message.reply_text(resposta)
 
 
@@ -106,8 +96,8 @@ async def list_tasks_by_priority(update: Update, context: ContextTypes.DEFAULT_T
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
-    user_id = str(update.message.from_user.id)
-    tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
+    dono_id = await obter_id_dono(user_id)
+    tarefas_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Tarefas") or {}
 
     if not tarefas_dict:
         await update.message.reply_text("📭 Nenhuma tarefa encontrada.")
@@ -150,14 +140,14 @@ async def clear_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from services.firebase_service_async import buscar_subcolecao, deletar_dado_em_path
 
-    tarefas = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
+    tarefas = await buscar_subcolecao(f"Clientes/{dono_id}/Tarefas") or {}
 
     if not tarefas:
         await update.message.reply_text("📭 Nenhuma tarefa para remover.")
         return
 
     for tarefa_id in list(tarefas.keys()):
-        await deletar_dado_em_path(f"Clientes/{user_id}/Tarefas/{tarefa_id}")
+        await deletar_dado_em_path(f"Clientes/{dono_id}/Tarefas/{tarefa_id}")
 
     await update.message.reply_text("🧹 Todas as tarefas foram removidas com sucesso.")
 

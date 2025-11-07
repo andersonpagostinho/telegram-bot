@@ -7,16 +7,14 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from services.encaixe_service import solicitar_encaixe
+from services.firebase_service_async import obter_id_dono  # 👈 adiciona
 
 FUSO_BR = timezone("America/Sao_Paulo")
 
-# --- util simples para extrair dados do texto ---
 def _extrair_profissional(txt: str) -> str | None:
-    # exemplos que pega: "com a Carla", "com Carla", "com o João", "Carla"
     m = re.search(r"\bcom\s+(a|o)?\s*([A-Za-zÀ-ÿ][\wÀ-ÿ]+)", txt, flags=re.IGNORECASE)
     if m:
         return m.group(2).strip().capitalize()
-    # fallback: tenta última palavra capitalizada
     m2 = re.search(r"\b([A-Za-zÀ-ÿ][\wÀ-ÿ]+)$", txt.strip())
     return m2.group(1).capitalize() if m2 else None
 
@@ -27,15 +25,17 @@ def _extrair_duracao(txt: str, padrao_min: int = 30) -> int:
     return padrao_min
 
 def _extrair_datahora(txt: str):
-    # entende “hoje às 16:00”, “amanhã 9h”, “12/10 14:30”, etc.
     dt = dateparser.parse(
         txt,
         languages=["pt"],
-        settings={"PREFER_DATES_FROM": "future", "TIMEZONE": "America/Sao_Paulo", "RETURN_AS_TIMEZONE_AWARE": False},
+        settings={
+            "PREFER_DATES_FROM": "future",
+            "TIMEZONE": "America/Sao_Paulo",
+            "RETURN_AS_TIMEZONE_AWARE": False
+        },
     )
     return FUSO_BR.localize(dt) if dt else None
 
-# --- handler principal ---
 async def handle_pedido_encaixe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Detecta intenção de 'encaixe' e tenta executar.
@@ -46,22 +46,23 @@ async def handle_pedido_encaixe(update: Update, context: ContextTypes.DEFAULT_TY
 
     texto = update.message.text.lower()
 
-    # gatilhos de intenção de ENCAIXE
     if not any(k in texto for k in ["encaixe", "encaixa", "en-caixe", "tem agenda hoje", "cabem hoje", "urgência"]):
-        return  # não é pedido de encaixe; deixe outros handlers seguirem
+        return
 
-    user_id = str(update.message.from_user.id)          # quem pede
-    dono_id = user_id                                   # no seu fluxo atual, o dono fala do próprio número
+    user_id = str(update.message.from_user.id)  # quem pediu
+    dono_id = await obter_id_dono(user_id)      # 👈 agora resolve o dono de verdade
 
     dt_desejado = _extrair_datahora(texto)
     if not dt_desejado:
-        await update.message.reply_text("❌ Não entendi a data/hora do encaixe. Pode dizer, por exemplo: *hoje às 16:00*?", parse_mode="Markdown")
+        await update.message.reply_text(
+            "❌ Não entendi a data/hora do encaixe. Pode dizer, por exemplo: *hoje às 16:00*?",
+            parse_mode="Markdown"
+        )
         return
 
-    prof = _extrair_profissional(texto)                 # opcional
+    prof = _extrair_profissional(texto)
     dur = _extrair_duracao(texto, padrao_min=30)
 
-    # Ajuste rápido: se usuário disse só “tem encaixe agora?”, considere agora+10 min
     agora = FUSO_BR.localize(dateparser.parse("agora"))
     if dt_desejado < agora:
         dt_desejado = agora + timedelta(minutes=10)
@@ -69,12 +70,12 @@ async def handle_pedido_encaixe(update: Update, context: ContextTypes.DEFAULT_TY
     await update.message.reply_text("🔎 Vou checar e tentar encaixar…")
 
     resp = await solicitar_encaixe(
-        user_id=dono_id,
+        user_id=dono_id,                 # 👈 encaixe sempre no negócio
         descricao="Encaixe solicitado",
         profissional=prof,
         duracao_min=dur,
         dt_desejado=dt_desejado,
-        solicitante_user_id=user_id
+        solicitante_user_id=user_id      # 👈 quem pediu continua sendo o cliente
     )
 
     status = resp.get("status")

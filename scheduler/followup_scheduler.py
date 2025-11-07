@@ -14,16 +14,20 @@ def start_followup_scheduler():
     scheduler = AsyncIOScheduler(timezone=timezone("America/Sao_Paulo"))
 
     async def configurar_agendamentos():
-        print("🗓️ Buscando usuários para agendar follow-ups...")
-        clientes = await buscar_dados("Usuarios") or []
+        print("🗓️ Buscando clientes para agendar follow-ups...")
+        # 👇 antes: "Usuarios"
+        clientes = await buscar_dados("Clientes") or []
 
         for cliente in clientes:
-            user_id = str(cliente.get("id"))
+            # aqui depende de como você salva o doc de Clientes
+            # se o doc não tiver campo "id", você pode precisar pegar o doc.id lá no firebase
+            user_id = str(cliente.get("id") or cliente.get("user_id") or "")
             if not user_id:
                 continue
 
             try:
-                config = await buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes/avisos")
+                # 👇 antes: Usuarios/{user_id}/configuracoes/avisos
+                config = await buscar_dado_em_path(f"Clientes/{user_id}/configuracoes/avisos")
                 horarios = config.get("horarios", []) if config else []
 
                 if not horarios:

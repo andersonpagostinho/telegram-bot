@@ -14,6 +14,8 @@ from services.firebase_service_async import (
     deletar_dado_em_path,
     buscar_dado_em_path,
     atualizar_dado_em_path
+    buscar_cliente,       # 👈 acrescenta
+    obter_id_dono,
 )
 from utils.plan_utils import verificar_pagamento, verificar_acesso_modulo
 from utils.tts_utils import responder_em_audio
@@ -45,7 +47,9 @@ async def criar_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "criado_em": datetime.now(FUSO_BR).isoformat()
     }
 
-    sucesso = await salvar_dado_em_path(f"Usuarios/{user_id}/FollowUps/{followup_id}", dados)
+    dono_id = await obter_id_dono(user_id)   # 👈 resolve o negócio
+
+    sucesso = await salvar_dado_em_path(f"Clientes/{dono_id}/FollowUps/{followup_id}", dados)
 
     if sucesso:
         await update.message.reply_text(f"📌 Follow-up com *{nome_cliente}* foi registrado com sucesso!", parse_mode="Markdown")
@@ -64,7 +68,9 @@ async def listar_followups(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Apenas o dono pode visualizar follow-ups.")
         return
 
-    followups = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps")
+    dono_id = await obter_id_dono(user_id)
+
+    followups = await buscar_subcolecao(f"Clientes/{dono_id}/FollowUps")
 
     if not followups:
         await update.message.reply_text("📭 Nenhum follow-up encontrado.")
@@ -96,11 +102,13 @@ async def concluir_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     nome_cliente = ' '.join(context.args).lower()
-    followups = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps")
+    dono_id = await obter_id_dono(user_id)
+
+    followups = await buscar_subcolecao(f"Clientes/{dono_id}/FollowUps")
 
     for fid, item in followups.items():
         if nome_cliente in item.get("nome_cliente", "").lower():
-            await deletar_dado_em_path(f"Usuarios/{user_id}/FollowUps/{fid}")
+            await deletar_dado_em_path(f"Clientes/{dono_id}/FollowUps/{fid}")
             await update.message.reply_text(f"✅ Follow-up com *{item['nome_cliente']}* concluído e removido!", parse_mode="Markdown")
             return
 
@@ -156,7 +164,10 @@ async def criar_followup_por_gpt(update: Update, context: ContextTypes.DEFAULT_T
         except Exception as e:
             print(f"⚠️ Erro ao agendar follow-up: {e}")
 
-    sucesso = await salvar_dado_em_path(f"Usuarios/{user_id}/FollowUps/{followup_id}", dados_followup)
+    sucesso = await salvar_dado_em_path(
+    f"Clientes/{await obter_id_dono(user_id)}/FollowUps/{followup_id}",
+    dados_followup
+)
 
     if sucesso:
         await update.message.reply_text(
@@ -172,8 +183,8 @@ async def concluir_followup_por_gpt(update: Update, context: ContextTypes.DEFAUL
     if not await verificar_pagamento(update, context): return
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
-    user_id = str(update.message.from_user.id)
-    cliente = await buscar_cliente(user_id)
+    dono_id = await obter_id_dono(user_id)
+    followups = await buscar_subcolecao(f"Clientes/{dono_id}/FollowUps")
 
     if cliente.get("tipo_usuario") != "dono":
         await update.message.reply_text("⚠️ Apenas o dono pode concluir follow-ups.")
@@ -189,7 +200,7 @@ async def concluir_followup_por_gpt(update: Update, context: ContextTypes.DEFAUL
 
     for fid, item in followups.items():
         if nome_cliente in item.get("nome_cliente", "").lower():
-            await deletar_dado_em_path(f"Usuarios/{user_id}/FollowUps/{fid}")
+            await deletar_dado_em_path(f"Clientes/{dono_id}/FollowUps/{fid}")
             await update.message.reply_text(
                 f"✅ Follow-up com *{item['nome_cliente']}* foi concluído e removido!",
                 parse_mode="Markdown"
@@ -201,7 +212,8 @@ async def concluir_followup_por_gpt(update: Update, context: ContextTypes.DEFAUL
 # ✅ Verificar horários configurados
 async def verificar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
-    config = await buscar_dado_em_path(f"Usuarios/{user_id}/configuracoes/avisos")
+    dono_id = await obter_id_dono(user_id)
+    config = await buscar_dado_em_path(f"Clientes/{dono_id}/configuracoes/avisos")
     horarios = config.get("horarios", []) if config else []
 
     if horarios:
@@ -234,7 +246,7 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Horário inválido: {h}")
             return
 
-    path = f"Usuarios/{user_id}/configuracoes/avisos"
+    path = f"Clientes/{dono_id}/configuracoes/avisos"
     sucesso = await atualizar_dado_em_path(path, {"horarios": horarios})
 
     if sucesso:
@@ -247,7 +259,11 @@ async def configurar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ✅ Lembrar follow-ups pendentes
 async def rotina_lembrete_followups(user_id=None):
-    user_ids = [user_id] if user_id else [str(u["id"]) for u in await buscar_dados("Usuarios") if u.get("id")]
+    if user_id:
+        user_ids = [user_id]
+    else:
+        clientes = await buscar_dados("Clientes")
+        user_ids = [str(c["id"]) for c in clientes if c.get("id")]
 
     for uid in user_ids:
         followups = await buscar_subcolecao(f"Usuarios/{uid}/FollowUps")
@@ -277,7 +293,7 @@ def start_followup_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
 
     async def configurar_agendamentos():
-        usuarios = await buscar_dados("Usuarios")
+        usuarios = await buscar_dados("Clientes")
         user_ids = [str(u["id"]) for u in usuarios if u.get("id")]
 
         for uid in user_ids:

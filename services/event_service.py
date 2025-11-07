@@ -1,10 +1,11 @@
 # services/event_service.py
 
 from datetime import datetime, timedelta
-from services.firebase_service_async import buscar_subcolecao
+from services.firebase_service_async import buscar_subcolecao, obter_id_dono
 
 async def buscar_eventos_por_intervalo(user_id, dias=0, semana=False, dia_especifico=None):
-    eventos_dict = await buscar_subcolecao(f"Clientes/{user_id}/Eventos")
+    id_dono = await obter_id_dono(user_id)  # 🔑 aqui está o pulo do gato
+    eventos_dict = await buscar_subcolecao(f"Clientes/{id_dono}/Eventos")
     eventos_filtrados = []
 
     hoje = datetime.now().date()
