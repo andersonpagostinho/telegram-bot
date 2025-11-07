@@ -13,7 +13,7 @@ from services.firebase_service_async import (
     buscar_dados,
     deletar_dado_em_path,
     buscar_dado_em_path,
-    atualizar_dado_em_path
+    atualizar_dado_em_path,
     buscar_cliente,       # 👈 acrescenta
     obter_id_dono,
 )
