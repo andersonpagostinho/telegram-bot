@@ -59,6 +59,9 @@ from handlers.report_handler import (
 
 logger = logging.getLogger(__name__)
 
+OWNER_ID = "7394370553"  # <- coloca aqui o dono desse número/bot
+
+
 # ============== HANDLERS DE MENSAGEM (ORDEM IMPORTA) ==============
 
 async def _debug_primeiro_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,7 +79,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     """
     Pipeline padrão:
     1) Atalho de cancelamento por número (estado em user_data)
-    2) Fluxo de cadastro inicial (voz/texto: profissional/serviço/preço/duração)
+    2) Fluxo de cadastro inicial (apenas se a mensagem for de configuração)
     3) Roteador inteligente (IA)
     """
     print("📥 Entrou no tratar_mensagens_gerais()")
@@ -100,7 +103,6 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                     await update.message.reply_text("❌ Não consegui cancelar. Pode tentar novamente?")
             finally:
                 context.user_data.pop("cancelamento_pendente", None)
-            # para aqui — não deixa outros handlers pegarem esta mesma msg
             raise ApplicationHandlerStop
         else:
             await update.message.reply_text("⚠️ Número inválido. Envie apenas o número da opção listada.")
@@ -110,15 +112,36 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     user_id = str(update.message.from_user.id)
     mensagem = msg_txt
 
-    # --- 2) fluxo de configuração inicial (voz/texto) ---
-    try:
-        resposta_cfg = await processar_texto_cadastro(user_id, mensagem)
-        if resposta_cfg:
-            # Se o fluxo de cadastro entendeu e gerou resposta, envia e encerra
-            await update.message.reply_text(resposta_cfg, parse_mode="Markdown")
-            raise ApplicationHandlerStop
-    except Exception as e:
-        logger.warning(f"[config] Erro ao processar cadastro inicial: {e}")
+    # --- 2) fluxo de configuração inicial (mas agora COM GATILHO) ---
+    # só cai aqui se a frase indicar que o dono quer configurar
+    gatilhos_config = (
+        "quero configurar",
+        "configurar negócio",
+        "configurar negocio",
+        "cadastrar serviço",
+        "cadastrar servico",
+        "cadastrar profissional",
+        "adicionar profissional",
+        "meu salão",
+        "meu salao",
+        "minha clínica",
+        "minha clinica",
+        "definir serviços",
+        "definir servicos",
+        "ajustar preços",
+        "ajustar precos",
+    )
+    eh_config = any(g in mensagem.lower() for g in gatilhos_config)
+
+    if eh_config:
+        try:
+            resposta_cfg = await processar_texto_cadastro(user_id, mensagem)
+            if resposta_cfg:
+                await update.message.reply_text(resposta_cfg, parse_mode="Markdown")
+                raise ApplicationHandlerStop
+        except Exception as e:
+            logger.warning(f"[config] Erro ao processar cadastro inicial: {e}")
+            # mesmo com erro, deixa seguir pro roteador
 
     # --- 3) roteador inteligente (IA) ---
     try:
@@ -131,7 +154,6 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
 
 
 # ============== COMANDOS ==============
-OWNER_ID = "7394370553"  # <- coloca aqui o dono desse número/bot
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
@@ -206,7 +228,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start - Inicia o bot\n"
         "/help - Mostra esta mensagem\n"
         "/meus_dados - Ver seus dados cadastrados\n"
-        "/meu_estilo - Ver estilo e tipo de negócio salvos\n"
+        "/meuestilo - Ver estilo e tipo de negócio salvos\n"
         "/meuplano - Ver informações do seu plano atual\n\n"
         "📝 *Tarefas*\n"
         "/tarefa - Adiciona uma nova tarefa\n"
@@ -254,7 +276,7 @@ async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = str(update.message.from_user.id)
     db = firestore.client()
 
-    ID_DONO = "7394370553"  # ajuste se necessário
+    ID_DONO = OWNER_ID  # usa o mesmo
 
     if user_id != ID_DONO:
         await update.message.reply_text("⚠️ Este comando está disponível apenas para o administrador do sistema.")
@@ -332,7 +354,7 @@ def register_handlers(application: Application):
     application.add_handler(CommandHandler("enviar_agenda_excel", enviar_agenda_excel))
     application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
 
-    # relatórios  ✅ (comente se não existir no seu repo)
+    # relatórios
     application.add_handler(CommandHandler(["relatorio_diario", "relatoriodiario"], relatorio_diario))
     application.add_handler(CommandHandler(["relatorio_semanal", "relatoriosemanal"], relatorio_semanal))
     application.add_handler(CommandHandler("enviar_relatorio_email", enviar_relatorio_email))
