@@ -19,23 +19,35 @@ ETAPA_SERVICOS = "servicos_negocio"
 ETAPA_PROFISSIONAIS = "profissionais"
 ETAPA_CONCLUIDO = "concluido"
 
+# usamos sempre um DOCUMENTO fixo
+def _config_path(user_id: str) -> str:
+    # antes estava "Clientes/{user_id}/configuracao" (coleção) e dava erro
+    return f"Clientes/{user_id}/configuracao/dados"
+
+
 async def _get_config_doc(user_id: str) -> dict:
-    doc = await buscar_dado_em_path(f"Clientes/{user_id}/configuracao")
+    doc = await buscar_dado_em_path(_config_path(user_id))
     return doc or {}
 
+
 async def _set_config_doc(user_id: str, data: dict):
-    await salvar_dado_em_path(f"Clientes/{user_id}/configuracao", data)
+    await salvar_dado_em_path(_config_path(user_id), data)
+
 
 async def get_etapa_config(user_id: str) -> str:
     doc = await _get_config_doc(user_id)
     return doc.get("etapa") or ETAPA_NEGOCIO
+
 
 async def set_etapa_config(user_id: str, etapa: str):
     doc = await _get_config_doc(user_id)
     doc["etapa"] = etapa
     await _set_config_doc(user_id, doc)
 
-async def salvar_dados_negocio(user_id: str, *, tipo: str = None, nome: str = None, estilo: str = None):
+
+async def salvar_dados_negocio(
+    user_id: str, *, tipo: str = None, nome: str = None, estilo: str = None
+):
     doc = await _get_config_doc(user_id)
     if tipo:
         doc["tipo_negocio"] = tipo.strip()
@@ -45,8 +57,10 @@ async def salvar_dados_negocio(user_id: str, *, tipo: str = None, nome: str = No
         doc["estilo"] = estilo.strip().lower()
     await _set_config_doc(user_id, doc)
 
+
 async def get_dados_negocio(user_id: str) -> dict:
     return await _get_config_doc(user_id)
+
 
 # =========================================================
 # ------------------ PARSE / INTERPRETAÇÃO ----------------
@@ -55,14 +69,17 @@ async def get_dados_negocio(user_id: str) -> dict:
 NUM = r"(?:\d+(?:[.,]\d+)?)"  # 50 | 50,00 | 50.00
 MIN = r"(?:min|mins|minutos?)"
 
+
 def _norm(txt: str) -> str:
     return (txt or "").strip()
+
 
 def _to_float(s: str) -> Optional[float]:
     try:
         return float(s.replace(",", "."))
     except Exception:
         return None
+
 
 def _to_int(s: str) -> Optional[int]:
     try:
@@ -74,10 +91,12 @@ def _to_int(s: str) -> Optional[int]:
             return int(m.group(1))
         return None
 
+
 def _split_itens(servicos_str: str) -> List[str]:
     # separa por vírgula, ponto e vírgula ou " e "
     partes = re.split(r",|;| e ", servicos_str)
     return [p.strip() for p in partes if p.strip()]
+
 
 def _parse_item_servico(raw: str) -> Tuple[str, Optional[float], Optional[int]]:
     """
@@ -96,7 +115,11 @@ def _parse_item_servico(raw: str) -> Tuple[str, Optional[float], Optional[int]]:
     s = re.sub(r"R\$\s*", "", s, flags=re.I)
 
     # padrão mais explícito: nome=preco/duracao
-    m = re.match(r"^(.+?)\s*=\s*("+NUM+")\s*(?:/|\s)\s*(\d+)\s*"+f"(?:{MIN})?$", s, flags=re.I)
+    m = re.match(
+        r"^(.+?)\s*=\s*(" + NUM + r")\s*(?:/|\s)\s*(\d+)\s*" + f"(?:{MIN})?$",
+        s,
+        flags=re.I,
+    )
     if m:
         nome = m.group(1).strip()
         preco = _to_float(m.group(2))
@@ -104,14 +127,16 @@ def _parse_item_servico(raw: str) -> Tuple[str, Optional[float], Optional[int]]:
         return nome, preco, dur
 
     # nome=preco
-    m = re.match(r"^(.+?)\s*=\s*("+NUM+")\s*$", s, flags=re.I)
+    m = re.match(r"^(.+?)\s*=\s*(" + NUM + r")\s*$", s, flags=re.I)
     if m:
         nome = m.group(1).strip()
         preco = _to_float(m.group(2))
         return nome, preco, None
 
     # nome preco duracao
-    m = re.match(r"^(.+?)\s+("+NUM+")\s+(\d+)\s*"+f"(?:{MIN})?$", s, flags=re.I)
+    m = re.match(
+        r"^(.+?)\s+(" + NUM + r")\s+(\d+)\s*" + f"(?:{MIN})?$", s, flags=re.I
+    )
     if m:
         nome = m.group(1).strip()
         preco = _to_float(m.group(2))
@@ -119,7 +144,7 @@ def _parse_item_servico(raw: str) -> Tuple[str, Optional[float], Optional[int]]:
         return nome, preco, dur
 
     # nome preco
-    m = re.match(r"^(.+?)\s+("+NUM+")\s*$", s, flags=re.I)
+    m = re.match(r"^(.+?)\s+(" + NUM + r")\s*$", s, flags=re.I)
     if m:
         nome = m.group(1).strip()
         preco = _to_float(m.group(2))
@@ -127,6 +152,7 @@ def _parse_item_servico(raw: str) -> Tuple[str, Optional[float], Optional[int]]:
 
     # nome somente
     return s, None, None
+
 
 def parse_servico_falado(frase: str) -> Optional[dict]:
     """
@@ -184,7 +210,10 @@ def parse_servico_falado(frase: str) -> Optional[dict]:
         "duracao_min": duracao or 30,
     }
 
-def parse_profissional_frase(frase: str) -> Tuple[str, Dict[str, Dict[str, float|int]]]:
+
+def parse_profissional_frase(
+    frase: str,
+) -> Tuple[str, Dict[str, Dict[str, float | int]]]:
     """
     Entrada:
       "cadastrar profissional Carla: corte=50/30, escova=45/40"
@@ -198,7 +227,8 @@ def parse_profissional_frase(frase: str) -> Tuple[str, Dict[str, Dict[str, float
     # nome do profissional
     m_nome = re.search(
         r"(?:cadastrar|adicionar)?\s*profissional\s+([a-zA-ZÀ-ú ]+?)(?::|\s+faz\b|\s+servi[çc]os\b|$)",
-        txt, re.I
+        txt,
+        re.I,
     )
     nome = _norm(m_nome.group(1)) if m_nome else ""
 
@@ -206,7 +236,7 @@ def parse_profissional_frase(frase: str) -> Tuple[str, Dict[str, Dict[str, float
     m_serv_bloc = re.search(r"(?:faz|servi[çc]os|:)\s*(.+)$", txt, re.I)
     bloco = _norm(m_serv_bloc.group(1)) if m_serv_bloc else ""
 
-    servicos: Dict[str, Dict[str, float|int]] = {}
+    servicos: Dict[str, Dict[str, float | int]] = {}
     if bloco:
         # corta qualquer "preços:" legado (vamos parsear item a item)
         bloco = re.split(r"\bpre[çc]os?\s*:", bloco, flags=re.I)[0].strip()
@@ -225,11 +255,14 @@ def parse_profissional_frase(frase: str) -> Tuple[str, Dict[str, Dict[str, float
 
     return nome, servicos
 
+
 # =========================================================
 # --------------------- PERSISTÊNCIA ----------------------
 # =========================================================
 
-async def salvar_servico_negocio(user_id: str, nome: str, preco: Optional[float], duracao: Optional[int]):
+async def salvar_servico_negocio(
+    user_id: str, nome: str, preco: Optional[float], duracao: Optional[int]
+):
     """
     Catálogo do negócio.
     Path: Clientes/{user_id}/ServicosNegocio/{Nome}
@@ -240,13 +273,19 @@ async def salvar_servico_negocio(user_id: str, nome: str, preco: Optional[float]
         "preco": float(preco) if preco is not None else None,
         "duracao": int(duracao) if duracao is not None else None,
     }
-    await salvar_dado_em_path(f"Clientes/{user_id}/ServicosNegocio/{nome_fmt}", payload)
+    await salvar_dado_em_path(
+        f"Clientes/{user_id}/ServicosNegocio/{nome_fmt}", payload
+    )
     return payload
+
 
 async def listar_servicos_negocio(user_id: str) -> dict:
     return await buscar_subcolecao(f"Clientes/{user_id}/ServicosNegocio") or {}
 
-async def salvar_profissional(user_id: str, nome: str, servicos: Dict[str, Dict[str, float|int]]):
+
+async def salvar_profissional(
+    user_id: str, nome: str, servicos: Dict[str, Dict[str, float | int]]
+):
     """
     Salva:
       - servicos (lista)
@@ -272,8 +311,11 @@ async def salvar_profissional(user_id: str, nome: str, servicos: Dict[str, Dict[
         "duracoes": {k: int(v) for k, v in duracoes.items()} if duracoes else {},
         "servicos_detalhe": servicos,
     }
-    await salvar_dado_em_path(f"Clientes/{user_id}/Profissionais/{nome_fmt}", payload)
+    await salvar_dado_em_path(
+        f"Clientes/{user_id}/Profissionais/{nome_fmt}", payload
+    )
     return payload
+
 
 # =========================================================
 # -------------------- VALIDAÇÃO/RESUMO -------------------
@@ -282,6 +324,7 @@ async def salvar_profissional(user_id: str, nome: str, servicos: Dict[str, Dict[
 async def negocio_tem_profissionais(user_id: str) -> bool:
     profs = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
     return len(profs) > 0
+
 
 async def validar_configuracao(user_id: str) -> Tuple[bool, List[str]]:
     """
@@ -306,24 +349,34 @@ async def validar_configuracao(user_id: str) -> Tuple[bool, List[str]]:
             continue
 
         # preferimos o detalhe; senão, validamos pelo par (servicos, precos, duracoes)
-        base = set(detalhe.keys()) if detalhe else set(s.strip().lower() for s in servicos)
+        base = set(detalhe.keys()) if detalhe else set(
+            s.strip().lower() for s in servicos
+        )
 
         for s in base:
             ok_preco = False
             ok_dur = False
             if detalhe and s in detalhe:
-                ok_preco = "preco" in detalhe[s] and detalhe[s]["preco"] is not None
+                ok_preco = (
+                    "preco" in detalhe[s] and detalhe[s]["preco"] is not None
+                )
                 ok_dur = "duracao" in detalhe[s] and detalhe[s]["duracao"] is not None
             else:
                 ok_preco = s in {k.strip().lower() for k in precos.keys()}
-                ok_dur   = s in {k.strip().lower() for k in duracoes.keys()}
+                ok_dur = s in {k.strip().lower() for k in duracoes.keys()}
 
             if not ok_preco or not ok_dur:
-                problemas.append(f"{nome}: serviço '{s}' sem " +
-                                 ("preço e duração." if (not ok_preco and not ok_dur)
-                                  else ("preço." if not ok_preco else "duração.")))
+                problemas.append(
+                    f"{nome}: serviço '{s}' sem "
+                    + (
+                        "preço e duração."
+                        if (not ok_preco and not ok_dur)
+                        else ("preço." if not ok_preco else "duração.")
+                    )
+                )
 
     return (len(problemas) == 0), problemas
+
 
 async def resumo_config(user_id: str) -> str:
     dados = await get_dados_negocio(user_id)
@@ -372,7 +425,8 @@ async def resumo_config(user_id: str) -> str:
                     preco = info.get("preco")
                     dur = info.get("duracao")
                     itens.append(
-                        f"{s.title()} (R${preco:.2f}/{dur}min)" if (preco is not None and dur is not None)
+                        f"{s.title()} (R${preco:.2f}/{dur}min)"
+                        if (preco is not None and dur is not None)
                         else f"{s.title()} (completar dados)"
                     )
                 linhas.append(f"• {nome}: " + ", ".join(itens))
@@ -387,6 +441,7 @@ async def resumo_config(user_id: str) -> str:
         linhas.append("\n✅ Configuração completa para agendar com preços e durações.")
 
     return "\n".join(linhas)
+
 
 # =========================================================
 # --------------------- ONBOARDING FLOW -------------------
@@ -405,6 +460,7 @@ ONBOARDING_INSTRUCOES = (
     "A qualquer momento, diga *ver config* para eu mostrar o que já está salvo."
 )
 
+
 async def precisa_onboarding(user_id: str) -> bool:
     """
     True se ainda não entrou no fluxo ou se não há profissionais.
@@ -416,8 +472,10 @@ async def precisa_onboarding(user_id: str) -> bool:
         return True
     return False
 
+
 def mensagem_onboarding() -> str:
     return ONBOARDING_INSTRUCOES
+
 
 # =========================================================
 # -------- PROCESSADOR DE TEXTO (TG e WHATSAPP) ----------
@@ -436,22 +494,41 @@ async def processar_texto_cadastro(user_id: str, texto: str) -> Optional[str]:
 
     low = texto.strip().lower()
 
-    # gatilhos para começar do zero
+    # gatilhos para começar / ajustar
     if low in {
-        "config", "configurar", "quero configurar",
-        "configuração", "configuracao",
-        "configurar meu salão", "configurar meu salao"
+        "config",
+        "configurar",
+        "quero configurar",
+        "configuração",
+        "configuracao",
+        "configurar meu salão",
+        "configurar meu salao",
     }:
-        await set_etapa_config(user_id, ETAPA_NEGOCIO)
-        return (
-            "🤖 Vou te configurar em etapas.\n\n"
-            "1️⃣ Primeiro defino o que o seu negócio faz.\n"
-            "2️⃣ Depois cadastramos o que você vende — os serviços com *preço e duração*.\n"
-            "3️⃣ Por fim, ligo esses serviços nos profissionais.\n\n"
-            "Assim, quando o cliente pedir um horário ou perguntar preço, já está tudo amarrado.\n\n"
-            "Vamos começar?\n"
-            "👉 Me diga o *tipo de negócio* (ex.: salão, barbearia, clínica, estética...)."
-        )
+        cfg = await get_dados_negocio(user_id)
+        # se já tem tipo_negocio, não reinicia — entra em modo manutenção
+        if cfg.get("tipo_negocio"):
+            tn = cfg.get("tipo_negocio")
+            return (
+                f"Claro! Já tenho seu negócio como *{tn}*.\n"
+                "O que você quer ajustar agora?\n"
+                "• adicionar serviço\n"
+                "• cadastrar profissional\n"
+                "• mudar estilo (formal/casual)\n"
+                "• alterar nome do negócio\n"
+                "Se quiser ver tudo, diga: *ver config*."
+            )
+        else:
+            # primeira vez mesmo
+            await set_etapa_config(user_id, ETAPA_NEGOCIO)
+            return (
+                "🤖 Vou te configurar em etapas.\n\n"
+                "1️⃣ Primeiro defino o que o seu negócio faz.\n"
+                "2️⃣ Depois cadastramos o que você vende — os serviços com *preço e duração*.\n"
+                "3️⃣ Por fim, ligo esses serviços nos profissionais.\n\n"
+                "Assim, quando o cliente pedir um horário ou perguntar preço, já está tudo amarrado.\n\n"
+                "Vamos começar?\n"
+                "👉 Me diga o *tipo de negócio* (ex.: salão, barbearia, clínica, estética...)."
+            )
 
     # ajuda
     if "ajuda config" in low:
@@ -483,7 +560,9 @@ async def processar_texto_cadastro(user_id: str, texto: str) -> Optional[str]:
             )
 
         if not dados.get("estilo"):
-            estilo = "casual" if "casual" in low else ("formal" if "formal" in low else texto)
+            estilo = (
+                "casual" if "casual" in low else ("formal" if "formal" in low else texto)
+            )
             await salvar_dados_negocio(user_id, estilo=estilo)
             await set_etapa_config(user_id, ETAPA_SERVICOS)
             return (
@@ -502,7 +581,10 @@ async def processar_texto_cadastro(user_id: str, texto: str) -> Optional[str]:
         if low in {"terminou", "acabou", "pode seguir"}:
             servs = await listar_servicos_negocio(user_id)
             if not servs:
-                return "⚠️ Ainda não vi nenhum serviço. Manda pelo menos um, tipo: `corte feminino 60 reais 40 minutos`."
+                return (
+                    "⚠️ Ainda não vi nenhum serviço. "
+                    "Manda pelo menos um, tipo: `corte feminino 60 reais 40 minutos`."
+                )
             await set_etapa_config(user_id, ETAPA_PROFISSIONAIS)
             return (
                 "✅ Serviços salvos.\n"
@@ -518,7 +600,9 @@ async def processar_texto_cadastro(user_id: str, texto: str) -> Optional[str]:
                 "Manda assim: `corte feminino 60 reais 40 minutos` ou `escova 50 60`."
             )
 
-        await salvar_servico_negocio(user_id, serv["nome"], serv["preco"], serv["duracao_min"])
+        await salvar_servico_negocio(
+            user_id, serv["nome"], serv["preco"], serv["duracao_min"]
+        )
         return (
             f"✅ Serviço salvo: {serv['nome'].title()} – "
             f"{'R$ {:.2f}'.format(serv['preco']) if serv['preco'] is not None else 'preço ?'} – "
@@ -549,15 +633,25 @@ async def processar_texto_cadastro(user_id: str, texto: str) -> Optional[str]:
 
         # amarração com catálogo
         catalogo = await listar_servicos_negocio(user_id)
-        catalogo_map = { (c.get("nome") or k).strip().lower(): c for k, c in catalogo.items() }
+        catalogo_map = {
+            (c.get("nome") or k).strip().lower(): c for k, c in catalogo.items()
+        }
 
         servicos_filtrados: Dict[str, Dict[str, float | int]] = {}
         for nome_serv, info in servs.items():
             chave = nome_serv.strip().lower()
             if chave in catalogo_map:
                 base = catalogo_map[chave]
-                preco = info.get("preco") if info.get("preco") is not None else base.get("preco")
-                dur = info.get("duracao") if info.get("duracao") is not None else base.get("duracao")
+                preco = (
+                    info.get("preco")
+                    if info.get("preco") is not None
+                    else base.get("preco")
+                )
+                dur = (
+                    info.get("duracao")
+                    if info.get("duracao") is not None
+                    else base.get("duracao")
+                )
                 servicos_filtrados[chave] = {"preco": preco, "duracao": dur}
             else:
                 # serviço não está no catálogo, mas vamos salvar mesmo assim
