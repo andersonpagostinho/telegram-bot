@@ -412,7 +412,7 @@ async def buscar_eventos_por_termo_avancado(user_id: str, termo: str):
     def _match(ev: dict) -> bool:
         status = (ev.get("status") or "").strip().lower()
         if status == "cancelado":
-            continue
+            return False
 
         blob = unidecode((" ".join([
             str(ev.get("descricao","")),
