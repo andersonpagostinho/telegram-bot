@@ -455,9 +455,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         duracao_minutos = dados.get("duracao", 60)
         user_id = str(update.message.from_user.id)
 
+        # ✅ Carrega contexto UMA vez no início (evita UnboundLocalError)
+        contexto = await carregar_contexto_temporario(user_id) or {}
+
         # 🚫 BLOQUEIO: impedir agendamento sem confirmação explícita
         texto_usuario = (
-            (getattr(getattr(update, "message", None), "text", None) or "")
+            (getattr(getattr(update, "message", None), "text", None) or dados.get("texto_usuario") or "")
             .lower()
             .strip()
         )
@@ -479,13 +482,13 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
             return False
 
-        # 🧠 Carrega contexto e trata profissional alternativo
-        # contexto = await carregar_contexto_temporario(user_id)
+        # 🧠 Trata profissional alternativo (contexto já carregado acima)
         resposta_usuario = (
             (getattr(getattr(update, "message", None), "text", None) or "")
             .lower()
             .strip()
         )
+
         alternativa = contexto.get("alternativa_profissional")
 
         if alternativa:
@@ -498,8 +501,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 contexto.pop("alternativa_profissional", None)
                 contexto.pop("sugestoes", None)
                 await salvar_contexto_temporario(user_id, contexto)
-
-        contexto = await carregar_contexto_temporario(user_id) or {}
+        
         if not profissional:
             # Só tenta descobrir/exigir profissional se realmente precisar
             if _precisa_profissional(contexto, descricao):

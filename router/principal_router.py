@@ -29,16 +29,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔐 pega sempre o dono deste usuário (modelo 1 número = 1 negócio)
     dono_id = await obter_id_dono(user_id)
 
-    # 🔒 MODO SEGURO helpers
+    # 🔒 MODO SEGURO helpers (use SEMPRE "mensagem")
     texto_usuario = (mensagem or "").strip().lower()
 
     def eh_confirmacao(txt: str) -> bool:
-        # modo seguro: bem restrito
         gatilhos = ["confirmar", "confirmo", "confirmado"]
         return any(g in txt for g in gatilhos)
 
     def eh_consulta(txt: str) -> bool:
-        # heurística simples (não precisa ser perfeita)
         consultas = [
             "como está", "como esta", "agenda",
             "disponível", "disponivel",
@@ -48,8 +46,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ]
         return any(c in txt for c in consultas)
 
-    # ✅ MODO SEGURO: se existe ação pendente e o usuário confirmou, executa sem chamar GPT
-    # (isso tem que funcionar MESMO sem sessão ativa)
+    # ✅ MODO SEGURO: se existe ação pendente e o usuário confirmou, executa SEM chamar GPT
     if eh_confirmacao(texto_usuario):
         ctx = await carregar_contexto_temporario(user_id) or {}
         pend = ctx.get("pendente_confirmacao")
@@ -58,7 +55,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             acao_p = pend["acao"]
             dados_p = pend.get("dados", {})
 
-            # limpa pendência ANTES de executar (evita dupla execução em retry)
+            # limpa pendência ANTES de executar (evita dupla execução)
             ctx["pendente_confirmacao"] = None
             await atualizar_contexto(user_id, ctx)
 
@@ -81,7 +78,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "id_negocio": dono_id,
     }
 
-    # 👉 AQUI o pulo do gato: busca profissionais do DONO, não do cliente
+    # 👉 busca profissionais do DONO, não do cliente
     profissionais_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
     contexto["profissionais"] = list(profissionais_dict.values())
 
@@ -92,11 +89,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # cumprimentos especiais
     cumprimentos = ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite", "e aí", "eai", "tudo bem?"]
     if resposta_gpt.get("acao") == "buscar_tarefas_do_usuario" and mensagem.lower().strip() in cumprimentos:
-        resposta_gpt = {
-            "resposta": "Olá! Como posso ajudar?",
-            "acao": None,
-            "dados": {}
-        }
+        resposta_gpt = {"resposta": "Olá! Como posso ajudar?", "acao": None, "dados": {}}
 
     # segurança
     if not resposta_gpt or not isinstance(resposta_gpt, dict):
@@ -139,27 +132,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             dados = {}
         else:
             # 🚫 TRAVA GLOBAL (MODO SEGURO)
-            # - bloquear ações mutáveis sem confirmação explícita
-            # - permitir "consultar" rebaixando para consulta (não executa ação)
             if acao in ("criar_evento", "cancelar_evento") and not eh_confirmacao(texto_usuario):
-
-                # ✅ Se o usuário disse "consultar", rebaixa (não executa)
                 if "consultar" in texto_usuario or eh_consulta(texto_usuario):
                     print(f"ℹ️ Rebaixado para consulta (sem executar '{acao}') | texto='{texto_usuario}'", flush=True)
                     acao = None
                     dados = {}
                 else:
-                    # ✅ Salva pendência para a próxima mensagem "confirmar"
+                    # ✅ Salva pendência para próxima mensagem "confirmar"
                     ctx = await carregar_contexto_temporario(user_id) or {}
-                    ctx["pendente_confirmacao"] = {
-                        "acao": acao,
-                        "dados": dados,
-                        "criado_em": "now"
-                    }
+                    ctx["pendente_confirmacao"] = {"acao": acao, "dados": dados, "criado_em": "now"}
                     await atualizar_contexto(user_id, ctx)
 
                     print(f"🛑 BLOQUEADO: '{acao}' sem confirmação explícita | pendência salva", flush=True)
-
                     if context is not None:
                         await context.bot.send_message(
                             chat_id=user_id,
@@ -171,25 +155,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         )
                     return
 
-            # Se ainda há ação, executa
             if acao:
                 handled = await executar_acao_gpt(update, context, acao, dados)
 
-                # ✅ Patch crítico:
-                # Para criar_evento, quem responde é o event_handler (sucesso OU conflito).
-                # Mesmo que handled=False (conflito), NÃO envie resposta_texto do GPT.
+                # ✅ Patch crítico: criar_evento responde no handler
                 if acao == "criar_evento":
                     return {"acao": "criar_evento", "handled": True}
 
-    # ✅ Só envia resposta do GPT se NÃO houve ação (ou se ação foi rebaixada para None)
+    # ✅ Só envia resposta do GPT se NÃO houve ação (ou se ação foi rebaixada)
     if (not acao) and resposta_texto:
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
         if context is not None:
             await context.bot.send_message(chat_id=user_id, text=resposta_texto, parse_mode="Markdown")
         return {"resposta": resposta_texto}
 
-    # Se teve ação (não criar_evento), normalmente a ação já respondeu.
-    # Mantém retorno neutro para não duplicar mensagem.
     if acao:
         return {"acao": acao, "handled": bool(handled)}
 
