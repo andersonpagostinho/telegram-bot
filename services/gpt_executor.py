@@ -236,6 +236,34 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
         # ... mantenha seus outros elif acao == ... que existem no seu arquivo ...
 
+        elif acao == "buscar_eventos_do_dia":
+            user_id = _obter_user_id(update, context)
+            if not user_id:
+                await update.message.reply_text("⚠️ Não consegui identificar o usuário para consultar a agenda.")
+                return True
+
+            dias = int((dados or {}).get("dias", 0))
+            eventos = await buscar_eventos_por_intervalo(user_id, dias=dias) or []
+
+            if not eventos:
+                await update.message.reply_text("📭 Nenhum evento encontrado para o dia solicitado.")
+                return True
+
+            # Se você já tem formatador padronizado:
+            try:
+                texto = formatar_eventos_telegram(eventos)
+            except Exception:
+                # fallback simples
+                linhas = []
+                for ev in eventos:
+                    linhas.append(
+                        f"• {ev.get('descricao','(Sem título)')} — {ev.get('data','')} {ev.get('hora_inicio','')}-{ev.get('hora_fim','')}"
+                    )
+                texto = "📅 Eventos do dia:\n\n" + "\n".join(linhas)
+
+            await update.message.reply_text(texto, parse_mode="Markdown")
+            return True
+
         return False
 
     except Exception as e:
