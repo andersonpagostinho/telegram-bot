@@ -29,6 +29,43 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔐 pega sempre o dono deste usuário (modelo 1 número = 1 negócio)
     dono_id = await obter_id_dono(user_id)
 
+    # 🔒 MODO SEGURO helpers
+    texto_usuario = (mensagem or "").strip().lower()
+
+    def eh_confirmacao(txt: str) -> bool:
+        # modo seguro: bem restrito
+        gatilhos = ["confirmar", "confirmo", "confirmado"]
+        return any(g in txt for g in gatilhos)
+
+    def eh_consulta(txt: str) -> bool:
+        # heurística simples (não precisa ser perfeita)
+        consultas = [
+            "como está", "como esta", "agenda",
+            "disponível", "disponivel",
+            "tem horário", "tem horario",
+            "livre", "ocupado", "ocupada",
+            "consulta", "consultar"
+        ]
+        return any(c in txt for c in consultas)
+
+    # ✅ MODO SEGURO: se existe ação pendente e o usuário confirmou, executa sem chamar GPT
+    # (isso tem que funcionar MESMO sem sessão ativa)
+    if eh_confirmacao(texto_usuario):
+        ctx = await carregar_contexto_temporario(user_id) or {}
+        pend = ctx.get("pendente_confirmacao")
+
+        if pend and pend.get("acao") in ("criar_evento", "cancelar_evento"):
+            acao_p = pend["acao"]
+            dados_p = pend.get("dados", {})
+
+            # limpa pendência ANTES de executar (evita dupla execução em retry)
+            ctx["pendente_confirmacao"] = None
+            await atualizar_contexto(user_id, ctx)
+
+            print(f"✅ CONFIRMAÇÃO detectada. Executando pendência: {acao_p}", flush=True)
+            await executar_acao_gpt(update, context, acao_p, dados_p)
+            return {"acao": acao_p, "handled": True}
+
     # 🔄 Sessão ativa (ex: agendamento, tarefa etc.)
     sessao = await pegar_sessao(user_id)
     if sessao and sessao.get("estado"):
@@ -72,26 +109,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     acao = resposta_gpt.get("acao")
     dados = resposta_gpt.get("dados", {})
 
-    # 🔒 MODO SEGURO: só executa ações mutáveis com confirmação explícita
-    # ✅ Use SEMPRE a variável "mensagem", pois update.message.text pode vir vazio (áudio/callback/etc.)
-    texto_usuario = (mensagem or "").strip().lower()
-
-    def eh_confirmacao(txt: str) -> bool:
-        # modo seguro: bem restrito
-        gatilhos = ["confirmar", "confirmo", "confirmado"]
-        return any(g in txt for g in gatilhos)
-
-    def eh_consulta(txt: str) -> bool:
-        # heurística simples (não precisa ser perfeita)
-        consultas = [
-            "como está", "como esta", "agenda",
-            "disponível", "disponivel",
-            "tem horário", "tem horario",
-            "livre", "ocupado", "ocupada",
-            "consulta", "consultar"
-        ]
-        return any(c in txt for c in consultas)
-
     ACOES_SUPORTADAS = {
         "consultar_preco_servico",
         "criar_evento",
@@ -125,13 +142,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # - bloquear ações mutáveis sem confirmação explícita
             # - permitir "consultar" rebaixando para consulta (não executa ação)
             if acao in ("criar_evento", "cancelar_evento") and not eh_confirmacao(texto_usuario):
-                # Se o usuário sinalizou consulta, rebaixa para não executar ação
-                if eh_consulta(texto_usuario):
+
+                # ✅ Se o usuário disse "consultar", rebaixa (não executa)
+                if "consultar" in texto_usuario or eh_consulta(texto_usuario):
                     print(f"ℹ️ Rebaixado para consulta (sem executar '{acao}') | texto='{texto_usuario}'", flush=True)
                     acao = None
                     dados = {}
                 else:
-                    print(f"🛑 BLOQUEADO: '{acao}' sem confirmação explícita | texto='{texto_usuario}'", flush=True)
+                    # ✅ Salva pendência para a próxima mensagem "confirmar"
+                    ctx = await carregar_contexto_temporario(user_id) or {}
+                    ctx["pendente_confirmacao"] = {
+                        "acao": acao,
+                        "dados": dados,
+                        "criado_em": "now"
+                    }
+                    await atualizar_contexto(user_id, ctx)
+
+                    print(f"🛑 BLOQUEADO: '{acao}' sem confirmação explícita | pendência salva", flush=True)
+
                     if context is not None:
                         await context.bot.send_message(
                             chat_id=user_id,
