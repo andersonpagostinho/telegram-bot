@@ -33,7 +33,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     texto_usuario = (mensagem or "").strip().lower()
 
     def eh_confirmacao(txt: str) -> bool:
-        gatilhos = ["confirmar", "confirmo", "confirmado"]
+        gatilhos = ["confirmar", "confirmo", "confirmado", "pode agendar", "pode marcar", "agende", "marque"]
         return any(g in txt for g in gatilhos)
 
     def eh_consulta(txt: str) -> bool:
@@ -47,21 +47,68 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         return any(c in txt for c in consultas)
 
     # ✅ MODO SEGURO: se existe ação pendente e o usuário confirmou, executa SEM chamar GPT
-    if eh_confirmacao(texto_usuario):
-        ctx = await carregar_contexto_temporario(user_id) or {}
-        pend = ctx.get("pendente_confirmacao")
+    ctx = await carregar_contexto_temporario(user_id) or {}
+    pend = ctx.get("pendente_confirmacao")
 
-        if pend and pend.get("acao") in ("criar_evento", "cancelar_evento"):
-            acao_p = pend["acao"]
-            dados_p = pend.get("dados", {})
+    if pend and pend.get("acao") in ("criar_evento", "cancelar_evento") and eh_confirmacao(texto_usuario):
+        acao_p = pend["acao"]
+        dados_p = pend.get("dados", {}) or {}
 
-            # limpa pendência ANTES de executar (evita dupla execução)
-            ctx["pendente_confirmacao"] = None
-            await atualizar_contexto(user_id, ctx)
+        # ============================================================
+        # ✅ CONTINUIDADE: completar dados com o contexto salvo
+        # (principalmente: servico)
+        ctx_atual = await carregar_contexto_temporario(user_id) or {}
+        servico = dados_p.get("servico") or ctx_atual.get("servico")
+        prof = dados_p.get("profissional") or ctx_atual.get("profissional_escolhido")
+        data_hora = dados_p.get("data_hora") or ctx_atual.get("data_hora")
 
-            print(f"✅ CONFIRMAÇÃO detectada. Executando pendência: {acao_p}", flush=True)
-            await executar_acao_gpt(update, context, acao_p, dados_p)
-            return {"acao": acao_p, "handled": True}
+        # Se a ação é criar_evento e falta serviço, não executa ainda:
+        if acao_p == "criar_evento" and not servico:
+            dono_id = await obter_id_dono(user_id)
+            profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+            servs = []
+            for p in profs_dict.values():
+                if (p.get("nome", "").strip().lower() == (prof or "").strip().lower()):
+                    servs = p.get("servicos") or []
+                    break
+
+            sugestao = ""
+            if servs:
+                sugestao = "\n\nServiços disponíveis:\n- " + "\n- ".join(servs)
+
+            if context is not None:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"Perfeito. Qual serviço você quer agendar com "
+                        f"{prof or 'a profissional'} às {data_hora or 'nesse horário'}?"
+                        f"{sugestao}"
+                    )
+                )
+
+            # mantém pendência (NÃO limpa), só marca estado
+            ctx_atual["aguardando_servico"] = True
+            await atualizar_contexto(user_id, ctx_atual)
+            return {"acao": None, "handled": True}
+
+        # Se já tem serviço (ou não é criar_evento), pode executar:
+        # completa dados_p antes de passar ao executor
+        if servico and "servico" not in dados_p:
+            dados_p["servico"] = servico
+        if prof and "profissional" not in dados_p:
+            dados_p["profissional"] = prof
+        if data_hora and "data_hora" not in dados_p:
+            dados_p["data_hora"] = data_hora
+        # ============================================================
+
+        # ✅ Agora sim: limpa pendência ANTES de executar (evita dupla execução)
+        ctx["pendente_confirmacao"] = None
+        await atualizar_contexto(user_id, ctx)
+
+        print(f"✅ CONFIRMAÇÃO detectada. Executando pendência: {acao_p}", flush=True)
+        await executar_acao_gpt(update, context, acao_p, dados_p)
+        return {"acao": acao_p, "handled": True}
 
     # 🔄 Sessão ativa (ex: agendamento, tarefa etc.)
     sessao = await pegar_sessao(user_id)
