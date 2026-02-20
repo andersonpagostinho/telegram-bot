@@ -407,6 +407,7 @@ async def cancelar_evento_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     ok, msg = await cancelar_evento_por_texto(user_id, termo)
+
     # ✅ Se vieram múltiplos candidatos, salva estado para o atalho numérico do bot.py finalizar
     if (not ok) and candidatos:
         context.user_data["cancelamento_pendente"] = {
@@ -463,20 +464,20 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         def eh_confirmacao(txt: str) -> bool:
             gatilhos = [
-            "confirmar", "confirma", "pode agendar", "pode marcar",
-            "agende", "marque", "fechar", "ok", "confirmado"
-        ]
-        return any(g in txt for g in gatilhos)
+                "confirmar", "confirma", "pode agendar", "pode marcar",
+                "agende", "marque", "fechar", "ok", "confirmado"
+            ]
+            return any(g in txt for g in gatilhos)
 
         # 🧠 Se não há confirmação explícita, NÃO agenda
         if not eh_confirmacao(texto_usuario):
             await update.message.reply_text(
-            f"📅 Consulta de disponibilidade:\n"
-            f"{descricao} em {data_hora_str}\n\n"
-            f"👉 Deseja confirmar esse agendamento? Responda *confirmar*.",
-            parse_mode="Markdown"
-        )
-        return False
+                f"📅 Consulta de disponibilidade:\n"
+                f"{descricao} em {data_hora_str}\n\n"
+                f"👉 Deseja confirmar esse agendamento? Responda *confirmar*.",
+                parse_mode="Markdown"
+            )
+            return False
 
         # 🧠 Carrega contexto e trata profissional alternativo
         # contexto = await carregar_contexto_temporario(user_id)

@@ -48,10 +48,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     profissionais_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
     contexto["profissionais"] = list(profissionais_dict.values())
 
-    # você pode depois também carregar serviços do negócio se quiser
-    # servicos_dict = await buscar_subcolecao(f"Clientes/{dono_id}/ServicosNegocio") or {}
-    # contexto["servicos"] = list(servicos_dict.values())
-
     # 🧠 Chama o GPT com o contexto de secretaria
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
     print("🧠 resposta_gpt retornada:", resposta_gpt)
@@ -75,6 +71,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     resposta_texto = resposta_gpt.get("resposta")
     acao = resposta_gpt.get("acao")
     dados = resposta_gpt.get("dados", {})
+
+    # 🔒 MODO SEGURO: só executa ações mutáveis com confirmação explícita
+    # ✅ Use SEMPRE a variável "mensagem", pois update.message.text pode vir vazio (áudio/callback/etc.)
+    texto_usuario = (mensagem or "").strip().lower()
+
+    def eh_confirmacao(txt: str) -> bool:
+        # modo seguro: bem restrito
+        gatilhos = ["confirmar", "confirmo", "confirmado"]
+        return any(g in txt for g in gatilhos)
+
+    def eh_consulta(txt: str) -> bool:
+        # heurística simples (não precisa ser perfeita)
+        consultas = [
+            "como está", "como esta", "agenda",
+            "disponível", "disponivel",
+            "tem horário", "tem horario",
+            "livre", "ocupado", "ocupada",
+            "consulta", "consultar"
+        ]
+        return any(c in txt for c in consultas)
 
     ACOES_SUPORTADAS = {
         "consultar_preco_servico",
@@ -105,15 +121,39 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             acao = None
             dados = {}
         else:
-            handled = await executar_acao_gpt(update, context, acao, dados)
+            # 🚫 TRAVA GLOBAL (MODO SEGURO)
+            # - bloquear ações mutáveis sem confirmação explícita
+            # - permitir "consultar" rebaixando para consulta (não executa ação)
+            if acao in ("criar_evento", "cancelar_evento") and not eh_confirmacao(texto_usuario):
+                # Se o usuário sinalizou consulta, rebaixa para não executar ação
+                if eh_consulta(texto_usuario):
+                    print(f"ℹ️ Rebaixado para consulta (sem executar '{acao}') | texto='{texto_usuario}'", flush=True)
+                    acao = None
+                    dados = {}
+                else:
+                    print(f"🛑 BLOQUEADO: '{acao}' sem confirmação explícita | texto='{texto_usuario}'", flush=True)
+                    if context is not None:
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text=(
+                                "Por segurança eu não executo ações sem confirmação.\n\n"
+                                "👉 Para confirmar, responda: confirmar\n"
+                                "Se era só consulta, responda: consultar"
+                            )
+                        )
+                    return
 
-            # ✅ Patch crítico:
-            # Para criar_evento, quem responde é o event_handler (sucesso OU conflito).
-            # Mesmo que handled=False (conflito), NÃO envie resposta_texto do GPT.
-            if acao == "criar_evento":
-                return {"acao": "criar_evento", "handled": True}
+            # Se ainda há ação, executa
+            if acao:
+                handled = await executar_acao_gpt(update, context, acao, dados)
 
-    # ✅ Só envia resposta do GPT se NÃO houve ação (ou se ação realmente não respondeu)
+                # ✅ Patch crítico:
+                # Para criar_evento, quem responde é o event_handler (sucesso OU conflito).
+                # Mesmo que handled=False (conflito), NÃO envie resposta_texto do GPT.
+                if acao == "criar_evento":
+                    return {"acao": "criar_evento", "handled": True}
+
+    # ✅ Só envia resposta do GPT se NÃO houve ação (ou se ação foi rebaixada para None)
     if (not acao) and resposta_texto:
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
         if context is not None:
