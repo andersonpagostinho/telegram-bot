@@ -260,6 +260,43 @@ async def processar_com_gpt_com_acao(
                         except Exception:
                             dados_update["data_hora"] = str(dt)
 
+                # 2.1) detectar profissional pelo texto (para continuidade do "pode agendar então")
+                try:
+                    txt_prof = unidecode.unidecode((texto_usuario or "").lower().strip())
+
+                    # pega nomes do próprio contexto (mais robusto do que hardcode)
+                    nomes_ctx = []
+                    try:
+                        for p in (contexto.get("profissionais") or []):
+                            n = (p.get("nome") or "").strip()
+                            if n:
+                                nomes_ctx.append(n)
+                    except Exception:
+                        pass
+
+                    # fallback: nomes conhecidos (se contexto não tiver lista)
+                    if not nomes_ctx:
+                        nomes_ctx = ["Amanda", "Bruna", "Carla", "Gloria", "Joana", "Larissa"]
+
+                    nome_detectado = None
+                    for n in nomes_ctx:
+                        n_norm = unidecode.unidecode(str(n).lower().strip())
+                        if n_norm and n_norm in txt_prof:
+                            nome_detectado = str(n).strip()
+                            break
+
+                    if nome_detectado:
+                        dados_update["profissional_escolhido"] = nome_detectado
+                        # opcional: ajuda a retomar fluxos de consulta→agendamento
+                        if "data_hora" in dados_update:
+                            dados_update["ultima_consulta"] = {
+                            "profissional": nome_detectado,
+                            "data_hora": dados_update["data_hora"],
+                        }
+
+                except Exception as e:
+                print(f"⚠️ Falha ao detectar profissional automaticamente: {e}", flush=True)
+
                 except Exception as e:
                     print(f"⚠️ Falha ao interpretar data/hora: {e}", flush=True)
 

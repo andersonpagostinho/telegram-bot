@@ -46,8 +46,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ]
         return any(c in txt for c in consultas)
 
-    # ✅ MODO SEGURO: se existe ação pendente e o usuário confirmou, executa SEM chamar GPT
+    # ✅ PATCH 2: consulta → agendamento (criar pendência quando usuário pedir "pode agendar")
     ctx = await carregar_contexto_temporario(user_id) or {}
+
+    gatilho_agendar = any(x in texto_usuario for x in ["pode agendar", "pode marcar", "agende", "marque"])
+    if gatilho_agendar:
+        data_hora = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
+        prof = ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+
+        if data_hora and prof:
+            ctx["pendente_confirmacao"] = {
+                "acao": "criar_evento",
+                "dados": {"data_hora": data_hora, "profissional": prof},
+                "criado_em": "now",
+            }
+            await atualizar_contexto(user_id, ctx)
+
+            # força cair no bloco de confirmação/continuidade
+            texto_usuario = "confirmar"
+
+    # ✅ MODO SEGURO: se existe ação pendente e o usuário confirmou, executa SEM chamar GPT
     pend = ctx.get("pendente_confirmacao")
 
     if pend and pend.get("acao") in ("criar_evento", "cancelar_evento") and eh_confirmacao(texto_usuario):
