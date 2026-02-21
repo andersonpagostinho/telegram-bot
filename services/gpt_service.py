@@ -239,63 +239,59 @@ async def processar_com_gpt_com_acao(
                 try:
                     texto_hora_only = (texto_usuario or "").strip().lower()
 
-                    # Detecta "só horário"
-                    # Aceita: "16:40" | "as 16:40" | "às 16:40" | "16h40" | "16h" | "16"
-                    m = re.match(r"^(?:às|as)?\s*(\d{1,2})(?:[:h]\s*(\d{2}))?\s*$", texto_hora_only)
+                # Detecta "só horário"
+                # Aceita: "16:40" | "as 16:40" | "às 16:40" | "16h40" | "16h" | "16"
+                m = re.match(r"^(?:às|as)?\s*(\d{1,2})(?:[:h]\s*(\d{2}))?\s*$", texto_hora_only)
 
-                    data_hora_ctx = (contexto_salvo or {}).get("data_hora")
+                data_hora_ctx = (contexto_salvo or {}).get("data_hora")
 
-                    if m and data_hora_ctx:
-                        hora = int(m.group(1))
-                        minuto = int(m.group(2) or 0)
+                if m and data_hora_ctx:
+                    hora = int(m.group(1))
+                    minuto = int(m.group(2) or 0)
 
-                        base = datetime.fromisoformat(str(data_hora_ctx))
-                        dt = base.replace(hour=hora, minute=minuto, second=0, microsecond=0)
-                    else:
-                        dt = interpretar_data_e_hora(texto_usuario)
+                    base = datetime.fromisoformat(str(data_hora_ctx))
+                    dt = base.replace(hour=hora, minute=minuto, second=0, microsecond=0)
+                else:
+                dt = interpretar_data_e_hora(texto_usuario)
 
-                    if dt:
-                        try:
-                            dados_update["data_hora"] = dt.replace(second=0, microsecond=0).isoformat()
-                        except Exception:
-                            dados_update["data_hora"] = str(dt)
+                if dt:
+                    try:
+                        dados_update["data_hora"] = dt.replace(second=0, microsecond=0).isoformat()
+                    except Exception:
+                        dados_update["data_hora"] = str(dt)
 
                 # 2.1) detectar profissional pelo texto (para continuidade do "pode agendar então")
+                txt_prof = unidecode.unidecode((texto_usuario or "").lower().strip())
+
+                # pega nomes do próprio contexto (mais robusto do que hardcode)
+                nomes_ctx = []
                 try:
-                    txt_prof = unidecode.unidecode((texto_usuario or "").lower().strip())
+                    for p in (contexto.get("profissionais") or []):
+                        n = (p.get("nome") or "").strip()
+                        if n:
+                            nomes_ctx.append(n)
+                except Exception:
+                    pass
 
-                    # pega nomes do próprio contexto (mais robusto do que hardcode)
-                    nomes_ctx = []
-                    try:
-                        for p in (contexto.get("profissionais") or []):
-                            n = (p.get("nome") or "").strip()
-                            if n:
-                                nomes_ctx.append(n)
-                    except Exception:
-                        pass
+                # fallback: nomes conhecidos (se contexto não tiver lista)
+                if not nomes_ctx:
+                    nomes_ctx = ["Amanda", "Bruna", "Carla", "Gloria", "Joana", "Larissa"]
 
-                    # fallback: nomes conhecidos (se contexto não tiver lista)
-                    if not nomes_ctx:
-                        nomes_ctx = ["Amanda", "Bruna", "Carla", "Gloria", "Joana", "Larissa"]
+                nome_detectado = None
+                for n in nomes_ctx:
+                    n_norm = unidecode.unidecode(str(n).lower().strip())
+                    if n_norm and n_norm in txt_prof:
+                        nome_detectado = str(n).strip()
+                        break
 
-                    nome_detectado = None
-                    for n in nomes_ctx:
-                        n_norm = unidecode.unidecode(str(n).lower().strip())
-                        if n_norm and n_norm in txt_prof:
-                            nome_detectado = str(n).strip()
-                            break
+                if nome_detectado:
+                    dados_update["profissional_escolhido"] = nome_detectado
 
-                    if nome_detectado:
-                        dados_update["profissional_escolhido"] = nome_detectado
-                        # opcional: ajuda a retomar fluxos de consulta→agendamento
-                        if "data_hora" in dados_update:
-                            dados_update["ultima_consulta"] = {
+                    if "data_hora" in dados_update:
+                        dados_update["ultima_consulta"] = {
                             "profissional": nome_detectado,
                             "data_hora": dados_update["data_hora"],
                         }
-
-                except Exception as e:
-                print(f"⚠️ Falha ao detectar profissional automaticamente: {e}", flush=True)
 
                 except Exception as e:
                     print(f"⚠️ Falha ao interpretar data/hora: {e}", flush=True)
