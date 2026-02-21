@@ -153,6 +153,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     servs_todos.add(str(s).strip())
             if prof and (p.get("nome", "").strip().lower() == str(prof).strip().lower()):
                 servs_prof = [str(s).strip() for s in servs if s]
+                break
 
         # Lista válida para validação do texto do usuário
         candidatos = servs_prof or list(servs_todos)
@@ -205,6 +206,73 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
         return {"acao": None, "handled": True}
     # ============================================================
+
+    # ✅ FALLBACK determinístico: usuário respondeu o SERVIÇO mesmo sem flag 'aguardando_servico'
+    
+    prof = ctx_atual.get("profissional_escolhido") or (ctx_atual.get("ultima_consulta") or {}).get("profissional")
+    data_hora = ctx_atual.get("data_hora") or (ctx_atual.get("ultima_consulta") or {}).get("data_hora")
+
+    # Só tenta se já existe contexto mínimo e ainda não existe serviço salvo
+    if prof and data_hora and not ctx_atual.get("servico"):
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+        # pega serviços do profissional escolhido (prioridade)
+        servs_prof = []
+        for p in profs_dict.values():
+            if (p.get("nome", "").strip().lower() == str(prof).strip().lower()):
+                servs_prof = [str(s).strip() for s in (p.get("servicos") or []) if s]
+                break
+
+        # se não achou, cai pro conjunto geral do salão
+        if not servs_prof:
+            servs_prof = sorted({str(s).strip() for p in profs_dict.values() for s in (p.get("servicos") or []) if s})
+
+        txt_norm = unidecode.unidecode((texto_usuario or "").lower().strip())
+        mapa_norm = {unidecode.unidecode(s.lower().strip()): s for s in servs_prof}
+
+        servico_escolhido = mapa_norm.get(txt_norm)
+        if not servico_escolhido:
+            # substring: "quero corte", "pode ser corte", etc.
+            for k_norm, original in mapa_norm.items():
+                if k_norm and k_norm in txt_norm:
+                    servico_escolhido = original
+                    break
+
+        if servico_escolhido:
+            # mantém modo seguro: se ainda não houve confirmação, salva pendência e pede "confirmar"
+            if not ja_ha_confirmacao and not eh_confirmacao(texto_usuario):
+                ctx_atual["pendente_confirmacao"] = {
+                    "acao": "criar_evento",
+                    "dados": {"servico": servico_escolhido, "profissional": prof, "data_hora": data_hora},
+                    "criado_em": "now",
+                }
+                ctx_atual["servico"] = servico_escolhido
+                await atualizar_contexto(user_id, ctx_atual)
+
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Perfeito: *{servico_escolhido}* com *{prof}* em *{data_hora}*.\n\n"
+                            f"👉 Para confirmar, responda: *confirmar*"
+                        ),
+                        parse_mode="Markdown"
+                    )
+                return {"acao": None, "handled": True}
+
+            # se já confirmou, executa direto
+            ctx_atual["servico"] = servico_escolhido
+            ctx_atual["aguardando_servico"] = False
+            ctx_atual["pendente_confirmacao"] = None
+            await atualizar_contexto(user_id, ctx_atual)
+
+            await executar_acao_gpt(
+                update,
+                context,
+                "criar_evento",
+                {"servico": servico_escolhido, "profissional": prof, "data_hora": data_hora},
+            )
+            return {"acao": "criar_evento", "handled": True}
 
     # 🔄 Sessão ativa (ex: agendamento, tarefa etc.)
     sessao = await pegar_sessao(user_id)
