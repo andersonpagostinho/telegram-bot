@@ -8,6 +8,8 @@ from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 
+import unidecode
+
 
 async def roteador_principal(user_id: str, mensagem: str, update=None, context=None):
     print("🚨 [principal_router] Arquivo carregado")
@@ -127,6 +129,82 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print(f"✅ CONFIRMAÇÃO detectada. Executando pendência: {acao_p}", flush=True)
         await executar_acao_gpt(update, context, acao_p, dados_p)
         return {"acao": acao_p, "handled": True}
+
+    # ============================================================
+    # ✅ NOVO: atalho determinístico quando estamos aguardando o SERVIÇO
+    # Evita chamar GPT e evita voltar para escolha de profissional
+    ctx_atual = await carregar_contexto_temporario(user_id) or {}
+
+    if ctx_atual.get("aguardando_servico"):
+        # Recupera o mínimo necessário para agendar
+        prof = ctx_atual.get("profissional_escolhido") or (ctx_atual.get("ultima_consulta") or {}).get("profissional")
+        data_hora = ctx_atual.get("data_hora") or (ctx_atual.get("ultima_consulta") or {}).get("data_hora")
+
+        # Carrega serviços (preferência: serviços do profissional escolhido)
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+        servs_prof = []
+        servs_todos = set()
+
+        for p in profs_dict.values():
+            servs = p.get("servicos") or []
+            for s in servs:
+                if s:
+                    servs_todos.add(str(s).strip())
+            if prof and (p.get("nome", "").strip().lower() == str(prof).strip().lower()):
+                servs_prof = [str(s).strip() for s in servs if s]
+
+        # Lista válida para validação do texto do usuário
+        candidatos = servs_prof or list(servs_todos)
+
+        # Normaliza para match (aceita "corte", "Corte", etc.)
+        txt_norm = unidecode.unidecode((texto_usuario or "").lower().strip())
+        mapa_norm = {unidecode.unidecode(str(s).lower().strip()): str(s).strip() for s in candidatos}
+
+        servico_escolhido = mapa_norm.get(txt_norm)
+
+        if not servico_escolhido:
+            # Se não bateu exato, tenta substring (ex: "quero corte")
+            for k_norm, original in mapa_norm.items():
+                if k_norm and k_norm in txt_norm:
+                    servico_escolhido = original
+                    break
+
+        if servico_escolhido and prof and data_hora:
+            # Atualiza contexto e executa direto
+            ctx_atual["servico"] = servico_escolhido
+            ctx_atual["aguardando_servico"] = False
+
+            # Se existe pendência, completa e limpa antes de executar
+            pend2 = ctx_atual.get("pendente_confirmacao")
+            if pend2 and pend2.get("acao") == "criar_evento":
+                pend2_dados = pend2.get("dados", {}) or {}
+                pend2_dados["servico"] = servico_escolhido
+                pend2_dados["profissional"] = pend2_dados.get("profissional") or prof
+                pend2_dados["data_hora"] = pend2_dados.get("data_hora") or data_hora
+                ctx_atual["pendente_confirmacao"] = None
+
+            await atualizar_contexto(user_id, ctx_atual)
+
+            await executar_acao_gpt(
+                update,
+                context,
+                "criar_evento",
+                {"servico": servico_escolhido, "profissional": prof, "data_hora": data_hora},
+            )
+            return {"acao": "criar_evento", "handled": True}
+
+        # Se não reconheceu o serviço, pede novamente sem envolver GPT
+        if context is not None:
+            sugestao = ""
+            if candidatos:
+                sugestao = "\n\nServiços disponíveis:\n- " + "\n- ".join(sorted(set(candidatos)))
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"Entendi. Qual serviço você deseja agendar?{sugestao}"
+            )
+        return {"acao": None, "handled": True}
+    # ============================================================
 
     # 🔄 Sessão ativa (ex: agendamento, tarefa etc.)
     sessao = await pegar_sessao(user_id)
