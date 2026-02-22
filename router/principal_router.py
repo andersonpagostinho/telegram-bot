@@ -185,23 +185,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         return {"acao": "criar_evento", "handled": True}
 
-    # 1) Se a mensagem for consulta, marcar estado e GARANTIR que não agenda
-    if eh_consulta(texto_lower):
-        # salva um "marco" de consulta para o próximo "pode agendar"
-        data_hora = ctx.get("data_hora")
-        prof = ctx.get("profissional_escolhido")
-
-        ctx["estado_fluxo"] = "consultando"
-        if data_hora or prof:
-            ctx["ultima_consulta"] = {
-                "data_hora": data_hora,
-                "profissional": prof,
-            }
-        await atualizar_contexto(user_id, ctx)
-
-        # segue para GPT responder a consulta (mas vamos bloquear ações mutáveis depois)
-        # (continua a execução normal)
-
     # 2) Se o usuário disser "pode agendar então", isso é decisão final.
     #    A regra é: se já tenho data_hora + profissional, eu vou para:
     #    - se já tenho servico: agendo agora
@@ -252,17 +235,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if servs:
                 sugestao = "\n\nServiços disponíveis:\n- " + "\n- ".join([str(x) for x in servs])
 
-            # ✅ entra em modo "aguardando_servico"
+            # ✅ salva estado + draft (uma vez só)
             ctx["estado_fluxo"] = "aguardando_servico"
-
-            # ✅ guarda o que já está decidido para não depender do GPT
             ctx["draft_agendamento"] = {
-                "acao": "criar_evento",
                 "profissional": prof,
                 "data_hora": data_hora,
                 "servico": None,
             }
-
             await atualizar_contexto(user_id, ctx)
 
             if context is not None:
@@ -279,6 +258,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         # se não tem data_hora/prof, cai no GPT (porque falta base)
         # (continua a execução normal)
+
+    # 1) Se a mensagem for consulta, marcar estado e GARANTIR que não agenda
+    if eh_consulta(texto_lower):
+        # salva um "marco" de consulta para o próximo "pode agendar"
+        data_hora = ctx.get("data_hora")
+        prof = ctx.get("profissional_escolhido")
+
+        ctx["estado_fluxo"] = "consultando"
+        if data_hora or prof:
+            ctx["ultima_consulta"] = {
+                "data_hora": data_hora,
+                "profissional": prof,
+            }
+        await atualizar_contexto(user_id, ctx)
+
+        # segue para GPT responder a consulta (mas vamos bloquear ações mutáveis depois)
+        # (continua a execução normal)
+
+    
 
     # =========================================================
     # 3) Chamada normal ao GPT (com contexto do dono)
