@@ -178,7 +178,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         dados_exec = {"servico": servico_detectado, "profissional": prof, "data_hora": data_hora}
         print("✅ [estado_fluxo] Executando criar_evento com draft_agendamento:", dados_exec, flush=True)
-        await executar_acao_gpt(update, context, "criar_evento", dados_exec)
+        dados_exec["origem"] = "auto"
 
         # volta para idle
         ctx = await carregar_contexto_temporario(user_id) or {}
@@ -219,7 +219,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["servico"] = servico_detectado
                 await atualizar_contexto(user_id, ctx)
 
-                dados_exec = {"servico": servico_detectado, "profissional": prof_u, "data_hora": data_u}
+                dados_exec = {
+                    "servico": servico_detectado,
+                    "profissional": prof_u,
+                    "data_hora": data_u,
+                    "origem": "auto",
+                    "texto_usuario": "confirmar",
+                }
                 await executar_acao_gpt(update, context, "criar_evento", dados_exec)
 
                 ctx = await carregar_contexto_temporario(user_id) or {}
@@ -256,7 +262,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["estado_fluxo"] = "agendando"
                 await atualizar_contexto(user_id, ctx)
 
-                dados_exec = {"servico": servico, "profissional": prof, "data_hora": data_hora}
+                dados_exec = {
+                    "servico": servico,
+                    "profissional": prof,
+                    "data_hora": data_hora,
+                    "origem": "auto",
+                    "texto_usuario": "confirmar",
+                }
                 print("✅ [estado_fluxo] Gatilho agendar com contexto completo:", dados_exec, flush=True)
                 await executar_acao_gpt(update, context, "criar_evento", dados_exec)
 

@@ -481,12 +481,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         else:
             if not eh_confirmacao(texto_usuario):
                 await update.message.reply_text(
-                f"📅 Consulta de disponibilidade:\n"
-                f"{descricao} em {data_hora_str}\n\n"
-                f"👉 Deseja confirmar esse agendamento? Responda *confirmar*.",
-                parse_mode="Markdown"
-            )
-            return {"acao": None, "handled": True}
+                    f"📅 Consulta de disponibilidade:\n"
+                    f"{descricao} em {data_hora_str}\n\n"
+                    f"👉 Deseja confirmar esse agendamento? Responda *confirmar*.",
+                    parse_mode="Markdown"
+                )
+                return {"acao": None, "handled": True}
 
         # 🧠 Trata profissional alternativo (contexto já carregado acima)
         resposta_usuario = (
