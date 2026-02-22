@@ -123,12 +123,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         data_hora = draft.get("data_hora") or ctx.get("data_hora")
 
         if not prof or not data_hora:
-        ctx["estado_fluxo"] = "idle"
-        ctx["draft_agendamento"] = None
-        await atualizar_contexto(user_id, ctx)
-        if context is not None:
-            await context.bot.send_message(chat_id=user_id, text="Perdi o contexto do agendamento. Pode me dizer novamente o dia/hora e profissional?")
-        return {"acao": None, "handled": True}
+            ctx["estado_fluxo"] = "idle"
+            ctx["draft_agendamento"] = None
+            await atualizar_contexto(user_id, ctx)
+            if context is not None:
+                await context.bot.send_message(chat_id=user_id, text="Perdi o contexto do agendamento. Pode me dizer novamente o dia/hora e profissional?")
+            return {"acao": None, "handled": True}
 
         # buscar serviços do profissional para validar
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
