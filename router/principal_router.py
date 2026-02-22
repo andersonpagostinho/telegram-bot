@@ -219,6 +219,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     #    - se já tenho servico: agendo agora
     #    - se não: peço só o serviço (sem voltar pro zero)
     if eh_gatilho_agendar(texto_lower):
+        print("🟦 ENTROU NO gatilho_agendar", flush=True)
+        print("🟩 ENTROU NO aguardando_servico", flush=True)
         data_hora = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         prof = ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         servico = ctx.get("servico")
