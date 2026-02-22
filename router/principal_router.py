@@ -114,9 +114,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ctx = await carregar_contexto_temporario(user_id) or {}
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
+    print(f"🧭 [estado_fluxo] user={user_id} estado_fluxo_raw={ctx.get('estado_fluxo')} estado_fluxo_norm={estado_fluxo} draft={ctx.get('draft_agendamento')}", flush=True)
 
     # 0) Se o usuário está EM "aguardando_servico", então essa mensagem deve ser interpretada como serviço
-    if estado_fluxo == "aguardando_servico":
+    if estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
         # precisamos: profissional + data_hora no draft
         prof = draft.get("profissional") or ctx.get("profissional_escolhido")
         data_hora = draft.get("data_hora") or ctx.get("data_hora")
