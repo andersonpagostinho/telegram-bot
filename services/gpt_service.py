@@ -212,35 +212,31 @@ async def processar_com_gpt_com_acao(
         except Exception as e:
             print(f"⚠️ Curto-circuito profissional falhou: {e}", flush=True)
 
-        # --- 3.0) Persistir servico e data_hora (antes do GPT) ---
+        # --- 3.0) Persistir servico, data_hora e profissional (antes do GPT) ---
         try:
             if uid != "desconhecido":
                 dados_update = {}
 
-                # 1) tentar detectar serviço por aproximação simples
+                # 1) tentar detectar serviço por aproximação simples (mantém)
                 try:
                     id_dono = uid
                     cliente_tmp = await buscar_cliente(uid) or {}
                     id_dono = str(cliente_tmp.get("id_negocio") or uid)
 
                     servicos_disponiveis = await listar_servicos_cadastrados(id_dono) or []
-                    txt = texto_normalizado
+                    txt = texto_normalizado  # já normalizado no seu fluxo
 
                     for s in servicos_disponiveis:
                         s_norm = unidecode.unidecode(str(s).lower().strip())
                         if s_norm and s_norm in txt:
                             dados_update["servico"] = str(s).strip()
                             break
-
                 except Exception as e:
                     print(f"⚠️ Falha ao detectar serviço automaticamente: {e}", flush=True)
 
-                # 2) interpretar data/hora
+                # 2) interpretar data/hora (mantém)
                 try:
                     texto_hora_only = (texto_usuario or "").strip().lower()
-
-                    # Detecta "só horário"
-                    # Aceita: "16:40" | "as 16:40" | "às 16:40" | "16h40" | "16h" | "16"
                     m = re.match(r"^(?:às|as)?\s*(\d{1,2})(?:[:h]\s*(\d{2}))?\s*$", texto_hora_only)
 
                     data_hora_ctx = (contexto_salvo or {}).get("data_hora")
@@ -248,22 +244,21 @@ async def processar_com_gpt_com_acao(
                     if m and data_hora_ctx:
                         hora = int(m.group(1))
                         minuto = int(m.group(2) or 0)
-
                         base = datetime.fromisoformat(str(data_hora_ctx))
                         dt = base.replace(hour=hora, minute=minuto, second=0, microsecond=0)
                     else:
                         dt = interpretar_data_e_hora(texto_usuario)
 
                     if dt:
-                        try:
-                            dados_update["data_hora"] = dt.replace(second=0, microsecond=0).isoformat()
-                        except Exception:
-                            dados_update["data_hora"] = str(dt)
+                        dados_update["data_hora"] = dt.replace(second=0, microsecond=0).isoformat()
+                except Exception as e:
+                    print(f"⚠️ Falha ao interpretar data/hora: {e}", flush=True)
 
-                    # 2.1) detectar profissional pelo texto (para continuidade do "pode agendar então")
+                # 3) detectar profissional pelo texto (sem bagunçar indentação)
+                try:
                     txt_prof = unidecode.unidecode((texto_usuario or "").lower().strip())
 
-                    # pega nomes do próprio contexto (mais robusto do que hardcode)
+                    # nomes vindos do contexto (melhor fonte)
                     nomes_ctx = []
                     try:
                         for p in (contexto.get("profissionais") or []):
@@ -272,10 +267,6 @@ async def processar_com_gpt_com_acao(
                                 nomes_ctx.append(n)
                     except Exception:
                         pass
-
-                    # fallback: nomes conhecidos (se contexto não tiver lista)
-                    if not nomes_ctx:
-                        nomes_ctx = ["Amanda", "Bruna", "Carla", "Gloria", "Joana", "Larissa"]
 
                     nome_detectado = None
                     for n in nomes_ctx:
@@ -286,25 +277,36 @@ async def processar_com_gpt_com_acao(
 
                     if nome_detectado:
                         dados_update["profissional_escolhido"] = nome_detectado
-
-                        if "data_hora" in dados_update:
-                            dados_update["ultima_consulta"] = {
-                                "profissional": nome_detectado,
-                                "data_hora": dados_update["data_hora"],
-                            }
-
                 except Exception as e:
-                    print(f"⚠️ Falha ao interpretar data/hora: {e}", flush=True)
+                    print(f"⚠️ Falha ao detectar profissional automaticamente: {e}", flush=True)
 
-                # salvar se houver algo
+                # 4) se foi consulta de agenda, marcar estado_fluxo e ultima_consulta
+                #    (consulta não agenda; router usa isso para “pode agendar então”)
+                try:
+                    t = (texto_usuario or "").strip().lower()
+                    eh_consulta_local = any(k in t for k in [
+                        "agenda", "como está", "como esta", "disponível", "disponivel",
+                        "tem horário", "tem horario", "livre", "ocupado", "ocupada", "disponibilidade"
+                    ])
+
+                    # só marca consultando se capturou pelo menos data/hora ou profissional
+                    if eh_consulta_local and ("data_hora" in dados_update or "profissional_escolhido" in dados_update):
+                        dados_update["estado_fluxo"] = "consultando"
+                        dados_update["ultima_consulta"] = {
+                            "data_hora": dados_update.get("data_hora") or (contexto_salvo or {}).get("data_hora"),
+                            "profissional": dados_update.get("profissional_escolhido") or (contexto_salvo or {}).get("profissional_escolhido"),
+                }
+                except Exception as e:
+                    print(f"⚠️ Falha ao marcar estado_fluxo consultando: {e}", flush=True)
+
+                # 5) salvar se houver algo
                 if dados_update:
                     await salvar_contexto_temporario(uid, dados_update)
                     contexto_salvo = {**(contexto_salvo or {}), **dados_update}
                     print(f"💾 Contexto atualizado antes do GPT: {dados_update}", flush=True)
 
         except Exception as e:
-            print(f"⚠️ Falha ao salvar servico/data_hora antes do GPT: {e}", flush=True)
-
+            print(f"⚠️ Falha ao salvar servico/data_hora/profissional antes do GPT: {e}", flush=True)
 
         # --- 3) Saudações curtas ---
         SAUDACOES_INICIAIS = {
