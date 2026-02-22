@@ -450,8 +450,27 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
     try:
         descricao = dados.get("descricao", "Evento sem título")
-        profissional = dados.get("profissional")
+        servico = (dados or {}).get("servico")
+        profissional = dados.get("profissional") or dados.get("profissional_escolhido")
         data_hora_str = dados.get("data_hora")  # ISO string
+
+        # 🔥 PATCH: construir título automaticamente
+        servico_txt = (str(servico).strip() if servico else "")
+        prof_txt = (str(profissional).strip() if profissional else "")
+
+        if servico_txt and prof_txt:
+            descricao = f"{servico_txt.capitalize()} com {prof_txt}"
+        elif servico_txt:
+            descricao = servico_txt.capitalize()
+        elif prof_txt:
+            descricao = f"Atendimento com {prof_txt}"
+        else:
+            descricao = "Atendimento"
+
+        # garante no payload também
+        dados["descricao"] = descricao
+        dados["titulo"] = descricao
+
         duracao_minutos = dados.get("duracao", 60)
         user_id = str(update.message.from_user.id)
 

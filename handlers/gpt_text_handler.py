@@ -99,7 +99,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if eventos:
             resposta = formatar_eventos_telegram(eventos)
         else:
-            resposta = "📭 Nenhum evento encontrado para o período solicitado."
+            resposta = "✅ Não encontrei agendamentos nesse período — está livre para marcar."
         await update.message.reply_text(resposta)
         resposta_ja_enviada = True
         

@@ -246,7 +246,29 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             eventos = await buscar_eventos_por_intervalo(user_id, dias=dias) or []
 
             if not eventos:
-                await update.message.reply_text("📭 Nenhum evento encontrado para o dia solicitado.")
+                prof = (dados or {}).get("profissional") or (dados or {}).get("profissional_escolhido")
+                data_hora = (dados or {}).get("data_hora")
+
+                def _fmt(dt_iso: str) -> str:
+                    from datetime import datetime
+                    try:
+                        return datetime.fromisoformat(dt_iso).strftime("%d/%m/%Y às %H:%M")
+                    except Exception:
+                        return str(dt_iso)
+
+                when = _fmt(data_hora) if data_hora else "nesse horário"
+
+                if prof:
+                    await update.message.reply_text(
+                        f"✅ A agenda da *{prof}* está livre em *{when}*. Quer que eu agende?",
+                        parse_mode="Markdown"
+                    )
+                else:
+                    await update.message.reply_text(
+                        f"✅ Está livre em *{when}*. Quer que eu agende?",
+                        parse_mode="Markdown"
+                    )
+
                 return True
 
             # Se você já tem formatador padronizado:

@@ -7,6 +7,7 @@ from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
+from datetime import datetime
 
 import re
 from unidecode import unidecode
@@ -45,6 +46,12 @@ def eh_gatilho_agendar(txt: str) -> bool:
 def normalizar(texto: str) -> str:
     return unidecode((texto or "").strip().lower())
 
+def formatar_data_hora_br(dt_iso: str) -> str:
+    try:
+        dt = datetime.fromisoformat(dt_iso)
+        return dt.strftime("%d/%m/%Y às %H:%M")
+    except Exception:
+        return str(dt_iso)
 
 def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> str | None:
     """
@@ -298,12 +305,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             }
             await atualizar_contexto(user_id, ctx)
 
+            data_hora_fmt = formatar_data_hora_br(data_hora) if data_hora else "esse horário"
+
             if context is not None:
                 await context.bot.send_message(
                     chat_id=user_id,
-                    text=(f"Perfeito. Qual serviço você quer agendar com *{prof}* às *{data_hora}*?{sugestao}"),
+                    text=(f"Perfeito — com *{prof}* em *{data_hora_fmt}*. Qual serviço vai ser?{sugestao}"),
                     parse_mode="Markdown",
                 )
+
             return {"acao": None, "handled": True}
         # se não tem base, cai no GPT (falta data_hora/prof)
 
