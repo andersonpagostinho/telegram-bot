@@ -40,6 +40,7 @@ def eh_gatilho_agendar(txt: str) -> bool:
     t = (txt or "").strip().lower()
     gatilhos = ["pode agendar", "pode marcar", "agende", "marque"]
     return any(g in t for g in gatilhos)
+    ctx["intencao_agendar"] = True
 
 
 def normalizar(texto: str) -> str:
@@ -115,6 +116,34 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
     print(f"🧭 [estado_fluxo] user={user_id} estado_fluxo_raw={ctx.get('estado_fluxo')} estado_fluxo_norm={estado_fluxo} draft={ctx.get('draft_agendamento')}", flush=True)
+
+    # 🚀 AUTO-EXECUÇÃO (sem GPT) — somente com intenção explícita
+    servico = ctx.get("servico")
+    data_hora = ctx.get("data_hora")
+    prof = ctx.get("profissional_escolhido")
+    intencao_agendar = bool(ctx.get("intencao_agendar"))
+
+    if servico and data_hora and prof and intencao_agendar and estado_fluxo == "idle":
+        print("🔥 AUTO-EXEC: contexto completo + intenção explícita, executando sem GPT", flush=True)
+
+        ctx["estado_fluxo"] = "agendando"
+        await atualizar_contexto(user_id, ctx)
+
+        dados_exec = {"servico": servico, "profissional": prof, "data_hora": data_hora}
+        await executar_acao_gpt(update, context, "criar_evento", dados_exec)
+
+        # ✅ limpa slots para não re-executar em mensagens seguintes
+        ctx = await carregar_contexto_temporario(user_id) or {}
+        ctx["estado_fluxo"] = "idle"
+        ctx["draft_agendamento"] = None
+        ctx["intencao_agendar"] = False
+        ctx["servico"] = None
+        ctx["data_hora"] = None
+        ctx["profissional_escolhido"] = None
+        ctx["ultima_consulta"] = None
+        await atualizar_contexto(user_id, ctx)
+
+        return {"acao": "criar_evento", "handled": True}
 
     # 0) Se o usuário está EM "aguardando_servico", então essa mensagem deve ser interpretada como serviço
     if estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
