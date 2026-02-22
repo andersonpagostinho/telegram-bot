@@ -122,6 +122,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         prof = draft.get("profissional") or ctx.get("profissional_escolhido")
         data_hora = draft.get("data_hora") or ctx.get("data_hora")
 
+        if not prof or not data_hora:
+        ctx["estado_fluxo"] = "idle"
+        ctx["draft_agendamento"] = None
+        await atualizar_contexto(user_id, ctx)
+        if context is not None:
+            await context.bot.send_message(chat_id=user_id, text="Perdi o contexto do agendamento. Pode me dizer novamente o dia/hora e profissional?")
+        return {"acao": None, "handled": True}
+
         # buscar serviços do profissional para validar
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
         servs = []
@@ -130,6 +138,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 servs = p.get("servicos") or []
                 break
 
+        texto_usuario = (mensagem or "").strip()
         servico_detectado = extrair_servico_do_texto(texto_usuario, servs)
 
         if not servico_detectado:
@@ -242,6 +251,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             sugestao = ""
             if servs:
                 sugestao = "\n\nServiços disponíveis:\n- " + "\n- ".join([str(x) for x in servs])
+
+            # ✅ entra em modo "aguardando_servico"
+            ctx["estado_fluxo"] = "aguardando_servico"
+
+            # ✅ guarda o que já está decidido para não depender do GPT
+            ctx["draft_agendamento"] = {
+                "acao": "criar_evento",
+                "profissional": prof,
+                "data_hora": data_hora,
+                "servico": None,
+            }
+
+            await atualizar_contexto(user_id, ctx)
 
             if context is not None:
                 await context.bot.send_message(
