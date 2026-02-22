@@ -133,7 +133,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # ============================================================
     # ✅ NOVO: atalho determinístico quando estamos aguardando o SERVIÇO
     # Evita chamar GPT e evita voltar para escolha de profissional
-    ctx_atual = await carregar_contexto_temporario(user_id) or {}
 
     if ctx_atual.get("aguardando_servico"):
         # Recupera o mínimo necessário para agendar
@@ -211,6 +210,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     
     prof = ctx_atual.get("profissional_escolhido") or (ctx_atual.get("ultima_consulta") or {}).get("profissional")
     data_hora = ctx_atual.get("data_hora") or (ctx_atual.get("ultima_consulta") or {}).get("data_hora")
+    pend = ctx_atual.get("pendente_confirmacao") or {}
+    ja_ha_confirmacao = (pend.get("acao") == "criar_evento")
 
     # Só tenta se já existe contexto mínimo e ainda não existe serviço salvo
     if prof and data_hora and not ctx_atual.get("servico"):

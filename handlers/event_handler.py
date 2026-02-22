@@ -473,7 +473,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             return any(g in txt for g in gatilhos)
 
         # 🧠 Se não há confirmação explícita, NÃO agenda
-        if not eh_confirmacao(texto_usuario):
+        if not ja_ha_confirmacao and not eh_confirmacao(texto_usuario):
             await update.message.reply_text(
                 f"📅 Consulta de disponibilidade:\n"
                 f"{descricao} em {data_hora_str}\n\n"
