@@ -125,7 +125,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # ✅ CONFIRMAÇÃO NO MODO "consultando" -> vira coleta de serviço
     # =========================================================
-    def eh_confirmacao(txt: str) -> bool:
+    async def eh_confirmacao(txt: str) -> bool:
         t = (txt or "").strip().lower()
         gatilhos = [
             "confirmar", "confirma", "pode agendar", "pode marcar", "agende", "marque",
