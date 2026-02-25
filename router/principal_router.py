@@ -154,10 +154,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             }
             await atualizar_contexto(user_id, ctx)
 
+            # 🔽 BUSCAR SERVIÇOS DO FIREBASE
+            from services.firebase_service_async import buscar_subcolecao
+
+            profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+
+            # pegar dados da profissional
+            prof_data = profissionais_dict.get(prof) or {}
+
+            servicos = prof_data.get("servicos") or []
+
+            # montar lista
+            if servicos:
+                linhas = [f"- {s}" for s in servicos]
+                lista_servicos = "\n".join(linhas)
+                complemento = f"\n\nServiços disponíveis:\n{lista_servicos}"
+            else:
+                complemento = ""
+
             data_hora_fmt = formatar_data_hora_br(data_hora)  # você já criou isso
+
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"Perfeito — com *{prof}* em *{data_hora_fmt}*. Qual serviço vai ser?",
+                text=f"Perfeito — com *{prof}* em *{data_hora_fmt}*. Qual serviço vai ser?{complemento}",
                 parse_mode="Markdown",
             )
             return {"acao": None, "handled": True}
