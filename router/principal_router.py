@@ -125,8 +125,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # ✅ CONFIRMAÇÃO NO MODO "consultando" -> vira coleta de serviço
     # =========================================================
-    async def eh_confirmacao(txt: str) -> bool:
+    def eh_confirmacao(txt: str) -> bool:
         t = (txt or "").strip().lower()
+
+        if "nao" in t or "não" in t:
+            return False
+
         gatilhos = [
             "confirmar", "confirma", "pode agendar", "pode marcar", "agende", "marque",
             "fechar", "ok", "confirmado",
@@ -135,28 +139,28 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ]
         return any(g in t for g in gatilhos)
 
-        if estado_fluxo == "consultando" and eh_confirmacao(texto_lower):
-            # base vem do contexto salvo (consulta anterior)
-            prof = ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
-            data_hora = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
+    if estado_fluxo == "consultando" and eh_confirmacao(texto_lower):
+        # base vem do contexto salvo (consulta anterior)
+        prof = ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+        data_hora = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
 
-            if prof and data_hora:
-                # entra no fluxo determinístico (sem GPT)
-                ctx["estado_fluxo"] = "aguardando_servico"
-                ctx["draft_agendamento"] = {
-                    "profissional": prof,
-                    "data_hora": data_hora,
-                    "servico": None,
-                }
-                await atualizar_contexto(user_id, ctx)
+        if prof and data_hora:
+            # entra no fluxo determinístico (sem GPT)
+            ctx["estado_fluxo"] = "aguardando_servico"
+            ctx["draft_agendamento"] = {
+                "profissional": prof,
+                "data_hora": data_hora,
+                "servico": None,
+            }
+            await atualizar_contexto(user_id, ctx)
 
-                data_hora_fmt = formatar_data_hora_br(data_hora)  # você já criou isso
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"Perfeito — com *{prof}* em *{data_hora_fmt}*. Qual serviço vai ser?",
-                    parse_mode="Markdown",
-                )
-                return {"acao": None, "handled": True}
+            data_hora_fmt = formatar_data_hora_br(data_hora)  # você já criou isso
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"Perfeito — com *{prof}* em *{data_hora_fmt}*. Qual serviço vai ser?",
+                parse_mode="Markdown",
+            )
+            return {"acao": None, "handled": True}
 
     print(
         f"🧭 [estado_fluxo] user={user_id} "

@@ -260,7 +260,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
                 if prof:
                     await update.message.reply_text(
-                        f"✅ A agenda da *{prof}* está livre em *{when}*. Quer que eu agende?",
+                        f"✅ A agenda da *{prof}* está livre *{when}*. Quer que eu agende?",
                         parse_mode="Markdown"
                     )
                 else:
