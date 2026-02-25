@@ -155,8 +155,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await atualizar_contexto(user_id, ctx)
 
             # 🔽 BUSCAR SERVIÇOS DO FIREBASE
-            from services.firebase_service_async import buscar_subcolecao
-
+            
             profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
 
             # pegar dados da profissional
