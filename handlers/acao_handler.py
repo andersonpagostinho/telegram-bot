@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path, buscar_cliente
 from services.session_service import criar_ou_atualizar_sessao, pegar_sessao, resetar_sessao, sincronizar_contexto
@@ -7,6 +8,52 @@ from unidecode import unidecode
 from utils.interpretador_datas import interpretar_data_e_hora
 from services.informacao_service import responder_consulta_informativa
 
+def parse_servicos_em_ordem(texto: str, servicos_disponiveis: list[str], max_itens: int = 2):
+    """
+    Retorna:
+      - None se não encontrar nada
+      - str se encontrar 1 serviço
+      - list[str] se encontrar 2 serviços (em ordem)
+    """
+    if not texto or not servicos_disponiveis:
+        return None
+
+    t = unidecode(texto.lower())
+
+    # normaliza catálogo
+    catalogo = []
+    for s in servicos_disponiveis:
+        s_txt = str(s).strip()
+        if not s_txt:
+            continue
+        catalogo.append((s_txt, unidecode(s_txt.lower())))
+
+    achados = []
+    for original, norm in catalogo:
+        pattern = r"\b" + re.escape(norm) + r"\b"
+        m = re.search(pattern, t)
+        if m:
+            achados.append((m.start(), original))
+
+    if not achados:
+        return None
+
+    achados.sort(key=lambda x: x[0])
+
+    vistos = set()
+    em_ordem = []
+    for _, s in achados:
+        k = unidecode(s.lower().strip())
+        if k in vistos:
+            continue
+        vistos.add(k)
+        em_ordem.append(s)
+        if len(em_ordem) >= max_itens:
+            break
+
+    if len(em_ordem) == 1:
+        return em_ordem[0]
+    return em_ordem
 
 async def verificar_disponibilidade_profissional(data, user_id):
     print("⚠️ [acao_handler] tratador direto foi chamado!")
@@ -59,30 +106,60 @@ async def tratar_mensagem_usuario(user_id, mensagem):
         return "Oi! Qual serviço você deseja agendar?"
 
     elif sessao["estado"] == "aguardando_servico":
-        servico_normalizado = await encontrar_servico_mais_proximo(mensagem, user_id)
+        # 1) Monta catálogo de serviços (união de todos os profissionais)
+        profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+        servicos_set = set()
+        for p in profissionais.values():
+            for serv in (p.get("servicos") or []):
+                s = str(serv).lower().strip()
+                if s:
+                    servicos_set.add(s)
 
-        if not servico_normalizado:
-            profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais")
-            servicos_set = set()
-            for p in profissionais:
-                for serv in p.get("servicos", []):
-                    servicos_set.add(serv.lower().strip())
+        catalogo = sorted(list(servicos_set))
 
-            if servicos_set:
-                servicos_formatados = "\n".join([f"• {s.capitalize()}" for s in sorted(servicos_set)])
-                return (
-                    "✨ Aqui estão os serviços disponíveis no momento:\n\n"
-                    f"{servicos_formatados}\n\n"
-                    "Qual deles você gostaria?"
-                )
-            return "❌ Nenhum serviço foi encontrado no sistema. Verifique com o administrador."
+        # 2) Tenta parsear 2 serviços em ordem (split)
+        servicos_parseados = parse_servicos_em_ordem(mensagem, catalogo, max_itens=2)
 
-        await criar_ou_atualizar_sessao(user_id, {
-            "estado": "aguardando_data",
-            "servico": servico_normalizado
-        })
-        await sincronizar_contexto(user_id, pegar_sessao(user_id))
-        return f"Beleza! Qual a data para o serviço *{servico_normalizado}*?"
+        # 3) Se não achou 2, cai no seu normalizador atual (1 serviço)
+        if not servicos_parseados:
+            servico_normalizado = await encontrar_servico_mais_proximo(mensagem, user_id)
+            if not servico_normalizado:
+                if servicos_set:
+                    servicos_formatados = "\n".join([f"• {s.capitalize()}" for s in sorted(servicos_set)])
+                    return (
+                        "Não entendi o serviço. Você pode escolher um destes:\n\n"
+                        f"{servicos_formatados}\n\n"
+                        "Qual você deseja?"
+                    )
+                return "Não entendi o serviço. Qual serviço você deseja agendar?"
+
+            # salva 1 serviço (string) — comportamento antigo
+            await criar_ou_atualizar_sessao(user_id, {
+                **sessao,
+                "estado": "aguardando_data",
+                "servico": servico_normalizado
+            })
+            await sincronizar_contexto(user_id, pegar_sessao(user_id))
+            return f"Beleza! Qual a data para o serviço *{servico_normalizado}*?"
+
+        # 4) Se achou 1 ou 2 pelo parser, salva:
+        if isinstance(servicos_parseados, list) and len(servicos_parseados) == 2:
+            await criar_ou_atualizar_sessao(user_id, {
+                **sessao,
+                "estado": "aguardando_data",
+                "servico": servicos_parseados  # <-- lista com 2 serviços (ordem do texto)
+            })
+            await sincronizar_contexto(user_id, pegar_sessao(user_id))
+            return f"Perfeito! Qual a data para *{servicos_parseados[0]} + {servicos_parseados[1]}*?"
+        else:
+            # veio só 1 serviço pelo parser (string)
+            await criar_ou_atualizar_sessao(user_id, {
+                **sessao,
+                "estado": "aguardando_data",
+                "servico": servicos_parseados
+            })
+            await sincronizar_contexto(user_id, pegar_sessao(user_id))
+            return f"Beleza! Qual a data para o serviço *{servicos_parseados}*?"
 
     elif sessao["estado"] == "aguardando_data":
         # tenta interpretar a data informada e salvar normalizada
@@ -241,26 +318,51 @@ async def tratar_mensagem_usuario(user_id, mensagem):
         #if not profissional_escolhido:
         #    return "🔄 Estamos no meio de um agendamento. Por favor, diga o nome da profissional, a data ou o horário desejado para continuar."
 
-        # ⛔ Verifica conflitos
+        # ⛔ Verifica conflitos (e sugere alternativas)
+        # ✅ Se não encontrou profissional, pede para informar
+        if not profissional_escolhido:
+            return "Qual profissional você prefere? (ex: Joana, Bruna, Carla...)"
+
+        # ✅ Se o nome não está na lista de disponíveis para o serviço, já orienta
         if profissional_escolhido not in disponiveis:
-            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+            lista = ", ".join(disponiveis) if disponiveis else "nenhuma"
+            return f"Para *{sessao.get('servico','esse serviço')}*, eu tenho disponível: {lista}. Qual delas você prefere?"
 
-            conflito_info = await verificar_conflito_e_sugestoes_profissional(
-                user_id=user_id,
-                data=sessao["data"],
-                hora_inicio=sessao["hora"],
-                duracao_min=60,
-                profissional=profissional_escolhido,
-                servico=sessao.get("servico", "")
-            )
+        # ✅ Agora sim: profissional é válido e está entre os disponíveis.
+        # Checa conflito real no horário desejado.
+        from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 
-            resposta = f"⚠️ {profissional_escolhido} está com horário ocupado para {sessao['hora']}.\n"
+        # sessao["data"] vem como "dd/mm/YYYY" -> converter para "YYYY-MM-DD"
+        data_raw = (sessao.get("data") or "").strip()
+        try:
+            data_iso = datetime.strptime(data_raw, "%d/%m/%Y").strftime("%Y-%m-%d")
+        except Exception:
+            return "⚠️ Não entendi a data. Pode enviar no formato 28/02/2026?"
 
-            if conflito_info["sugestoes"]:
-                resposta += "🕒 Horários alternativos disponíveis:\n" + "\n".join([f"🔄 {h}" for h in conflito_info["sugestoes"]]) + "\n"
+        hora_raw = (sessao.get("hora") or "").strip()
 
-            if conflito_info["profissional_alternativo"]:
-                resposta += f"💡 Para esse mesmo horário, {conflito_info['profissional_alternativo']} está disponível.\nDeseja agendar com ela?"
+        # ✅ Duração: por enquanto 60; depois você troca por estimar_duracao(servico) ou duração cadastrada.
+        duracao_min = 60
+
+        conflito_info = await verificar_conflito_e_sugestoes_profissional(
+            user_id=user_id,
+            data=data_iso,
+            hora_inicio=hora_raw,
+            duracao_min=duracao_min,
+            profissional=profissional_escolhido,
+            servico=sessao.get("servico", ""),
+        )
+
+        if conflito_info.get("conflito"):
+            resposta = f"⚠️ {profissional_escolhido} está com horário ocupado para {hora_raw}.\n"
+
+            sugestoes = conflito_info.get("sugestoes") or []
+            if sugestoes:
+                resposta += "🕒 Horários alternativos disponíveis:\n" + "\n".join([f"🔄 {h}" for h in sugestoes]) + "\n"
+
+            alt = conflito_info.get("profissional_alternativo")
+            if alt:
+                resposta += f"💡 Para esse mesmo horário, *{alt}* está disponível.\nDeseja agendar com ela?"
 
             return resposta
 
