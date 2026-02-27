@@ -170,6 +170,19 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
         texto_norm = (texto or "").strip().lower().replace("às", "as")
         texto_norm = _normalizar_texto_hora(texto_norm)
 
+        # ✅ Se tiver "hoje" ou "amanhã" e tiver hora, monta a data manualmente
+        if ("hoje" in texto_norm or "amanh" in texto_norm) and re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm):
+            base = agora_br_aware()
+            if "amanh" in texto_norm:
+                base = base + timedelta(days=1)
+
+            m = re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm)
+            hora = int(m.group(1))
+            minuto = int(m.group(2) or 0)
+
+            dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
+            return dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+
         # ✅ Se for só hora, não decide data aqui (isso é do fluxo/sessão)
         if _so_hora(texto_norm):
             return None

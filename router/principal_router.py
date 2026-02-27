@@ -8,6 +8,7 @@ from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 from datetime import datetime
+from utils.interpretador_datas import interpretar_data_e_hora
 
 import re
 from unidecode import unidecode
@@ -121,6 +122,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ctx = await carregar_contexto_temporario(user_id) or {}
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
+
+    # ✅ EXTRAÇÃO DE DATA/HORA ANTES DO GPT (CRÍTICO)
+    #    - Só tenta quando estamos em estados onde faz sentido
+    #    - Usa texto original
+    # =========================================================
+    if estado_fluxo in ("idle", "consultando", "aguardando_data") and not ctx.get("data_hora"):
+        dt = interpretar_data_e_hora(texto_usuario)  # ✅ use o original
+
+        if dt:
+            ctx["data_hora"] = dt.replace(second=0, microsecond=0).isoformat()
+            # mantém trilha da consulta (ajuda P0.1)
+            if not isinstance(ctx.get("ultima_consulta"), dict):
+                ctx["ultima_consulta"] = {}
+            ctx["ultima_consulta"]["data_hora"] = ctx["data_hora"]
+
+            await atualizar_contexto(user_id, ctx)
+            print("🕓 [ROUTER] data_hora extraída:", ctx["data_hora"], flush=True)
 
     # =========================================================
     # ✅ CONFIRMAÇÃO NO MODO "consultando" -> vira coleta de serviço
