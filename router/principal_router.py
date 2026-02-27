@@ -7,7 +7,7 @@ from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
-from datetime import datetime
+from datetime import datetime, timedelta
 from utils.interpretador_datas import interpretar_data_e_hora
 import pytz
 import re
@@ -47,12 +47,14 @@ def eh_gatilho_agendar(txt: str) -> bool:
 def normalizar(texto: str) -> str:
     return unidecode((texto or "").strip().lower())
 
+
 def formatar_data_hora_br(dt_iso: str) -> str:
     try:
         dt = datetime.fromisoformat(dt_iso)
         return dt.strftime("%d/%m/%Y às %H:%M")
     except Exception:
         return str(dt_iso)
+
 
 def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> str | None:
     """
@@ -79,6 +81,36 @@ def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> 
                 return str(s).strip()
 
     return None
+
+
+# ----------------------------
+# Helpers de data/hora
+# ----------------------------
+
+FUSO_BR = pytz.timezone("America/Sao_Paulo")
+
+
+def _agora_br_naive() -> datetime:
+    return datetime.now(FUSO_BR).replace(tzinfo=None)
+
+
+def _dt_from_iso_naive(iso_str: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(iso_str)
+    except Exception:
+        return None
+
+
+def _eh_passado(dt_iso: str) -> bool:
+    dt = _dt_from_iso_naive(dt_iso) if isinstance(dt_iso, str) else None
+    return bool(dt and dt <= _agora_br_naive())
+
+
+def _shift_amanha(dt_iso: str) -> str | None:
+    dt = _dt_from_iso_naive(dt_iso) if isinstance(dt_iso, str) else None
+    if not dt:
+        return None
+    return (dt + timedelta(days=1)).replace(second=0, microsecond=0).isoformat()
 
 
 # ----------------------------
@@ -123,6 +155,46 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
 
+    # =========================================================
+    # ✅ Continuação determinística: "amanhã então" após aviso de horário passado
+    #    (estado_fluxo=aguardando_data e ctx["data_hora"] já existe)
+    # =========================================================
+    if estado_fluxo in ("aguardando_data", "aguardando_confirmacao_data") and ("amanh" in texto_lower):
+        base = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora") or (draft.get("data_hora"))
+        nova = _shift_amanha(base) if base else None
+
+        if nova:
+            # mantém trilha
+            ctx["data_hora"] = nova
+            if not isinstance(ctx.get("ultima_consulta"), dict):
+                ctx["ultima_consulta"] = {}
+            ctx["ultima_consulta"]["data_hora"] = nova
+
+            # tenta manter profissional se houver
+            prof_base = draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+
+            # entra direto em pré-checagem (mesmo que texto não seja "consulta")
+            ctx["estado_fluxo"] = "aguardando_servico"
+            ctx["draft_agendamento"] = {
+                "profissional": prof_base,
+                "data_hora": nova,
+                "servico": None,
+                "modo_prechecagem": True,
+            }
+            await atualizar_contexto(user_id, ctx)
+
+            dh_fmt = formatar_data_hora_br(nova)
+            if context is not None:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"Certo — *amanhã* em *{dh_fmt}*.\n"
+                        "Qual serviço vai ser? (preciso da duração para confirmar se cabe)"
+                    ),
+                    parse_mode="Markdown",
+                )
+            return {"acao": None, "handled": True}
+
     # ✅ EXTRAÇÃO DE DATA/HORA ANTES DO GPT (CRÍTICO)
     #    - Só tenta quando estamos em estados onde faz sentido
     #    - Usa texto original
@@ -140,30 +212,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await atualizar_contexto(user_id, ctx)
             print("🕓 [ROUTER] data_hora extraída:", ctx["data_hora"], flush=True)
 
-            FUSO_BR = pytz.timezone("America/Sao_Paulo")
-
-            def _agora_br_naive():
-                return datetime.now(FUSO_BR).replace(tzinfo=None)
-
-            def _dt_from_iso_naive(iso_str: str):
-                try:
-                    return datetime.fromisoformat(iso_str)
-                except Exception:
-                    return None
-
-            # ... depois de setar ctx["data_hora"]
-            dt_naive = _dt_from_iso_naive(ctx["data_hora"])
-            if dt_naive and dt_naive <= _agora_br_naive():
-                # se usuário pediu "hoje" e já passou, não segue fluxo
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=(
-                        f"Esse horário (*{formatar_data_hora_br(ctx['data_hora'])}*) já passou hoje.\n"
-                        "Você quer *amanhã no mesmo horário* ou prefere outro horário?"
-                    ),
-                    parse_mode="Markdown",
-                )
-                # opcional: mantenha estado aguardando_data (pra capturar nova data)
+            # ✅ Bloqueio de horário passado imediatamente após extração
+            if _eh_passado(ctx["data_hora"]):
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Esse horário (*{formatar_data_hora_br(ctx['data_hora'])}*) já passou hoje.\n"
+                            "Você quer *amanhã no mesmo horário* ou prefere outro horário?"
+                        ),
+                        parse_mode="Markdown",
+                    )
                 ctx["estado_fluxo"] = "aguardando_data"
                 # não mantém draft “pronto” com horário inválido
                 ctx["draft_agendamento"] = None
@@ -193,6 +252,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         data_hora = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
 
         if prof and data_hora:
+            # ✅ não deixa confirmar/agendar se estiver no passado
+            if _eh_passado(data_hora):
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Esse horário (*{formatar_data_hora_br(data_hora)}*) já passou.\n"
+                            "Quer *amanhã no mesmo horário* ou prefere outro horário?"
+                        ),
+                        parse_mode="Markdown",
+                    )
+                ctx["estado_fluxo"] = "aguardando_data"
+                ctx["draft_agendamento"] = None
+                await atualizar_contexto(user_id, ctx)
+                return {"acao": None, "handled": True}
+
             # entra no fluxo determinístico (sem GPT)
             ctx["estado_fluxo"] = "aguardando_servico"
             ctx["draft_agendamento"] = {
@@ -203,8 +278,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await atualizar_contexto(user_id, ctx)
 
             # 🔽 BUSCAR SERVIÇOS DO FIREBASE
-            
-            profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+            # ✅ Correção: sempre usar dono_id (consistente com o resto)
+            profissionais_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
             # pegar dados da profissional
             prof_data = profissionais_dict.get(prof) or {}
@@ -219,13 +294,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             else:
                 complemento = ""
 
-            data_hora_fmt = formatar_data_hora_br(data_hora)  # você já criou isso
+            data_hora_fmt = formatar_data_hora_br(data_hora)
 
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=f"Perfeito — com *{prof}* em *{data_hora_fmt}*. Qual serviço vai ser?{complemento}",
-                parse_mode="Markdown",
-            )
+            if context is not None:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"Perfeito — com *{prof}* em *{data_hora_fmt}*. Qual serviço vai ser?{complemento}",
+                    parse_mode="Markdown",
+                )
             return {"acao": None, "handled": True}
 
     print(
@@ -252,6 +328,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     chat_id=user_id,
                     text="Perdi o contexto do agendamento. Pode me dizer novamente o dia/hora e profissional?",
                 )
+            return {"acao": None, "handled": True}
+
+        # ✅ garante que não agenda serviço em horário passado
+        if _eh_passado(data_hora):
+            if context is not None:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"Esse horário (*{formatar_data_hora_br(data_hora)}*) já passou.\n"
+                        "Quer *amanhã no mesmo horário* ou prefere outro horário?"
+                    ),
+                    parse_mode="Markdown",
+                )
+            ctx["estado_fluxo"] = "aguardando_data"
+            ctx["draft_agendamento"] = None
+            await atualizar_contexto(user_id, ctx)
             return {"acao": None, "handled": True}
 
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
@@ -312,6 +404,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         prof_u = (ctx.get("profissional_escolhido") or ultima.get("profissional"))
         data_u = (ctx.get("data_hora") or ultima.get("data_hora"))
         if prof_u and data_u and len(normalizar(texto_usuario).split()) <= 3:
+            # ✅ não deixa cair no fallback de agendar se estiver no passado
+            if _eh_passado(data_u):
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Esse horário (*{formatar_data_hora_br(data_u)}*) já passou.\n"
+                            "Quer *amanhã no mesmo horário* ou prefere outro horário?"
+                        ),
+                        parse_mode="Markdown",
+                    )
+                ctx["estado_fluxo"] = "aguardando_data"
+                ctx["draft_agendamento"] = None
+                await atualizar_contexto(user_id, ctx)
+                return {"acao": None, "handled": True}
+
             profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
             servs = []
             for p in profs_dict.values():
@@ -365,6 +473,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # ✅ P0.1: se há data_hora (consulta específica) e ainda não há serviço,
         # não deixa o GPT afirmar "livre". Vira pré-checagem e pede serviço.
         if data_hora and not servico:
+            # ✅ bloqueio de horário passado também aqui (caso data_hora já existisse no ctx)
+            if _eh_passado(data_hora):
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Esse horário (*{formatar_data_hora_br(data_hora)}*) já passou hoje.\n"
+                            "Você quer *amanhã no mesmo horário* ou prefere outro horário?"
+                        ),
+                        parse_mode="Markdown",
+                    )
+                ctx["estado_fluxo"] = "aguardando_data"
+                ctx["draft_agendamento"] = None
+                await atualizar_contexto(user_id, ctx)
+                return {"acao": None, "handled": True}
+
             # tenta sugerir serviços do profissional (se já houver prof escolhido)
             sugestao = ""
             if prof:
@@ -413,6 +537,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         servico = draft.get("servico") or ctx.get("servico")
 
         if data_hora and prof:
+            # ✅ bloqueio de horário passado antes de qualquer execução
+            if _eh_passado(data_hora):
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Esse horário (*{formatar_data_hora_br(data_hora)}*) já passou.\n"
+                            "Quer *amanhã no mesmo horário* ou prefere outro horário?"
+                        ),
+                        parse_mode="Markdown",
+                    )
+                ctx["estado_fluxo"] = "aguardando_data"
+                ctx["draft_agendamento"] = None
+                await atualizar_contexto(user_id, ctx)
+                return {"acao": None, "handled": True}
+
             # já tem serviço -> executa já
             if servico:
                 ctx["estado_fluxo"] = "agendando"
@@ -503,7 +643,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if estado_fluxo == "consultando":
         opcoes = (ctx.get("ultima_opcao_profissionais") or [])
         if opcoes:
-            from unidecode import unidecode
             tnorm = unidecode((texto_lower or "").strip().lower())
 
             escolhido = None
@@ -541,14 +680,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     await atualizar_contexto(user_id, ctx)
 
                     dh_fmt = formatar_data_hora_br(dh)
-                    await context.bot.send_message(
-                        chat_id=user_id,
-                        text=(
-                            f"Fechado. Quer que eu *agende* *{servico_atual}* com *{escolhido}* em *{dh_fmt}*?\n"
-                            "Responda: *confirmar* / *pode marcar*."
-                        ),
-                        parse_mode="Markdown",
-                    )
+                    if context is not None:
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text=(
+                                f"Fechado. Quer que eu *agende* *{servico_atual}* com *{escolhido}* em *{dh_fmt}*?\n"
+                                "Responda: *confirmar* / *pode marcar*."
+                            ),
+                            parse_mode="Markdown",
+                        )
                     return {"acao": None, "handled": True}
 
                 # se ainda não tem serviço, entra em aguardando_servico
@@ -562,23 +702,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 await atualizar_contexto(user_id, ctx)
 
                 dh_fmt = formatar_data_hora_br(dh) if dh else ""
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"Perfeito — com *{escolhido}* {('em *'+dh_fmt+'*') if dh_fmt else ''}. Qual serviço vai ser?",
-                    parse_mode="Markdown",
-                )
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=f"Perfeito — com *{escolhido}* {('em *'+dh_fmt+'*') if dh_fmt else ''}. Qual serviço vai ser?",
+                        parse_mode="Markdown",
+                    )
                 return {"acao": None, "handled": True}
-
-                # Se já tem serviço e data_hora, você pode cair no gatilho de agendamento com contexto completo (que você já tem mais abaixo).
-                await atualizar_contexto(user_id, ctx)
 
     # ✅ REGRA DE OURO: se é CONSULTA, bloqueia ações mutáveis vindas do GPT
     # (usa também estado_fluxo consultando para ser mais robusto)
     if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and acao in ("criar_evento", "cancelar_evento"):
         print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
 
-        # ✅ Regra de ouro: se bloqueou, NÃO pode confirmar sucesso.
-        # Devolve controle para o fluxo determinístico.
         return {"acao": None, "handled": True, "resposta": (
             "Entendi. Se você quer *agendar*, confirme dizendo:\n"
             "• 'confirmar'  ou  'pode marcar'\n"
