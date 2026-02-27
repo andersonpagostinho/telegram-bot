@@ -112,13 +112,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if sessao and sessao.get("estado"):
         print(f"🔁 Sessão ativa: {sessao['estado']}")
         resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem)
-
-        # ✅ NÃO sobrescrever contexto com dict pequeno (isso mata estado_fluxo/draft/etc.)
-        ctx_merge = await carregar_contexto_temporario(user_id) or {}
-        ctx_merge["usuario"] = mensagem
-        ctx_merge["bot"] = resposta_fluxo
-        await atualizar_contexto(user_id, ctx_merge)
-
+        await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
         return resposta_fluxo
 
     # =========================================================
@@ -142,69 +136,113 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         except Exception:
             return None
 
-    def _texto_pede_amanha(txt: str) -> bool:
-        t = normalizar(txt)
-        return ("amanha" in t) or ("amanhã" in (txt or "").lower())
+    async def _perguntar_amanha_mesmo_horario_e_bloquear(data_hora_iso: str):
+        """
+        Centraliza o bloqueio de data passada e prepara captura de confirmação.
+        """
+        if context is not None:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=(
+                    f"Esse horário (*{formatar_data_hora_br(data_hora_iso)}*) já passou hoje.\n"
+                    "Você quer *amanhã no mesmo horário* ou prefere outro horário?"
+                ),
+                parse_mode="Markdown",
+            )
 
-    def _texto_tem_hora_explicita(txt: str) -> bool:
-        # 16, 16h, 16:30, 16h30, etc.
-        return bool(re.search(r"\b(\d{1,2})(?:[:h](\d{2}))?\b", (txt or "").lower()))
+        # ✅ PREPARA CAPTURA DO "SIM"
+        ctx["estado_fluxo"] = "aguardando_data"
+        ctx["pergunta_amanha_mesmo_horario"] = True
+        ctx["data_hora_pendente"] = data_hora_iso  # guarda base
+        ctx["data_hora"] = None                   # evita gatilhos usarem horário inválido
+        ctx["draft_agendamento"] = None
+
+        # também limpa trilha de consulta para não “puxar” o passado
+        if isinstance(ctx.get("ultima_consulta"), dict):
+            ctx["ultima_consulta"]["data_hora"] = None
+
+        await atualizar_contexto(user_id, ctx)
+        return {"acao": None, "handled": True}
 
     # =========================================================
-    # ✅ Handler determinístico: "amanhã no mesmo horário"
-    #    (se você perguntou isso, você precisa finalizar aqui)
+    # ✅ CONFIRMAÇÃO NO MODO "consultando" -> vira coleta de serviço
     # =========================================================
-    if estado_fluxo == "aguardando_data" and ctx.get("data_hora") and _texto_pede_amanha(texto_usuario) and not _texto_tem_hora_explicita(texto_usuario):
-        dt_base = _dt_from_iso_naive(ctx["data_hora"])
-        if dt_base:
-            nova_dt = dt_base + timedelta(days=1)
-            nova_dt = nova_dt.replace(second=0, microsecond=0)
+    def eh_confirmacao(txt: str) -> bool:
+        t = (txt or "").strip().lower()
 
-            ctx["data_hora"] = nova_dt.isoformat()
+        if "nao" in t or "não" in t:
+            return False
+
+        gatilhos = [
+            "confirmar", "confirma", "pode agendar", "pode marcar", "agende", "marque",
+            "fechar", "ok", "confirmado",
+            "sim", "sim por favor", "pode", "pode ser", "pode sim"
+        ]
+        return any(g in t for g in gatilhos)
+
+    # =========================================================
+    # ✅ FIX: Capturar "sim" para "amanhã no mesmo horário"
+    # =========================================================
+    if estado_fluxo == "aguardando_data" and ctx.get("pergunta_amanha_mesmo_horario") and eh_confirmacao(texto_lower):
+        base_iso = ctx.get("data_hora_pendente")
+        base_dt = _dt_from_iso_naive(base_iso) if base_iso else None
+
+        if base_dt:
+            nova_dt = base_dt + timedelta(days=1)
+            nova_iso = nova_dt.replace(second=0, microsecond=0).isoformat()
+
+            # grava e limpa flags
+            ctx["data_hora"] = nova_iso
+            ctx["data_hora_pendente"] = None
+            ctx["pergunta_amanha_mesmo_horario"] = False
+
             if not isinstance(ctx.get("ultima_consulta"), dict):
                 ctx["ultima_consulta"] = {}
-            ctx["ultima_consulta"]["data_hora"] = ctx["data_hora"]
+            ctx["ultima_consulta"]["data_hora"] = nova_iso
 
-            # Se já tiver profissional, volta para pré-checagem/serviço. Se não tiver, fica consultando.
-            prof_atual = (draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional"))
-            serv_atual = (draft.get("servico") or ctx.get("servico"))
+            # retoma fluxo: se já tem prof/servico, confirma; senão pede serviço
+            draft = ctx.get("draft_agendamento") or {}
+            prof = draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+            servico = draft.get("servico") or ctx.get("servico")
 
-            if prof_atual and serv_atual:
+            if prof and servico:
                 ctx["estado_fluxo"] = "aguardando_confirmacao"
-                ctx["draft_agendamento"] = {
-                    "profissional": prof_atual,
-                    "data_hora": ctx["data_hora"],
-                    "servico": serv_atual,
-                    "modo_prechecagem": bool(draft.get("modo_prechecagem")),
-                }
+                ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": servico}
                 await atualizar_contexto(user_id, ctx)
 
+                dh_fmt = formatar_data_hora_br(nova_iso)
                 if context is not None:
                     await context.bot.send_message(
                         chat_id=user_id,
                         text=(
-                            f"Fechado. Quer que eu *agende* *{serv_atual}* com *{prof_atual}* em *{formatar_data_hora_br(ctx['data_hora'])}*?\n"
+                            f"Perfeito. Quer que eu *agende* *{servico}* com *{prof}* em *{dh_fmt}*?\n"
                             "Responda: *confirmar* / *pode marcar*."
                         ),
                         parse_mode="Markdown",
                     )
                 return {"acao": None, "handled": True}
 
-            # sem serviço ainda: pede serviço (P0.1)
+            # pede serviço (com sugestão se souber prof)
+            sugestao = ""
+            if prof:
+                profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+                servs = []
+                for p in profs_dict.values():
+                    if normalizar(p.get("nome", "")) == normalizar(prof):
+                        servs = p.get("servicos") or []
+                        break
+                if servs:
+                    sugestao = "\n\nServiços disponíveis:\n- " + "\n- ".join([str(x) for x in servs])
+
             ctx["estado_fluxo"] = "aguardando_servico"
-            ctx["draft_agendamento"] = {
-                "profissional": prof_atual,
-                "data_hora": ctx["data_hora"],
-                "servico": None,
-                "modo_prechecagem": True,
-            }
+            ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": None, "modo_prechecagem": True}
             await atualizar_contexto(user_id, ctx)
 
+            dh_fmt = formatar_data_hora_br(nova_iso)
             if context is not None:
-                dh_fmt = formatar_data_hora_br(ctx["data_hora"])
                 await context.bot.send_message(
                     chat_id=user_id,
-                    text=f"Ok — *amanhã* em *{dh_fmt}*. Qual serviço vai ser?",
+                    text=f"Fechado — *{dh_fmt}*. Qual serviço vai ser?{sugestao}",
                     parse_mode="Markdown",
                 )
             return {"acao": None, "handled": True}
@@ -226,61 +264,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await atualizar_contexto(user_id, ctx)
             print("🕓 [ROUTER] data_hora extraída:", ctx["data_hora"], flush=True)
 
-            # ... depois de setar ctx["data_hora"]
             dt_naive = _dt_from_iso_naive(ctx["data_hora"])
             if dt_naive and dt_naive <= _agora_br_naive():
-                # se usuário pediu "hoje" e já passou, não segue fluxo
-                if context is not None:
-                    await context.bot.send_message(
-                        chat_id=user_id,
-                        text=(
-                            f"Esse horário (*{formatar_data_hora_br(ctx['data_hora'])}*) já passou hoje.\n"
-                            "Você quer *amanhã no mesmo horário* ou prefere outro horário?"
-                        ),
-                        parse_mode="Markdown",
-                    )
-                # mantenha estado aguardando_data (pra capturar nova data)
-                ctx["estado_fluxo"] = "aguardando_data"
-                # não mantém draft “pronto” com horário inválido
-                ctx["draft_agendamento"] = None
-                await atualizar_contexto(user_id, ctx)
-                return {"acao": None, "handled": True}
+                return await _perguntar_amanha_mesmo_horario_e_bloquear(ctx["data_hora"])
 
-    # =========================================================
-    # ✅ CONFIRMAÇÃO NO MODO "consultando" -> vira coleta de serviço
-    # =========================================================
-    def eh_confirmacao(txt: str) -> bool:
-        t = (txt or "").strip().lower()
-
-        if "nao" in t or "não" in t:
-            return False
-
-        gatilhos = [
-            "confirmar", "confirma", "pode agendar", "pode marcar", "agende", "marque",
-            "fechar", "ok", "confirmado",
-            # ✅ faltavam estes (seu caso: "sim por favor")
-            "sim", "sim por favor", "pode", "pode ser", "pode sim"
-        ]
-        return any(g in t for g in gatilhos)
+    # ✅ Segurança extra: se ctx já tinha data_hora (de antes) e ela está no passado, bloqueia também
+    if ctx.get("data_hora"):
+        dt_naive_existente = _dt_from_iso_naive(ctx["data_hora"])
+        if dt_naive_existente and dt_naive_existente <= _agora_br_naive():
+            return await _perguntar_amanha_mesmo_horario_e_bloquear(ctx["data_hora"])
 
     if estado_fluxo == "consultando" and eh_confirmacao(texto_lower):
         # base vem do contexto salvo (consulta anterior)
         prof = ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         data_hora = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
 
-        # ✅ bloqueia confirmação com data no passado
-        dt_naive = _dt_from_iso_naive(data_hora) if data_hora else None
-        if dt_naive and dt_naive <= _agora_br_naive():
-            ctx["estado_fluxo"] = "aguardando_data"
-            ctx["draft_agendamento"] = None
-            await atualizar_contexto(user_id, ctx)
-            if context is not None:
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text="Esse horário já passou. Você quer *amanhã no mesmo horário* ou prefere outro horário?",
-                    parse_mode="Markdown",
-                )
-            return {"acao": None, "handled": True}
+        # ✅ se data_hora ficou vazia (por bloqueio passado), não força fluxo errado
+        if data_hora:
+            dt_naive = _dt_from_iso_naive(data_hora)
+            if dt_naive and dt_naive <= _agora_br_naive():
+                return await _perguntar_amanha_mesmo_horario_e_bloquear(data_hora)
 
         if prof and data_hora:
             # entra no fluxo determinístico (sem GPT)
@@ -340,19 +343,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
             return {"acao": None, "handled": True}
 
-        # ✅ não deixa seguir com data no passado
+        # ✅ FIX: nunca executa agendamento com data passada
         dt_naive = _dt_from_iso_naive(data_hora)
         if dt_naive and dt_naive <= _agora_br_naive():
-            ctx["estado_fluxo"] = "aguardando_data"
-            ctx["draft_agendamento"] = None
-            await atualizar_contexto(user_id, ctx)
-            if context is not None:
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text="Esse horário já passou. Você quer *amanhã no mesmo horário* ou prefere outro horário?",
-                    parse_mode="Markdown",
-                )
-            return {"acao": None, "handled": True}
+            return await _perguntar_amanha_mesmo_horario_e_bloquear(data_hora)
 
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
         servs = []
@@ -372,14 +366,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 await context.bot.send_message(
                     chat_id=user_id,
                     text=(
-                        f"Ok. Para agendar com *{prof}* em *{formatar_data_hora_br(data_hora)}*, "
+                        f"Ok. Para agendar com *{prof}* às *{data_hora}*, "
                         f"me diga qual serviço você quer.{sugestao}"
                     ),
                     parse_mode="Markdown",
                 )
             return {"acao": None, "handled": True}
 
-        # executa sem GPT
+        # executa sem GPT (mantive seu comportamento original)
         ctx["estado_fluxo"] = "agendando"
         ctx["draft_agendamento"] = {
             "profissional": prof,
@@ -392,8 +386,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         dados_exec = {"servico": servico_detectado, "profissional": prof, "data_hora": data_hora}
         print("✅ [estado_fluxo] Executando criar_evento com draft_agendamento:", dados_exec, flush=True)
         dados_exec["origem"] = "auto"
-
-        await executar_acao_gpt(update, context, "criar_evento", dados_exec)
 
         # volta para idle
         ctx = await carregar_contexto_temporario(user_id) or {}
@@ -414,20 +406,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         prof_u = (ctx.get("profissional_escolhido") or ultima.get("profissional"))
         data_u = (ctx.get("data_hora") or ultima.get("data_hora"))
         if prof_u and data_u and len(normalizar(texto_usuario).split()) <= 3:
-
-            # ✅ não executa se data no passado
+            # ✅ FIX: nunca executa com data passada
             dt_naive = _dt_from_iso_naive(data_u)
             if dt_naive and dt_naive <= _agora_br_naive():
-                ctx["estado_fluxo"] = "aguardando_data"
-                ctx["draft_agendamento"] = None
-                await atualizar_contexto(user_id, ctx)
-                if context is not None:
-                    await context.bot.send_message(
-                        chat_id=user_id,
-                        text="Esse horário já passou. Você quer *amanhã no mesmo horário* ou prefere outro horário?",
-                        parse_mode="Markdown",
-                    )
-                return {"acao": None, "handled": True}
+                return await _perguntar_amanha_mesmo_horario_e_bloquear(data_u)
 
             profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
             servs = []
@@ -529,19 +511,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         prof = draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         servico = draft.get("servico") or ctx.get("servico")
 
-        # ✅ nunca agendar no passado
-        dt_naive = _dt_from_iso_naive(data_hora) if data_hora else None
-        if dt_naive and dt_naive <= _agora_br_naive():
-            ctx["estado_fluxo"] = "aguardando_data"
-            ctx["draft_agendamento"] = None
-            await atualizar_contexto(user_id, ctx)
-            if context is not None:
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text="Esse horário já passou. Você quer *amanhã no mesmo horário* ou prefere outro horário?",
-                    parse_mode="Markdown",
-                )
-            return {"acao": None, "handled": True}
+        # ✅ FIX: nunca executa com data passada (mesmo que a data tenha vindo do ctx/ultima_consulta)
+        if data_hora:
+            dt_naive = _dt_from_iso_naive(data_hora)
+            if dt_naive and dt_naive <= _agora_br_naive():
+                return await _perguntar_amanha_mesmo_horario_e_bloquear(data_hora)
 
         if data_hora and prof:
             # já tem serviço -> executa já
@@ -634,7 +608,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if estado_fluxo == "consultando":
         opcoes = (ctx.get("ultima_opcao_profissionais") or [])
         if opcoes:
-            from unidecode import unidecode
             tnorm = unidecode((texto_lower or "").strip().lower())
 
             escolhido = None
@@ -672,14 +645,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     await atualizar_contexto(user_id, ctx)
 
                     dh_fmt = formatar_data_hora_br(dh)
-                    await context.bot.send_message(
-                        chat_id=user_id,
-                        text=(
-                            f"Fechado. Quer que eu *agende* *{servico_atual}* com *{escolhido}* em *{dh_fmt}*?\n"
-                            "Responda: *confirmar* / *pode marcar*."
-                        ),
-                        parse_mode="Markdown",
-                    )
+                    if context is not None:
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text=(
+                                f"Fechado. Quer que eu *agende* *{servico_atual}* com *{escolhido}* em *{dh_fmt}*?\n"
+                                "Responda: *confirmar* / *pode marcar*."
+                            ),
+                            parse_mode="Markdown",
+                        )
                     return {"acao": None, "handled": True}
 
                 # se ainda não tem serviço, entra em aguardando_servico
@@ -693,18 +667,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 await atualizar_contexto(user_id, ctx)
 
                 dh_fmt = formatar_data_hora_br(dh) if dh else ""
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"Perfeito — com *{escolhido}* {('em *'+dh_fmt+'*') if dh_fmt else ''}. Qual serviço vai ser?",
-                    parse_mode="Markdown",
-                )
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=f"Perfeito — com *{escolhido}* {('em *'+dh_fmt+'*') if dh_fmt else ''}. Qual serviço vai ser?",
+                        parse_mode="Markdown",
+                    )
                 return {"acao": None, "handled": True}
 
     # ✅ REGRA DE OURO: se é CONSULTA, bloqueia ações mutáveis vindas do GPT
-    # (usa também estado_fluxo consultando para ser mais robusto)
     if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and acao in ("criar_evento", "cancelar_evento"):
         print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
-
         return {"acao": None, "handled": True, "resposta": (
             "Entendi. Se você quer *agendar*, confirme dizendo:\n"
             "• 'confirmar'  ou  'pode marcar'\n"
@@ -742,18 +715,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         else:
             handled = await executar_acao_gpt(update, context, acao, dados)
 
-            # criar_evento responde no handler (evita duplicar)
             if acao == "criar_evento":
                 return {"acao": "criar_evento", "handled": True}
 
     # envia resposta do GPT se não houve ação
     if (not acao) and resposta_texto:
-        # ✅ NÃO sobrescrever contexto com dict pequeno
-        ctx_merge = await carregar_contexto_temporario(user_id) or {}
-        ctx_merge["usuario"] = mensagem
-        ctx_merge["bot"] = resposta_texto
-        await atualizar_contexto(user_id, ctx_merge)
-
+        await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
         if context is not None:
             await context.bot.send_message(chat_id=user_id, text=resposta_texto, parse_mode="Markdown")
         return {"resposta": resposta_texto}
