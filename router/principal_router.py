@@ -464,61 +464,61 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     break
 
             if escolhido:
-            # ✅ Isso não é consulta; é decisão (P0.2)
-            draft = ctx.get("draft_agendamento") or {}
+                # ✅ Isso não é consulta; é decisão (P0.2)
+                draft = ctx.get("draft_agendamento") or {}
 
-            # atualiza profissional escolhido
-            ctx["profissional_escolhido"] = escolhido
+                # atualiza profissional escolhido
+                ctx["profissional_escolhido"] = escolhido
 
-            # mantém data_hora (prioriza draft, depois ctx, depois ultima_consulta)
-            dh = draft.get("data_hora") or ctx.get("data_hora")
-            if not dh and isinstance(ctx.get("ultima_consulta"), dict):
-                dh = ctx["ultima_consulta"].get("data_hora")
-                if dh:
-                    ctx["data_hora"] = dh
+                # mantém data_hora (prioriza draft, depois ctx, depois ultima_consulta)
+                dh = draft.get("data_hora") or ctx.get("data_hora")
+                if not dh and isinstance(ctx.get("ultima_consulta"), dict):
+                    dh = ctx["ultima_consulta"].get("data_hora")
+                    if dh:
+                        ctx["data_hora"] = dh
 
-            # mantém serviço (P0.3): se já existe, não perguntar de novo
-            servico_atual = draft.get("servico") or ctx.get("servico")
+                # mantém serviço (P0.3): se já existe, não perguntar de novo
+                servico_atual = draft.get("servico") or ctx.get("servico")
 
-            if servico_atual and dh:
-                # vai para confirmação final sem resetar serviço
-                ctx["estado_fluxo"] = "aguardando_confirmacao"
+                if servico_atual and dh:
+                    # vai para confirmação final sem resetar serviço
+                    ctx["estado_fluxo"] = "aguardando_confirmacao"
+                    ctx["draft_agendamento"] = {
+                        "profissional": escolhido,
+                        "data_hora": dh,
+                        "servico": servico_atual,
+                        "modo_prechecagem": bool(draft.get("modo_prechecagem")),
+                    }
+                    await atualizar_contexto(user_id, ctx)
+
+                    dh_fmt = formatar_data_hora_br(dh)
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Fechado. Quer que eu *agende* *{servico_atual}* com *{escolhido}* em *{dh_fmt}*?\n"
+                            "Responda: *confirmar* / *pode marcar*."
+                        ),
+                        parse_mode="Markdown",
+                    )
+                    return {"acao": None, "handled": True}
+
+                # se ainda não tem serviço, entra em aguardando_servico
+                ctx["estado_fluxo"] = "aguardando_servico"
                 ctx["draft_agendamento"] = {
                     "profissional": escolhido,
                     "data_hora": dh,
-                    "servico": servico_atual,
-                    "modo_prechecagem": bool(draft.get("modo_prechecagem")),
+                    "servico": None,
+                    "modo_prechecagem": True,
                 }
                 await atualizar_contexto(user_id, ctx)
 
-                dh_fmt = formatar_data_hora_br(dh)
+                dh_fmt = formatar_data_hora_br(dh) if dh else ""
                 await context.bot.send_message(
                     chat_id=user_id,
-                    text=(
-                        f"Fechado. Quer que eu *agende* *{servico_atual}* com *{escolhido}* em *{dh_fmt}*?\n"
-                        "Responda: *confirmar* / *pode marcar*."
-                    ),
+                    text=f"Perfeito — com *{escolhido}* {('em *'+dh_fmt+'*') if dh_fmt else ''}. Qual serviço vai ser?",
                     parse_mode="Markdown",
                 )
                 return {"acao": None, "handled": True}
-
-            # se ainda não tem serviço, entra em aguardando_servico
-            ctx["estado_fluxo"] = "aguardando_servico"
-            ctx["draft_agendamento"] = {
-                "profissional": escolhido,
-                "data_hora": dh,
-                "servico": None,
-                "modo_prechecagem": True,
-            }
-            await atualizar_contexto(user_id, ctx)
-
-            dh_fmt = formatar_data_hora_br(dh) if dh else ""
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=f"Perfeito — com *{escolhido}* {('em *'+dh_fmt+'*') if dh_fmt else ''}. Qual serviço vai ser?",
-                parse_mode="Markdown",
-            )
-            return {"acao": None, "handled": True}
 
                 # Se já tem serviço e data_hora, você pode cair no gatilho de agendamento com contexto completo (que você já tem mais abaixo).
                 await atualizar_contexto(user_id, ctx)
