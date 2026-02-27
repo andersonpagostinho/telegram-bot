@@ -125,7 +125,7 @@ async def set_dado_em_path(path: str, dados: dict):
         for k, v in dados.items():
             print(f"   - {k}: {v} (tipo: {type(v)})")
         ref = get_ref_from_path(path)
-        await ref.set(dados, merge=False)
+        await ref.set(dados, merge=True)
         print(f"✅ Dados sobrescritos (set) em: {path}")
         return True
     except Exception as e:
