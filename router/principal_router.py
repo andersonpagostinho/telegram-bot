@@ -183,7 +183,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # ✅ FIX: Capturar "sim" para "amanhã no mesmo horário"
     # =========================================================
-    if estado_fluxo == "aguardando_data" and ctx.get("pergunta_amanha_mesmo_horario") and eh_confirmacao(texto_lower):
+    if estado_fluxo == "aguardando_data" and ctx.get("pergunta_amanha_mesmo_horario") and (
+        eh_confirmacao(texto_lower) or "amanha" in texto_lower or "amanhã" in texto_lower
+):
+
+        base_iso = ctx.get("data_hora_pendente") or (ctx.get("ultima_consulta") or {}).get("data_hora")
+        if not base_iso:
+            # não tem “mesmo horário” para copiar
+            ctx["estado_fluxo"] = "aguardando_data"
+            await atualizar_contexto(user_id, ctx)
+            if context is not None:
+                await context.bot.send_message(chat_id=user_id, text="Certo — amanhã em qual horário?", parse_mode="Markdown")
+            return {"acao": None, "handled": True}
+
         base_iso = ctx.get("data_hora_pendente")
         base_dt = _dt_from_iso_naive(base_iso) if base_iso else None
 
