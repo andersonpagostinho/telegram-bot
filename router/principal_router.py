@@ -402,12 +402,62 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     acao = resposta_gpt.get("acao")
     dados = resposta_gpt.get("dados", {}) or {}
 
+    # ✅ Exceção: no modo consultando, usuário pode estar ESCOLHENDO uma profissional sugerida
+    if estado_fluxo == "consultando":
+        opcoes = (ctx.get("ultima_opcao_profissionais") or [])
+        if opcoes:
+            from unidecode import unidecode
+            tnorm = unidecode((texto_lower or "").strip().lower())
+
+            escolhido = None
+            for nome in opcoes:
+                if unidecode(str(nome).strip().lower()) in tnorm:
+                    escolhido = str(nome).strip()
+                    break
+
+            if escolhido:
+                # ✅ Isso não é consulta; é decisão. Entra no fluxo determinístico.
+                ctx["profissional_escolhido"] = escolhido
+
+                # Se você guarda data_hora/ultima_consulta no ctx, aproveita.
+                # Mantém data/hora da última consulta para seguir agendamento.
+                if not ctx.get("data_hora") and isinstance(ctx.get("ultima_consulta"), dict):
+                    ctx["data_hora"] = ctx["ultima_consulta"].get("data_hora")
+
+                # passa para "aguardando_servico" (ou mantém se já tiver)
+                if not ctx.get("servico"):
+                    ctx["estado_fluxo"] = "aguardando_servico"
+                    ctx["draft_agendamento"] = {
+                        "profissional": escolhido,
+                        "data_hora": ctx.get("data_hora"),
+                        "servico": None
+                    }
+                    await atualizar_contexto(user_id, ctx)
+
+                    dh = ctx.get("data_hora")
+                    dh_fmt = formatar_data_hora_br(dh) if dh else ""
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=f"Perfeito — com *{escolhido}* {('em *'+dh_fmt+'*') if dh_fmt else ''}. Qual serviço vai ser?",
+                        parse_mode="Markdown",
+                    )
+                    return {"acao": None, "handled": True}
+
+                # Se já tem serviço e data_hora, você pode cair no gatilho de agendamento com contexto completo (que você já tem mais abaixo).
+                await atualizar_contexto(user_id, ctx)
+
     # ✅ REGRA DE OURO: se é CONSULTA, bloqueia ações mutáveis vindas do GPT
     # (usa também estado_fluxo consultando para ser mais robusto)
     if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and acao in ("criar_evento", "cancelar_evento"):
         print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
-        acao = None
-        dados = {}
+
+        # ✅ Regra de ouro: se bloqueou, NÃO pode confirmar sucesso.
+        # Devolve controle para o fluxo determinístico.
+        return {"acao": None, "handled": True, "resposta": (
+            "Entendi. Se você quer *agendar*, confirme dizendo:\n"
+            "• 'confirmar'  ou  'pode marcar'\n"
+            "Se quiser só consultar, pode perguntar normalmente."
+        )}
 
     ACOES_SUPORTADAS = {
         "consultar_preco_servico",
