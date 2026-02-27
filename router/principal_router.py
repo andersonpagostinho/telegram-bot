@@ -9,7 +9,7 @@ from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_co
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 from datetime import datetime
 from utils.interpretador_datas import interpretar_data_e_hora
-
+import pytz
 import re
 from unidecode import unidecode
 
@@ -139,6 +139,36 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             await atualizar_contexto(user_id, ctx)
             print("🕓 [ROUTER] data_hora extraída:", ctx["data_hora"], flush=True)
+
+            FUSO_BR = pytz.timezone("America/Sao_Paulo")
+
+            def _agora_br_naive():
+                return datetime.now(FUSO_BR).replace(tzinfo=None)
+
+            def _dt_from_iso_naive(iso_str: str):
+                try:
+                    return datetime.fromisoformat(iso_str)
+                except Exception:
+                    return None
+
+            # ... depois de setar ctx["data_hora"]
+            dt_naive = _dt_from_iso_naive(ctx["data_hora"])
+            if dt_naive and dt_naive <= _agora_br_naive():
+                # se usuário pediu "hoje" e já passou, não segue fluxo
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"Esse horário (*{formatar_data_hora_br(ctx['data_hora'])}*) já passou hoje.\n"
+                        "Você quer *amanhã no mesmo horário* ou prefere outro horário?"
+                    ),
+                    parse_mode="Markdown",
+                )
+                # opcional: mantenha estado aguardando_data (pra capturar nova data)
+                ctx["estado_fluxo"] = "aguardando_data"
+                # não mantém draft “pronto” com horário inválido
+                ctx["draft_agendamento"] = None
+                await atualizar_contexto(user_id, ctx)
+                return {"acao": None, "handled": True}
 
     # =========================================================
     # ✅ CONFIRMAÇÃO NO MODO "consultando" -> vira coleta de serviço
@@ -355,6 +385,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "modo_prechecagem": True,   # ✅ impede “sensação de bot” e evita auto-execução acidental
             }
             await atualizar_contexto(user_id, ctx)
+            print("💾 [P0.1] SALVO:", ctx.get("estado_fluxo"), bool(ctx.get("draft_agendamento")), ctx.get("data_hora"), flush=True)
 
             data_hora_fmt = formatar_data_hora_br(data_hora)
             if context is not None:
