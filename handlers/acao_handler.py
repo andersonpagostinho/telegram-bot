@@ -380,45 +380,59 @@ async def tratar_mensagem_usuario(user_id, mensagem):
         if is_dono:
             return "👤 Para quem é esse agendamento? (digite o nome da cliente ou deixe em branco)"
 
+        # ✅ Se tudo certo, FECHAMENTO AUTOMÁTICO com segurança (reserva + janela de desfazer)
         try:
             servico = sessao.get("servico")
             data = sessao.get("data")
             hora = sessao.get("hora")
 
             data_hora_inicio = datetime.strptime(f"{data} {hora}", "%d/%m/%Y %H:%M")
-            data_hora_fim = data_hora_inicio + timedelta(minutes=60)
+            data_hora_fim = data_hora_inicio + timedelta(minutes=60)  # depois você troca por duração real
 
+            # ✅ evento reservado (não confirmado ainda)
             evento = {
                 "descricao": f"{servico} com {profissional_escolhido}",
                 "hora_inicio": data_hora_inicio.isoformat(),
                 "hora_fim": data_hora_fim.isoformat(),
                 "profissional": profissional_escolhido,
-                "status": "pendente",
-                "criado_em": datetime.now().isoformat()
+                "status": "reservado",
+                "confirmado": False,
+                "criado_em": datetime.now().isoformat(),
+                "expira_em": (datetime.now() + timedelta(minutes=2)).isoformat()
             }
 
             if sessao.get("nome_cliente"):
                 evento["nome_cliente"] = sessao["nome_cliente"]
 
             evento_id = f"{data_hora_inicio.strftime('%Y%m%d%H%M')}_{servico.replace(' ', '_')}_{profissional_escolhido}"
-            await salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{evento_id}", evento)
 
+            # 🔒 Idempotência mínima: se já existe esse evento_id, não duplica
+            existente = await buscar_subcolecao(f"Clientes/{user_id}/Eventos") or {}
+            if evento_id not in existente:
+                await salvar_dado_em_path(f"Clientes/{user_id}/Eventos/{evento_id}", evento)
+
+            # ✅ agenda “confirmação automática” em 2 minutos (usando sua infra de NotificacoesAgendadas)
             from services.notificacao_service import criar_notificacao_agendada
             await criar_notificacao_agendada(
                 user_id=user_id,
-                descricao=descricao,
-                data=data,
-                hora_inicio=hora_inicio,
-                minutos_antes=30,
-                destinatario_user_id=user_id,  # padrão: quem está no chat recebe
-                alvo_evento={"data": data, "hora_inicio": hora_inicio}
+                descricao=f"CONFIRMAR_RESERVA::{evento_id}",
+                data=(datetime.now() + timedelta(minutes=2)).strftime("%d/%m/%Y"),
+                hora_inicio=(datetime.now() + timedelta(minutes=2)).strftime("%H:%M"),
+                minutos_antes=0,
+                destinatario_user_id=user_id,
+                alvo_evento={"evento_id": evento_id}
             )
-            await resetar_sessao(user_id)
 
-            return f"✅ Agendamento confirmado com *{profissional_escolhido}* para *{servico}* em *{data}* às *{hora}*."
+            # ✅ mensagem humana + opção de desfazer
+            msg = (
+                f"Confirmando: *{servico}* com *{profissional_escolhido}* em *{data}* às *{hora}*.\n"
+                f"Já reservei esse horário pra você ✅\n\n"
+                f"Se quiser mudar, responda *alterar* ou *cancelar*."
+            )
+            return msg
 
         except Exception as e:
-            return f"❌ Erro ao salvar agendamento: {str(e)}"
+            return f"❌ Erro ao reservar agendamento: {str(e)}"
 
     elif sessao["estado"] == "aguardando_nome_cliente":
         nome_cliente = mensagem.strip()

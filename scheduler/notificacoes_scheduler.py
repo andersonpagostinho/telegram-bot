@@ -99,6 +99,50 @@ async def processar_notificacoes_agendadas():
                     notif.get("destinatario_user_id") or user_id
                 )
 
+                # =========================================================
+                # ✅ PATCH: confirmação automática de reserva (fechamento)
+                # descricao = "CONFIRMAR_RESERVA::<evento_id>"
+                # =========================================================
+                try:
+                    desc = (notif.get("descricao") or "").strip()
+                    if desc.startswith("CONFIRMAR_RESERVA::"):
+                        evento_id = desc.split("::", 1)[1].strip()
+
+                        # Evento padrão salvo no "Clientes/{user_id}/Eventos/{evento_id}"
+                        evento_path = f"Clientes/{user_id}/Eventos/{evento_id}"
+                        evento = await buscar_dado_em_path(evento_path)
+
+                        # Só confirma se ainda estiver reservado (não confirma se já cancelou/alterou)
+                        if isinstance(evento, dict) and evento.get("status") == "reservado":
+                            await atualizar_dado_em_path(evento_path, {
+                                "status": "confirmado",
+                                "confirmado": True,
+                                "confirmado_em": agora.isoformat(),
+                            })
+                            logger.info(f"✅ Reserva confirmada automaticamente: user={user_id} evento={evento_id}")
+
+                        # Marca a notificação como processada (mesmo se evento não existir)
+                        await atualizar_dado_em_path(f"{path}/{notif_id}", {
+                            "avisado": True,
+                            "status": "enviado",
+                            "enviado_em": agora.isoformat()
+                        })
+
+                        # IMPORTANTE: não envia mensagem para este tipo de notificação
+                        continue
+
+                except Exception as e:
+                    logger.error(f"Erro ao processar CONFIRMAR_RESERVA para {destinatario_id}: {e}")
+                    await atualizar_dado_em_path(f"{path}/{notif_id}", {
+                        "status": "erro",
+                        "erro": f"CONFIRMAR_RESERVA: {str(e)}",
+                        "atualizado_em": agora.isoformat()
+                    })
+                    continue
+
+                # =========================================================
+                # ✅ Fluxo normal de lembrete/notificação
+                # =========================================================
                 mensagem = notif.get("mensagem")
                 if not mensagem:
                     desc = (notif.get("descricao") or "compromisso").strip()

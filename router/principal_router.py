@@ -203,26 +203,50 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # ✅ Intercept determinístico: "quem/quais você tem" (não cai no GPT)
     tinfo = normalizar(mensagem)
-    if any(x in tinfo for x in ["quais voce tem", "quais você tem", "quem voce tem", "quem você tem", "quais profissionais", "quem atende", "quem faz", "quais serviços", "quais servicos"]):
+
+    # sinais de intenção
+    quer_profissionais = any(x in tinfo for x in [
+        "quais profissionais", "quais profissional", "quem atende", "quem voce tem", "quem você tem"
+    ])
+
+    quer_servicos = any(x in tinfo for x in [
+        "quais servicos", "quais serviços", "quais voce tem", "quais você tem"
+    ])
+
+    # "quem faz" é ambíguo: se vier com um serviço (ex: "quem faz escova") você trata em outro intercept,
+    # então aqui use como profissionais (genérico) para não despejar serviços.
+    quem_faz_generico = ("quem faz" in tinfo)
+
+    if quer_profissionais or quer_servicos or quem_faz_generico:
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
         if not profs_dict:
             if context is not None:
-                await context.bot.send_message(chat_id=user_id, text="Ainda não há profissionais cadastrados.", parse_mode="Markdown")
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="Ainda não há profissionais cadastrados.",
+                    parse_mode="Markdown"
+                )
             return {"acao": None, "handled": True}
 
         nomes = []
         servicos = set()
+
         for p in profs_dict.values():
             nome = (p.get("nome") or "").strip()
             if nome:
                 nomes.append(nome)
-            for s in (p.get("servicos") or []):
-                if s:
-                    servicos.add(str(s).strip())
 
-        txt = "*Profissionais:*\n- " + "\n- ".join(sorted(set(nomes)))
-        if servicos:
-            txt += "\n\n*Serviços:*\n- " + "\n- ".join(sorted(servicos))
+            for s in (p.get("servicos") or []):
+                s = str(s).strip()
+                if s:
+                    servicos.add(s)
+
+        # ✅ Responder conforme intenção
+        if quer_servicos and not quer_profissionais and not quem_faz_generico:
+            txt = "*Serviços:*\n- " + "\n- ".join(sorted(servicos)) if servicos else "Ainda não há serviços cadastrados."
+        else:
+            # default: profissionais
+            txt = "*Profissionais:*\n- " + "\n- ".join(sorted(set(nomes)))
 
         if context is not None:
             await context.bot.send_message(chat_id=user_id, text=txt, parse_mode="Markdown")
