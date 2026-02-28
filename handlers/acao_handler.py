@@ -2,11 +2,16 @@ import re
 from datetime import datetime, timedelta
 from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path, buscar_cliente
 from services.session_service import criar_ou_atualizar_sessao, pegar_sessao, resetar_sessao, sincronizar_contexto
-from services.profissional_service import buscar_profissionais_por_servico, gerar_mensagem_profissionais_disponiveis, buscar_profissionais_disponiveis_no_horario 
+from services.profissional_service import (
+    buscar_profissionais_por_servico,
+    gerar_mensagem_profissionais_disponiveis,
+    buscar_profissionais_disponiveis_no_horario,
+)
 from services.normalizacao_service import encontrar_servico_mais_proximo
 from unidecode import unidecode
 from utils.interpretador_datas import interpretar_data_e_hora
 from services.informacao_service import responder_consulta_informativa
+
 
 def parse_servicos_em_ordem(texto: str, servicos_disponiveis: list[str], max_itens: int = 2):
     """
@@ -55,6 +60,7 @@ def parse_servicos_em_ordem(texto: str, servicos_disponiveis: list[str], max_ite
         return em_ordem[0]
     return em_ordem
 
+
 async def verificar_disponibilidade_profissional(data, user_id):
     print("⚠️ [acao_handler] tratador direto foi chamado!")
     """
@@ -89,6 +95,7 @@ async def verificar_disponibilidade_profissional(data, user_id):
         ),
         "disponiveis": profissionais_disponiveis
     }
+
 
 async def tratar_mensagem_usuario(user_id, mensagem):
     print("⚠️ [acao_handler] tratador direto foi chamado!")
@@ -176,7 +183,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             "data": data_norm
         })
         await sincronizar_contexto(user_id, pegar_sessao(user_id))
-        return f"Perfeito. E qual horário?"
+        return "Perfeito. E qual horário?"
 
     elif sessao["estado"] == "aguardando_horario":
         try:
@@ -266,12 +273,29 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             return f"❌ Erro ao verificar disponibilidade: {str(e)}"
 
     elif sessao["estado"] == "aguardando_profissional":
-        texto_normalizado = unidecode(mensagem.lower())
+        texto_normalizado = unidecode((mensagem or "").lower())
         print("📨 Mensagem recebida:", mensagem)
         print("🔍 Texto normalizado:", texto_normalizado)
+
         sessao = await pegar_sessao(user_id)
         disponiveis = sessao.get("disponiveis", [])
         disponiveis_normalizados = [unidecode(p.lower()) for p in disponiveis]
+
+        # ✅ PATCH PRODUTO: "quais tem / quem você tem" aqui significa "quais PROFISSIONAIS estão disponíveis"
+        # Não lista serviços/atividades.
+        if any(k in texto_normalizado for k in [
+            "quais tem", "quais voce tem", "quais você tem",
+            "quem voce tem", "quem você tem",
+            "quais profissionais", "quem atende", "quem tem"
+        ]):
+            if disponiveis:
+                lista = ", ".join(disponiveis)
+                servico_atual = sessao.get("servico", "esse serviço")
+                data_atual = sessao.get("data", "")
+                hora_atual = sessao.get("hora", "")
+                # resposta direta e contextual (produto)
+                return f"Para *{servico_atual}* em *{data_atual}* às *{hora_atual}*, tenho disponível: {lista}. Qual você prefere?"
+            return "Nesse horário, não tenho ninguém disponível. Quer tentar outro horário?"
 
         # ⏱️ Detecta nova data e hora na mesma mensagem
         data_hora_detectada = interpretar_data_e_hora(mensagem)
@@ -315,10 +339,6 @@ async def tratar_mensagem_usuario(user_id, mensagem):
                 profissional_escolhido = nome
                 break
 
-        #if not profissional_escolhido:
-        #    return "🔄 Estamos no meio de um agendamento. Por favor, diga o nome da profissional, a data ou o horário desejado para continuar."
-
-        # ⛔ Verifica conflitos (e sugere alternativas)
         # ✅ Se não encontrou profissional, pede para informar
         if not profissional_escolhido:
             return "Qual profissional você prefere? (ex: Joana, Bruna, Carla...)"
@@ -446,6 +466,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
     else:
         return "Algo deu errado. Vamos começar de novo?"
+
 
 __all__ = [
     "verificar_disponibilidade_profissional",
