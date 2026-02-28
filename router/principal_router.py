@@ -252,8 +252,42 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     async def _perguntar_amanha_mesmo_horario_e_bloquear(data_hora_iso: str):
         """
-        Só entra aqui quando EXISTE data_hora válida e ela está no passado.
+        Produto:
+        - Se o horário passou e o usuário não informou serviço/profissional,
+          primeiro coletar 1 dos dois (serviço OU profissional), com texto humano.
+        - Só depois oferecer 'amanhã mesmo horário'.
         """
+        draft = ctx.get("draft_agendamento") or {}
+        prof = draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+        servico = draft.get("servico") or ctx.get("servico")
+
+        # prepara bloqueio de amanhã
+        ctx["estado_fluxo"] = "aguardando_data"
+        ctx["pergunta_amanha_mesmo_horario"] = True
+        ctx["data_hora_pendente"] = data_hora_iso
+        ctx["data_hora"] = None
+
+        if not isinstance(ctx.get("ultima_consulta"), dict):
+            ctx["ultima_consulta"] = {}
+        ctx["ultima_consulta"]["data_hora"] = None
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        # ✅ primeiro coletar mínimo (serviço OU profissional)
+        if not (prof or servico):
+            if context is not None:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"Esse horário (*{formatar_data_hora_br(data_hora_iso)}*) já passou.\n"
+                        "Só me diz rapidinho: *qual serviço* você quer fazer (ou *com qual profissional* prefere), "
+                        "pra eu conferir a agenda certinho."
+                    ),
+                    parse_mode="Markdown",
+                )
+            return {"acao": None, "handled": True}
+
+        # ✅ já tem mínimo → agora sim oferecer amanhã mesmo horário
         if context is not None:
             await context.bot.send_message(
                 chat_id=user_id,
@@ -263,17 +297,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ),
                 parse_mode="Markdown",
             )
-
-        ctx["estado_fluxo"] = "aguardando_data"
-        ctx["pergunta_amanha_mesmo_horario"] = True
-        ctx["data_hora_pendente"] = data_hora_iso
-        ctx["data_hora"] = None  # invalida
-        # mantém draft (não destrói)
-        if not isinstance(ctx.get("ultima_consulta"), dict):
-            ctx["ultima_consulta"] = {}
-        ctx["ultima_consulta"]["data_hora"] = None
-
-        await salvar_contexto_temporario(user_id, ctx)
         return {"acao": None, "handled": True}
 
     # =========================================================
