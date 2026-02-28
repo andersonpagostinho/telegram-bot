@@ -223,12 +223,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     texto_lower = texto_usuario.lower().strip()
     tnorm = normalizar(texto_usuario)
 
-    # ✅ 0) Consulta informativa antes de tudo (serviços/preços/perguntas comuns)
-    from services.informacao_service import responder_consulta_informativa
-    resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
-    if resposta_informativa:
-        print("🔍 Consulta informativa detectada. Respondendo diretamente.")
-        return await _send_and_stop(context, user_id, resposta_informativa)
+    # ✅ 2) Contexto temporário do router (estado_fluxo) - vem antes da consulta informativa
+    ctx = await carregar_contexto_temporario(user_id) or {}
+    estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
+    draft = ctx.get("draft_agendamento") or {}
+
+    # ✅ 0) Consulta informativa só quando está IDLE (não atrapalha o fluxo de agendamento)
+    if estado_fluxo == "idle":
+        from services.informacao_service import responder_consulta_informativa
+        resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
+        if resposta_informativa:
+            print("🔍 Consulta informativa detectada (idle). Respondendo diretamente.")
+            return await _send_and_stop(context, user_id, resposta_informativa)
 
     # 🔐 dono do negócio
     dono_id = await obter_id_dono(user_id)
@@ -240,11 +246,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem)
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
         return resposta_fluxo
-
-    # ✅ 2) Contexto temporário do router (estado_fluxo)
-    ctx = await carregar_contexto_temporario(user_id) or {}
-    estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
-    draft = ctx.get("draft_agendamento") or {}
 
     FUSO_BR = pytz.timezone("America/Sao_Paulo")
 
@@ -303,27 +304,36 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
     # =========================================================
-    # ✅ (A) Intercept contextual: "quais tem / quem tem"
+    # ✅ (A) Intercept contextual: listar profissionais/serviços SOMENTE quando o usuário pede menu
     # =========================================================
-    quer_profissionais_txt = any(x in tnorm for x in [
-        "quais profissionais", "quais profissional", "quem atende", "quem voce tem", "quem você tem", "quem tem"
+
+    # intenção explícita de menu
+    quer_menu_prof = any(x in tnorm for x in [
+        "quais profissionais", "quais profissional", "quem atende", "quem voce tem", "quem você tem", "quem tem",
+        "me diz os profissionais", "lista de profissionais", "opcoes de profissionais", "opções de profissionais"
     ])
-    quer_servicos_txt = any(x in tnorm for x in [
-        "quais servicos", "quais serviços", "quais voce tem", "quais você tem"
+
+    quer_menu_serv = any(x in tnorm for x in [
+        "quais servicos", "quais serviços", "quais voce tem", "quais você tem",
+        "me diz os servicos", "me diz os serviços", "lista de servicos", "lista de serviços",
+        "opcoes de servicos", "opções de serviços", "quais são os serviços", "quais sao os servicos"
     ])
+
+    # "quem faz" (genérico)
     quem_faz_generico = ("quem faz" in tnorm)
 
+    # em fluxo, só abre menu se usuário pediu menu (não por estar aguardando)
     if estado_fluxo == "aguardando_profissional":
-        quer_profissionais = True
+        quer_profissionais = bool(quer_menu_prof or tnorm in ("quais", "quem"))
         quer_servicos = False
     elif estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
-        quer_servicos = True
+        quer_servicos = bool(quer_menu_serv or tnorm == "quais")
         quer_profissionais = False
     else:
-        quer_profissionais = bool(quer_profissionais_txt or quem_faz_generico)
-        quer_servicos = bool(quer_servicos_txt and not quer_profissionais)
+        quer_profissionais = bool(quer_menu_prof or quem_faz_generico)
+        quer_servicos = bool(quer_menu_serv and not quer_profissionais)
 
-    if quer_profissionais or quer_servicos or quem_faz_generico:
+    if quer_profissionais or quer_servicos or (quem_faz_generico and estado_fluxo == "idle"):
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
         if not profs_dict:
             return await _send_and_stop(context, user_id, "Ainda não há profissionais cadastrados.")
