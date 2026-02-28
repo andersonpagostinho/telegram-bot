@@ -3,7 +3,8 @@
 from services.session_service import pegar_sessao
 from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt
 from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario
-from utils.context_manager import atualizar_contexto  # mantém: só para histórico user/bot (se você usa)from services.gpt_executor import executar_acao_gpt
+from utils.context_manager import atualizar_contexto  # apenas histórico user/bot
+from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
@@ -58,7 +59,7 @@ def formatar_data_hora_br(dt_iso: str) -> str:
 
 def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> str | None:
     """
-    Tenta mapear o texto do usuário para um serviço existente do profissional.
+    Tenta mapear o texto do usuário para um serviço existente.
     - match por inclusão normalizada (robusto para "corte", "escova", etc.)
     """
     if not servicos_disponiveis:
@@ -68,19 +69,112 @@ def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> 
     if not txt:
         return None
 
-    # match direto: "corte" dentro da mensagem
     for s in servicos_disponiveis:
         s_norm = normalizar(str(s))
         if s_norm and s_norm in txt:
             return str(s).strip()
 
-    # match aproximado: mensagem curta igual a serviço
     if len(txt.split()) <= 2:
         for s in servicos_disponiveis:
             if normalizar(str(s)) == txt:
                 return str(s).strip()
 
     return None
+
+
+def _tem_indicio_de_hora(txt: str) -> bool:
+    """
+    Evita que interpretar_data_e_hora chute 'amanhã' sem hora.
+    Só tenta extrair dt quando houver indício de horário.
+    """
+    t = (txt or "").lower()
+    # 16, 16h, 16:30, às 16, 16 horas
+    return bool(re.search(r"\b\d{1,2}(:\d{2})?\b", t) or re.search(r"\b\d{1,2}\s*h\b", t) or "às" in t or "as " in t)
+
+
+async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -> dict:
+    """
+    Sempre-on: extrai e mescla slots em ctx + draft_agendamento sem apagar o que já existe.
+    - profissional: por match em nomes do Firebase
+    - servico: por match em catálogo (preferindo o profissional detectado se houver)
+    - data_hora: só tenta quando há indício de horário (evita chute)
+    """
+    texto = (texto_usuario or "").strip()
+    tnorm = normalizar(texto)
+    draft = ctx.get("draft_agendamento") or {}
+
+    # ---------------- data/hora ----------------
+    if not (draft.get("data_hora") or ctx.get("data_hora")):
+        if _tem_indicio_de_hora(texto):
+            dt = interpretar_data_e_hora(texto)  # texto original
+            if dt:
+                iso = dt.replace(second=0, microsecond=0).isoformat()
+                ctx["data_hora"] = iso
+                draft["data_hora"] = draft.get("data_hora") or iso
+
+                if not isinstance(ctx.get("ultima_consulta"), dict):
+                    ctx["ultima_consulta"] = {}
+                ctx["ultima_consulta"]["data_hora"] = iso
+
+    # ---------------- profissionais (sempre) ----------------
+    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+    nomes_profs = [str(p.get("nome", "")).strip() for p in profs_dict.values() if p.get("nome")]
+
+    prof_detectado = None
+    for nome in nomes_profs:
+        if normalizar(nome) in tnorm:
+            prof_detectado = nome
+            break
+
+    if prof_detectado:
+        ctx["profissional_escolhido"] = prof_detectado
+        draft["profissional"] = draft.get("profissional") or prof_detectado
+        if not isinstance(ctx.get("ultima_consulta"), dict):
+            ctx["ultima_consulta"] = {}
+        ctx["ultima_consulta"]["profissional"] = prof_detectado
+
+    # ---------------- serviço (sempre) ----------------
+    # 1) tenta por serviços do profissional detectado
+    servico_detectado = None
+
+    def _match_servico(lista_servs):
+        nonlocal servico_detectado
+        for s in lista_servs or []:
+            s_norm = normalizar(str(s))
+            if s_norm and s_norm in tnorm:
+                servico_detectado = str(s).strip()
+                return True
+        return False
+
+    if prof_detectado:
+        for p in profs_dict.values():
+            if normalizar(p.get("nome", "")) == normalizar(prof_detectado):
+                _match_servico(p.get("servicos") or [])
+                break
+
+    # 2) fallback: catálogo global
+    if not servico_detectado:
+        todos = []
+        for p in profs_dict.values():
+            todos.extend(p.get("servicos") or [])
+        # de-dupe mantendo ordem
+        vistos = set()
+        uniq = []
+        for s in todos:
+            s2 = str(s).strip()
+            if s2 and s2 not in vistos:
+                vistos.add(s2)
+                uniq.append(s2)
+        _match_servico(uniq)
+
+    if servico_detectado:
+        ctx["servico"] = servico_detectado
+        draft["servico"] = draft.get("servico") or servico_detectado
+
+    if draft:
+        ctx["draft_agendamento"] = draft
+
+    return ctx
 
 
 # ----------------------------
@@ -90,7 +184,7 @@ def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> 
 async def roteador_principal(user_id: str, mensagem: str, update=None, context=None):
     print("🚨 [principal_router] Arquivo carregado")
 
-    # ✅ 1) consulta informativa antes de tudo
+    # ✅ 1) consulta informativa antes de tudo (serviços/preços/perguntas comuns)
     from services.informacao_service import responder_consulta_informativa
 
     resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
@@ -106,6 +200,33 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # 🔐 dono do negócio
     dono_id = await obter_id_dono(user_id)
+
+    # ✅ Intercept determinístico: "quem/quais você tem" (não cai no GPT)
+    tinfo = normalizar(mensagem)
+    if any(x in tinfo for x in ["quais voce tem", "quais você tem", "quem voce tem", "quem você tem", "quais profissionais", "quem atende", "quem faz", "quais serviços", "quais servicos"]):
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        if not profs_dict:
+            if context is not None:
+                await context.bot.send_message(chat_id=user_id, text="Ainda não há profissionais cadastrados.", parse_mode="Markdown")
+            return {"acao": None, "handled": True}
+
+        nomes = []
+        servicos = set()
+        for p in profs_dict.values():
+            nome = (p.get("nome") or "").strip()
+            if nome:
+                nomes.append(nome)
+            for s in (p.get("servicos") or []):
+                if s:
+                    servicos.add(str(s).strip())
+
+        txt = "*Profissionais:*\n- " + "\n- ".join(sorted(set(nomes)))
+        if servicos:
+            txt += "\n\n*Serviços:*\n- " + "\n- ".join(sorted(servicos))
+
+        if context is not None:
+            await context.bot.send_message(chat_id=user_id, text=txt, parse_mode="Markdown")
+        return {"acao": None, "handled": True}
 
     # 🔄 sessão ativa (fluxos do seu gpt_service)
     sessao = await pegar_sessao(user_id)
@@ -150,14 +271,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 parse_mode="Markdown",
             )
 
-        # ✅ PREPARA CAPTURA DO "SIM"
         ctx["estado_fluxo"] = "aguardando_data"
         ctx["pergunta_amanha_mesmo_horario"] = True
-        ctx["data_hora_pendente"] = data_hora_iso  # guarda base
-        ctx["data_hora"] = None                   # evita gatilhos usarem horário inválido
-        ctx["draft_agendamento"] = None
+        ctx["data_hora_pendente"] = data_hora_iso
+        ctx["data_hora"] = None
+        ctx["draft_agendamento"] = ctx.get("draft_agendamento")  # não destrói draft; só invalida data no passado
 
-        # também limpa trilha de consulta para não “puxar” o passado
         if isinstance(ctx.get("ultima_consulta"), dict):
             ctx["ultima_consulta"]["data_hora"] = None
 
@@ -181,12 +300,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         return any(g in t for g in gatilhos)
 
     # =========================================================
-    # ✅ FIX: Capturar "sim" para "amanhã no mesmo horário"
+    # ✅ FIX: Capturar "sim/amanhã então" para "amanhã no mesmo horário"
     # =========================================================
     if ctx.get("pergunta_amanha_mesmo_horario") and (
         eh_confirmacao(texto_lower) or "amanha" in texto_lower or "amanhã" in texto_lower
     ):
-
         base_iso = ctx.get("data_hora_pendente") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         if not base_iso:
             ctx["estado_fluxo"] = "aguardando_data"
@@ -201,7 +319,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             nova_dt = base_dt + timedelta(days=1)
             nova_iso = nova_dt.replace(second=0, microsecond=0).isoformat()
 
-            # grava e limpa flags
             ctx["data_hora"] = nova_iso
             ctx["data_hora_pendente"] = None
             ctx["pergunta_amanha_mesmo_horario"] = False
@@ -210,14 +327,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["ultima_consulta"] = {}
             ctx["ultima_consulta"]["data_hora"] = nova_iso
 
-            # retoma fluxo: se já tem prof/servico, confirma; senão pede serviço
             draft = ctx.get("draft_agendamento") or {}
             prof = draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
             servico = draft.get("servico") or ctx.get("servico")
 
             if prof and servico:
                 ctx["estado_fluxo"] = "aguardando_confirmacao"
-                ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": servico}
+                ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": servico, "modo_prechecagem": bool(draft.get("modo_prechecagem"))}
                 await salvar_contexto_temporario(user_id, ctx)
 
                 dh_fmt = formatar_data_hora_br(nova_iso)
@@ -232,7 +348,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     )
                 return {"acao": None, "handled": True}
 
-            # pede serviço (com sugestão se souber prof)
             sugestao = ""
             if prof:
                 profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
@@ -257,16 +372,27 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
             return {"acao": None, "handled": True}
 
-    # ✅ EXTRAÇÃO DE DATA/HORA ANTES DO GPT (CRÍTICO)
+    # =========================================================
+    # ✅ SEMPRE-ON: extrair e mesclar slots (prof/serv/dt) antes do resto
+    # (mas depois do bloco "amanhã mesmo horário" para não conflitar)
+    # =========================================================
+    try:
+        ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+        await salvar_contexto_temporario(user_id, ctx)
+        # recarrega estado/draft caso tenha mudado
+        estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
+        draft = ctx.get("draft_agendamento") or {}
+    except Exception as e:
+        print("⚠️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)
+
+    # ✅ EXTRAÇÃO DE DATA/HORA ANTES DO GPT (CRÍTICO) — mantém seu comportamento original
     #    - Só tenta quando estamos em estados onde faz sentido
     #    - Usa texto original
     # =========================================================
     if estado_fluxo in ("idle", "consultando", "aguardando_data") and not ctx.get("data_hora"):
-        dt = interpretar_data_e_hora(texto_usuario)  # ✅ use o original
-
+        dt = interpretar_data_e_hora(texto_usuario)  # texto original
         if dt:
             ctx["data_hora"] = dt.replace(second=0, microsecond=0).isoformat()
-            # mantém trilha da consulta (ajuda P0.1)
             if not isinstance(ctx.get("ultima_consulta"), dict):
                 ctx["ultima_consulta"] = {}
             ctx["ultima_consulta"]["data_hora"] = ctx["data_hora"]
@@ -284,38 +410,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if dt_naive_existente and dt_naive_existente <= _agora_br_naive():
             return await _perguntar_amanha_mesmo_horario_e_bloquear(ctx["data_hora"])
 
+    # =========================================================
+    # Se estava "consultando" e usuário confirma, entra em coleta de serviço
+    # =========================================================
     if estado_fluxo == "consultando" and eh_confirmacao(texto_lower):
-        # base vem do contexto salvo (consulta anterior)
         prof = ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         data_hora = ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
 
-        # ✅ se data_hora ficou vazia (por bloqueio passado), não força fluxo errado
         if data_hora:
             dt_naive = _dt_from_iso_naive(data_hora)
             if dt_naive and dt_naive <= _agora_br_naive():
                 return await _perguntar_amanha_mesmo_horario_e_bloquear(data_hora)
 
         if prof and data_hora:
-            # entra no fluxo determinístico (sem GPT)
             ctx["estado_fluxo"] = "aguardando_servico"
             ctx["draft_agendamento"] = {
                 "profissional": prof,
                 "data_hora": data_hora,
                 "servico": None,
+                "modo_prechecagem": True,
             }
             await salvar_contexto_temporario(user_id, ctx)
 
-            # 🔽 BUSCAR SERVIÇOS DO FIREBASE
-            profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
-            prof_data = profissionais_dict.get(prof) or {}
-            servicos = prof_data.get("servicos") or []
+            # ✅ CORREÇÃO: busca serviços no dono_id (não user_id)
+            profissionais_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+            servicos = []
+            for p in profissionais_dict.values():
+                if normalizar(p.get("nome", "")) == normalizar(prof):
+                    servicos = p.get("servicos") or []
+                    break
 
+            complemento = ""
             if servicos:
                 linhas = [f"- {s}" for s in servicos]
-                lista_servicos = "\n".join(linhas)
-                complemento = f"\n\nServiços disponíveis:\n{lista_servicos}"
-            else:
-                complemento = ""
+                complemento = "\n\nServiços disponíveis:\n" + "\n".join(linhas)
 
             data_hora_fmt = formatar_data_hora_br(data_hora)
 
@@ -336,19 +464,38 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     )
 
     # ---------------------------------------------------------
-    # 0) Se está aguardando_servico, essa mensagem É o serviço.
+    # 0) Se está aguardando_servico, essa mensagem contém o serviço (e pode conter "com a Bruna")
     # ---------------------------------------------------------
     if estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
         draft = ctx.get("draft_agendamento") or {}
 
-        # 1) Esta mensagem É o serviço (ex.: "corte")
-        servico_in = (texto_usuario or "").strip()
+        # ✅ extrair profissional do texto tipo: "corte com a bruna"
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        nomes_profs = [str(p.get("nome", "")).strip() for p in profs_dict.values() if p.get("nome")]
+
+        tnorm = normalizar(texto_usuario)
+        prof_detectado = None
+        for nome in nomes_profs:
+            if normalizar(nome) in tnorm:
+                prof_detectado = nome
+                break
+
+        if prof_detectado and " com " in tnorm:
+            draft["profissional"] = prof_detectado
+            ctx["profissional_escolhido"] = prof_detectado
+
+            # limpa o "com a bruna" do serviço
+            # remove variantes comuns "com a", "com o"
+            tnorm = re.sub(r"\bcom\s+(a|o)\s+" + re.escape(normalizar(prof_detectado)) + r"\b", "", tnorm).strip()
+
+        # 1) Esta mensagem vira o serviço (ex.: "corte")
+        servico_in = (tnorm or "").strip()
         if servico_in:
             draft["servico"] = servico_in.lower()
             ctx["draft_agendamento"] = draft
             ctx["servico"] = draft["servico"]
 
-        # 2) Recalcula as chaves do contexto (fonte única)
+        # 2) Recalcula chaves do contexto (fonte única)
         prof = draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         data_hora = draft.get("data_hora") or ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         servico = draft.get("servico") or ctx.get("servico")
@@ -369,7 +516,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             return {"acao": None, "handled": True}
 
         if not servico:
-            # se por algum motivo a mensagem veio vazia, pede novamente
             ctx["estado_fluxo"] = "aguardando_servico"
             await salvar_contexto_temporario(user_id, ctx)
             if context is not None:
@@ -381,9 +527,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if dt_naive and dt_naive <= _agora_br_naive():
             return await _perguntar_amanha_mesmo_horario_e_bloquear(data_hora)
 
-        # 5) Tudo completo -> vai para confirmação (não agenda direto)
+        # 5) Tudo completo -> confirmação (não agenda direto)
         ctx["estado_fluxo"] = "aguardando_confirmacao"
-        ctx["draft_agendamento"] = {"profissional": prof, "data_hora": data_hora, "servico": servico, "modo_prechecagem":    bool(draft.get("modo_prechecagem"))}
+        ctx["draft_agendamento"] = {
+            "profissional": prof,
+            "data_hora": data_hora,
+            "servico": servico,
+            "modo_prechecagem": bool(draft.get("modo_prechecagem")),
+        }
         await salvar_contexto_temporario(user_id, ctx)
 
         if context is not None:
@@ -401,7 +552,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # ---------------------------------------------------------
     # 0.1) FALLBACK forte:
-    # Se por qualquer motivo estado_fluxo ficou "consultando",
+    # Se por qualquer motivo estado_fluxo ficou "consultando/idle",
     # mas o usuário respondeu um serviço curto e existe ultima_consulta,
     # tratamos como serviço (não volta pro GPT).
     # ---------------------------------------------------------
@@ -409,8 +560,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ultima = ctx.get("ultima_consulta") or {}
         prof_u = (ctx.get("profissional_escolhido") or ultima.get("profissional"))
         data_u = (ctx.get("data_hora") or ultima.get("data_hora"))
-        if prof_u and data_u and len(normalizar(texto_usuario).split()) <= 3:
-            # ✅ FIX: nunca executa com data passada
+
+        if prof_u and data_u and len(normalizar(texto_usuario).split()) <= 5:
             dt_naive = _dt_from_iso_naive(data_u)
             if dt_naive and dt_naive <= _agora_br_naive():
                 return await _perguntar_amanha_mesmo_horario_e_bloquear(data_u)
@@ -424,32 +575,28 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             servico_detectado = extrair_servico_do_texto(texto_usuario, servs)
             if servico_detectado:
-                print("🟨 [fallback] Serviço detectado após consulta. Executando agendamento.", flush=True)
+                print("🟨 [fallback] Serviço detectado após consulta. Indo para confirmação.", flush=True)
 
-                ctx["estado_fluxo"] = "agendando"
+                ctx["estado_fluxo"] = "aguardando_confirmacao"
                 ctx["draft_agendamento"] = {
                     "profissional": prof_u,
                     "data_hora": data_u,
                     "servico": servico_detectado,
+                    "modo_prechecagem": True,
                 }
                 ctx["servico"] = servico_detectado
                 await salvar_contexto_temporario(user_id, ctx)
 
-                dados_exec = {
-                    "servico": servico_detectado,
-                    "profissional": prof_u,
-                    "data_hora": data_u,
-                    "origem": "auto",
-                    "texto_usuario": "confirmar",
-                }
-                await executar_acao_gpt(update, context, "criar_evento", dados_exec)
-
-                ctx = await carregar_contexto_temporario(user_id) or {}
-                ctx["estado_fluxo"] = "idle"
-                ctx["draft_agendamento"] = None
-                await salvar_contexto_temporario(user_id, ctx)
-
-                return {"acao": "criar_evento", "handled": True}
+                if context is not None:
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"Confirmando: *{servico_detectado}* com *{prof_u}* em *{formatar_data_hora_br(data_u)}*.\n"
+                            "Posso agendar? (responda *confirmar* / *pode marcar*)"
+                        ),
+                        parse_mode="Markdown",
+                    )
+                return {"acao": None, "handled": True}
 
     # ---------------------------------------------------------
     # 1) Se a mensagem for consulta, marcar estado (sem sobrescrever subfluxos)
@@ -473,7 +620,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["ultima_consulta"] = {}
             ctx["ultima_consulta"]["data_hora"] = data_hora
 
-            # ✅ importante: já cria um draft base (não deixa o fluxo sem base)
             ctx["draft_agendamento"] = {
                 "profissional": None,
                 "data_hora": data_hora,
@@ -482,7 +628,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             }
 
             await salvar_contexto_temporario(user_id, ctx)
-  
+
             if context is not None:
                 dh_fmt = formatar_data_hora_br(data_hora)
                 await context.bot.send_message(
@@ -493,12 +639,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             return {"acao": None, "handled": True}
 
-        # ✅ P0.1: se há data_hora (consulta específica) e ainda não há serviço,
-        # não deixa o GPT afirmar "livre". Vira pré-checagem e pede serviço.
+        # ✅ P0.1: se há data_hora (consulta específica) e ainda não há serviço, pede serviço
         if data_hora and prof and not servico:
             sugestao = ""
 
-            # tenta sugerir serviços do profissional
             profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
             servs = []
             for p in profs_dict.values():
@@ -532,12 +676,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             return {"acao": None, "handled": True}
 
-        # se não tem data_hora, deixa seguir para GPT (consulta genérica)
         await salvar_contexto_temporario(user_id, ctx)
         # segue para GPT responder a consulta (mas bloquearemos ações mutáveis depois)
 
     # ---------------------------------------------------------
-    # 2) "pode agendar" = decisão final (consulta -> agendamento)
+    # 2) "pode agendar" = decisão final
     # ---------------------------------------------------------
     if eh_gatilho_agendar(texto_lower):
         draft = ctx.get("draft_agendamento") or {}
@@ -546,19 +689,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         prof = draft.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         servico = draft.get("servico") or ctx.get("servico")
 
-        # ✅ FIX: nunca executa com data passada (mesmo que a data tenha vindo do ctx/ultima_consulta)
         if data_hora:
             dt_naive = _dt_from_iso_naive(data_hora)
             if dt_naive and dt_naive <= _agora_br_naive():
                 return await _perguntar_amanha_mesmo_horario_e_bloquear(data_hora)
 
         if data_hora and prof:
-            # já tem serviço -> executa já
             if servico:
                 ctx["estado_fluxo"] = "agendando"
                 await salvar_contexto_temporario(user_id, ctx)
 
-                # ✅ Fonte final antes de executar: prioriza draft_agendamento
                 draft = ctx.get("draft_agendamento") or {}
                 data_hora = draft.get("data_hora") or data_hora
                 prof = draft.get("profissional") or prof
@@ -580,7 +720,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 await salvar_contexto_temporario(user_id, ctx)
                 return {"acao": "criar_evento", "handled": True}
 
-            # falta serviço -> pedir só serviço e entrar em aguardando_servico
+            # falta serviço -> pedir só serviço
             profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
             servs = []
             for p in profs_dict.values():
@@ -597,6 +737,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "profissional": prof,
                 "data_hora": data_hora,
                 "servico": None,
+                "modo_prechecagem": True,
             }
             await salvar_contexto_temporario(user_id, ctx)
 
@@ -610,7 +751,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
 
             return {"acao": None, "handled": True}
-        # se não tem base, cai no GPT (falta data_hora/prof)
 
     # =========================================================
     # 3) Chamada normal ao GPT (com contexto do dono)
@@ -628,7 +768,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if isinstance(resposta_gpt, dict) and resposta_gpt.get("acao") == "buscar_tarefas_do_usuario" and texto_lower in cumprimentos:
         resposta_gpt = {"resposta": "Olá! Como posso ajudar?", "acao": None, "dados": {}}
 
-    # segurança
     if not resposta_gpt or not isinstance(resposta_gpt, dict):
         print("⚠️ Resposta do GPT inválida ou vazia:", resposta_gpt)
         if context is not None:
@@ -652,24 +791,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     break
 
             if escolhido:
-                # ✅ Isso não é consulta; é decisão (P0.2)
                 draft = ctx.get("draft_agendamento") or {}
-
-                # atualiza profissional escolhido
                 ctx["profissional_escolhido"] = escolhido
 
-                # mantém data_hora (prioriza draft, depois ctx, depois ultima_consulta)
                 dh = draft.get("data_hora") or ctx.get("data_hora")
                 if not dh and isinstance(ctx.get("ultima_consulta"), dict):
                     dh = ctx["ultima_consulta"].get("data_hora")
                     if dh:
                         ctx["data_hora"] = dh
 
-                # mantém serviço (P0.3): se já existe, não perguntar de novo
                 servico_atual = draft.get("servico") or ctx.get("servico")
 
                 if servico_atual and dh:
-                    # vai para confirmação final sem resetar serviço
                     ctx["estado_fluxo"] = "aguardando_confirmacao"
                     ctx["draft_agendamento"] = {
                         "profissional": escolhido,
@@ -691,7 +824,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         )
                     return {"acao": None, "handled": True}
 
-                # se ainda não tem serviço, entra em aguardando_servico
                 ctx["estado_fluxo"] = "aguardando_servico"
                 ctx["draft_agendamento"] = {
                     "profissional": escolhido,
@@ -713,11 +845,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # ✅ REGRA DE OURO: se é CONSULTA, bloqueia ações mutáveis vindas do GPT
     if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and acao in ("criar_evento", "cancelar_evento"):
         print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
-        return {"acao": None, "handled": True, "resposta": (
-            "Entendi. Se você quer *agendar*, confirme dizendo:\n"
-            "• 'confirmar'  ou  'pode marcar'\n"
-            "Se quiser só consultar, pode perguntar normalmente."
-        )}
+        return {
+            "acao": None,
+            "handled": True,
+            "resposta": (
+                "Entendi. Se você quer *agendar*, confirme dizendo:\n"
+                "• 'confirmar'  ou  'pode marcar'\n"
+                "Se quiser só consultar, pode perguntar normalmente."
+            )
+        }
 
     ACOES_SUPORTADAS = {
         "consultar_preco_servico",
@@ -753,7 +889,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if acao == "criar_evento":
                 return {"acao": "criar_evento", "handled": True}
 
-    # envia resposta do GPT se não houve ação
     if (not acao) and resposta_texto:
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
         if context is not None:
