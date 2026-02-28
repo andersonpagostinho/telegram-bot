@@ -2,8 +2,8 @@
 
 from services.session_service import pegar_sessao
 from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt
-from utils.context_manager import atualizar_contexto, carregar_contexto_temporario
-from services.gpt_executor import executar_acao_gpt
+from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario
+from utils.context_manager import atualizar_contexto  # mantém: só para histórico user/bot (se você usa)from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
@@ -161,7 +161,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if isinstance(ctx.get("ultima_consulta"), dict):
             ctx["ultima_consulta"]["data_hora"] = None
 
-        await atualizar_contexto(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx)
         return {"acao": None, "handled": True}
 
     # =========================================================
@@ -183,20 +183,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # ✅ FIX: Capturar "sim" para "amanhã no mesmo horário"
     # =========================================================
-    if estado_fluxo == "aguardando_data" and ctx.get("pergunta_amanha_mesmo_horario") and (
+    if ctx.get("pergunta_amanha_mesmo_horario") and (
         eh_confirmacao(texto_lower) or "amanha" in texto_lower or "amanhã" in texto_lower
-):
+    ):
 
         base_iso = ctx.get("data_hora_pendente") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         if not base_iso:
-            # não tem “mesmo horário” para copiar
             ctx["estado_fluxo"] = "aguardando_data"
-            await atualizar_contexto(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx)
             if context is not None:
                 await context.bot.send_message(chat_id=user_id, text="Certo — amanhã em qual horário?", parse_mode="Markdown")
             return {"acao": None, "handled": True}
 
-        base_iso = ctx.get("data_hora_pendente")
         base_dt = _dt_from_iso_naive(base_iso) if base_iso else None
 
         if base_dt:
@@ -220,7 +218,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if prof and servico:
                 ctx["estado_fluxo"] = "aguardando_confirmacao"
                 ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": servico}
-                await atualizar_contexto(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
                 dh_fmt = formatar_data_hora_br(nova_iso)
                 if context is not None:
@@ -248,7 +246,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             ctx["estado_fluxo"] = "aguardando_servico"
             ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": None, "modo_prechecagem": True}
-            await atualizar_contexto(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx)
 
             dh_fmt = formatar_data_hora_br(nova_iso)
             if context is not None:
@@ -273,7 +271,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["ultima_consulta"] = {}
             ctx["ultima_consulta"]["data_hora"] = ctx["data_hora"]
 
-            await atualizar_contexto(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx)
             print("🕓 [ROUTER] data_hora extraída:", ctx["data_hora"], flush=True)
 
             dt_naive = _dt_from_iso_naive(ctx["data_hora"])
@@ -305,7 +303,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "data_hora": data_hora,
                 "servico": None,
             }
-            await atualizar_contexto(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx)
 
             # 🔽 BUSCAR SERVIÇOS DO FIREBASE
             profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
@@ -347,7 +345,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if not prof or not data_hora:
             ctx["estado_fluxo"] = "idle"
             ctx["draft_agendamento"] = None
-            await atualizar_contexto(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx)
             if context is not None:
                 await context.bot.send_message(
                     chat_id=user_id,
@@ -393,7 +391,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "servico": servico_detectado,
         }
         ctx["servico"] = servico_detectado
-        await atualizar_contexto(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx)
 
         dados_exec = {"servico": servico_detectado, "profissional": prof, "data_hora": data_hora}
         print("✅ [estado_fluxo] Executando criar_evento com draft_agendamento:", dados_exec, flush=True)
@@ -403,7 +401,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ctx = await carregar_contexto_temporario(user_id) or {}
         ctx["estado_fluxo"] = "idle"
         ctx["draft_agendamento"] = None
-        await atualizar_contexto(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx)
 
         return {"acao": "criar_evento", "handled": True}
 
@@ -441,7 +439,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     "servico": servico_detectado,
                 }
                 ctx["servico"] = servico_detectado
-                await atualizar_contexto(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
                 dados_exec = {
                     "servico": servico_detectado,
@@ -455,7 +453,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx = await carregar_contexto_temporario(user_id) or {}
                 ctx["estado_fluxo"] = "idle"
                 ctx["draft_agendamento"] = None
-                await atualizar_contexto(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
                 return {"acao": "criar_evento", "handled": True}
 
@@ -495,7 +493,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "servico": None,
                 "modo_prechecagem": True,
             }
-            await atualizar_contexto(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx)
             print("💾 [P0.1] SALVO:", ctx.get("estado_fluxo"), bool(ctx.get("draft_agendamento")), ctx.get("data_hora"), flush=True)
 
             data_hora_fmt = formatar_data_hora_br(data_hora)
@@ -510,7 +508,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
             return {"acao": None, "handled": True}
 
-        await atualizar_contexto(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx)
         # segue para GPT responder a consulta (mas bloquearemos ações mutáveis depois)
 
     # ---------------------------------------------------------
@@ -533,7 +531,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # já tem serviço -> executa já
             if servico:
                 ctx["estado_fluxo"] = "agendando"
-                await atualizar_contexto(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
                 # ✅ Fonte final antes de executar: prioriza draft_agendamento
                 draft = ctx.get("draft_agendamento") or {}
@@ -554,7 +552,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx = await carregar_contexto_temporario(user_id) or {}
                 ctx["estado_fluxo"] = "idle"
                 ctx["draft_agendamento"] = None
-                await atualizar_contexto(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
                 return {"acao": "criar_evento", "handled": True}
 
             # falta serviço -> pedir só serviço e entrar em aguardando_servico
@@ -575,7 +573,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "data_hora": data_hora,
                 "servico": None,
             }
-            await atualizar_contexto(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx)
 
             data_hora_fmt = formatar_data_hora_br(data_hora) if data_hora else "esse horário"
 
@@ -654,7 +652,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         "servico": servico_atual,
                         "modo_prechecagem": bool(draft.get("modo_prechecagem")),
                     }
-                    await atualizar_contexto(user_id, ctx)
+                    await salvar_contexto_temporario(user_id, ctx)
 
                     dh_fmt = formatar_data_hora_br(dh)
                     if context is not None:
@@ -676,7 +674,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     "servico": None,
                     "modo_prechecagem": True,
                 }
-                await atualizar_contexto(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
                 dh_fmt = formatar_data_hora_br(dh) if dh else ""
                 if context is not None:
