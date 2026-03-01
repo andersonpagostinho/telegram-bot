@@ -333,62 +333,62 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         quer_profissionais = bool(quer_menu_prof or quem_faz_generico)
         quer_servicos = bool(quer_menu_serv and not quer_profissionais)
 
-   if quer_profissionais or quer_servicos or (quem_faz_generico and estado_fluxo == "idle"):
-       profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-       if not profs_dict:
-           return await _send_and_stop(context, user_id, "Ainda não há profissionais cadastrados.")
+    if quer_profissionais or quer_servicos or (quem_faz_generico and estado_fluxo == "idle"):
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        if not profs_dict:
+            return await _send_and_stop(context, user_id, "Ainda não há profissionais cadastrados.")
 
-       nomes = []
-       servicos = set()
-       for p in profs_dict.values():
-           nome = (p.get("nome") or "").strip()
-           if nome:
-               nomes.append(nome)
-           for s in (p.get("servicos") or []):
-               s = str(s).strip()
-               if s:
-                   servicos.add(s)
+        nomes = []
+        servicos = set()
+        for p in profs_dict.values():
+            nome = (p.get("nome") or "").strip()
+            if nome:
+                nomes.append(nome)
+            for s in (p.get("servicos") or []):
+                s = str(s).strip()
+                if s:
+                    servicos.add(s)
 
-       # 🔎 Se o usuário citou um profissional na pergunta, filtrar serviços por ele
-       prof_citado = None
-       tnorm_local = tnorm  # já normalizado
-       for p in profs_dict.values():
-           nomep = (p.get("nome") or "").strip()
-           if nomep and normalizar(nomep) in tnorm_local:
-               prof_citado = nomep
-               break
+        # 🔎 Se o usuário citou um profissional na pergunta, filtrar serviços por ele
+        prof_citado = None
+        tnorm_local = tnorm  # já normalizado
+        for p in profs_dict.values():
+            nomep = (p.get("nome") or "").strip()
+            if nomep and normalizar(nomep) in tnorm_local:
+                prof_citado = nomep
+                break
 
-       if quer_servicos and not quer_profissionais:
-           if prof_citado:
-               # ✅ Serviços somente do profissional citado
-               servs_prof = []
-               for p in profs_dict.values():
-                   if normalizar(p.get("nome", "")) == normalizar(prof_citado):
-                       servs_prof = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
-                       break
+        if quer_servicos and not quer_profissionais:
+            if prof_citado:
+                # ✅ Serviços somente do profissional citado
+                servs_prof = []
+                for p in profs_dict.values():
+                    if normalizar(p.get("nome", "")) == normalizar(prof_citado):
+                        servs_prof = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+                        break
 
-               if servs_prof:
-                   txt = f"*Serviços da {prof_citado}:*\n- " + "\n- ".join(sorted(set(servs_prof)))
-               else:
-                   txt = f"Não encontrei serviços cadastrados para *{prof_citado}*."
-           else:
-               # ✅ Serviços gerais do salão (união de todos)
-               txt = "*Serviços do salão:*\n- " + "\n- ".join(sorted(servicos)) if servicos else "Ainda não há serviços cadastrados."
-       else:
-           txt = "*Profissionais:*\n- " + "\n- ".join(sorted(set(nomes)))
+                if servs_prof:
+                    txt = f"*Serviços da {prof_citado}:*\n- " + "\n- ".join(sorted(set(servs_prof)))
+                else:
+                    txt = f"Não encontrei serviços cadastrados para *{prof_citado}*."
+            else:
+                # ✅ Serviços gerais do salão (união de todos)
+                txt = "*Serviços do salão:*\n- " + "\n- ".join(sorted(servicos)) if servicos else "Ainda não há serviços cadastrados."
+        else:
+            txt = "*Profissionais:*\n- " + "\n- ".join(sorted(set(nomes)))
 
-       # ✅ Só faz pergunta de coleta se o menu foi pedido DURANTE o fluxo
-       menu_dentro_do_fluxo = (estado_fluxo in ("aguardando_profissional", "aguardando_servico", "aguardando serviço", "aguardando_serviço"))
+        # ✅ Só faz pergunta de coleta se o menu foi pedido DURANTE o fluxo
+        menu_dentro_do_fluxo = (estado_fluxo in ("aguardando_profissional", "aguardando_servico", "aguardando serviço", "aguardando_serviço"))
 
-       if menu_dentro_do_fluxo:
-           if estado_fluxo == "aguardando_profissional":
-               txt += "\n\nQual você prefere?"
-           elif estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
-               # se o usuário perguntou serviços de um profissional específico, pode perguntar qual vai ser
-               # mas só se isso fizer sentido dentro do fluxo (aqui faz)
-               txt += "\n\nQual serviço vai ser?"
+        if menu_dentro_do_fluxo:
+            if estado_fluxo == "aguardando_profissional":
+                txt += "\n\nQual você prefere?"
+            elif estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
+                # se o usuário perguntou serviços de um profissional específico, pode perguntar qual vai ser
+                # mas só se isso fizer sentido dentro do fluxo (aqui faz)
+                txt += "\n\nQual serviço vai ser?"
 
-       return await _send_and_stop(context, user_id, txt)
+        return await _send_and_stop(context, user_id, txt)
     # =========================================================
     # ✅ (B) SEMPRE-ON: extrair e mesclar slots (prof/serv/dt)
     # =========================================================
