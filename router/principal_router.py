@@ -211,6 +211,96 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
     return ctx
 
+def _tem_referencia_profissional_indireta(tnorm: str) -> bool:
+    gat = [
+        "ela", "ele", "dela", "dele", "dessa", "desse", "essa", "esse",
+        "essa profissional", "esse profissional", "a moça", "o rapaz",
+        "com ela", "com ele", "pra ela", "pra ele", "para ela", "para ele",
+        "da última", "do último", "da ultima", "do ultimo",
+        "dessa ai", "desse ai", "dessa aí", "desse aí",
+        "dela aí", "dele aí", "dela ai", "dele ai"
+    ]
+    return any(g in tnorm for g in gat)
+
+
+def resolver_profissional_referenciado(tnorm: str, profs_dict: dict, ctx: dict) -> str | None:
+    """
+    Resolve qual profissional o usuário está referenciando, com prioridade:
+    1) nome explícito no texto
+    2) profissional do fluxo (draft/profissional_escolhido)
+    3) referência indireta (ela/dela/etc.) -> ultima_consulta/profissional_escolhido
+    """
+    # 1) nome explícito no texto
+    for p in (profs_dict or {}).values():
+        nomep = (p.get("nome") or "").strip()
+        if nomep and normalizar(nomep) in tnorm:
+            return nomep
+
+    # 2) profissional do fluxo
+    draft = (ctx or {}).get("draft_agendamento") or {}
+    prof_fluxo = draft.get("profissional") or (ctx or {}).get("profissional_escolhido")
+    if prof_fluxo:
+        return prof_fluxo
+
+    # 3) referência indireta -> última consulta / escolhido
+    if _tem_referencia_profissional_indireta(tnorm):
+        ult_prof = ((ctx or {}).get("ultima_consulta") or {}).get("profissional")
+        if ult_prof:
+            return ult_prof
+        prof_ctx = (ctx or {}).get("profissional_escolhido")
+        if prof_ctx:
+            return prof_ctx
+
+    return None
+
+
+def extrair_servico_alvo_binario(tnorm: str, catalogo_servicos: list[str]) -> str | None:
+    """
+    Pega o 'X' em frases tipo:
+    - "ela faz X?"
+    - "tem X?"
+    - "trabalha com X?"
+    E tenta mapear para um serviço do catálogo.
+    """
+    if not catalogo_servicos:
+        return None
+
+    # tira pontuação básica
+    t = re.sub(r"[?!.,;:]", " ", tnorm).strip()
+
+    # padrões simples
+    padroes = [
+        r"\bfaz\s+(.+)$",
+        r"\btem\s+(.+)$",
+        r"\btrabalha\s+com\s+(.+)$",
+        r"\boferece\s+(.+)$",
+        r"\batende\s+(.+)$",
+    ]
+
+    alvo = None
+    for pat in padroes:
+        m = re.search(pat, t)
+        if m:
+            alvo = m.group(1).strip()
+            break
+
+    if not alvo:
+        return None
+
+    # normaliza alvo e tenta casar com catálogo
+    alvo_n = normalizar(alvo)
+    if not alvo_n:
+        return None
+
+    # match forte: catálogo contido no alvo (ou alvo contido no catálogo)
+    for s in catalogo_servicos:
+        sn = normalizar(s)
+        if not sn:
+            continue
+        if sn in alvo_n or alvo_n in sn:
+            return s
+
+    return None
 
 # ----------------------------
 # Router principal
@@ -304,6 +394,73 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
     # =========================================================
+    # ✅ (A0) Intercept binário: "ela faz X?" / "quem faz X?"
+    # =========================================================
+    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+    # catálogo global (união)
+    catalogo_global = []
+    for p in profs_dict.values():
+        for s in (p.get("servicos") or []):
+            s = str(s).strip()
+            if s:
+                catalogo_global.append(s)
+    catalogo_global = sorted(set(catalogo_global), key=lambda x: normalizar(x))
+
+    # 1) "quem faz X?" -> retorna profissionais que fazem
+    if "quem faz" in tnorm or "quem atende" in tnorm:
+        serv_alvo = extrair_servico_alvo_binario(tnorm, catalogo_global)
+        if serv_alvo:
+            fazem = []
+            for p in profs_dict.values():
+                nomep = (p.get("nome") or "").strip()
+                servs = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+                if nomep and any(normalizar(serv_alvo) == normalizar(x) for x in servs):
+                    fazem.append(nomep)
+
+            if fazem:
+                txt = f"*Quem faz {serv_alvo}:*\n- " + "\n- ".join(sorted(set(fazem)))
+                # se estiver em fluxo, puxa para seleção
+                if estado_fluxo in ("aguardando_profissional", "aguardando_servico", "aguardando serviço", "aguardando_serviço"):
+                    txt += "\n\nCom quem você prefere?"
+                return await _send_and_stop(context, user_id, txt)
+            else:
+                return await _send_and_stop(context, user_id, f"Aqui eu não encontrei ninguém cadastrado para *{serv_alvo}*.")
+
+    # 2) "ela faz X?" / "tem X?" -> responde sim/não (com base no profissional referenciado)
+    # Só roda se houver pista de binário
+    if any(x in tnorm for x in ["faz ", "tem ", "trabalha com", "oferece ", "atende "]):
+        prof_ref = resolver_profissional_referenciado(tnorm, profs_dict, ctx)
+        if prof_ref:
+            # catálogo do profissional
+            servs_prof = []
+            for p in profs_dict.values():
+                if normalizar(p.get("nome", "")) == normalizar(prof_ref):
+                    servs_prof = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+                    break
+
+            serv_alvo = extrair_servico_alvo_binario(tnorm, servs_prof or catalogo_global)
+            if serv_alvo:
+                tem = any(normalizar(serv_alvo) == normalizar(x) for x in (servs_prof or []))
+                if tem:
+                    return await _send_and_stop(context, user_id, f"Sim — *{prof_ref}* faz *{serv_alvo}* ✅")
+                else:
+                    # sugere quem faz (se existir)
+                    fazem = []
+                    for p in profs_dict.values():
+                        nomep = (p.get("nome") or "").strip()
+                        servs = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+                        if nomep and any(normalizar(serv_alvo) == normalizar(x) for x in servs):
+                            fazem.append(nomep)
+                    if fazem:
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"*{prof_ref}* não faz *{serv_alvo}*.\nQuem faz: " + ", ".join(sorted(set(fazem))) + "."
+                        )
+                    return await _send_and_stop(context, user_id, f"*{prof_ref}* não faz *{serv_alvo}*.")
+
+    # =========================================================
     # ✅ (A) Intercept contextual: listar profissionais/serviços SOMENTE quando o usuário pede menu
     # =========================================================
 
@@ -349,14 +506,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 if s:
                     servicos.add(s)
 
-        # 🔎 Se o usuário citou um profissional na pergunta, filtrar serviços por ele
-        prof_citado = None
-        tnorm_local = tnorm  # já normalizado
-        for p in profs_dict.values():
-            nomep = (p.get("nome") or "").strip()
-            if nomep and normalizar(nomep) in tnorm_local:
-                prof_citado = nomep
-                break
+        # 🔎 Resolve profissional (nome explícito OU pronome "ela/dela" via contexto)
+        prof_citado = resolver_profissional_referenciado(tnorm, profs_dict, ctx)
 
         if quer_servicos and not quer_profissionais:
             if prof_citado:
