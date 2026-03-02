@@ -977,57 +977,39 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     acao = resposta_gpt.get("acao")
     dados = resposta_gpt.get("dados", {}) or {}
 
-    # ✅ REGRA DE OURO: se é CONSULTA, bloqueia ações mutáveis vindas do GPT
-    if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and acao in ("criar_evento", "cancelar_evento"):
-        print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
-        return await _send_and_stop(
-            context,
-            user_id,
-            (
-                "Entendi. Se você quer *agendar*, me diga:\n"
-                "• o *profissional* e o *serviço* (ou eu te ajudo)\n"
-                "• o *dia e horário*\n\n"
-                "Se quiser só consultar, pode perguntar normalmente."
-            )
+    # ✅ REGRA DE OURO (corrigida):
+    # Bloqueia ações mutáveis em modo consulta, EXCETO quando o usuário explicitamente quer agendar
+    if acao in ("criar_evento", "cancelar_evento"):
+
+        # intenção positiva de agendar (não confunde com "agenda")
+        quer_agendar = (
+            eh_gatilho_agendar(texto_lower)
+            or ("quero agendar" in texto_lower)
+            or ("agendar" in texto_lower)
+            or ("quero marcar" in texto_lower)
+            or ("marcar" in texto_lower)
+            or eh_confirmacao(texto_lower)
         )
 
-    ACOES_SUPORTADAS = {
-        "consultar_preco_servico",
-        "criar_evento",
-        "buscar_eventos_da_semana",
-        "criar_tarefa",
-        "remover_tarefa",
-        "cancelar_evento",
-        "listar_followups",
-        "cadastrar_profissional",
-        "aguardar_arquivo_importacao",
-        "enviar_email",
-        "organizar_semana",
-        "buscar_tarefas_do_usuario",
-        "buscar_emails",
-        "verificar_pagamento",
-        "verificar_acesso_modulo",
-        "responder_audio",
-        "criar_followup",
-        "buscar_eventos_do_dia",
-    }
+        # ✅ só bloqueia se for consulta E o usuário NÃO estiver querendo agendar
+        if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and not quer_agendar:
+            print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    "Entendi. Se você quer *agendar*, me diga:\n"
+                    "• o *profissional* e o *serviço* (ou eu te ajudo)\n"
+                    "• o *dia e horário*\n\n"
+                    "Se quiser só consultar, pode perguntar normalmente."
+                )
+            )
 
-    handled = False
-    if acao:
-        if acao not in ACOES_SUPORTADAS:
-            print(f"⚠️ Ação '{acao}' não suportada. Ignorando...")
-            acao = None
-            dados = {}
-        else:
-            handled = await executar_acao_gpt(update, context, acao, dados)
-            if acao == "criar_evento":
-                return {"acao": "criar_evento", "handled": True}
-
-    if (not acao) and resposta_texto:
-        await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
-        return await _send_and_stop(context, user_id, resposta_texto)
-
-    if acao:
-        return {"acao": acao, "handled": bool(handled)}
-
-    return {"resposta": "❌ Não consegui interpretar sua mensagem."}
+        # ✅ se estava em consultando mas usuário quer agendar, destrava e sai do modo consulta
+        if estado_fluxo == "consultando" and quer_agendar:
+            try:
+                ctx_tmp = await carregar_contexto_temporario(user_id) or {}
+                ctx_tmp["estado_fluxo"] = "idle"
+                await salvar_contexto_temporario(user_id, ctx_tmp)
+            except Exception as e:
+                print("⚠️ Falha ao limpar estado_fluxo consultando:", e, flush=True)
