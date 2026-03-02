@@ -461,6 +461,39 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     return await _send_and_stop(context, user_id, f"*{prof_ref}* não faz *{serv_alvo}*.")
 
     # =========================================================
+    # ✅ (A1) Intercept: serviços de TODOS os profissionais
+    # =========================================================
+    if any(x in tnorm for x in [
+        "cada profissional",
+        "todos profissionais",
+        "todos os profissionais",
+        "serviços de cada",
+        "servicos de cada",
+        "lista de serviços",
+        "lista de servicos"
+    ]):
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+        if not profs_dict:
+            return await _send_and_stop(context, user_id, "Ainda não há profissionais cadastrados.")
+
+        linhas = []
+
+        for p in profs_dict.values():
+            nome = (p.get("nome") or "").strip()
+            servs = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+
+            if nome and servs:
+                linhas.append(f"- *{nome}:* " + ", ".join(sorted(servs)))
+
+        if linhas:
+            txt = "*Serviços por profissional:*\n" + "\n".join(linhas)
+        else:
+            txt = "Ainda não há serviços cadastrados."
+
+        return await _send_and_stop(context, user_id, txt)
+
+    # =========================================================
     # ✅ (A) Intercept contextual: listar profissionais/serviços SOMENTE quando o usuário pede menu
     # =========================================================
 
