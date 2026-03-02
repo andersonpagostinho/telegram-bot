@@ -149,6 +149,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     # --- 3) roteador inteligente (IA) ---
     try:
         resposta = await roteador_principal(user_id, mensagem, update, context)
+        print("🧪 [bot] resposta do router =", resposta, flush=True)
 
         # ✅ Se o router já enviou mensagem, não duplicar aqui
         if isinstance(resposta, dict) and resposta.get("already_sent"):

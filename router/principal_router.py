@@ -92,7 +92,8 @@ def eh_confirmacao(txt: str) -> bool:
     if "nao" in t or "não" in t:
         return False
     gatilhos = [
-        "confirmar", "confirma", "pode agendar", "pode marcar", "agende", "marque",
+        "confirmar", "confirma", "confirme", "confirmo",   
+        "pode agendar", "pode marcar", "agende", "marque",
         "fechar", "ok", "confirmado",
         "sim", "pode", "pode ser", "pode sim", "pode ir", "manda ver"
     ]
