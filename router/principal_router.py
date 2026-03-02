@@ -978,51 +978,60 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     dados = resposta_gpt.get("dados", {}) or {}
 
     # ✅ REGRA DE OURO: se é CONSULTA, bloqueia ações mutáveis vindas do GPT
-    if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and acao in ("criar_evento", "cancelar_evento"): 
-        print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True) 
-            return await _send_and_stop( 
-                context, 
-                user_id, 
-                ( 
-                    "Entendi. Se você quer *agendar*, me diga:\n" 
-                    "• o *profissional* e o *serviço* (ou eu te ajudo)\n" 
-                    "• o *dia e horário*\n\n" 
-                    "Se quiser só consultar, pode perguntar normalmente." 
-                ) 
-            ) 
-        ACOES_SUPORTADAS = { 
-            "consultar_preco_servico", 
-            "criar_evento", 
-            "buscar_eventos_da_semana", 
-            "criar_tarefa", 
-            "remover_tarefa", 
-            "cancelar_evento", 
-            "listar_followups", 
-            "cadastrar_profissional", 
-            "aguardar_arquivo_importacao", 
-            "enviar_email", 
-            "organizar_semana", 
-            "buscar_tarefas_do_usuario", 
-            "buscar_emails", 
-            "verificar_pagamento", 
-            "verificar_acesso_modulo", 
-            "responder_audio", 
-            "criar_followup", 
-            "buscar_eventos_do_dia", 
-        } 
-        handled = False 
-        if acao: 
-            if acao not in ACOES_SUPORTADAS: 
-                print(f"⚠️ Ação '{acao}' não suportada. Ignorando...") 
-                acao = None 
-                dados = {} 
-            else: 
-                handled = await executar_acao_gpt(update, context, acao, dados) 
-                if acao == "criar_evento": 
-                    return {"acao": "criar_evento", "handled": True} 
-        if (not acao) and resposta_texto: 
-            await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto}) 
-            return await _send_and_stop(context, user_id, resposta_texto) 
-        if acao: 
-            return {"acao": acao, "handled": bool(handled)} 
-        return {"resposta": "❌ Não consegui interpretar sua mensagem."}
+    if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and acao in ("criar_evento", "cancelar_evento"):
+        print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                "Entendi. Se você quer *agendar*, me diga:\n"
+                "• o *profissional* e o *serviço* (ou eu te ajudo)\n"
+                "• o *dia e horário*\n\n"
+                "Se quiser só consultar, pode perguntar normalmente."
+            )
+        ) 
+
+    ACOES_SUPORTADAS = {
+        "consultar_preco_servico",
+        "criar_evento",
+        "buscar_eventos_da_semana",
+        "criar_tarefa",
+        "remover_tarefa",
+        "cancelar_evento",
+        "listar_followups",
+        "cadastrar_profissional",
+        "aguardar_arquivo_importacao",
+        "enviar_email",
+        "organizar_semana",
+        "buscar_tarefas_do_usuario",
+        "buscar_emails",
+        "verificar_pagamento",
+        "verificar_acesso_modulo",
+        "responder_audio",
+        "criar_followup",
+        "buscar_eventos_do_dia",
+        "buscar_eventos_do_dia",
+    }
+
+    handled = False
+
+    if acao:
+        if acao not in ACOES_SUPORTADAS:
+            print(f"⚠️ Ação '{acao}' não suportada. Ignorando...", flush=True)
+            acao = None
+            dados = {}
+        else:
+            handled = await executar_acao_gpt(update, context, acao, dados)
+
+            # Se sua arquitetura depende desse return especial, mantenha
+            if acao == "criar_evento":
+                return {"acao": "criar_evento", "handled": True}
+
+    if (not acao) and resposta_texto:
+        await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_texto})
+        return await _send_and_stop(context, user_id, resposta_texto)
+
+    if acao:
+        return {"acao": acao, "handled": bool(handled)}
+
+    return {"resposta": "❌ Não consegui interpretar sua mensagem."}
