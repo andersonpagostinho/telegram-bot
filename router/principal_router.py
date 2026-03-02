@@ -329,9 +329,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔐 dono do negócio
     dono_id = await obter_id_dono(user_id)
 
-    # ✅ 1) Se existe sessão ativa do seu gpt_service, respeitar (fluxo legado)
+    # ✅ Guard: perguntas de catálogo/menu NÃO podem cair no fluxo legado (evita GPT alucinar lista)
+    intencao_catalogo = any(x in tnorm for x in [
+        # lista por profissional (A1)
+        "cada profissional", "servicos de cada", "serviços de cada",
+        "todos os profissionais", "todos profissionais", "todas as profissionais", "todas profissionais",
+        "separado por nome", "separados por nome", "por profissional",
+
+        # menus (A)
+        "quais profissionais", "lista de profissionais", "me diz os profissionais",
+        "quais servicos", "quais serviços", "lista de servicos", "lista de serviços",
+        "quais voce tem", "quais você tem", "quem voce tem", "quem você tem",
+
+        # binários/busca (A0)
+        "quem faz", "quem atende", "ela faz", "ele faz", "dela", "dele"
+    ])
+
+    # ✅ Se existe sessão ativa do fluxo legado, só respeita se NÃO for intenção de catálogo
     sessao = await pegar_sessao(user_id)
-    if sessao and sessao.get("estado"):
+    if (not intencao_catalogo) and sessao and sessao.get("estado"):
         print(f"🔁 Sessão ativa: {sessao['estado']}")
         resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem)
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
@@ -461,36 +477,42 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     return await _send_and_stop(context, user_id, f"*{prof_ref}* não faz *{serv_alvo}*.")
 
     # =========================================================
-    # ✅ (A1) Intercept: serviços de TODOS os profissionais
+    # ✅ (A1) Intercept: serviços de TODOS os profissionais (por nome)
     # =========================================================
-    if any(x in tnorm for x in [
+    gatilhos_a1 = [
         "cada profissional",
-        "todos profissionais",
-        "todos os profissionais",
-        "serviços de cada",
-        "servicos de cada",
-        "lista de serviços",
-        "lista de servicos"
-    ]):
-        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        "servicos de cada", "serviços de cada",
+        "servicos de todas", "serviços de todas",
+        "todos profissionais", "todos os profissionais",
+        "todas profissionais", "todas as profissionais",
+        "separado por nome", "separados por nome",
+        "por profissional",
+        "lista de servicos", "lista de serviços"
+    ]
 
+    if any(x in tnorm for x in gatilhos_a1):
         if not profs_dict:
             return await _send_and_stop(context, user_id, "Ainda não há profissionais cadastrados.")
 
         linhas = []
-
         for p in profs_dict.values():
             nome = (p.get("nome") or "").strip()
-            servs = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
 
-            if nome and servs:
-                linhas.append(f"- *{nome}:* " + ", ".join(sorted(servs)))
+            raw_servs = p.get("servicos")
+            if isinstance(raw_servs, str):
+                servs = [s.strip() for s in raw_servs.split(",") if s.strip()]
+            elif isinstance(raw_servs, dict):
+                servs = [str(k).strip() for k in raw_servs.keys() if str(k).strip()]
+            else:
+                servs = [str(s).strip() for s in (raw_servs or []) if str(s).strip()]
 
-        if linhas:
-            txt = "*Serviços por profissional:*\n" + "\n".join(linhas)
-        else:
-            txt = "Ainda não há serviços cadastrados."
+            if nome:
+                if servs:
+                    linhas.append(f"- *{nome}:* " + ", ".join(sorted(set(servs), key=lambda x: normalizar(x))))
+                else:
+                    linhas.append(f"- *{nome}:* (sem serviços cadastrados)")
 
+        txt = "*Serviços por profissional:*\n" + "\n".join(linhas)
         return await _send_and_stop(context, user_id, txt)
 
     # =========================================================
