@@ -499,10 +499,19 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             print("⚙️ Modo automático: pulando confirmação", flush=True)
         else:
             if not eh_confirmacao(texto_usuario):
+
+                # 🧠 Formatar data/hora (de ISO para 03/03 às 14:00)
+                from datetime import datetime
+                try:
+                    dt = datetime.fromisoformat(data_hora_str)
+                    data_formatada = dt.strftime("%d/%m às %H:%M")
+                except:
+                    data_formatada = data_hora_str  # fallback se der erro
+
                 await update.message.reply_text(
-                    f"📅 Consulta de disponibilidade:\n"
-                    f"{descricao} em {data_hora_str}\n\n"
-                    f"👉 Deseja confirmar esse agendamento? Responda *confirmar*.",
+                    f"✨ {descricao}\n"
+                    f"📆 {data_formatada}\n\n"
+                    f"Posso confirmar esse horário pra você?",
                     parse_mode="Markdown"
                 )
                 return {"acao": None, "handled": True}
