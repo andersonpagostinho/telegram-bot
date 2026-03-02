@@ -981,7 +981,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # Bloqueia ações mutáveis em modo consulta, EXCETO quando o usuário explicitamente quer agendar
     if acao in ("criar_evento", "cancelar_evento"):
 
-        # intenção positiva de agendar (não confunde com "agenda")
         quer_agendar = (
             eh_gatilho_agendar(texto_lower)
             or ("quero agendar" in texto_lower)
@@ -991,7 +990,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             or eh_confirmacao(texto_lower)
         )
 
-        # ✅ só bloqueia se for consulta E o usuário NÃO estiver querendo agendar
         if (eh_consulta(texto_lower) or estado_fluxo == "consultando") and not quer_agendar:
             print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta: '{texto_lower}'", flush=True)
             return await _send_and_stop(
@@ -1005,11 +1003,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
             )
 
-        # ✅ se estava em consultando mas usuário quer agendar, destrava e sai do modo consulta
+        # ✅ se estava em consultando mas usuário quer agendar, destrava SEM sobrescrever contexto
         if estado_fluxo == "consultando" and quer_agendar:
             try:
-                ctx_tmp = await carregar_contexto_temporario(user_id) or {}
-                ctx_tmp["estado_fluxo"] = "idle"
-                await salvar_contexto_temporario(user_id, ctx_tmp)
+                await salvar_contexto_temporario(user_id, {"estado_fluxo": "idle"})  # <- precisa ser merge/update
             except Exception as e:
-                print("⚠️ Falha ao limpar estado_fluxo consultando:", e, flush=True)
+                print("⚠️ Falha ao ajustar estado_fluxo:", e, flush=True)
