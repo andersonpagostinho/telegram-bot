@@ -275,7 +275,15 @@ async def cancelar_evento_por_texto(user_id: str, termo: str):
 
 
 # 🔍 Verificar conflito de horário para um novo evento
-async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_min: int = 60, profissional: str = "") -> list:
+async def verificar_conflito(
+    user_id: str,
+    data: str,
+    hora_inicio: str,
+    duracao_min: int = 60,
+    profissional: str = "",
+    cliente_id: str = "",
+    event_id: str | None = None,
+) -> list:
     try:
         dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
         user_id_efetivo = user_id
@@ -291,10 +299,28 @@ async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_
         fim_novo = inicio_novo + timedelta(minutes=duracao_min)
 
         conflitos = []
-        for ev in eventos.values():
+
+        cliente_novo = (str(cliente_id or "")).strip()
+        prof_novo = (profissional or "").strip().lower()
+
+        for eid, ev in (eventos or {}).items():
             # ❗ Ignora cancelados
             status = (ev.get("status") or "").strip().lower()
             if status == "cancelado":
+                continue
+
+            # ✅ ignorar o próprio evento (quando event_id conhecido)
+            if event_id and eid == event_id:
+                continue
+
+            # ✅ idempotência: mesmo cliente + mesmo slot não é conflito
+            if (
+                cliente_novo
+                and str(ev.get("cliente_id") or "").strip() == cliente_novo
+                and (ev.get("profissional") or "").strip().lower() == prof_novo
+                and ev.get("data") == data
+                and ev.get("hora_inicio") == hora_inicio
+            ):
                 continue
 
             try:
