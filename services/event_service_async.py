@@ -16,10 +16,11 @@ from utils.formatters import gerar_sugestoes_de_horario
 
 FUSO_BR = timezone("America/Sao_Paulo")
 
+
 # 🔁 Salvar ou atualizar um evento
 async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> bool:
     try:
-        # ✅ Verifica conflitos antes de salvar (chama direto, sem import interno)
+        # ✅ Verifica conflitos antes de salvar
         conflitos = await verificar_conflito(
             user_id=user_id,
             data=evento["data"],
@@ -31,16 +32,24 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
             print("⛔ Conflito de horário detectado. Evento não será salvo.")
             return False
 
+        # ✅ ID idempotente por slot (evita duplicar ao confirmar/retentar)
         if not event_id:
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-            nome_base = evento.get("descricao", "evento").replace(" ", "_").lower()
-            event_id = f"{timestamp}_{nome_base}"
+            base_id = f"{evento.get('cliente_id')}_{evento.get('profissional')}_{evento.get('data')}_{evento.get('hora_inicio')}"
+            event_id = base_id.replace(" ", "_").lower()
 
         evento.setdefault("criado_em", datetime.now().isoformat())
-        evento.setdefault("confirmado", False)
         evento.setdefault("link", "")
-        evento.setdefault("status", "pendente")
         evento.setdefault("cliente_id", user_id)  # 👈 garante que sabemos quem é o cliente
+
+        # ✅ status/confirmado coerentes: se vier confirmado=True, nasce confirmado
+        confirmado_flag = bool(evento.get("confirmado") is True)
+        if confirmado_flag:
+            evento["confirmado"] = True
+            evento["status"] = "confirmado"
+            evento.setdefault("confirmado_em", datetime.now(FUSO_BR).isoformat())
+        else:
+            evento.setdefault("confirmado", False)
+            evento.setdefault("status", "pendente")
 
         # 🧠 Decide onde salvar (pessoal ou empresa)
         dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}")
@@ -58,16 +67,12 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
         print(f"✅ Evento salvo para {user_id_efetivo} com ID {event_id}: {evento}")
 
         # 🔔 Enviar notificação só para o cliente (e não para o dono)
-        from services.notificacao_service import criar_notificacao_agendada
-
         cliente_id = (evento.get("cliente_id") or "").strip()
         data_ev = evento.get("data")
         hora_ev = evento.get("hora_inicio")
         descricao_ev = evento.get("descricao", "Compromisso")
 
-        # user_id_efetivo = quem está criando/operando (dono/atendente)
-        # garanta que essa variável exista no escopo; se não existir, use user_id
-        origem_user = user_id_efetivo if "user_id_efetivo" in locals() else user_id
+        origem_user = user_id_efetivo
 
         if cliente_id and cliente_id != origem_user and data_ev and hora_ev:
             try:
@@ -89,10 +94,14 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
         print(f"❌ Erro ao salvar evento: {e}")
         return False
 
-# 🔎 Buscar eventos por data (hoje, amanhã, etc.)
-async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool = False, dia_especifico: date | None = None):
-    from services.firebase_service_async import buscar_dado_em_path, obter_id_dono
 
+# 🔎 Buscar eventos por data (hoje, amanhã, etc.)
+async def buscar_eventos_por_intervalo(
+    user_id: str,
+    dias: int = 0,
+    semana: bool = False,
+    dia_especifico: date | None = None
+):
     try:
         # 🧠 Ajuste híbrido de ID se for cliente
         dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}")
@@ -120,7 +129,11 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
 
         resultado = []
 
-        for evento in eventos.values():
+        # ✅ Preserva o event_id no retorno (essencial para updates/idempotência)
+        for event_id, evento in eventos.items():
+            if not isinstance(evento, dict):
+                continue
+
             # ❗ Ignora cancelados
             if (evento.get("status") or "").lower() == "cancelado":
                 continue
@@ -135,13 +148,16 @@ async def buscar_eventos_por_intervalo(user_id: str, dias: int = 0, semana: bool
                 continue
 
             if data_inicio <= data_evento <= data_fim:
-                resultado.append(evento)
+                ev_out = dict(evento)
+                ev_out["event_id"] = event_id
+                resultado.append(ev_out)
 
         return resultado
 
     except Exception as e:
         print(f"❌ Erro ao buscar eventos: {e}")
         return []
+
 
 async def cancelar_evento(user_id: str, event_id: str) -> bool:
     """
@@ -217,6 +233,7 @@ async def cancelar_evento(user_id: str, event_id: str) -> bool:
         print(f"❌ cancelar_evento: {e}")
         return False
 
+
 async def cancelar_evento_por_texto(user_id: str, termo: str):
     """
     Encontra por texto e cancela.
@@ -259,8 +276,6 @@ async def cancelar_evento_por_texto(user_id: str, termo: str):
 
 # 🔍 Verificar conflito de horário para um novo evento
 async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_min: int = 60, profissional: str = "") -> list:
-    from datetime import datetime, timedelta
-
     try:
         dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
         user_id_efetivo = user_id
@@ -277,7 +292,7 @@ async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_
 
         conflitos = []
         for ev in eventos.values():
-             # ❗ Ignora cancelados
+            # ❗ Ignora cancelados
             status = (ev.get("status") or "").strip().lower()
             if status == "cancelado":
                 continue
@@ -312,10 +327,9 @@ async def verificar_conflito(user_id: str, data: str, hora_inicio: str, duracao_
         print(f"❌ Erro ao verificar conflitos: {e}")
         return []
 
+
 # 🧹 Deletar um evento (opcional)
 async def deletar_evento(user_id: str, event_id: str) -> bool:
-    from services.firebase_service_async import buscar_dado_em_path, obter_id_dono
-
     try:
         # 🧠 Ajuste híbrido de ID se for cliente
         dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}")
@@ -331,8 +345,10 @@ async def deletar_evento(user_id: str, event_id: str) -> bool:
         print(f"❌ Erro ao deletar evento: {e}")
         return False
 
+
 def _normaliza_txt(s: str) -> str:
     return unidecode((s or "").strip().lower())
+
 
 def _interpreta_data_relativa(termo: str, hoje: datetime.date):
     """
@@ -346,6 +362,7 @@ def _interpreta_data_relativa(termo: str, hoje: datetime.date):
         d = hoje + timedelta(days=1)
         return d, d
     return None, None
+
 
 def _extrai_data_explicita(termo: str):
     t = (termo or "")
@@ -371,6 +388,7 @@ def _extrai_data_explicita(termo: str):
             except Exception:
                 return None
     return None
+
 
 async def buscar_eventos_por_termo_avancado(user_id: str, termo: str):
     """
@@ -468,6 +486,7 @@ def formatar_evento(evento: dict) -> str:
     fim = evento.get("hora_fim", "??:??")
     desc = evento.get("descricao", "Sem título")
     return f"📝 {desc} – {data} das {inicio} às {fim}"
+
 
 async def tentar_split_simples(
     user_id: str,
