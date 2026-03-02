@@ -48,12 +48,24 @@ def formatar_data_hora_br(dt_iso: str) -> str:
 
 def eh_consulta(txt: str) -> bool:
     """
-    Heurística: detectar mensagens de consulta de agenda/disponibilidade.
-    Consulta NUNCA deve agendar.
+    Detecta consulta de agenda/disponibilidade.
+    IMPORTANTE: não pode confundir 'agenda' com 'agendar'.
     """
     t = (txt or "").strip().lower()
+    if not t:
+        return False
+
+    # ✅ Se há intenção explícita de agendar, nunca é consulta
+    if any(x in t for x in ["agendar", "agende", "marcar", "marque", "pode agendar", "pode marcar"]):
+        return False
+
+    # ✅ padrões de consulta com borda de palavra (evita 'agendar' bater em 'agenda')
+    if re.search(r"\bagenda\b", t):
+        return True
+
+    # ✅ demais gatilhos de consulta
     consultas = [
-        "como está", "como esta", "agenda",
+        "como está", "como esta",
         "disponível", "disponivel",
         "tem horário", "tem horario",
         "livre", "ocupado", "ocupada",
