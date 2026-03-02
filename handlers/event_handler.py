@@ -501,7 +501,6 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if not eh_confirmacao(texto_usuario):
 
                 # 🧠 Formatar data/hora (de ISO para 03/03 às 14:00)
-                from datetime import datetime
                 try:
                     dt = datetime.fromisoformat(data_hora_str)
                     data_formatada = dt.strftime("%d/%m às %H:%M")
