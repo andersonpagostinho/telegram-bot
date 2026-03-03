@@ -117,21 +117,21 @@ async def processar_com_gpt_com_acao(
         try:
             contexto_salvo = await carregar_contexto_temporario(uid) if uid != "desconhecido" else {}
             # 🔧 Se o usuário quer agendar, nunca mantenha estado_fluxo=consultando
-            try:
-                ctx = contexto_salvo or {}
-                if ctx.get("estado_fluxo") == "consultando":
-                    texto = (texto_usuario or "").lower()
-                    quer_agendar = (
-                        ("quero agendar" in texto)
-                        or ("agendar" in texto)
-                        or ("quero marcar" in texto)
-                        or ("marcar" in texto)
-                        or eh_confirmacao(texto)
-                    )
-                    if quer_agendar and uid != "desconhecido":
-                        await salvar_contexto_temporario(uid, {"estado_fluxo": "idle"})  # merge/update
-                        ctx["estado_fluxo"] = "idle"
-                        contexto_salvo = ctx
+            ctx = contexto_salvo or {}
+            if ctx.get("estado_fluxo") == "consultando":
+                texto = (texto_usuario or "").lower()
+                quer_agendar = (
+                    ("quero agendar" in texto)
+                    or ("agendar" in texto)
+                    or ("quero marcar" in texto)
+                    or ("marcar" in texto)
+                    or eh_confirmacao(texto)
+                )
+                if quer_agendar and uid != "desconhecido":
+                    await salvar_contexto_temporario(uid, {"estado_fluxo": "idle"})  # merge/update
+                    ctx["estado_fluxo"] = "idle"
+                    contexto_salvo = ctx
+
         except Exception as e:
             print(f"⚠️ Falha ao destravar estado_fluxo consultando: {e}", flush=True)
             print("🧪 DEBUG uid:", uid, flush=True)
