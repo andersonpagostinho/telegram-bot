@@ -266,6 +266,62 @@ def _audit_confirmacao(tag: str, ctx: dict, texto_usuario: str = ""):
     except Exception as e:
         print(f"⚠️ Falha em _audit_confirmacao({tag}): {e}", flush=True)
 
+# =========================================================
+# PRIORIDADE MÁXIMA — CONFIRMAÇÃO FINAL DE AGENDAMENTO
+# =========================================================
+if eh_confirmacao_pendente_ativa(ctx) and eh_confirmacao(texto_lower):
+
+    _audit_confirmacao("BLOCO_PENDENTE_ENTRADA", ctx, texto_usuario)
+
+    dados_confirmacao = ctx.get("dados_confirmacao_agendamento") or {}
+    draft = ctx.get("draft_agendamento") or {}
+
+    profissional = (
+        dados_confirmacao.get("profissional")
+        or draft.get("profissional")
+        or ctx.get("profissional_escolhido")
+    )
+
+    servico = (
+        dados_confirmacao.get("servico")
+        or draft.get("servico")
+        or ctx.get("servico")
+    )
+
+    data_hora = (
+        dados_confirmacao.get("data_hora")
+        or draft.get("data_hora")
+        or ctx.get("data_hora")
+    )
+
+    duracao = dados_confirmacao.get("duracao")
+    if not duracao and servico:
+        duracao = estimar_duracao(servico)
+
+    if profissional and servico and data_hora:
+        dados_exec = {
+            "profissional": profissional,
+            "servico": servico,
+            "data_hora": data_hora,
+            "duracao": duracao,
+            "descricao": formatar_descricao_evento(servico, profissional),
+        }
+
+        ctx["aguardando_confirmacao_agendamento"] = False
+        ctx.pop("dados_confirmacao_agendamento", None)
+        ctx.pop("ultima_opcao_profissionais", None)
+        await salvar_contexto_temporario(user_id, ctx)
+
+        print("🧪 [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto", flush=True)
+        return await executar_acao_gpt(update, context, "criar_evento", dados_exec)
+
+    print("🧪 [AUDIT-CONF:BLOCO_PENDENTE] DADOS_INSUFICIENTES -> REABRINDO FLUXO", flush=True)
+    return await _send_and_stop(
+        context,
+        user_id,
+        "Perdi parte dos dados da confirmação. Me diga novamente o profissional, serviço e horário para eu concluir."
+    )
+
 # ----------------------------
 # Slots always-on
 # ----------------------------
@@ -1296,47 +1352,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(data_hora)}*.\n"
                 f"Responda *sim* para confirmar."
             )
-        )
-
-    # =========================================================
-    # CONFIRMAÇÃO FINAL DE AGENDAMENTO (novo formato vindo do gpt_service)
-    # =========================================================
-    if eh_confirmacao_pendente_ativa(ctx) and eh_confirmacao(texto_lower):
-
-        _audit_confirmacao("BLOCO_PENDENTE_ENTRADA", ctx, texto_usuario)
-
-        dados_confirmacao = ctx.get("dados_confirmacao_agendamento") or {}
-
-        profissional = dados_confirmacao.get("profissional") or ctx.get("profissional_escolhido")
-        servico = dados_confirmacao.get("servico") or ctx.get("servico")
-        data_hora = dados_confirmacao.get("data_hora") or ctx.get("data_hora")
-        duracao = dados_confirmacao.get("duracao")
-
-        if not duracao and servico:
-            duracao = estimar_duracao(servico)
-
-        if profissional and servico and data_hora:
-            dados_exec = {
-                "profissional": profissional,
-                "servico": servico,
-                "data_hora": data_hora,
-                "duracao": duracao,
-                "descricao": formatar_descricao_evento(servico, profissional)
-            }
-
-            ctx["aguardando_confirmacao_agendamento"] = False
-            ctx.pop("dados_confirmacao_agendamento", None)
-            ctx.pop("ultima_opcao_profissionais", None)
-            await salvar_contexto_temporario(user_id, ctx)
-          
-            print("🧪 [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto", flush=True)
-            return await executar_acao_gpt(update, context, "criar_evento", dados_exec)
-
-        print("🧪 [AUDIT-CONF:BLOCO_DRAFT] PROFISSIONAL_INVALIDO -> REABRINDO FLUXO", flush=True)
-        return await _send_and_stop(
-            context,
-            user_id,
-            "Perdi parte dos dados da confirmação. Me diga novamente o profissional, serviço e horário para eu concluir."
         )
 
     # =========================================================
