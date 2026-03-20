@@ -194,17 +194,20 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
         resposta = await roteador_principal(user_id, mensagem, update, context)
         print("🧪 [bot] resposta do router =", resposta, flush=True)
 
-        # ✅ Se o router já enviou mensagem, não duplicar aqui
+        # ✅ Se o router já enviou mensagem, parar sem cair em erro falso
         if isinstance(resposta, dict) and resposta.get("already_sent"):
             raise ApplicationHandlerStop
 
-        # ✅ Se veio ação (ex: criar_evento), quem responde é o executor/event_handler.
-        # Evita enviar a "resposta" otimista do GPT após conflito.
-        if isinstance(resposta, dict) and resposta.get("already_sent"):
+        # ✅ Se veio ação, o executor/event_handler assume
+        if resposta and isinstance(resposta, dict) and resposta.get("acao"):
             raise ApplicationHandlerStop
 
         if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
             await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
+            raise ApplicationHandlerStop
+
+    except ApplicationHandlerStop:
+        raise
 
     except Exception as e:
         logger.exception(f"❌ Erro no roteador_principal: {e}")
