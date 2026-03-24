@@ -380,6 +380,27 @@ async def processar_com_gpt_com_acao(
                             break
 
                     if nome_detectado:
+                        servico_ctx = (contexto_salvo or {}).get("servico")
+
+                        if servico_ctx:
+                            def norm(x):
+                                return unidecode.unidecode(str(x).lower().strip())
+
+                            profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+
+                            prof_doc = next(
+                                (p for p in profissionais_dict.values()
+                                if norm(p.get("nome")) == norm(nome_detectado)),
+                                None
+                            )
+
+                            if prof_doc:
+                                servicos_norm = {norm(s) for s in (prof_doc.get("servicos") or [])}
+
+                                if norm(servico_ctx) in servicos_norm:
+                                    dados_update["profissional_escolhido"] = nome_detectado
+                    else:
+                        # sem serviço → pode aceitar
                         dados_update["profissional_escolhido"] = nome_detectado
                 except Exception as e:
                     print(f"⚠️ Falha ao detectar profissional automaticamente: {e}", flush=True)
@@ -900,6 +921,27 @@ async def processar_com_gpt_com_acao(
 
         # Atualiza contexto
         if profissional_mencionado and not contexto_salvo.get("profissional_escolhido"):
+
+            servico_ctx = contexto_salvo.get("servico")
+
+            if servico_ctx:
+                def norm(x):
+                    return unidecode.unidecode(str(x).lower().strip())
+
+                profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+
+                prof_doc = next(
+                (p for p in profissionais_dict.values()
+                 if norm(p.get("nome")) == norm(profissional_mencionado)),
+                None
+            )
+
+            if prof_doc:
+                servicos_norm = {norm(s) for s in (prof_doc.get("servicos") or [])}
+
+                if norm(servico_ctx) in servicos_norm:
+                    contexto_salvo["profissional_escolhido"] = profissional_mencionado
+        else:
             contexto_salvo["profissional_escolhido"] = profissional_mencionado
         if servico_mencionado and not contexto_salvo.get("servico"):
             contexto_salvo["servico"] = servico_mencionado
@@ -2019,7 +2061,28 @@ async def processar_com_gpt_com_acao(
                 and nomes_mencionados[0] in contexto["ultima_opcao_profissionais"]
             ):
                 memoria_nova["ultima_opcao_profissionais"] = [nomes_mencionados[0]]
-                memoria_nova["profissional_escolhido"] = nomes_mencionados[0]
+                nome = nomes_mencionados[0]
+                servico_ctx = memoria_nova.get("servico") or contexto_salvo.get("servico")
+
+                if servico_ctx:
+                    def norm(x):
+                        return unidecode.unidecode(str(x).lower().strip())
+
+                    profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+
+                    prof_doc = next(
+                        (p for p in profissionais_dict.values()
+                        if norm(p.get("nome")) == norm(nome)),
+                        None
+                    )
+
+                    if prof_doc:
+                        servicos_norm = {norm(s) for s in (prof_doc.get("servicos") or [])}
+
+                        if norm(servico_ctx) in servicos_norm:
+                            memoria_nova["profissional_escolhido"] = nome
+                else:
+                    memoria_nova["profissional_escolhido"] = nome
 
             # 🟡 Salve também o serviço e a data_hora se existirem, mesmo que estejam fora de 'dados'
             if "descricao" in resultado.get("dados", {}):
