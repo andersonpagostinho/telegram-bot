@@ -2816,12 +2816,17 @@ async def processar_com_gpt_com_acao(
                     servicos_norm = {norm(s) for s in servicos}
 
                     if norm(servico) not in servicos_norm:
-                        opcoes_validas = [
-                            p.get("nome")
-                            for p in profissionais_dict.values()
-                            if norm(servico)
-                            in {norm(s) for s in (p.get("servicos") or [])}
-                        ]
+                        opcoes_ctx = (contexto_salvo or {}).get("ultima_opcao_profissionais") or []
+
+                        if opcoes_ctx:
+                            opcoes_validas = opcoes_ctx
+                        else:
+                            opcoes_validas = [
+                                p.get("nome")
+                                for p in profissionais_dict.values()
+                                if norm(servico)
+                                in {norm(s) for s in (p.get("servicos") or [])}
+                            ]
 
                         nomes = (
                             ", ".join(opcoes_validas)
