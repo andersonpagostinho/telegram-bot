@@ -423,26 +423,35 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     print("🧪 [MESCLAR] texto=", texto, flush=True)
     print("🧪 [MESCLAR] dt_detectado=", dt_detectado, flush=True)
 
+    tem_hora_explicita = bool(
+        re.search(r"\b\d{1,2}:\d{2}\b", texto.lower())
+        or re.search(r"\b\d{1,2}\s*h\b", texto.lower())
+        or re.search(r"\b\d{1,2}h\d{2}\b", texto.lower())
+        or " às " in f" {texto.lower()} "
+        or " as " in f" {texto.lower()} "
+    )
+
     # =========================================================
     # REGRA CENTRAL: slot explícito novo SOBRESCREVE o antigo
     # =========================================================
 
     if dt_detectado:
-        iso = dt_detectado.replace(second=0, microsecond=0).isoformat()
+        if tem_hora_explicita:
+            iso = dt_detectado.replace(second=0, microsecond=0).isoformat()
+        else:
+            iso = dt_detectado.replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0
+            ).isoformat()
+
         ctx["data_hora"] = iso
         draft["data_hora"] = iso
 
         if not isinstance(ctx.get("ultima_consulta"), dict):
             ctx["ultima_consulta"] = {}
         ctx["ultima_consulta"]["data_hora"] = iso
-
-    if prof_detectado:
-        ctx["profissional_escolhido"] = prof_detectado
-        draft["profissional"] = prof_detectado
-
-        if not isinstance(ctx.get("ultima_consulta"), dict):
-            ctx["ultima_consulta"] = {}
-        ctx["ultima_consulta"]["profissional"] = prof_detectado
 
     if servico_detectado:
         ctx["servico"] = servico_detectado
