@@ -2044,24 +2044,45 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                     ctx["data_hora"] = nova_data_hora
                     ctx["hora_confirmada"] = True
-                    ctx["estado_fluxo"] = "agendando"
-                    ctx["aguardando_confirmacao_agendamento"] = True
-                    ctx["ultima_acao"] = "criar_evento"
-
-                    ctx["dados_anteriores"] = {
-                        "profissional": ctx.get("profissional_escolhido"),
-                        "servico": ctx.get("servico"),
-                        "data_hora": nova_data_hora
-                    }
 
                     draft = ctx.get("draft_agendamento") or {}
                     draft["data_hora"] = nova_data_hora
                     ctx["draft_agendamento"] = draft
 
-                    await salvar_contexto_temporario(user_id, ctx)
-
                     servico = ctx.get("servico")
                     profissional = ctx.get("profissional_escolhido")
+
+                    ctx["dados_anteriores"] = {
+                        "profissional": profissional,
+                        "servico": servico,
+                        "data_hora": nova_data_hora
+                    }
+
+                    if servico and profissional:
+                        ctx["estado_fluxo"] = "agendando"
+                        ctx["aguardando_confirmacao_agendamento"] = True
+                        ctx["ultima_acao"] = "criar_evento"
+                        ctx["dados_confirmacao_agendamento"] = {
+                            "profissional": profissional,
+                            "servico": servico,
+                            "data_hora": nova_data_hora,
+                            "duracao": estimar_duracao(servico),
+                            "descricao": formatar_descricao_evento(servico, profissional),
+                        }
+
+                    else:
+                        if servico and not profissional:
+                            ctx["estado_fluxo"] = "aguardando_profissional"
+                        elif profissional and not servico:
+                            ctx["estado_fluxo"] = "aguardando_servico"
+                        else:
+                            ctx["estado_fluxo"] = "idle"
+
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        ctx["ultima_acao"] = None
+                        ctx["dados_confirmacao_agendamento"] = None
+  
+                    await salvar_contexto_temporario(user_id, ctx)
 
                     if servico and profissional:
                         return await _send_and_stop(
