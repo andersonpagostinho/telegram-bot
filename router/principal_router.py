@@ -672,6 +672,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
 
+    # 🔥 BLOQUEIO DE SAUDAÇÃO (ANTES DE QUALQUER FLUXO OU GPT)
+    saudacoes_usuario = [
+        "oi", "ola", "olá", "bom dia", "boa tarde", "boa noite",
+        "e ai", "e aí", "eai", "opa", "oie"
+    ]
+
+    if estado_fluxo == "idle" and texto_lower in saudacoes_usuario:
+        return await _send_and_stop(
+            context,
+            user_id,
+            "👋 Olá! Como posso te ajudar hoje?"
+        )
+
     # ✅ 0) Consulta informativa só quando está IDLE (não atrapalha o fluxo de agendamento)
     if estado_fluxo == "idle":
         from services.informacao_service import responder_consulta_informativa
@@ -1918,18 +1931,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
 
-    # 🔥 BLOQUEIO DE SAUDAÇÃO EM ESTADO IDLE
-    if ctx.get("estado_fluxo") == "idle":
-
-        txt = (texto_usuario or "").strip().lower()
-
-        if txt in ["oi", "ola", "olá", "bom dia", "boa tarde", "boa noite"]:
-            return await _send_and_stop(
-                context,
-                user_id,
-                "👋 Olá! Como posso te ajudar hoje?"
-            )
-
     # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
     if ctx.get("estado_fluxo") == "aguardando_horario":
 
@@ -2038,23 +2039,35 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         resposta_texto = montar_resposta_fallback(
             proximo_passo_real,
-            frase_data_legivel
+            frase_data_legivel,
+            ctx
         )
 
         return await _send_and_stop(context, user_id, resposta_texto)
 
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
-    print("🧠 resposta_gpt retornada:", resposta_gpt)
-    print("🧪 [DEPOIS GPT] resposta bruta recebida", flush=True)
-    print("🧠 resposta_gpt retornada:", resposta_gpt, flush=True)
 
-    cumprimentos = ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite", "e aí", "eai", "tudo bem?"]
-    if isinstance(resposta_gpt, dict) and resposta_gpt.get("acao") == "buscar_tarefas_do_usuario" and texto_lower in cumprimentos:
-        resposta_gpt = {"resposta": "Olá! Como posso ajudar?", "acao": None, "dados": {}}
+    # 🔥 BLOQUEIO: se GPT respondeu algo direto, NÃO entra no fluxo
+    if resposta_gpt and resposta_gpt.get("resposta") and not resposta_gpt.get("acao"):
 
-    if not resposta_gpt or not isinstance(resposta_gpt, dict):
-        print("⚠️ Resposta do GPT inválida ou vazia:", resposta_gpt)
-        return await _send_and_stop(context, user_id, "❌ Ocorreu um erro ao interpretar sua mensagem.")
+        texto_resp = (resposta_gpt["resposta"] or "").lower()
+        txt_user = (texto_usuario or "").strip().lower()
+
+        saudacoes_usuario = [
+            "oi", "ola", "olá", "bom dia", "boa tarde", "boa noite",
+            "e ai", "e aí", "eai", "opa", "oie"
+        ]
+
+        if txt_user in saudacoes_usuario and any(
+            s in texto_resp for s in [
+                "olá", "ola", "oi", "posso te ajudar", "como posso te ajudar", "como posso ajudar"
+            ]
+        ):
+            return await _send_and_stop(
+                context,
+                user_id,
+                resposta_gpt["resposta"]
+            )
 
     resposta_texto = resposta_gpt.get("resposta")
     acao = resposta_gpt.get("acao")
