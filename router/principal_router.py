@@ -72,7 +72,7 @@ def resolver_proximo_passo_real(
 
     contexto = contexto or {}
 
-    def tem_hora_real():
+    def tem_hora_real_local():
         if "hora_confirmada" in contexto:
             return contexto.get("hora_confirmada") is True
 
@@ -81,26 +81,39 @@ def resolver_proximo_passo_real(
             return False
 
         try:
-            from datetime import datetime
             dt = datetime.fromisoformat(dt_iso)
             return not (dt.hour == 0 and dt.minute == 0)
         except Exception:
             return False
 
-    if proximo_passo == "coletar_dado_faltante":
+    def tem_data():
+        return bool(slots_extraidos.get("data_hora") or contexto.get("data_hora"))
 
-        if not slots_extraidos.get("servico"):
-            return "perguntar_servico"
+    tem_servico = bool(slots_extraidos.get("servico"))
+    tem_profissional = bool(slots_extraidos.get("profissional"))
+    tem_data_valor = tem_data()
+    tem_hora = tem_hora_real_local()
 
-        elif not tem_hora_real():
-            return "perguntar_data_hora"
+    # 🔥 NOVA LÓGICA CENTRAL (IGNORA proximo_passo antigo)
 
-        elif not slots_extraidos.get("profissional"):
-            return "perguntar_profissional"
+    # 1. Falta serviço → prioridade máxima
+    if not tem_servico:
+        return "perguntar_servico"
 
-        return None
+    # 2. Tem data mas NÃO tem hora → só horário
+    if tem_data_valor and not tem_hora:
+        return "perguntar_somente_horario"
 
-    return proximo_passo
+    # 3. Não tem data nenhuma → pedir data + hora
+    if not tem_data_valor:
+        return "perguntar_data_hora"
+
+    # 4. Falta profissional
+    if not tem_profissional:
+        return "perguntar_profissional"
+
+    # 5. Tudo completo
+    return "confirmar_ou_executar"
 
 def tem_hora_real(dt_iso: str | None) -> bool:
     if not dt_iso:
@@ -116,6 +129,7 @@ def montar_resposta_fallback(
     frase_data_legivel: str,
     contexto: dict | None = None
 ) -> str:
+    contexto = contexto or {}
     comp = f" {frase_data_legivel}" if frase_data_legivel else ""
 
     if proximo_passo_real == "perguntar_servico":
@@ -127,6 +141,9 @@ def montar_resposta_fallback(
     if proximo_passo_real == "perguntar_profissional":
         return "Perfeito. Qual profissional você prefere?"
 
+    if proximo_passo_real == "perguntar_somente_horario":
+        return f"Perfeito{comp}. Qual horário você prefere?" if comp else "Perfeito. Qual horário você prefere?"
+
     if proximo_passo_real == "perguntar_data_hora":
         return f"Perfeito{comp}. Qual dia e horário você prefere?" if comp else "Perfeito. Qual dia e horário você prefere?"
 
@@ -136,12 +153,12 @@ def montar_resposta_fallback(
         and contexto.get("data_hora")
         and not contexto.get("hora_confirmada")
     ):
-
         return (
             f"Perfeito — {contexto['servico']} com {contexto['profissional_escolhido']} "
             f"{frase_data_legivel}. Agora me diga o horário que você prefere."
         )
-        
+
+    return "Perfeito. Me diga como você prefere agendar."        
 
 def eh_consulta(txt: str) -> bool:
     """
@@ -2455,6 +2472,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         elif proximo_passo_real == "perguntar_profissional":
             ctx["estado_fluxo"] = "aguardando_profissional"
+
+        elif proximo_passo_real == "perguntar_somente_horario":
+            ctx["estado_fluxo"] = "aguardando_horario"
 
         elif proximo_passo_real == "perguntar_data_hora":
             ctx["estado_fluxo"] = "aguardando_data"
