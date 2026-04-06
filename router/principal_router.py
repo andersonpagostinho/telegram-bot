@@ -1839,14 +1839,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 await salvar_contexto_temporario(user_id, ctx)
 
-                if servico and not profissional:
+                if servico and not profissional and tem_hora_real(data_final):
                     return await _send_and_stop(
                         context,
                         user_id,
                         f"Perfeito — *{servico}* em *{formatar_data_hora_br(data_final)}*. Qual profissional você prefere?"
                     )
 
-                if profissional and not servico:
+                if profissional and not servico and tem_hora_real(data_final):
                     return await _send_and_stop(
                         context,
                         user_id,
@@ -2088,7 +2088,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # OVERRIDE FORÇADO — caso complexo guiado pelo sistema
     # =========================================================
     if not acao:
-        resposta_texto = montar_resposta_fallback(proximo_passo_real, frase_data_legivel)
+        resposta_texto = montar_resposta_fallback(proximo_passo_real, frase_data_legivel, ctx)
 
     print("🧪 [OVERRIDE] acao=", acao, "proximo_passo=", proximo_passo, "proximo_passo_real=", proximo_passo_real, flush=True)
 
