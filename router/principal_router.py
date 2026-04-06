@@ -92,11 +92,11 @@ def resolver_proximo_passo_real(
         if not slots_extraidos.get("servico"):
             return "perguntar_servico"
 
-        elif not slots_extraidos.get("profissional"):
-            return "perguntar_profissional"
-
         elif not tem_hora_real():
             return "perguntar_data_hora"
+
+        elif not slots_extraidos.get("profissional"):
+            return "perguntar_profissional"
 
         return None
 
