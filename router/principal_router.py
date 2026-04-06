@@ -1981,7 +1981,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
 
-        m = re.match(r"^(?:as\s*)?\s*(\d{1,2})(?::(\d{2}))?\s*$", texto_norm)
+        m = re.search(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
 
         if m:
             hora = int(m.group(1))
