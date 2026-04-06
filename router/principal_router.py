@@ -102,6 +102,14 @@ def resolver_proximo_passo_real(
 
     return proximo_passo
 
+def tem_hora_real(dt_iso: str | None) -> bool:
+    if not dt_iso:
+        return False
+    try:
+        dt = datetime.fromisoformat(dt_iso)
+        return not (dt.hour == 0 and dt.minute == 0)
+    except Exception:
+        return False
 
 def montar_resposta_fallback(
     proximo_passo_real: str | None,
@@ -1898,11 +1906,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         slots_extraidos["profissional"] = draft_tmp.get("profissional")
 
     campos_faltantes = []
+
     if not slots_extraidos["servico"]:
         campos_faltantes.append("servico")
+
     if not slots_extraidos["profissional"]:
         campos_faltantes.append("profissional")
-    if not slots_extraidos["data_hora"]:
+
+    if not tem_hora_real(slots_extraidos["data_hora"]):
         campos_faltantes.append("data_hora")
 
     if campos_faltantes:
@@ -1915,18 +1926,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         else:
             proximo_passo = "coletar_dado_faltante"
     else:
-        # ⚠️ só confirma se tem hora real
-        hora_confirmada = ctx.get("hora_confirmada")
 
-        if hora_confirmada is True:
+        if tem_hora_real(ctx.get("data_hora")):
             proximo_passo = "confirmar_ou_executar"
         else:
             proximo_passo = "coletar_dado_faltante"
 
     proximo_passo_real = resolver_proximo_passo_real(
-    proximo_passo,
-    slots_extraidos,
-    ctx
+        proximo_passo,
+        slots_extraidos,
+        ctx
     )
 
     frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
