@@ -1976,69 +1976,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
 
-    # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
-    if ctx.get("estado_fluxo") == "aguardando_horario":
-
-        texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
-
-        m = re.search(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
-
-        if m:
-            hora = int(m.group(1))
-            minuto = int(m.group(2) or 0)
-
-            data_base = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
-
-            if data_base:
-                base = datetime.fromisoformat(data_base)
-
-                nova_data_hora = base.replace(
-                    hour=hora,
-                    minute=minuto,
-                    second=0,
-                    microsecond=0
-                ).isoformat()
-
-                ctx["data_hora"] = nova_data_hora
-                ctx["hora_confirmada"] = True
-                ctx["estado_fluxo"] = "agendando"
-
-                ctx["aguardando_confirmacao_agendamento"] = True
-
-                ctx["ultima_acao"] = "criar_evento"
-
-                ctx["dados_anteriores"] = {
-                    "profissional": ctx.get("profissional_escolhido"),
-                    "servico": ctx.get("servico"),
-                    "data_hora": nova_data_hora
-                }
-
-                draft = ctx.get("draft_agendamento") or {}
-                draft["data_hora"] = nova_data_hora
-                ctx["draft_agendamento"] = draft
-
-                await salvar_contexto_temporario(user_id, ctx)
-
-                return await _send_and_stop(
-                    context,
-                    user_id,
-                    f"Perfeito — *{ctx.get('servico')}* com *{ctx.get('profissional_escolhido')}* "
-                    f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                    "Posso confirmar esse horário?"
-                )
-
-    payload_resposta = {
-        "slots_extraidos": slots_extraidos,
-        "campos_faltantes": campos_faltantes,
-        "proximo_passo": proximo_passo,
-        "proximo_passo_real": proximo_passo_real,
-        "frase_data_legivel": frase_data_legivel,
-        "nao_inventar_catalogo": True,
-        "nao_prometer_disponibilidade_sem_validar": True,
-        "servicos_permitidos": [],
-        "profissionais_permitidos": [],
-    }
-
     # só lista profissionais quando o serviço já existe
     if slots_extraidos.get("servico"):
         profissionais_validos = []
@@ -2069,6 +2006,87 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "agendando"
     ]:
         print("🧪 [FLOW GUARD] interceptando mensagem no fluxo:", texto_usuario, flush=True)
+
+        # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
+        if ctx.get("estado_fluxo") == "aguardando_horario":
+
+            texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
+
+            m = re.search(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
+
+            if m:
+                hora = int(m.group(1))
+                minuto = int(m.group(2) or 0)
+
+                data_base = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
+
+                if data_base:
+                    base = datetime.fromisoformat(data_base)
+
+                    nova_data_hora = base.replace(
+                        hour=hora,
+                        minute=minuto,
+                        second=0,
+                        microsecond=0
+                    ).isoformat()
+
+                    ctx["data_hora"] = nova_data_hora
+                    ctx["hora_confirmada"] = True
+                    ctx["estado_fluxo"] = "agendando"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+                    ctx["ultima_acao"] = "criar_evento"
+
+                    ctx["dados_anteriores"] = {
+                        "profissional": ctx.get("profissional_escolhido"),
+                        "servico": ctx.get("servico"),
+                        "data_hora": nova_data_hora
+                    }
+
+                    draft = ctx.get("draft_agendamento") or {}
+                    draft["data_hora"] = nova_data_hora
+                    ctx["draft_agendamento"] = draft
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    servico = ctx.get("servico")
+                    profissional = ctx.get("profissional_escolhido")
+
+                    if servico and profissional:
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{servico}* com *{profissional}* "
+                            f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Posso confirmar esse horário?"
+                        )
+
+                    if servico and not profissional:
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{servico}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Qual profissional você prefere?"
+                        )
+
+                    if profissional and not servico:
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Qual serviço você quer fazer?"
+                        )
+
+        payload_resposta = {
+            "slots_extraidos": slots_extraidos,
+            "campos_faltantes": campos_faltantes,
+            "proximo_passo": proximo_passo,
+            "proximo_passo_real": proximo_passo_real,
+            "frase_data_legivel": frase_data_legivel,
+            "nao_inventar_catalogo": True,
+            "nao_prometer_disponibilidade_sem_validar": True,
+            "servicos_permitidos": [],
+            "profissionais_permitidos": [],
+        }
 
         # primeiro tenta responder algo determinístico já existente no fluxo
         if estado_fluxo == "aguardando_profissional":
