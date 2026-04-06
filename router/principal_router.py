@@ -1976,6 +1976,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
 
+    payload_resposta = { 
+        "slots_extraidos": slots_extraidos, 
+        "campos_faltantes": campos_faltantes, 
+        "proximo_passo": proximo_passo, 
+        "proximo_passo_real": proximo_passo_real, 
+        "frase_data_legivel": frase_data_legivel, 
+        "nao_inventar_catalogo": True, 
+        "nao_prometer_disponibilidade_sem_validar": True, 
+        "servicos_permitidos": [], 
+        "profissionais_permitidos": [], 
+    }
+
     # só lista profissionais quando o serviço já existe
     if slots_extraidos.get("servico"):
         profissionais_validos = []
@@ -2075,18 +2087,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
                             "Qual serviço você quer fazer?"
                         )
-
-        payload_resposta = {
-            "slots_extraidos": slots_extraidos,
-            "campos_faltantes": campos_faltantes,
-            "proximo_passo": proximo_passo,
-            "proximo_passo_real": proximo_passo_real,
-            "frase_data_legivel": frase_data_legivel,
-            "nao_inventar_catalogo": True,
-            "nao_prometer_disponibilidade_sem_validar": True,
-            "servicos_permitidos": [],
-            "profissionais_permitidos": [],
-        }
 
         # primeiro tenta responder algo determinístico já existente no fluxo
         if estado_fluxo == "aguardando_profissional":
