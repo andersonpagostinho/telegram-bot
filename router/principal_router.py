@@ -1625,6 +1625,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     escolha_prof = None
     texto_escolha = _limpar_escolha(texto_lower)
+    texto_norm = _norm_nome(texto_lower)
 
     for nome in opcoes:
         nome_norm = _norm_nome(nome)
