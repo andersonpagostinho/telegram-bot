@@ -1627,7 +1627,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     texto_escolha = _limpar_escolha(texto_lower)
 
     for nome in opcoes:
-        if texto_escolha == _norm_nome(nome):
+        nome_norm = _norm_nome(nome)
+
+        # match exato OU palavra isolada
+        if (
+            texto_escolha == nome_norm
+            or re.search(rf"\b{re.escape(nome_norm)}\b", texto_norm)
+        ):
             escolha_prof = nome
             break
 
