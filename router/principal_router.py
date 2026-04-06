@@ -1264,16 +1264,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         servico = draft_local.get("servico") or ctx.get("servico")
 
         ctx["estado_fluxo"] = "consultando"
+
         if data_hora or prof:
             ctx["ultima_consulta"] = {"data_hora": data_hora, "profissional": prof}
 
-        if data_hora and not prof:
+        # 🔥 só pergunta profissional se tiver hora REAL
+        if data_hora and not prof and tem_hora_real(data_hora):
             ctx["estado_fluxo"] = "aguardando_profissional"
+
             if not isinstance(ctx.get("ultima_consulta"), dict):
                 ctx["ultima_consulta"] = {}
+
             ctx["ultima_consulta"]["data_hora"] = data_hora
 
-            ctx["draft_agendamento"] = {"profissional": None, "data_hora": data_hora, "servico": None, "modo_prechecagem": True}
+            ctx["draft_agendamento"] = {
+                "profissional": None,
+                "data_hora": data_hora,
+                "servico": None,
+                "modo_prechecagem": True
+            }
+
             await salvar_contexto_temporario(user_id, ctx)
 
             return await _send_and_stop(
@@ -1282,9 +1292,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 f"Para *{formatar_data_hora_br(data_hora)}*, qual profissional você prefere?"
             )
 
-        if data_hora and prof and not servico:
+        # 🔥 só pergunta serviço se tiver hora REAL
+        if data_hora and prof and not servico and tem_hora_real(data_hora):
             profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
             servs = []
+
             for p in profs_dict.values():
                 if normalizar(p.get("nome", "")) == normalizar(prof):
                     servs = p.get("servicos") or []
@@ -1295,7 +1307,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 sugestao = "\n\nServiços disponíveis:\n- " + "\n- ".join([str(x) for x in servs])
 
             ctx["estado_fluxo"] = "aguardando_servico"
-            ctx["draft_agendamento"] = {"profissional": prof, "data_hora": data_hora, "servico": None, "modo_prechecagem": True}
+
+            ctx["draft_agendamento"] = {
+                "profissional": prof,
+                "data_hora": data_hora,
+                "servico": None,
+                "modo_prechecagem": True
+            }
+
             await salvar_contexto_temporario(user_id, ctx)
 
             return await _send_and_stop(
