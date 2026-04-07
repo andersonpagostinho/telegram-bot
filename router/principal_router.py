@@ -1332,6 +1332,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
 
+    except Exception as e:
+        print("⚠️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)
+
     # =========================================================
     # ✅ (C) Bloqueio de data no passado -> pergunta amanhã mesmo horário
     # =========================================================
