@@ -130,34 +130,156 @@ def montar_resposta_fallback(
     contexto: dict | None = None
 ) -> str:
     contexto = contexto or {}
+
+    servico = contexto.get("servico")
+    profissional = contexto.get("profissional_escolhido")
+    data_hora = contexto.get("data_hora")
+
+    servicos_permitidos = contexto.get("servicos_permitidos") or []
+    profissionais_permitidos = contexto.get("profissionais_permitidos") or []
+
     comp = f" {frase_data_legivel}" if frase_data_legivel else ""
 
+    # =========================================================
+    # 🔹 PERGUNTAR SERVIÇO
+    # =========================================================
     if proximo_passo_real == "perguntar_servico":
-        return (
-            f"Entendi — vamos ver a melhor opção pra você{comp}. 😊\n\n"
-            "Me diz rapidinho: o que você quer fazer no cabelo?"
-        )
 
+        # 👉 se só existe 1 serviço → assume
+        if len(servicos_permitidos) == 1:
+            unico = servicos_permitidos[0]
+
+            partes = []
+
+            if profissional:
+                partes.append(f"com {profissional}")
+
+            if frase_data_legivel:
+                partes.append(frase_data_legivel.strip())
+
+            contexto_str = " ".join(partes)
+
+            if contexto_str:
+                return f"Perfeito — {unico} {contexto_str}. Posso confirmar?"
+            else:
+                return f"Perfeito — {unico}. Posso confirmar?"
+
+        # 👉 se precisa perguntar
+        partes = []
+
+        if profissional:
+            partes.append(f"com {profissional}")
+
+        if frase_data_legivel:
+            partes.append(frase_data_legivel.strip())
+
+        contexto_str = " ".join(partes)
+
+        if contexto_str:
+            return (
+                f"Perfeito — {contexto_str} 😊\n\n"
+                "Qual serviço você deseja?"
+            )
+
+        return "Perfeito 😊\n\nQual serviço você deseja?"
+
+    # =========================================================
+    # 🔹 PERGUNTAR PROFISSIONAL
+    # =========================================================
     if proximo_passo_real == "perguntar_profissional":
+
+        # 👉 se só existe 1 profissional → assume
+        if len(profissionais_permitidos) == 1:
+            unico = profissionais_permitidos[0]
+
+            partes = []
+
+            if servico:
+                partes.append(servico)
+
+            if frase_data_legivel:
+                partes.append(frase_data_legivel.strip())
+
+            contexto_str = " ".join(partes)
+
+            if contexto_str:
+                return f"Perfeito — {contexto_str} com {unico}. Posso confirmar?"
+            else:
+                return f"Perfeito — com {unico}. Posso confirmar?"
+
+        # 👉 se precisa perguntar
+        partes = []
+
+        if servico:
+            partes.append(servico)
+
+        if frase_data_legivel:
+            partes.append(frase_data_legivel.strip())
+
+        contexto_str = " ".join(partes)
+
+        if contexto_str:
+            return f"Perfeito — {contexto_str}. Qual profissional você prefere?"
+
         return "Perfeito. Qual profissional você prefere?"
 
+    # =========================================================
+    # 🔹 PERGUNTAR SOMENTE HORÁRIO
+    # =========================================================
     if proximo_passo_real == "perguntar_somente_horario":
+
+        partes = []
+
+        if servico:
+            partes.append(servico)
+
+        if profissional:
+            partes.append(f"com {profissional}")
+
+        contexto_str = " ".join(partes)
+
+        if contexto_str:
+            return f"Perfeito — {contexto_str}{comp}. Qual horário você prefere?"
+
         return f"Perfeito{comp}. Qual horário você prefere?" if comp else "Perfeito. Qual horário você prefere?"
 
+    # =========================================================
+    # 🔹 PERGUNTAR DATA + HORÁRIO
+    # =========================================================
     if proximo_passo_real == "perguntar_data_hora":
+
+        partes = []
+
+        if servico:
+            partes.append(servico)
+
+        if profissional:
+            partes.append(f"com {profissional}")
+
+        contexto_str = " ".join(partes)
+
+        if contexto_str:
+            return f"Perfeito — {contexto_str}. Qual dia e horário você prefere?"
+
         return f"Perfeito{comp}. Qual dia e horário você prefere?" if comp else "Perfeito. Qual dia e horário você prefere?"
 
+    # =========================================================
+    # 🔹 TEM TUDO, FALTA CONFIRMAR HORÁRIO
+    # =========================================================
     if (
-        contexto.get("servico")
-        and contexto.get("profissional_escolhido")
-        and contexto.get("data_hora")
+        servico
+        and profissional
+        and data_hora
         and not contexto.get("hora_confirmada")
     ):
         return (
-            f"Perfeito — {contexto['servico']} com {contexto['profissional_escolhido']} "
+            f"Perfeito — {servico} com {profissional} "
             f"{frase_data_legivel}. Agora me diga o horário que você prefere."
         )
 
+    # =========================================================
+    # 🔹 FALLBACK FINAL
+    # =========================================================
     return "Perfeito. Me diga como você prefere agendar."        
 
 def eh_consulta(txt: str) -> bool:
