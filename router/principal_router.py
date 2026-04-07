@@ -2369,6 +2369,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                         await salvar_contexto_temporario(user_id, ctx)
 
+                        # 🔥 TRAVA: já consolidou a escolha, então ENCERRA aqui
+                        if servico and profissional:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — *{servico}* com *{profissional}* "
+                                f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Posso confirmar esse horário?"
+                            )
+
                         if servico and profissional:
                             return await _send_and_stop(
                                 context,
