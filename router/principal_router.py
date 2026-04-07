@@ -569,6 +569,15 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                 uniq.append(s2)
         _match_servico(uniq)
 
+    # ---------------- persistir slots textuais explícitos ----------------
+    if prof_detectado:
+        ctx["profissional_escolhido"] = prof_detectado
+        draft["profissional"] = prof_detectado
+
+    if servico_detectado:
+        ctx["servico"] = servico_detectado
+        draft["servico"] = servico_detectado
+
     # ---------------- data/hora ----------------
     dt_detectado = interpretar_data_e_hora(texto)
 
@@ -633,6 +642,15 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
             ctx["data_hora"] = iso
             draft["data_hora"] = iso
+
+            # preserva slots já detectados
+            if prof_detectado:
+                ctx["profissional_escolhido"] = prof_detectado
+                draft["profissional"] = prof_detectado
+
+            if servico_detectado:
+                ctx["servico"] = servico_detectado
+                draft["servico"] = servico_detectado
 
             # 🔥 normaliza e remove duplicados
             horarios = sorted(set(int(h[0]) for h in hora_matches))
