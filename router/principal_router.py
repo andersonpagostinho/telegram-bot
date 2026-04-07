@@ -1557,6 +1557,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
 
         await salvar_contexto_temporario(user_id, ctx)
+  
+    print(
+        f"🧪 [ANTES AG_SERVICO] estado_fluxo={estado_fluxo} | texto={texto_usuario} | "
+        f"ctx_estado={ctx.get('estado_fluxo')} | draft={ctx.get('draft_agendamento')}",
+        flush=True
+    )
 
     # =========================================================
     # ✅ (F) Estado aguardando_servico: captura serviço e fecha automático se completo
@@ -1625,16 +1631,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print(f"🔥 [AG_SERVICO] prof={prof} | data_hora={data_hora} | servico={servico}", flush=True)
 
         if not data_hora:
+            print("🛑 [AG_SERVICO] saiu por falta de data_hora", flush=True)
             ctx["estado_fluxo"] = "aguardando_data"
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Qual dia e horário você prefere?")
 
         if not prof:
+            print("🛑 [AG_SERVICO] saiu por falta de profissional", flush=True)
             ctx["estado_fluxo"] = "aguardando_profissional"
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Qual profissional você prefere?")
 
         if not servico:
+            print("🛑 [AG_SERVICO] saiu por falta de serviço", flush=True)
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Qual serviço vai ser?")
 
