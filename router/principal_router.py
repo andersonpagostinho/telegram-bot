@@ -1670,20 +1670,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 f"Para *{servico}* eu tenho: {lista}.\n"
                 "Qual você prefere?"
             )
-            print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
 
         # 🔥 PRE-CHECAGEM DE CONFLITO (ANTES DE CONFIRMAR)
+        print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
         dt_obj = datetime.fromisoformat(data_hora)
 
         conflito_info = await verificar_conflito_e_sugestoes_profissional(
             user_id=user_id,
             data=dt_obj.strftime("%Y-%m-%d"),
             hora_inicio=dt_obj.strftime("%H:%M"),
-            print("🔥 [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
             duracao_min=estimar_duracao(servico),
             profissional=prof,
             servico=servico
         )
+        print("🔥 [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
 
         # =========================================================
         # ❌ TEM CONFLITO
