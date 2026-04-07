@@ -1246,7 +1246,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # catálogo global de serviços
             servicos_tmp = []
             for p in profs_dict_tmp.values():
-                servicos_tmp.extend([str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()])
+                servicos_tmp.extend(
+                    [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+                )
 
             servicos_tmp = list(dict.fromkeys(servicos_tmp))
             tem_servico_explicito = any(normalizar(s) in tnorm_msg for s in servicos_tmp)
@@ -1257,37 +1259,45 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx.pop("dados_confirmacao_agendamento", None)
             ctx["aguardando_confirmacao_agendamento"] = False
             ctx["ultima_opcao_profissionais"] = []
+  
+            # ⚠️ REGRA CORRETA:
+            # slot novo explícito SOBRESCREVE o antigo
+            # ausência de slot na mensagem NÃO apaga o que já estava no contexto
 
-            # se o slot NÃO foi dito nesta mensagem, não herdar da consulta antiga
+            # Se o usuário trouxe profissional explícito, mas não trouxe serviço novo,
+            # não herdar serviço antigo automaticamente.
             if tem_profissional_expresso and not tem_servico_explicito:
                 ctx.pop("servico", None)
-            if isinstance(ctx.get("draft_agendamento"), dict):
-                ctx["draft_agendamento"].pop("servico", None)
+                if isinstance(ctx.get("draft_agendamento"), dict):
+                    ctx["draft_agendamento"].pop("servico", None)
 
+            # Se o usuário trouxe profissional explícito, mas não trouxe nova data/hora,
+            # não herdar data antiga automaticamente.
             if tem_profissional_expresso and not tem_data_explicitada:
                 ctx.pop("data_hora", None)
                 if isinstance(ctx.get("draft_agendamento"), dict):
                     ctx["draft_agendamento"].pop("data_hora", None)
 
+            # Se o usuário trouxe serviço explícito, mas não trouxe profissional novo,
+            # não herdar profissional antigo automaticamente.
             if tem_servico_explicito and not tem_profissional_expresso:
                 ctx.pop("profissional_escolhido", None)
                 if isinstance(ctx.get("draft_agendamento"), dict):
                     ctx["draft_agendamento"].pop("profissional", None)
 
+            # Se o usuário trouxe serviço explícito, mas não trouxe nova data/hora,
+            # não herdar data antiga automaticamente.
             if tem_servico_explicito and not tem_data_explicitada:
                 ctx.pop("data_hora", None)
                 if isinstance(ctx.get("draft_agendamento"), dict):
                     ctx["draft_agendamento"].pop("data_hora", None)
 
-            if tem_data_explicitada and not tem_profissional_expresso:
-                ctx.pop("profissional_escolhido", None)
-                if isinstance(ctx.get("draft_agendamento"), dict):
-                    ctx["draft_agendamento"].pop("profissional", None)
-
-            if tem_data_explicitada and not tem_servico_explicito:
-                ctx.pop("servico", None)
-                if isinstance(ctx.get("draft_agendamento"), dict):
-                    ctx["draft_agendamento"].pop("servico", None)
+            # ❌ REMOVIDO:
+            # if tem_data_explicitada and not tem_profissional_expresso: apagar profissional
+            # if tem_data_explicitada and not tem_servico_explicito: apagar serviço
+            #
+            # Motivo: quando o usuário responde só horário ("14h", "prefiro 15"),
+            # isso é continuação do fluxo, não novo pedido. Apagar aqui quebra contexto.
 
             # consulta anterior não pode completar pedido novo automaticamente
             if isinstance(ctx.get("ultima_consulta"), dict):
@@ -1300,6 +1310,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         await salvar_contexto_temporario(user_id, ctx)
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
+
     except Exception as e:
         print("⚠️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)
 
