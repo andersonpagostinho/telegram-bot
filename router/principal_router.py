@@ -664,6 +664,8 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
         ctx["ultima_consulta"]["data_hora"] = iso
 
+    return ctx
+
 def _tem_referencia_profissional_indireta(tnorm: str) -> bool:
     gat = [
         "ela", "ele", "dela", "dele", "dessa", "desse", "essa", "esse",
