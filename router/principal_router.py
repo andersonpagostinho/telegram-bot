@@ -1668,6 +1668,51 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "Qual você prefere?"
             )
 
+        # 🔥 PRE-CHECAGEM DE CONFLITO (ANTES DE CONFIRMAR)
+        dt_obj = datetime.fromisoformat(data_hora)
+
+        conflito_info = await verificar_conflito_e_sugestoes_profissional(
+            user_id=user_id,
+            data=dt_obj.strftime("%Y-%m-%d"),
+            hora_inicio=dt_obj.strftime("%H:%M"),
+            duracao_min=estimar_duracao(servico),
+            profissional=prof,
+            servico=servico
+        )
+
+        # =========================================================
+        # ❌ TEM CONFLITO
+        # =========================================================
+        if conflito_info.get("conflito"):
+
+            sugestoes = conflito_info.get("sugestoes") or []
+            alternativo = conflito_info.get("profissional_alternativo")
+
+            # 🔥 salva contexto para continuidade
+            ctx["estado_fluxo"] = "aguardando_horario"
+            ctx["aguardando_confirmacao_agendamento"] = False
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            # monta resposta inteligente
+            msg = f"Esse horário com *{prof}* não está disponível para *{servico}*.\n"
+
+            if sugestoes:
+                horarios_txt = " ou ".join(h.strftime("%H:%M") if hasattr(h, "strftime") else str(h) for h in sugestoes[:3])
+                msg += f"\nTenho {horarios_txt}. Qual prefere?"
+
+            elif alternativo:
+                msg += f"\nPosso te encaixar com *{alternativo}* no mesmo horário. Quer?"
+
+            else:
+                msg += "\nQuer que eu te mostre outros horários?"
+
+            return await _send_and_stop(context, user_id, msg)
+
+        # =========================================================
+        # ✅ SEM CONFLITO → AGORA SIM CONFIRMA
+        # =========================================================
+
         ctx["estado_fluxo"] = "agendando"
 
         ctx["draft_agendamento"] = {
