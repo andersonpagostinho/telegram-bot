@@ -440,6 +440,7 @@ Se existir incerteza sobre serviço, horário ou profissional:
 -> peça somente o dado faltante ou ambíguo
 
 Agora aguarde a mensagem do usuário e responda como NeoEve, sempre em JSON válido.
+"""
 
 EXTRACAO_DADOS_EMAIL = r"""
 Usuário disse: "{mensagem_usuario}"
@@ -476,8 +477,7 @@ Se a intenção do usuário for VER / LER e-mails recebidos, responda no formato
 }
 
 Regras adicionais:
-- Nunca responda apenas "Aqui estão seus e-mails" sem listar os itens..
+- Nunca responda apenas "Aqui estão seus e-mails" sem listar os itens.
 - Nunca use ação inventada.
 - Se não houver dados suficientes para envio, extraia o máximo possível sem inventar.
-"""
 """
