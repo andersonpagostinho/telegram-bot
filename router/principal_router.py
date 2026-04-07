@@ -460,16 +460,28 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     # REGRA CENTRAL: slot explícito novo SOBRESCREVE o antigo
     # =========================================================
 
+    hora_match = re.search(r"\b(\d{1,2})(?::(\d{2}))?\b", texto.lower())
+
     if dt_detectado:
-        if tem_hora_explicita:
-            iso = dt_detectado.replace(second=0, microsecond=0).isoformat()
+        if hora_match:
+            hora = int(hora_match.group(1))
+            minuto = int(hora_match.group(2) or 0)
+
+            dt_final = dt_detectado.replace(
+                hour=hora,
+                minute=minuto,
+                second=0,
+                microsecond=0
+            )
         else:
-            iso = dt_detectado.replace(
+            dt_final = dt_detectado.replace(
                 hour=0,
                 minute=0,
                 second=0,
                 microsecond=0
-            ).isoformat()
+            )
+
+        iso = dt_final.isoformat()
 
         ctx["data_hora"] = iso
         draft["data_hora"] = iso
