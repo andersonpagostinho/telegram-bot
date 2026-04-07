@@ -63,7 +63,6 @@ def montar_frase_data_legivel(data_hora_iso: str | None) -> str:
     except Exception:
         return ""
 
-
 def resolver_proximo_passo_real(
     proximo_passo: str | None,
     slots_extraidos: dict,
@@ -71,6 +70,10 @@ def resolver_proximo_passo_real(
 ) -> str | None:
 
     contexto = contexto or {}
+
+    # 🔥 PRIORIDADE MÁXIMA: se ainda está escolhendo horário, não pula para serviço
+    if contexto.get("estado_fluxo") == "aguardando_escolha_horario":
+        return None
 
     def tem_hora_real_local():
         if "hora_confirmada" in contexto:
@@ -89,28 +92,28 @@ def resolver_proximo_passo_real(
     def tem_data():
         return bool(slots_extraidos.get("data_hora") or contexto.get("data_hora"))
 
-    tem_servico = bool(slots_extraidos.get("servico"))
-    tem_profissional = bool(slots_extraidos.get("profissional"))
+    tem_servico = bool(slots_extraidos.get("servico") or contexto.get("servico"))
+    tem_profissional = bool(slots_extraidos.get("profissional") or contexto.get("profissional_escolhido"))
     tem_data_valor = tem_data()
     tem_hora = tem_hora_real_local()
 
     # 🔥 NOVA LÓGICA CENTRAL (IGNORA proximo_passo antigo)
 
-    # 1. Falta serviço → prioridade máxima
-    if not tem_servico:
-        return "perguntar_servico"
-
-    # 2. Tem data mas NÃO tem hora → só horário
+    # 1. Tem data mas NÃO tem hora → só horário
     if tem_data_valor and not tem_hora:
         return "perguntar_somente_horario"
 
-    # 3. Não tem data nenhuma → pedir data + hora
+    # 2. Não tem data nenhuma → pedir data + hora
     if not tem_data_valor:
         return "perguntar_data_hora"
 
-    # 4. Falta profissional
+    # 3. Falta profissional
     if not tem_profissional:
         return "perguntar_profissional"
+
+    # 4. Falta serviço
+    if not tem_servico:
+        return "perguntar_servico"
 
     # 5. Tudo completo
     return "confirmar_ou_executar"
@@ -1328,6 +1331,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         await salvar_contexto_temporario(user_id, ctx)
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
+
+        # =========================================================
+        # 🔥 PRIORIDADE MÁXIMA: escolha de horário
+        # =========================================================
+        if ctx.get("estado_fluxo") == "aguardando_escolha_horario":
+            horarios = ctx.get("horarios_sugeridos") or []
+
+            if len(horarios) >= 2:
+                opcoes = " ou ".join(f"{h}h" for h in horarios)
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Perfeito — você prefere {opcoes}?"
+                )
 
     except Exception as e:
         print("⚠️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)
