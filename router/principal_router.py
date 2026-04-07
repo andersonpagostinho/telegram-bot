@@ -517,6 +517,11 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     - não herda profissional/serviço/data_hora antigos quando a mensagem nova
       já trouxe novos slots claros.
     """
+    # 🔥 blindagem obrigatória
+    if not isinstance(ctx, dict):
+        print(f"⚠️ [extrair_slots_e_mesclar] ctx inválido recebido: {ctx}", flush=True)
+        ctx = {}
+    
     texto = (texto_usuario or "").strip()
     tnorm = normalizar(texto)
     draft = ctx.get("draft_agendamento") or {}
@@ -2101,6 +2106,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     
     ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+
+    # 🔥 PROTEÇÃO CRÍTICA
+    if not isinstance(ctx, dict):
+        print(f"🚨 [roteador_principal] extrair_slots_e_mesclar retornou inválido: {ctx}", flush=True)
+        ctx = {}
 
     print("🧪 [SLOTS CENTRALIZADOS] ctx=", ctx, flush=True)
 
