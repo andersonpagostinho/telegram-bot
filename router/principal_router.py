@@ -2255,13 +2255,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
 
-            m = re.search(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
-
             horarios_sugeridos = ctx.get("horarios_sugeridos") or []
 
-            if m:
-                hora = int(m.group(1))
-                minuto = int(m.group(2) or 0)
+            matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
+
+            # só considera escolha se o usuário respondeu com UM único horário
+            if len(matches) == 1:
+                hora = int(matches[0][0])
+                minuto = int(matches[0][1] or 0)
 
                 # 🔥 valida se está dentro das opções
                 if hora in horarios_sugeridos:
