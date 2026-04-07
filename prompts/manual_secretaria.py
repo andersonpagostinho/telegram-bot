@@ -440,4 +440,44 @@ Se existir incerteza sobre serviço, horário ou profissional:
 -> peça somente o dado faltante ou ambíguo
 
 Agora aguarde a mensagem do usuário e responda como NeoEve, sempre em JSON válido.
+
+EXTRACAO_DADOS_EMAIL = r"""
+Usuário disse: "{mensagem_usuario}"
+
+Seu papel é extrair informações úteis para envio ou leitura de e-mails.
+
+Responda SEMPRE em JSON válido.
+
+Se o objetivo for enviar e-mail, extraia:
+- nome_detectado
+- email_detectado
+- assunto_detectado
+- corpo_detectado
+
+Formato:
+{
+  "nome_detectado": "",
+  "email_detectado": "",
+  "assunto_detectado": "",
+  "corpo_detectado": ""
+}
+
+Regras:
+- Se não souber algum campo, deixe vazio.
+- Nunca invente e-mail.
+- Nunca escreva fora do JSON.
+
+Se a intenção do usuário for VER / LER e-mails recebidos, responda no formato:
+
+{
+  "resposta": "Aqui estão os e-mails recebidos:\n- ...",
+  "acao": null,
+  "dados": {}
+}
+
+Regras adicionais:
+- Nunca responda apenas “Aqui estão seus e-mails” sem listar os itens.
+- Nunca use ação inventada.
+- Se não houver dados suficientes para envio, extraia o máximo possível sem inventar.
+"""
 """
