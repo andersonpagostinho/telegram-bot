@@ -664,6 +664,10 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
         ctx["ultima_consulta"]["data_hora"] = iso
 
+    # 🔥 persistir draft no contexto
+    if draft:
+        ctx["draft_agendamento"] = draft
+
     return ctx
 
 def _tem_referencia_profissional_indireta(tnorm: str) -> bool:
