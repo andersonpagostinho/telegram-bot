@@ -2522,6 +2522,53 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx
         )
 
+        # =========================================================
+        # 🔥 PRÉ-CHECAGEM GLOBAL (quando trio completo)
+        # =========================================================
+        prof = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
+        data_hora = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
+        servico = ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico")
+
+        # fallback importante quando o usuário acabou de mandar só o serviço
+        if not servico and ctx.get("estado_fluxo") == "aguardando_servico":
+            servico = texto_usuario.strip().lower()
+            ctx["servico"] = servico
+            draft = ctx.get("draft_agendamento") or {}
+            draft["servico"] = servico
+            ctx["draft_agendamento"] = draft
+
+        if prof and data_hora and servico:
+            print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
+
+            dt_obj = datetime.fromisoformat(data_hora)
+
+            conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                user_id=user_id,
+                data=dt_obj.strftime("%Y-%m-%d"),
+                hora_inicio=dt_obj.strftime("%H:%M"),
+                duracao_min=estimar_duracao(servico),
+                profissional=prof,
+                servico=servico
+            )
+
+            print("🔥 [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
+
+            if conflito_info.get("conflito"):
+                sugestoes = conflito_info.get("sugestoes") or []
+                alternativo = conflito_info.get("profissional_alternativo")
+
+                msg = f"Esse horário com *{prof}* não está disponível para *{servico}*."
+
+                if sugestoes:
+                    opcoes = " ou ".join(str(s) for s in sugestoes[:3])
+                    msg += f"\n\nTenho {opcoes}. Qual prefere?"
+                elif alternativo:
+                    msg += f"\n\nPosso te encaixar com *{alternativo}* no mesmo horário. Quer?"
+                else:
+                    msg += "\n\nQuer que eu te mostre outros horários?"
+
+                return await _send_and_stop(context, user_id, msg)
+
         return await _send_and_stop(context, user_id, resposta_texto)
 
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
