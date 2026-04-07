@@ -1563,6 +1563,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     if estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
         draft_local = ctx.get("draft_agendamento") or {}
+        print(f"🔥 [AG_SERVICO] entrou no bloco | texto={texto_usuario} | estado={estado_fluxo}", flush=True)
 
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
         nomes_profs = [str(p.get("nome", "")).strip() for p in profs_dict.values() if p.get("nome")]
@@ -1615,11 +1616,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if servico_detectado:
             draft_local["servico"] = servico_detectado
             ctx["servico"] = servico_detectado
+            print(f"🔥 [AG_SERVICO] servico_detectado={servico_detectado}", flush=True)
             ctx["draft_agendamento"] = draft_local
 
         prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         data_hora = draft_local.get("data_hora") or ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         servico = draft_local.get("servico") or ctx.get("servico")
+        print(f"🔥 [AG_SERVICO] prof={prof} | data_hora={data_hora} | servico={servico}", flush=True)
 
         if not data_hora:
             ctx["estado_fluxo"] = "aguardando_data"
@@ -1667,6 +1670,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 f"Para *{servico}* eu tenho: {lista}.\n"
                 "Qual você prefere?"
             )
+            print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
 
         # 🔥 PRE-CHECAGEM DE CONFLITO (ANTES DE CONFIRMAR)
         dt_obj = datetime.fromisoformat(data_hora)
@@ -1675,6 +1679,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             user_id=user_id,
             data=dt_obj.strftime("%Y-%m-%d"),
             hora_inicio=dt_obj.strftime("%H:%M"),
+            print("🔥 [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
             duracao_min=estimar_duracao(servico),
             profissional=prof,
             servico=servico
@@ -2522,54 +2527,59 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx
         )
 
-        # =========================================================
-        # 🔥 PRÉ-CHECAGEM GLOBAL (quando trio completo)
-        # =========================================================
-        prof = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
-        data_hora = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
-        servico = ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico")
+        # NÃO rodar se ainda está coletando serviço
+        if ctx.get("estado_fluxo") == "aguardando_servico":
+            pass  # deixa o bloco específico tratar
 
-        # fallback importante quando o usuário acabou de mandar só o serviço
-        if not servico and ctx.get("estado_fluxo") == "aguardando_servico":
-            servico = texto_usuario.strip().lower()
-            ctx["servico"] = servico
-            draft = ctx.get("draft_agendamento") or {}
-            draft["servico"] = servico
-            ctx["draft_agendamento"] = draft
+        else:
+            # =========================================================
+            # 🔥 PRÉ-CHECAGEM GLOBAL (quando trio completo)
+            # =========================================================
+            prof = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
+            data_hora = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
+            servico = ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico")
 
-        if prof and data_hora and servico:
-            print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
+            # fallback importante quando o usuário acabou de mandar só o serviço
+            if not servico and ctx.get("estado_fluxo") == "aguardando_servico":
+                servico = texto_usuario.strip().lower()
+                ctx["servico"] = servico
+                draft = ctx.get("draft_agendamento") or {}
+                draft["servico"] = servico
+                ctx["draft_agendamento"] = draft
 
-            dt_obj = datetime.fromisoformat(data_hora)
+            if prof and data_hora and servico:
+                print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
 
-            conflito_info = await verificar_conflito_e_sugestoes_profissional(
-                user_id=user_id,
-                data=dt_obj.strftime("%Y-%m-%d"),
-                hora_inicio=dt_obj.strftime("%H:%M"),
-                duracao_min=estimar_duracao(servico),
-                profissional=prof,
-                servico=servico
-            )
+                dt_obj = datetime.fromisoformat(data_hora)
 
-            print("🔥 [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
+                conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=user_id,
+                    data=dt_obj.strftime("%Y-%m-%d"),
+                    hora_inicio=dt_obj.strftime("%H:%M"),
+                    duracao_min=estimar_duracao(servico),
+                    profissional=prof,
+                    servico=servico
+                )
 
-            if conflito_info.get("conflito"):
-                sugestoes = conflito_info.get("sugestoes") or []
-                alternativo = conflito_info.get("profissional_alternativo")
+                print("🔥 [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
 
-                msg = f"Esse horário com *{prof}* não está disponível para *{servico}*."
+                if conflito_info.get("conflito"):
+                    sugestoes = conflito_info.get("sugestoes") or []
+                    alternativo = conflito_info.get("profissional_alternativo")
 
-                if sugestoes:
-                    opcoes = " ou ".join(str(s) for s in sugestoes[:3])
-                    msg += f"\n\nTenho {opcoes}. Qual prefere?"
-                elif alternativo:
-                    msg += f"\n\nPosso te encaixar com *{alternativo}* no mesmo horário. Quer?"
-                else:
-                    msg += "\n\nQuer que eu te mostre outros horários?"
+                    msg = f"Esse horário com *{prof}* não está disponível para *{servico}*."
 
-                return await _send_and_stop(context, user_id, msg)
+                    if sugestoes:
+                        opcoes = " ou ".join(str(s) for s in sugestoes[:3])
+                        msg += f"\n\nTenho {opcoes}. Qual prefere?"
+                    elif alternativo:
+                        msg += f"\n\nPosso te encaixar com *{alternativo}* no mesmo horário. Quer?"
+                    else:
+                        msg += "\n\nQuer que eu te mostre outros horários?"
 
-        return await _send_and_stop(context, user_id, resposta_texto)
+                    return await _send_and_stop(context, user_id, msg)
+
+            return await _send_and_stop(context, user_id, resposta_texto)
 
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
 
