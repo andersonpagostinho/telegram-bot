@@ -1332,26 +1332,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
 
-        # =========================================================
-        # 🔥 PRIORIDADE MÁXIMA: escolha de horário
-        # =========================================================
-        if ctx.get("estado_fluxo") == "aguardando_escolha_horario":
-            horarios = ctx.get("horarios_sugeridos") or []
-
-            if len(horarios) >= 2:
-                opcoes = " ou ".join(f"{h}h" for h in horarios)
-
-                await salvar_contexto_temporario(user_id, ctx)
-
-                return await _send_and_stop(
-                    context,
-                    user_id,
-                    f"Perfeito — você prefere {opcoes}?"
-                )
-
-    except Exception as e:
-        print("⚠️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)
-
     # =========================================================
     # ✅ (C) Bloqueio de data no passado -> pergunta amanhã mesmo horário
     # =========================================================
