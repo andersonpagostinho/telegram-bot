@@ -6,6 +6,7 @@ from utils.contexto_temporario import salvar_contexto_temporario, carregar_conte
 from utils.context_manager import atualizar_contexto  # apenas histórico user/bot
 from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
+from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 
