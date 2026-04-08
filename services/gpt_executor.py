@@ -125,6 +125,68 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             await update.message.reply_text(f"{resposta}\n\n{texto_tarefas}", parse_mode="Markdown")
             return True
 
+        elif acao == "pre_confirmar_agendamento":
+
+            user_id = _obter_user_id(update, context)
+
+            if not user_id:
+                await update.message.reply_text("⚠️ Não consegui identificar o usuário.")
+                return True
+
+            prof = (dados or {}).get("profissional")
+            servico = (dados or {}).get("servico")
+            data_hora = (dados or {}).get("data_hora")
+
+            if not (prof and servico and data_hora):
+                await update.message.reply_text("Faltaram dados para confirmar o agendamento.")
+                return True
+
+            # 🔥 VERIFICAR CONFLITO
+            data = data_hora.split("T")[0]
+            hora = data_hora.split("T")[1][:5]
+            duracao = estimar_duracao(servico)
+
+            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+
+            resultado = await verificar_conflito_e_sugestoes_profissional(
+                user_id=user_id,
+                data=data,
+                hora_inicio=hora,
+                duracao_min=duracao,
+                profissional=prof,
+                servico=servico
+            )
+
+            # 🚨 CONFLITO
+            if resultado.get("conflito"):
+
+                sugestoes = resultado.get("sugestoes") or []
+                sugestoes_formatadas = "\n".join(f"• {s}" for s in sugestoes)
+
+                await update.message.reply_text(
+                    (
+                        f"⛔ A *{prof}* já tem atendimento às *{hora}*.\n\n"
+                        f"✅ Horários disponíveis:\n"
+                        f"{(sugestoes_formatadas or 'Sem sugestões disponíveis.')}\n\n"
+                        f"Deseja outro horário?"
+                    ),
+                    parse_mode="Markdown"
+                )
+
+                return True
+
+            # ✅ SEM CONFLITO → CONFIRMAÇÃO
+            await update.message.reply_text(
+                (
+                    f"✨ *{servico.capitalize()} com {prof}*\n"
+                    f"📆 {data_hora}\n\n"
+                    f"Posso confirmar?"
+                ),
+                parse_mode="Markdown"
+            )
+
+            return True
+
         elif acao == "criar_evento":
             # ✅ GATE: valida profissional vs serviço antes de agendar
             user_id = _obter_user_id(update, context)

@@ -2684,72 +2684,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "Entendi parte do agendamento, mas faltaram dados. Me diga novamente profissional, serviço e horário."
             )
 
-    elif acao == "pre_confirmar_agendamento":
+    if (
+        slots_extraidos.get("data_hora")
+        and slots_extraidos.get("servico")
+        and slots_extraidos.get("profissional")
+    ):
+        print("🔥 [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
 
-        user_id = _obter_user_id(update, context)
-
-        if not user_id:
-            await update.message.reply_text("⚠️ Não consegui identificar o usuário.")
-            return True
-
-        prof = (dados or {}).get("profissional")
-        servico = (dados or {}).get("servico")
-        data_hora = (dados or {}).get("data_hora")
-
-        if not (prof and servico and data_hora):
-            await update.message.reply_text("Faltaram dados para confirmar o agendamento.")
-            return True
-
-        # =========================================================
-        # 🔥 VERIFICAR CONFLITO
-        # =========================================================
-        data = data_hora.split("T")[0]
-        hora = data_hora.split("T")[1][:5]
-        duracao = estimar_duracao(servico)
-
-        resultado = await verificar_conflito_e_sugestoes_profissional(
-            user_id=user_id,
-            data=data,
-            hora_inicio=hora,
-            duracao_min=duracao,
-            profissional=prof,
-            servico=servico
+        return await executar_acao_gpt(
+            update,
+            context,
+            "pre_confirmar_agendamento",
+            {
+                "data_hora": slots_extraidos["data_hora"],
+                "servico": slots_extraidos["servico"],
+                "profissional": slots_extraidos["profissional"]
+            }
         )
-
-        # =========================================================
-        # 🚨 CONFLITO
-        # =========================================================
-        if resultado.get("conflito"):
-
-            sugestoes = resultado.get("sugestoes") or []
-            sugestoes_formatadas = "\n".join(f"• {s}" for s in sugestoes)
-
-            await update.message.reply_text(
-                (
-                    f"⛔ A *{prof}* já tem atendimento às *{hora}*.\n\n"
-                    f"✅ Horários disponíveis:\n"
-                    f"{(sugestoes_formatadas or 'Sem sugestões disponíveis.')}\n\n"
-                    f"Deseja outro horário?"
-                ),
-                parse_mode="Markdown"
-            )
-
-            return True
-
-        # =========================================================
-        # ✅ SEM CONFLITO → CONFIRMAÇÃO
-        # =========================================================
-
-        await update.message.reply_text(
-            (
-                f"✨ *{servico.capitalize()} com {prof}*\n"
-                f"📆 {data_hora}\n\n"
-                f"Posso confirmar?"
-            ),
-            parse_mode="Markdown"
-        )
-
-        return True
 
     # ✅ REGRA DE OURO FINAL:
     # Só permite ação mutável quando houver:
