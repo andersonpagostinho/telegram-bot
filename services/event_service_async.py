@@ -738,6 +738,20 @@ async def tentar_split_simples(
 
     return None
 
+def verificar_encaixe_exato(inicio_novo, ocupados, duracao_min):
+    fim_novo = inicio_novo + timedelta(minutes=duracao_min)
+
+    for ev in ocupados:
+        ev_ini, ev_fim = _parse_event_interval(ev)
+
+        if not ev_ini or not ev_fim:
+            continue
+
+        # se qualquer evento intercepta o intervalo, não cabe
+        if inicio_novo < ev_fim and fim_novo > ev_ini:
+            return False
+
+    return True
 
 async def verificar_conflito_e_sugestoes_profissional(
     user_id: str,
@@ -833,7 +847,8 @@ async def verificar_conflito_e_sugestoes_profissional(
 
         ocupados.append((ev_ini, ev_fim))
 
-    conflito = any(inicio_novo < f and fim_novo > i for i, f in ocupados)
+    cabe = verificar_encaixe_exato(inicio_novo, ocupados, duracao_min)
+    conflito = not cabe
 
     # 🔥 SPLIT: somente se houver conflito e servico vier como lista com 2 itens
     if conflito and isinstance(servico, list) and len(servico) == 2:
@@ -854,10 +869,20 @@ async def verificar_conflito_e_sugestoes_profissional(
                 "profissional_alternativo": None,
             }
 
-    # 5) Sugestões (fallback normal)
+    # 5) 🔥 NOVO — verificar encaixe real
+    cabe = verificar_encaixe_exato(inicio_novo, ocupados, duracao_min)
+
+    if cabe:
+        return {
+            "conflito": False,
+            "sugestoes": [],
+            "profissional_alternativo": None
+        }
+
+    # 6) Sugestões (fallback normal)
     sugestoes = gerar_sugestoes_de_horario(inicio_novo, ocupados, duracao_min)
 
-    # 6) Profissional alternativo (apenas quando servico é string)
+    # 7) Profissional alternativo (apenas quando servico é string)
     alternativo = None
     if isinstance(servico, str) and servico.strip():
         servico_norm = (servico or "").strip().lower()
@@ -874,6 +899,7 @@ async def verificar_conflito_e_sugestoes_profissional(
                 continue
 
             conflitos_alt = False
+
             for eid, ev in eventos.items():
                 if event_id and eid == event_id:
                     continue
@@ -882,18 +908,23 @@ async def verificar_conflito_e_sugestoes_profissional(
                 if status == "cancelado":
                     continue
 
-            ev_prof = unidecode(str(ev.get("profissional", "")).strip().lower())
-            if ev_prof != nome_alt_norm:
-                continue
+                ev_prof = unidecode(str(ev.get("profissional", "")).strip().lower())
+                if ev_prof != nome_alt_norm:
+                    continue
 
-            ev_ini, ev_fim = _parse_event_interval(ev)
-            if not ev_ini or not ev_fim:
-                continue
-            if ev_ini.date() != inicio_novo.date():
-                continue
+                ev_ini, ev_fim = _parse_event_interval(ev)
+                if not ev_ini or not ev_fim:
+                    continue
 
-            if inicio_novo < ev_fim and fim_novo > ev_ini:
-                conflitos_alt = True
+                if ev_ini.date() != inicio_novo.date():
+                    continue
+
+                if inicio_novo < ev_fim and fim_novo > ev_ini:
+                    conflitos_alt = True
+                    break
+
+            if not conflitos_alt:
+                alternativo = nome_alt
                 break
 
     print(
