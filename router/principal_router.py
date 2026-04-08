@@ -1703,24 +1703,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             sugestoes = conflito_info.get("sugestoes") or []
             alternativo = conflito_info.get("profissional_alternativo")
 
-            # 🔥 salva contexto para continuidade
-            ctx["estado_fluxo"] = "aguardando_horario"
-            ctx["aguardando_confirmacao_agendamento"] = False
+            # 🔥 horário original
+            hora_original = datetime.fromisoformat(data_hora).strftime("%H:%M")
 
-            await salvar_contexto_temporario(user_id, ctx)
+            msg = f"⛔ A *{prof}* já tem atendimento às *{hora_original}*.\n"
 
-            # monta resposta inteligente
-            msg = f"Esse horário com *{prof}* não está disponível para *{servico}*.\n"
-
+            # 🔥 horários alternativos
             if sugestoes:
-                horarios_txt = " ou ".join(h.strftime("%H:%M") if hasattr(h, "strftime") else str(h) for h in sugestoes[:3])
-                msg += f"\nTenho {horarios_txt}. Qual prefere?"
+                msg += f"\n✅ Estes horários estão livres com *{prof}*:\n"
+                for h in sugestoes[:3]:
+                    if hasattr(h, "strftime"):
+                        h = h.strftime("%H:%M")
+                    msg += f"🔄 {h}\n"
 
-            elif alternativo:
-                msg += f"\nPosso te encaixar com *{alternativo}* no mesmo horário. Quer?"
+            # 🔥 profissional alternativo
+            if alternativo:
+                msg += f"\n💡 Se quiser manter *{hora_original}*, posso te encaixar com *{alternativo}*.\n"
 
-            else:
-                msg += "\nQuer que eu te mostre outros horários?"
+            msg += "\nVocê prefere outro horário ou manter o horário com outro profissional?"
 
             return await _send_and_stop(context, user_id, msg)
 
