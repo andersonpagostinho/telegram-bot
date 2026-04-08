@@ -351,10 +351,12 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         return False
 
     except Exception as e:
-        print(f"❌ Erro em executar_acao_gpt: {e}")
+        import traceback
+        print("❌ ERRO DETALHADO em executar_acao_gpt:")
+        traceback.print_exc()
         try:
             if getattr(update, "message", None):
-                await update.message.reply_text("❌ Ocorreu um erro ao executar a ação.")
+                await update.message.reply_text(f"❌ Erro interno: {e}")
         except Exception:
             pass
         return True
