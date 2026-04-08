@@ -2543,6 +2543,33 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         
             return await _send_and_stop(context, user_id, resposta_texto)
 
+        # =========================================================
+        # 🔥 P0 — EXECUÇÃO DIRETA (SEM GPT)
+        # =========================================================
+
+        if (
+            slots_extraidos.get("data_hora")
+            and slots_extraidos.get("servico")
+            and slots_extraidos.get("profissional")
+        ):
+            print("🔥 [P0] EXECUÇÃO DIRETA — SEM GPT", flush=True)
+
+            return await executar_acao_gpt(
+                update,
+                context,
+                "criar_evento",
+                {
+                    "data_hora": slots_extraidos["data_hora"],
+                    "servico": slots_extraidos["servico"],
+                    "profissional": slots_extraidos["profissional"],
+                    "descricao": formatar_descricao_evento(
+                        slots_extraidos["servico"],
+                        slots_extraidos["profissional"]
+                    ),
+                    "duracao": estimar_duracao(slots_extraidos["servico"])
+                }
+            )
+ 
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
 
     # 🔥 BLOQUEIO: se GPT respondeu algo direto, NÃO entra no fluxo
