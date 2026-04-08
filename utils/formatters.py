@@ -69,8 +69,9 @@ def gerar_sugestoes_de_horario(
         passo_minutos: int = 10
 ) -> list:
     """
-    Gera sugestões reais de horários disponíveis.
-    Permite encaixes inteligentes na agenda.
+    Agenda inteligente P1 (NeoEve):
+    - Fase 1: preenche manhã → tarde (até ~70%)
+    - Fase 2: encaixe fino para otimizar ocupação
     """
 
     duracao = timedelta(minutes=duracao_evento_minutos)
@@ -78,116 +79,117 @@ def gerar_sugestoes_de_horario(
 
     blocos_livres = _calcular_blocos_livres(inicio_base, ocupados)
 
+    # =========================
+    # 📊 CALCULAR OCUPAÇÃO
+    # =========================
+    inicio_dia = datetime.combine(inicio_base.date(), time(8, 0))
+    fim_dia = datetime.combine(inicio_base.date(), time(18, 0))
+
+    total_dia = (fim_dia - inicio_dia).total_seconds()
+
+    ocupado_total = 0
+    for ini, fim in ocupados:
+        if ini and fim:
+            ocupado_total += (fim - ini).total_seconds()
+
+    ocupacao_ratio = ocupado_total / total_dia if total_dia else 0
+
+    # =========================
+    # GERAR CANDIDATOS
+    # =========================
     candidatos = []
 
     for livre_inicio, livre_fim in blocos_livres:
-
         cursor = livre_inicio
 
         while cursor + duracao <= livre_fim:
-
-            candidatos.append(cursor)
-
+            if cursor != inicio_base:
+                candidatos.append(cursor)
             cursor += passo
 
     if not candidatos:
         return []
 
-    # remove horário original exato
-    candidatos = [c for c in candidatos if c != inicio_base]
-
-    # ordena pela proximidade do horário solicitado
-    candidatos.sort(key=lambda x: abs((x - inicio_base).total_seconds()))
-
-    sugestoes = []
-
-    for horario in candidatos[:max_sugestoes]:
-
-        inicio = horario.strftime("%H:%M")
-        fim = (horario + duracao).strftime("%H:%M")
-
-        sugestoes.append(f"{inicio} - {fim}")
-
-    return sugestoes
-
-
-# =========================================================
-# FORMATADORES DE MENSAGEM
-# =========================================================
-
-def formatar_lista_emails(emails):
-    if not emails:
-        return "Nenhum e-mail encontrado."
-
-    return "\n\n".join(
-        f"📩 *{e.get('remetente', 'Desconhecido')}*\n"
-        f"✉️ {e.get('assunto', 'Sem assunto')}\n"
-        f"⚡ Prioridade: {e.get('prioridade', 'baixa')}\n"
-        f"🔗 {e.get('link', 'Sem link')}"
-        for e in emails
+    ocupados_ordenados = sorted(
+        [(ini, fim) for ini, fim in ocupados if ini and fim and fim > ini],
+        key=lambda x: x[0]
     )
 
+    # =========================
+    # SCORE INTELIGENTE
+    # =========================
+    def score_slot(horario: datetime):
+        fim_slot = horario + duracao
 
-def _formatar_data_br(data_str: str) -> str:
-    """Converte '2025-11-04' para '04/11/2025' se der, senão devolve original."""
-    try:
-        return datetime.strptime(data_str, "%Y-%m-%d").strftime("%d/%m/%Y")
-    except Exception:
-        return data_str or "-"
+        evento_anterior_fim = None
+        proximo_evento_inicio = None
 
+        for ev_ini, ev_fim in ocupados_ordenados:
+            if ev_fim <= horario:
+                evento_anterior_fim = ev_fim
+            elif ev_ini >= fim_slot:
+                proximo_evento_inicio = ev_ini
+                break
 
-def _status_evento_humano(status: str | None) -> str:
-    status = (status or "").lower()
-    if status == "confirmado":
-        return "✅ Confirmado"
-    if status == "cancelado":
-        return "❌ Cancelado"
-    return "⏳ Pendente"
+        gap_antes = None
+        gap_depois = None
 
+        if evento_anterior_fim:
+            gap_antes = int((horario - evento_anterior_fim).total_seconds() // 60)
 
-def formatar_eventos_telegram(eventos: list[dict]) -> str:
-    """
-    Formata lista de eventos vinda do Firestore para uma mensagem legível
-    no Telegram e no WhatsApp.
-    """
+        if proximo_evento_inicio:
+            gap_depois = int((proximo_evento_inicio - fim_slot).total_seconds() // 60)
 
-    if not eventos:
-        return "📅 Você não tem eventos agendados."
+        desperdicio = 0
+        if gap_antes and gap_antes > 0:
+            desperdicio += gap_antes
+        if gap_depois and gap_depois > 0:
+            desperdicio += gap_depois
 
-    linhas = ["📅 *Seus eventos:*"]
+        distancia = abs(int((horario - inicio_base).total_seconds() // 60))
 
-    for i, ev in enumerate(eventos, start=1):
+        # =========================
+        # 🔥 FASE 1 — BAIXA OCUPAÇÃO
+        # =========================
+        if ocupacao_ratio < 0.7:
+            return (
+                desperdicio,     # minimizar buraco
+                horario,         # MAIS CEDO = prioridade
+                distancia        # depois proximidade
+            )
 
-        data = ev.get("data") or ev.get("Data")
+        # =========================
+        # 🔥 FASE 2 — ALTA OCUPAÇÃO
+        # =========================
+        else:
+            encosta = 0
+            if gap_antes == 0:
+                encosta += 1
+            if gap_depois == 0:
+                encosta += 1
 
-        hora_inicio = (
-                ev.get("hora_inicio")
-                or ev.get("horainicio")
-                or ev.get("horaInicio")
-                or "-"
-        )
+            return (
+                -encosta,        # colar nos eventos
+                desperdicio,
+                distancia,
+                horario
+            )
 
-        hora_fim = (
-                ev.get("hora_fim")
-                or ev.get("horafim")
-                or ev.get("horaFim")
-                or "-"
-        )
+    candidatos_ordenados = sorted(candidatos, key=score_slot)
 
-        descricao = ev.get("descricao") or ev.get("titulo") or "Evento"
+    sugestoes = []
+    vistos = set()
 
-        profissional = ev.get("profissional") or ev.get("prof") or "-"
+    for horario in candidatos_ordenados:
+        inicio = horario.strftime("%H:%M")
+        fim = (horario + duracao).strftime("%H:%M")
+        faixa = f"{inicio} - {fim}"
 
-        status = ev.get("status")
+        if faixa not in vistos:
+            vistos.add(faixa)
+            sugestoes.append(faixa)
 
-        data_fmt = _formatar_data_br(data)
-        status_fmt = _status_evento_humano(status)
+        if len(sugestoes) >= max_sugestoes:
+            break
 
-        linhas.append(
-            f"{i}. *{data_fmt}* ({hora_inicio}–{hora_fim})\n"
-            f"   • {descricao}\n"
-            f"   • Profissional: {profissional}\n"
-            f"   • Status: {status_fmt}"
-        )
-
-    return "\n".join(linhas)
+    return sugestoes
