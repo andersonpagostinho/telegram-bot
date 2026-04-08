@@ -14,6 +14,7 @@ from handlers.perfil_handler import meu_plano
 from utils.plan_utils import verificar_pagamento, verificar_acesso_modulo
 from utils.tts_utils import responder_em_audio
 from utils.context_manager import carregar_contexto_temporario  # ✅ necessário para ler MemoriaTemporaria
+from utils.gpt_utils import estimar_duracao
 
 from services.firebase_service_async import buscar_subcolecao, obter_id_dono  # ✅ obter_id_dono para pegar dono
 from services.email_service import enviar_email_google
@@ -22,6 +23,7 @@ from services.event_service_async import (
     buscar_eventos_por_termo_avancado,
     cancelar_evento,
 )
+from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 from utils.formatters import formatar_eventos_telegram
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
@@ -145,8 +147,6 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             data = data_hora.split("T")[0]
             hora = data_hora.split("T")[1][:5]
             duracao = estimar_duracao(servico)
-
-            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 
             resultado = await verificar_conflito_e_sugestoes_profissional(
                 user_id=user_id,
