@@ -599,32 +599,6 @@ async def tentar_split_simples(
     # --- parser de intervalos (reusa o padrão robusto) ---
     from datetime import datetime as _dt, timedelta as _td
 
-    def _parse_event_interval(ev: dict):
-        try:
-            hi = ev.get("hora_inicio")
-            hf = ev.get("hora_fim")
-
-            # ISO
-            if isinstance(hi, str) and "T" in hi:
-                ini = _dt.fromisoformat(hi)
-                if isinstance(hf, str) and "T" in hf:
-                    fim = _dt.fromisoformat(hf)
-                else:
-                    dur = ev.get("duracao") or ev.get("duracao_min") or 0
-                    fim = ini + _td(minutes=int(dur) if dur else 0)
-                return ini, fim
-
-            # data + HH:MM
-            d = ev.get("data")
-            if d and hi and hf:
-                ini = _dt.strptime(f"{d} {hi}", "%Y-%m-%d %H:%M")
-                fim = _dt.strptime(f"{d} {hf}", "%Y-%m-%d %H:%M")
-                return ini, fim
-
-            return None, None
-        except Exception:
-            return None, None
-
     # --- construir ocupados por profissional (somente do dia) ---
     dia_dt = datetime.fromisoformat(f"{data}T00:00:00").date()
     ocupados_por_prof = {}
@@ -738,6 +712,32 @@ async def tentar_split_simples(
 
     return None
 
+def _parse_event_interval(ev: dict):
+    try:
+        hi = ev.get("hora_inicio")
+        hf = ev.get("hora_fim")
+
+        # ISO completo
+        if isinstance(hi, str) and "T" in hi:
+            ini = datetime.fromisoformat(hi)
+            if isinstance(hf, str) and "T" in hf:
+                fim = datetime.fromisoformat(hf)
+            else:
+                dur = ev.get("duracao") or ev.get("duracao_min") or 0
+                fim = ini + timedelta(minutes=int(dur) if dur else 0)
+            return ini, fim
+
+        # data + HH:MM
+        d = ev.get("data")
+        if d and hi and hf:
+            ini = datetime.strptime(f"{d} {hi}", "%Y-%m-%d %H:%M")
+            fim = datetime.strptime(f"{d} {hf}", "%Y-%m-%d %H:%M")
+            return ini, fim
+
+        return None, None
+    except Exception:
+        return None, None
+
 def verificar_encaixe_exato(inicio_novo, ocupados, duracao_min):
     fim_novo = inicio_novo + timedelta(minutes=duracao_min)
 
@@ -769,34 +769,7 @@ async def verificar_conflito_e_sugestoes_profissional(
     # -------------------------
     # helpers (aceita HH:MM + ISO)
     # -------------------------
-    def _parse_event_interval(ev: dict):
-        try:
-            hi = ev.get("hora_inicio")
-            hf = ev.get("hora_fim")
-
-            # ISO completo
-            if isinstance(hi, str) and "T" in hi:
-                ini = datetime.fromisoformat(hi)
-                if isinstance(hf, str) and "T" in hf:
-                    fim = datetime.fromisoformat(hf)
-                else:
-                    dur = ev.get("duracao") or ev.get("duracao_min") or 0
-                    fim = ini + timedelta(minutes=int(dur) if dur else 0)
-                return ini, fim
-
-            # data + HH:MM
-            d = ev.get("data")
-            hi2 = ev.get("hora_inicio")
-            hf2 = ev.get("hora_fim")
-            if d and hi2 and hf2:
-                ini = datetime.strptime(f"{d} {hi2}", "%Y-%m-%d %H:%M")
-                fim = datetime.strptime(f"{d} {hf2}", "%Y-%m-%d %H:%M")
-                return ini, fim
-
-            return None, None
-        except Exception:
-            return None, None
-
+ 
     # 1) Converte a hora nova para datetime
     inicio_novo = datetime.fromisoformat(f"{data}T{hora_inicio}")
     fim_novo = inicio_novo + timedelta(minutes=duracao_min)
