@@ -350,7 +350,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
             print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
             await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
-            return False  # ⛔️ Não agenda nesse momento
+            return True  # ⛔️ Não agenda nesse momento
 
         # ✅ Salva o evento no Firebase
         evento_data = {
@@ -738,7 +738,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
             print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
             await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
-            return False  # ⛔️ Não agenda nesse momento
+            return True  # ⛔️ Não agenda nesse momento
 
         evento_data = {
             "descricao": descricao,
