@@ -2293,30 +2293,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     print("🧪 [ANTES GPT] slots_extraidos=", slots_extraidos, flush=True)
 
     # =========================================================
-    # 🔥 P0 — EXECUÇÃO DIRETA (SEM GPT)
+    # 🔥 P0 — PRÉ-CHECAGEM (SEM GPT)
     # =========================================================
     if (
         slots_extraidos.get("data_hora")
         and slots_extraidos.get("servico")
         and slots_extraidos.get("profissional")
     ):
-        print("🔥 [P0] EXECUÇÃO DIRETA — SEM GPT", flush=True)
+        print("🔥 [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
 
-        return await executar_acao_gpt(
-            update,
-            context,
-            "criar_evento",
-            {
+        return {
+            "acao": "pre_confirmar_agendamento",
+            "dados": {
                 "data_hora": slots_extraidos["data_hora"],
                 "servico": slots_extraidos["servico"],
-                "profissional": slots_extraidos["profissional"],
-                "descricao": formatar_descricao_evento(
-                    slots_extraidos["servico"],
-                    slots_extraidos["profissional"]
-                ),
-                "duracao": estimar_duracao(slots_extraidos["servico"])
-            }
-        )
+                "profissional": slots_extraidos["profissional"]
+            },
+            "handled": False
+        }
    
     print("🔥🔥🔥 ANTES DO CHAMAR_GPT_COM_CONTEXTO 🔥🔥🔥", flush=True)
 
