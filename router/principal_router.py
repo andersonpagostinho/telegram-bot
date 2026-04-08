@@ -2302,15 +2302,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ):
         print("🔥 [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
 
-        return {
-            "acao": "pre_confirmar_agendamento",
-            "dados": {
+        return await executar_acao_gpt(
+            update,
+            context,
+            "pre_confirmar_agendamento",
+            {
                 "data_hora": slots_extraidos["data_hora"],
                 "servico": slots_extraidos["servico"],
                 "profissional": slots_extraidos["profissional"]
-            },
-            "handled": False
-        }
+            }
+        )
    
     print("🔥🔥🔥 ANTES DO CHAMAR_GPT_COM_CONTEXTO 🔥🔥🔥", flush=True)
 
