@@ -741,9 +741,7 @@ def _parse_event_interval(ev: dict):
 def verificar_encaixe_exato(inicio_novo, ocupados, duracao_min):
     fim_novo = inicio_novo + timedelta(minutes=duracao_min)
 
-    for ev in ocupados:
-        ev_ini, ev_fim = _parse_event_interval(ev)
-
+    for ev_ini, ev_fim in ocupados:
         if not ev_ini or not ev_fim:
             continue
 
