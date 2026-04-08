@@ -2685,6 +2685,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
 
     if acao == "pre_confirmar_agendamento":
+
+        dados = dados or contexto.get("dados_confirmacao_agendamento") or {}
+
         prof = dados.get("profissional")
         servico = dados.get("servico")
         data_hora = dados.get("data_hora")
