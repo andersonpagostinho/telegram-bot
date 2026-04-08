@@ -2690,6 +2690,45 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         data_hora = dados.get("data_hora")
 
         if prof and servico and data_hora:
+
+            # =========================================================
+            # 🔥 PASSO 1 — VERIFICAR CONFLITO (CRÍTICO)
+            # =========================================================
+            data = data_hora.split("T")[0]
+            hora = data_hora.split("T")[1][:5]
+            duracao = estimar_duracao(servico)
+
+            resultado = await verificar_conflito_e_sugestoes_profissional(
+                user_id=user_id,
+                data=data,
+                hora_inicio=hora,
+                duracao_min=duracao,
+                profissional=prof,
+                servico=servico
+            )
+
+            # =========================================================
+            # 🚨 SE HOUVER CONFLITO
+            # =========================================================
+            if resultado.get("conflito"):
+
+                sugestoes = resultado.get("sugestoes") or []
+                sugestoes_formatadas = "\n".join(f"• {s}" for s in sugestoes)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"⛔ A *{prof}* já tem atendimento às *{hora}* nesse dia.\n\n"
+                        f"✅ Estes horários estão livres:\n{(sugestoes_formatadas or 'Sem sugestões disponíveis.')}"
+                        f"\n\nDeseja escolher outro horário?"
+                    )
+                )
+
+            # =========================================================
+            # ✅ SE NÃO HOUVER CONFLITO
+            # =========================================================
+
             ctx["estado_fluxo"] = "agendando"
             ctx["draft_agendamento"] = {
                 "profissional": prof,
@@ -2702,7 +2741,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "profissional": prof,
                 "servico": servico,
                 "data_hora": data_hora,
-                "duracao": estimar_duracao(servico),
+                "duracao": duracao,
                 "descricao": formatar_descricao_evento(servico, prof),
             }
             ctx["ultima_opcao_profissionais"] = [prof]
@@ -2713,15 +2752,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 context,
                 user_id,
                 (
-                    f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(data_hora)}*.\n"
-                    f"Responda *sim* para confirmar."
+                    f"✨ *{servico.capitalize()} com {prof}*\n"
+                    f"📆 {formatar_data_hora_br(data_hora)}\n\n"
+                    f"Posso confirmar?"
                 )
             )
 
         return await _send_and_stop(
             context,
             user_id,
-            "Faltaram dados para eu confirmar o agendamento. Me diga novamente profissional, serviço e horário."
+            "Faltaram dados para confirmar o agendamento."
         )
 
     # ✅ REGRA DE OURO FINAL:
