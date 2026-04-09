@@ -2347,7 +2347,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 minuto = int(matches[0][1] or 0)
 
                 # 🔥 valida se está dentro das opções
-                if hora in horarios_sugeridos:
+                hora_escolhida = f"{hora:02d}:{minuto:02d}"
+                horario_match = None
+
+                for faixa in horarios_sugeridos:
+                    inicio = faixa.split(" - ")[0].strip()
+                    if inicio == hora_escolhida:
+                        horario_match = faixa
+                        break
+
+                if horario_match:
 
                     data_base = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
 
@@ -2361,18 +2370,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             microsecond=0
                         ).isoformat()
 
+                        # 🔥 sobrescreve o horário antigo
                         ctx["data_hora"] = nova_data_hora
                         ctx["hora_confirmada"] = True
-
-                        # limpa ambiguidade
-                        ctx.pop("horarios_sugeridos", None)
 
                         draft = ctx.get("draft_agendamento") or {}
                         draft["data_hora"] = nova_data_hora
                         ctx["draft_agendamento"] = draft
 
-                        servico = ctx.get("servico")
-                        profissional = ctx.get("profissional_escolhido")
+                        # 🔥 limpa ambiguidade / estado antigo
+                        ctx.pop("horarios_sugeridos", None)
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        ctx.pop("dados_confirmacao_agendamento", None)
+
+                        servico = (
+                            ctx.get("servico")
+                            or draft.get("servico")
+                            or (ctx.get("dados_anteriores") or {}).get("servico")
+                        )
+                        profissional = (
+                            ctx.get("profissional_escolhido")
+                            or draft.get("profissional")
+                            or (ctx.get("dados_anteriores") or {}).get("profissional")
+                        )
 
                         ctx["dados_anteriores"] = {
                             "profissional": profissional,
@@ -2391,7 +2411,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                                 "duracao": estimar_duracao(servico),
                                 "descricao": formatar_descricao_evento(servico, profissional),
                             }
-  
                         else:
                             if servico and not profissional:
                                 ctx["estado_fluxo"] = "aguardando_profissional"
@@ -2406,16 +2425,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                         await salvar_contexto_temporario(user_id, ctx)
 
-                        # 🔥 TRAVA: já consolidou a escolha, então ENCERRA aqui
-                        if servico and profissional:
-                            return await _send_and_stop(
-                                context,
-                                user_id,
-                                f"Perfeito — *{servico}* com *{profissional}* "
-                                f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                                "Posso confirmar esse horário?"
-                            )
-
+                        # 🔥 TRAVA: já consolidou a escolha, então encerra aqui
                         if servico and profissional:
                             return await _send_and_stop(
                                 context,
@@ -2435,11 +2445,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                         if profissional and not servico:
                             return await _send_and_stop(
-                                context,
-                                user_id,
-                                f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                                "Qual serviço você quer fazer?"
-                            )
+                            context,
+                            user_id,
+                            f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Qual serviço você quer fazer?"
+                        )
 
             # 🔥 fallback: usuário respondeu errado
             if horarios_sugeridos:
