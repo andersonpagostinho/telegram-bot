@@ -158,6 +158,7 @@ async def processar_com_gpt_com_acao(
 
             # 🔧 Se o usuário quer agendar, nunca mantenha estado_fluxo=consultando
             ctx = contexto_salvo or {}
+
             if ctx.get("estado_fluxo") == "consultando":
                 texto = (texto_usuario or "").lower()
                 quer_agendar = (
@@ -167,7 +168,21 @@ async def processar_com_gpt_com_acao(
                     or ("marcar" in texto)
                     or eh_confirmacao_local(texto)
                 )
-                if quer_agendar and uid != "desconhecido":
+
+                # 🔥 se existe qualquer rastro de fluxo operacional, não resetar
+                fluxo_operacional_ativo = bool(
+                    ctx.get("modo_escolha_horario")
+                    or ctx.get("aguardando_confirmacao_agendamento")
+                    or ctx.get("servico")
+                    or ctx.get("profissional_escolhido")
+                    or ctx.get("data_hora")
+                    or (ctx.get("draft_agendamento") or {}).get("servico")
+                    or (ctx.get("draft_agendamento") or {}).get("profissional")
+                    or (ctx.get("draft_agendamento") or {}).get("data_hora")
+                    or ctx.get("horarios_sugeridos")
+                )
+
+                if quer_agendar and uid != "desconhecido" and not fluxo_operacional_ativo:
                     await salvar_contexto_temporario(uid, {"estado_fluxo": "idle"})
                     ctx["estado_fluxo"] = "idle"
                     contexto_salvo = ctx
