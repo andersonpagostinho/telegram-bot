@@ -524,7 +524,10 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     # 🔥 blindagem obrigatória
     if not isinstance(ctx, dict):
         print(f"⚠️ [extrair_slots_e_mesclar] ctx inválido recebido: {ctx}", flush=True)
-        ctx = {}
+
+        if not isinstance(ctx, dict):
+            print(f"⚠️ ctx inválido — mantendo anterior", flush=True)
+            return ctx if isinstance(ctx, dict) else {}
     
     texto = (texto_usuario or "").strip()
     tnorm = normalizar(texto)
@@ -2209,8 +2212,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # 🔥 PROTEÇÃO CRÍTICA
     if not isinstance(ctx, dict):
-        print(f"🚨 [roteador_principal] extrair_slots_e_mesclar retornou inválido: {ctx}", flush=True)
-        ctx = {}
+        print(f"🚨 ctx inválido — abortando sobrescrita", flush=True)
+        ctx = await carregar_contexto_temporario(user_id) or {}
 
     print("🧪 [SLOTS CENTRALIZADOS] ctx=", ctx, flush=True)
 
