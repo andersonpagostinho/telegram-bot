@@ -657,7 +657,9 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                 draft["servico"] = servico_detectado
 
             # 🔥 normaliza e remove duplicados
-            horarios = sorted(set(int(h[0]) for h in hora_matches))
+            horarios = sorted(
+                set(f"{int(h[0]):02d}:{int(h[1] or 0):02d}" for h in hora_matches)
+            )
 
             ctx["horarios_sugeridos"] = horarios
             ctx["estado_fluxo"] = "aguardando_escolha_horario"
@@ -2888,8 +2890,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     else:
                         data_base_iso = None
 
+                    estado_fluxo_atual = contexto.get("estado_fluxo")
+
                     contexto_update = {
-                        "estado_fluxo": "aguardando_horario",
+                        "estado_fluxo": (
+                        "aguardando_escolha_horario"
+                        if estado_fluxo_atual == "aguardando_escolha_horario"
+                            else "aguardando_horario"
+                        ),
                         "servico": servico_ctx,
                         "profissional_escolhido": profissional_ctx,
                         "ultima_acao": "criar_evento",
@@ -2899,6 +2907,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             "data_hora": data_base_iso,
                         },
                     }
+
+                    if estado_fluxo_atual == "aguardando_escolha_horario":
+                        contexto_update["horarios_sugeridos"] = contexto.get("horarios_sugeridos") or []
 
                     if data_base_iso:
                         contexto_update["data_hora"] = data_base_iso
