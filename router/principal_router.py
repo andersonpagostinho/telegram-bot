@@ -2914,7 +2914,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     if data_base_iso:
                         contexto_update["data_hora"] = data_base_iso
 
-                    await salvar_contexto_temporario(user_id, contexto_update)
+                    ctx_atual = await carregar_contexto_temporario(user_id) or {}
+
+                    # 🔥 NÃO deixar perder estado de escolha de horário
+                    if ctx_atual.get("estado_fluxo") == "aguardando_escolha_horario":
+                        contexto_update["estado_fluxo"] = "aguardando_escolha_horario"
+                        contexto_update["horarios_sugeridos"] = ctx_atual.get("horarios_sugeridos") or []
+
+                    # 🔥 merge em vez de sobrescrever
+                    ctx_atual.update(contexto_update)
+
+                    await salvar_contexto_temporario(user_id, ctx_atual)
 
                     partes = []
                     if servico_ctx:
