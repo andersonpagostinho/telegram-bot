@@ -74,7 +74,7 @@ def resolver_proximo_passo_real(
 
     # 🔥 PRIORIDADE MÁXIMA: se ainda está escolhendo horário, não pula para serviço
     if contexto.get("estado_fluxo") == "aguardando_escolha_horario":
-        return None
+        return "confirmar_ou_executar"
 
     def tem_hora_real_local():
         if "hora_confirmada" in contexto:
@@ -607,8 +607,9 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
     if dt_detectado:
 
-        # 🔥 sempre limpa ambiguidade anterior
-        ctx.pop("horarios_sugeridos", None)
+        # 🔥 NÃO limpar se está aguardando escolha de horário
+        if ctx.get("estado_fluxo") != "aguardando_escolha_horario":
+            ctx.pop("horarios_sugeridos", None)
 
         # =========================================================
         # 🔥 CASO 1 — 1 horário → segue normal
@@ -630,7 +631,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             draft["data_hora"] = iso
 
             # 🔥 limpa estado especial
-            if ctx.get("estado_fluxo") == "aguardando_escolha_horario":
+            f ctx.get("estado_fluxo") != "aguardando_escolha_horario":
                 ctx["estado_fluxo"] = "agendando"
 
         # =========================================================
