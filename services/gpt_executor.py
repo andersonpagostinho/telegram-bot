@@ -213,11 +213,42 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 await update.message.reply_text(mensagem, parse_mode="Markdown")
                 return True
 
-            # ✅ SEM CONFLITO → CONFIRMAÇÃO
+            # ✅ SEM CONFLITO → SALVA CONTEXTO + CONFIRMAÇÃO
+            contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+
+            contexto_tmp["estado_fluxo"] = "agendando"
+            contexto_tmp["draft_agendamento"] = {
+                "profissional": prof,
+                "servico": servico,
+                "data_hora": data_hora,
+                "modo_prechecagem": True,
+            }
+            contexto_tmp["aguardando_confirmacao_agendamento"] = True
+            contexto_tmp["dados_confirmacao_agendamento"] = {
+                "origem": "confirmacao_pendente",
+                "profissional": prof,
+                "servico": servico,
+                "data_hora": data_hora,
+                "duracao": duracao,
+                "descricao": f"{servico.capitalize()} com {prof}",
+            }
+            contexto_tmp["profissional_escolhido"] = prof
+            contexto_tmp["servico"] = servico
+            contexto_tmp["data_hora"] = data_hora
+            contexto_tmp["ultima_opcao_profissionais"] = [prof]
+
+            from utils.contexto_temporario import salvar_contexto_temporario
+            await salvar_contexto_temporario(user_id, contexto_tmp)
+
+            try:
+                data_fmt = datetime.fromisoformat(data_hora).strftime("%d/%m às %H:%M")
+            except Exception:
+                data_fmt = data_hora
+
             await update.message.reply_text(
                 (
                     f"✨ *{servico.capitalize()} com {prof}*\n"
-                    f"📆 {data_hora}\n\n"
+                    f"📆 {data_fmt}\n\n"
                     f"Posso confirmar?"
                 ),
                 parse_mode="Markdown"
