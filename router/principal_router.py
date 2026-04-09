@@ -2422,6 +2422,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             ctx["aguardando_confirmacao_agendamento"] = False
                             ctx["ultima_acao"] = None
                             ctx["dados_confirmacao_agendamento"] = None
+                
+                        print(
+                            f"🔥 [ESCOLHA_HORARIO] nova_data_hora={nova_data_hora} | "
+                            f"estado_fluxo={ctx.get('estado_fluxo')} | "
+                            f"ctx_data_hora={ctx.get('data_hora')} | "
+                            f"draft_data_hora={(ctx.get('draft_agendamento') or {}).get('data_hora')} | "
+                            f"dados_confirmacao={ctx.get('dados_confirmacao_agendamento')}",
+                            flush=True
+                        )
 
                         await salvar_contexto_temporario(user_id, ctx)
 
@@ -2463,6 +2472,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
         if ctx.get("estado_fluxo") == "aguardando_horario":
+
+            print(
+                f"🚨 [AGUARDANDO_HORARIO] entrou | "
+                f"texto={texto_usuario} | "
+                f"estado_fluxo={ctx.get('estado_fluxo')} | "
+                f"ctx_data_hora={ctx.get('data_hora')} | "
+                f"draft_data_hora={(ctx.get('draft_agendamento') or {}).get('data_hora')} | "
+                f"dados_confirmacao={ctx.get('dados_confirmacao_agendamento')}",
+                flush=True
+            )
 
             texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
 
