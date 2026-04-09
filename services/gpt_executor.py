@@ -161,18 +161,56 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             if resultado.get("conflito"):
 
                 sugestoes = resultado.get("sugestoes") or []
-                sugestoes_formatadas = "\n".join(f"• {s}" for s in sugestoes)
+                sugestoes_formatadas = "\n".join(f"🔄 {s}" for s in sugestoes)
 
-                await update.message.reply_text(
-                    (
-                        f"⛔ A *{prof}* já tem atendimento às *{hora}*.\n\n"
-                        f"✅ Horários disponíveis:\n"
-                        f"{(sugestoes_formatadas or 'Sem sugestões disponíveis.')}\n\n"
-                        f"Deseja outro horário?"
-                    ),
-                    parse_mode="Markdown"
+                # profissionais alternativos para o mesmo serviço
+                alternativas = []
+
+                try:
+                    dono_id = await obter_id_dono(user_id)
+                    profissionais_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+                    for _, p in profissionais_dict.items():
+                        nome_alt = (p.get("nome") or "").strip()
+                        if not nome_alt or nome_alt.lower() == (prof or "").strip().lower():
+                            continue
+
+                        servicos_alt = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+                        if (servico or "").strip().lower() not in servicos_alt:
+                            continue
+
+                        # checa se esse profissional está livre exatamente no mesmo horário
+                        resultado_alt = await verificar_conflito_e_sugestoes_profissional(
+                            user_id=user_id,
+                            data=data,
+                            hora_inicio=hora,
+                            duracao_min=duracao,
+                            profissional=nome_alt,
+                            servico=servico
+                        )
+
+                        if not resultado_alt.get("conflito"):
+                            alternativas.append(nome_alt)
+
+                except Exception as e:
+                    print(f"⚠️ Falha ao montar alternativas no mesmo horário: {e}", flush=True)
+
+                alternativas_txt = ""
+                if alternativas:
+                    alternativas_txt = (
+                        f"\n\n💡 Se você quiser manter *{hora}*, estas profissionais fazem *{servico}* "
+                        f"e estão disponíveis: *{', '.join(alternativas)}*."
+                    )
+
+                mensagem = (
+                    f"⛔ A *{prof}* já tem atendimento às *{hora}* nesse dia.\n\n"
+                    f"✅ Estes horários estão livres com a *{prof}* no mesmo dia:\n"
+                    f"{(sugestoes_formatadas or 'Sem sugestões disponíveis.')}"
+                    f"{alternativas_txt}\n\n"
+                    f"Deseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
                 )
 
+                await update.message.reply_text(mensagem, parse_mode="Markdown")
                 return True
 
             # ✅ SEM CONFLITO → CONFIRMAÇÃO
