@@ -1709,6 +1709,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             sugestoes = conflito_info.get("sugestoes") or []
             alternativo = conflito_info.get("profissional_alternativo")
 
+            # 🔥 salva estado de escolha ANTES de responder
+            ctx["estado_fluxo"] = "aguardando_escolha_horario"
+            ctx["servico"] = servico
+            ctx["profissional_escolhido"] = prof
+            ctx["data_hora"] = data_hora
+            ctx["ultima_acao"] = "criar_evento"
+            ctx["aguardando_confirmacao_agendamento"] = False
+            ctx["dados_confirmacao_agendamento"] = None
+
+            ctx["draft_agendamento"] = {
+                "profissional": prof,
+                "data_hora": data_hora,
+                "servico": servico,
+                "modo_prechecagem": True
+            }
+
+            # 🔥 mantém as sugestões exatamente no formato que o bloco 2338 espera
+            horarios_formatados = []
+            for h in sugestoes[:3]:
+                if hasattr(h, "strftime"):
+                    horarios_formatados.append(h.strftime("%H:%M"))
+                else:
+                    h_str = str(h).strip()
+                    if " - " in h_str:
+                        horarios_formatados.append(h_str)
+                    else:
+                        horarios_formatados.append(h_str)
+
+            ctx["horarios_sugeridos"] = horarios_formatados
+            ctx["alternativa_profissional"] = alternativo
+            ctx["ultima_opcao_profissionais"] = [prof] + ([alternativo] if alternativo else [])
+
+            await salvar_contexto_temporario(user_id, ctx)
+
             # 🔥 horário original
             hora_original = datetime.fromisoformat(data_hora).strftime("%H:%M")
 
