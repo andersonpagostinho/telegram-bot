@@ -1564,66 +1564,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
 
         await salvar_contexto_temporario(user_id, ctx)
-
-    # =========================================================
-    # 🔥 PRIORIDADE: ESCOLHA DE HORÁRIO SUGERIDO
-    # =========================================================
-    if ctx.get("modo_escolha_horario"):
-
-        texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
-        matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
-
-        if len(matches) == 1:
-
-            hora = int(matches[0][0])
-            minuto = int(matches[0][1] or 0)
-            hora_escolhida = f"{hora:02d}:{minuto:02d}"
-
-            horarios = ctx.get("horarios_sugeridos") or []
-
-            for faixa in horarios:
-                inicio = faixa.split(" - ")[0].strip()
-
-                if inicio == hora_escolhida:
-
-                    base = datetime.fromisoformat(ctx["data_hora"])
-
-                    nova_data_hora = base.replace(
-                        hour=hora,
-                        minute=minuto,
-                        second=0,
-                        microsecond=0
-                    ).isoformat()
-
-                    ctx["data_hora"] = nova_data_hora
-
-                    draft = ctx.get("draft_agendamento") or {}
-                    draft["data_hora"] = nova_data_hora
-                    ctx["draft_agendamento"] = draft
-
-                    # 🔥 limpa modo
-                    ctx.pop("modo_escolha_horario", None)
-                    ctx.pop("horarios_sugeridos", None)
-
-                    ctx["estado_fluxo"] = "agendando"
-                    ctx["aguardando_confirmacao_agendamento"] = True
-
-                    await salvar_contexto_temporario(user_id, ctx)
-
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        f"Perfeito — *{draft.get('servico')}* com *{draft.get('profissional')}* "
-                        f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                        "Posso confirmar esse horário?"
-                    )
-  
-    print(
-        f"🧪 [ANTES AG_SERVICO] estado_fluxo={estado_fluxo} | texto={texto_usuario} | "
-        f"ctx_estado={ctx.get('estado_fluxo')} | draft={ctx.get('draft_agendamento')}",
-        flush=True
-    )
-
+    
     # =========================================================
     # ✅ (F) Estado aguardando_servico: captura serviço e fecha automático se completo
     # =========================================================
@@ -1740,6 +1681,77 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "Qual você prefere?"
             )
 
+        # =========================================================
+        # 🔥 PRIORIDADE: ESCOLHA DE HORÁRIO SUGERIDO
+        # =========================================================
+        if ctx.get("modo_escolha_horario"):
+
+            texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
+            matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
+
+            if len(matches) == 1:
+
+                hora = int(matches[0][0])
+                minuto = int(matches[0][1] or 0)
+                hora_escolhida = f"{hora:02d}:{minuto:02d}"
+
+                horarios = ctx.get("horarios_sugeridos") or []
+
+                for faixa in horarios:
+                    inicio = faixa.split(" - ")[0].strip()
+
+                    if inicio == hora_escolhida:
+
+                        base = datetime.fromisoformat(ctx["data_hora"])
+
+                        nova_data_hora = base.replace(
+                            hour=hora,
+                            minute=minuto,
+                            second=0,
+                            microsecond=0
+                        ).isoformat()
+
+                        ctx["data_hora"] = nova_data_hora
+
+                        draft = ctx.get("draft_agendamento") or {}
+                        draft["data_hora"] = nova_data_hora
+                        ctx["draft_agendamento"] = draft
+
+                        # 🔥 limpa modo
+                        ctx.pop("modo_escolha_horario", None)
+                        ctx.pop("horarios_sugeridos", None)
+
+                        ctx["estado_fluxo"] = "agendando"
+                        ctx["aguardando_confirmacao_agendamento"] = True
+                        ctx["dados_confirmacao_agendamento"] = {
+                            "profissional": draft.get("profissional"),
+                            "servico": draft.get("servico"),
+                            "data_hora": nova_data_hora,
+                            "duracao": estimar_duracao(draft.get("servico")),
+                            "descricao": formatar_descricao_evento(
+                                draft.get("servico"),
+                                draft.get("profissional")
+                            ),
+                        }
+
+                        print(
+                            f"🧪 [DEBUG ESCOLHA] estado_fluxo={ctx.get('estado_fluxo')} | "
+                            f"modo_escolha_horario={ctx.get('modo_escolha_horario')} | "
+                            f"horarios_sugeridos={ctx.get('horarios_sugeridos')} | "
+                            f"data_hora={ctx.get('data_hora')} | "
+                            f"draft={ctx.get('draft_agendamento')}",
+                            flush=True
+                        )
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{draft.get('servico')}* com *{draft.get('profissional')}* "
+                            f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Posso confirmar esse horário?"
+                        )
 
         # 🔥 PRE-CHECAGEM DE CONFLITO (ANTES DE CONFIRMAR)
         print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
