@@ -631,7 +631,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             draft["data_hora"] = iso
 
             # 🔥 limpa estado especial
-            f ctx.get("estado_fluxo") != "aguardando_escolha_horario":
+            if ctx.get("estado_fluxo") != "aguardando_escolha_horario":
                 ctx["estado_fluxo"] = "agendando"
 
         # =========================================================
