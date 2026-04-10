@@ -390,6 +390,45 @@ def eh_confirmacao(txt: str) -> bool:
     ]
     return any(g in t for g in gatilhos)
 
+def eh_desistencia_fluxo(txt: str) -> bool:
+    t = normalizar(txt or "")
+
+    sinais_fortes = [
+        "cancelar",
+        "nao quero", "não quero",
+        "deixa pra la", "deixa pra lá",
+        "melhor nao", "melhor não",
+        "nao precisa", "não precisa",
+        "depois vejo",
+        "vou falar depois",
+        "volto a falar"
+    ]
+
+    sinais_contexto = [
+        "nao vou conseguir",
+        "não vou conseguir",
+        "nao consigo",
+        "não consigo",
+        "tenho compromisso",
+        "tenho reuniao",
+        "tenho reunião",
+        "nesse horario nao da",
+        "nesse horário não dá",
+        "outro dia",
+        "mais tarde"
+    ]
+
+    score = 0
+
+    for s in sinais_fortes:
+        if s in t:
+            score += 2
+
+    for s in sinais_contexto:
+        if s in t:
+            score += 1
+
+    return score >= 2
 
 def _tem_indicio_de_hora(txt: str) -> bool:
     """
@@ -1282,6 +1321,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             f"estado_fluxo_raw={ctx.get('estado_fluxo')}",
             flush=True
         )
+
+        # =========================================================
+        # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DO FLUXO (ANTES DA ESCOLHA)
+        # =========================================================
+        if (
+            ctx.get("modo_escolha_horario")
+            or (ctx.get("estado_fluxo") or "").strip().lower() == "aguardando_escolha_horario"
+            or (ctx.get("estado_fluxo") or "").strip().lower() == "agendando"
+        ):
+            if eh_desistencia_fluxo(texto_usuario):
+                print("🧪 [DESISTENCIA DETECTADA] Encerrando fluxo...", flush=True)
+
+                await limpar_contexto_agendamento(user_id)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
+                )
         
         # =========================================================
         # 🔥 PRIORIDADE ABSOLUTA — ESCOLHA DE HORÁRIO SUGERIDO
