@@ -608,8 +608,11 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     if dt_detectado:
 
         # 🔥 NÃO limpar se está aguardando escolha de horário
-        if ctx.get("estado_fluxo") != "aguardando_escolha_horario":
-            ctx.pop("horarios_sugeridos", None)
+        if (
+            ctx.get("estado_fluxo") != "aguardando_escolha_horario"
+            and not ctx.get("modo_escolha_horario")
+        ):
+            ctx["estado_fluxo"] = "agendando"
 
         # =========================================================
         # 🔥 CASO 1 — 1 horário → segue normal
@@ -631,7 +634,9 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             draft["data_hora"] = iso
 
             # 🔥 limpa estado especial
-            if ctx.get("estado_fluxo") != "aguardando_escolha_horario":
+            if ctx.get("modo_escolha_horario") or ctx.get("estado_fluxo") == "aguardando_escolha_horario":
+                pass
+            else:
                 ctx["estado_fluxo"] = "agendando"
 
         # =========================================================
@@ -1684,7 +1689,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # =========================================================
         # 🔥 PRIORIDADE: ESCOLHA DE HORÁRIO SUGERIDO
         # =========================================================
-        if ctx.get("modo_escolha_horario"):
+        if (
+            ctx.get("modo_escolha_horario")
+            or ctx.get("estado_fluxo") == "aguardando_escolha_horario"
+        ):
 
             texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
             matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
@@ -1882,12 +1890,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 return await _perguntar_amanha_mesmo_horario_e_bloquear(data_hora)
 
         if not prof and not servico:
+            ctx.pop("modo_escolha_horario", None)
+            ctx.pop("horarios_sugeridos", None)
             ctx["estado_fluxo"] = "aguardando_servico"
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
-                "Pra eu reservar certinho: qual serviço vai ser e com quem você prefere?"
+                "Pra eu reservar certinho: qual serviço vai ser e com qual profissional você prefere?"
             )
 
         if data_hora and prof and not servico:
@@ -2440,7 +2450,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # =========================================================
         # 🔥 CAPTURA: escolha entre múltiplos horários
         # =========================================================
-        if ctx.get("estado_fluxo") == "aguardando_escolha_horario":
+        if (
+            ctx.get("estado_fluxo") == "aguardando_escolha_horario"
+            and not ctx.get("modo_escolha_horario")
+        ):
 
             texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
 
