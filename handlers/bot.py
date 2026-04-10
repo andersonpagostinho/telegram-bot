@@ -27,7 +27,7 @@ from services.cadastro_inicial_service import (
     processar_texto_cadastro,
 )
 
-from router.principal_router import roteador_principal, eh_confirmacao
+from router.principal_router import roteador_principal, eh_confirmacao, eh_desistencia_fluxo
 
 from handlers.task_handler import add_task, list_tasks, clear_tasks, list_tasks_by_priority
 #from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, conectar_email
@@ -51,6 +51,7 @@ from handlers.encaixe_handler import handle_pedido_encaixe
 from handlers.reagendamento_handler import handle_resposta_reagendamento
 from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
 from services.gpt_executor import executar_acao_gpt
+from utils.context_manager import limpar_contexto_agendamento
 
 
 # 👉 Se esses não existirem no seu repo, comente este import e os CommandHandler lá embaixo
@@ -134,6 +135,25 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     flush=True,
 )
     texto_usuario = (mensagem or "").strip().lower()
+
+    # --- 1.6) negativa durante escolha de horário por conflito ---
+    if (
+        (ctx_tmp.get("estado_fluxo") or "").strip().lower() == "aguardando_escolha_horario"
+        or ctx_tmp.get("modo_escolha_horario")
+    ):
+        if eh_desistencia_fluxo(texto_usuario):
+            print(
+                f"🧪 [BOT-DESISTENCIA-CONFLITO] texto={mensagem!r} | "
+                f"estado_fluxo={ctx_tmp.get('estado_fluxo')} | "
+                f"modo_escolha_horario={ctx_tmp.get('modo_escolha_horario')}",
+                flush=True
+            )
+
+            await limpar_contexto_agendamento(user_id)
+            await update.message.reply_text(
+                "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
+            )
+            raise ApplicationHandlerStop
 
     if ctx_tmp.get("aguardando_confirmacao_agendamento"):
 
