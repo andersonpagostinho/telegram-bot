@@ -1266,6 +1266,167 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # ✅ (B) SEMPRE-ON: extrair e mesclar slots (prof/serv/dt)
     # =========================================================
     try:
+        # =========================================================
+        # 🔥 PRIORIDADE ABSOLUTA — ESCOLHA DE HORÁRIO SUGERIDO
+        # PRECISA vir antes do extrair_slots_e_mesclar
+        # =========================================================
+        if (
+            ctx.get("modo_escolha_horario")
+            or (ctx.get("estado_fluxo") or "").strip().lower() == "aguardando_escolha_horario"
+        ):
+            print(
+                f"🧪 [ESCOLHA PRIORIDADE TOTAL] texto={texto_usuario} | "
+                f"estado_fluxo={ctx.get('estado_fluxo')} | "
+                f"modo_escolha_horario={ctx.get('modo_escolha_horario')} | "
+                f"horarios_sugeridos={ctx.get('horarios_sugeridos')} | "
+                f"data_hora={ctx.get('data_hora')} | "
+                f"draft={ctx.get('draft_agendamento')}",
+                flush=True
+            )
+
+            texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
+            horarios_sugeridos = ctx.get("horarios_sugeridos") or []
+            matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
+
+            if len(matches) == 1:
+                hora = int(matches[0][0])
+                minuto = int(matches[0][1] or 0)
+                hora_escolhida = f"{hora:02d}:{minuto:02d}"
+
+                horario_match = None
+                for faixa in horarios_sugeridos:
+                    inicio = faixa.split(" - ")[0].strip()
+                    if inicio == hora_escolhida:
+                        horario_match = faixa
+                        break
+
+                if horario_match:
+                    data_base = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
+
+                    if data_base:
+                        base = datetime.fromisoformat(data_base)
+
+                        nova_data_hora = base.replace(
+                            hour=hora,
+                            minute=minuto,
+                            second=0,
+                            microsecond=0
+                        ).isoformat()
+
+                        ctx["data_hora"] = nova_data_hora
+                        ctx["hora_confirmada"] = True
+
+                        draft = ctx.get("draft_agendamento") or {}
+                        draft["data_hora"] = nova_data_hora
+                        ctx["draft_agendamento"] = draft
+
+                        ctx.pop("modo_escolha_horario", None)
+                        ctx.pop("horarios_sugeridos", None)
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        ctx.pop("dados_confirmacao_agendamento", None)
+
+                        servico = (
+                            ctx.get("servico")
+                            or draft.get("servico")
+                            or (ctx.get("dados_anteriores") or {}).get("servico")
+                        )
+                        profissional = (
+                            ctx.get("profissional_escolhido")
+                            or draft.get("profissional")
+                            or (ctx.get("dados_anteriores") or {}).get("profissional")
+                        )
+
+                        ctx["dados_anteriores"] = {
+                            "profissional": profissional,
+                            "servico": servico,
+                            "data_hora": nova_data_hora
+                        }
+
+                        if servico and profissional:
+                            ctx["estado_fluxo"] = "agendando"
+                            ctx["aguardando_confirmacao_agendamento"] = True
+                            ctx["ultima_acao"] = "criar_evento"
+                            ctx["dados_confirmacao_agendamento"] = {
+                                "profissional": profissional,
+                                "servico": servico,
+                                "data_hora": nova_data_hora,
+                                "duracao": estimar_duracao(servico),
+                                "descricao": formatar_descricao_evento(servico, profissional),
+                            }
+                        else:
+                            if servico and not profissional:
+                                ctx["estado_fluxo"] = "aguardando_profissional"
+                            elif profissional and not servico:
+                                ctx["estado_fluxo"] = "aguardando_servico"
+                            else:
+                                ctx["estado_fluxo"] = "idle"
+
+                            ctx["aguardando_confirmacao_agendamento"] = False
+                            ctx["ultima_acao"] = None
+                            ctx["dados_confirmacao_agendamento"] = None
+
+                        print(
+                            f"🔥 [ESCOLHA_HORARIO] nova_data_hora={nova_data_hora} | "
+                            f"estado_fluxo={ctx.get('estado_fluxo')} | "
+                            f"ctx_data_hora={ctx.get('data_hora')} | "
+                            f"draft_data_hora={(ctx.get('draft_agendamento') or {}).get('data_hora')} | "
+                            f"dados_confirmacao={ctx.get('dados_confirmacao_agendamento')}",
+                            flush=True
+                        )
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        if servico and profissional:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — *{servico}* com *{profissional}* "
+                                f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Posso confirmar esse horário?"
+                            )
+   
+                        if servico and not profissional:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — *{servico}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Qual profissional você prefere?"
+                            )
+
+                        if profissional and not servico:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Qual serviço você quer fazer?"
+                            )
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Agora me diga o serviço e o profissional."
+                        )
+         
+            # fallback: usuário respondeu errado ou fora das opções
+            if horarios_sugeridos:
+                opcoes = " ou ".join(
+                    h.split(" - ")[0].strip() if " - " in str(h) else str(h).strip()
+                    for h in horarios_sugeridos
+                )
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Me diga um dos horários sugeridos, por exemplo: {opcoes}."
+                )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Me diga o horário que você prefere."
+            )
+
         # novo pedido de agendamento não deve herdar resíduos de conflito/confirmação anterior
         if eh_gatilho_agendar(texto_lower):
             tnorm_msg = normalizar(texto_usuario)
@@ -1276,7 +1437,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             tem_profissional_expresso = any(normalizar(nome) in tnorm_msg for nome in nomes_tmp)
             tem_data_explicitada = _tem_indicio_de_hora(texto_usuario)
 
-            # catálogo global de serviços
             servicos_tmp = []
             for p in profs_dict_tmp.values():
                 servicos_tmp.extend(
@@ -1286,53 +1446,32 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             servicos_tmp = list(dict.fromkeys(servicos_tmp))
             tem_servico_explicito = any(normalizar(s) in tnorm_msg for s in servicos_tmp)
 
-            # limpa resíduos de confirmação/conflito
             ctx.pop("sugestoes", None)
             ctx.pop("alternativa_profissional", None)
             ctx.pop("dados_confirmacao_agendamento", None)
             ctx["aguardando_confirmacao_agendamento"] = False
             ctx["ultima_opcao_profissionais"] = []
-  
-            # ⚠️ REGRA CORRETA:
-            # slot novo explícito SOBRESCREVE o antigo
-            # ausência de slot na mensagem NÃO apaga o que já estava no contexto
 
-            # Se o usuário trouxe profissional explícito, mas não trouxe serviço novo,
-            # não herdar serviço antigo automaticamente.
             if tem_profissional_expresso and not tem_servico_explicito:
                 ctx.pop("servico", None)
                 if isinstance(ctx.get("draft_agendamento"), dict):
                     ctx["draft_agendamento"].pop("servico", None)
 
-            # Se o usuário trouxe profissional explícito, mas não trouxe nova data/hora,
-            # não herdar data antiga automaticamente.
             if tem_profissional_expresso and not tem_data_explicitada:
                 ctx.pop("data_hora", None)
                 if isinstance(ctx.get("draft_agendamento"), dict):
                     ctx["draft_agendamento"].pop("data_hora", None)
 
-            # Se o usuário trouxe serviço explícito, mas não trouxe profissional novo,
-            # não herdar profissional antigo automaticamente.
             if tem_servico_explicito and not tem_profissional_expresso:
                 ctx.pop("profissional_escolhido", None)
                 if isinstance(ctx.get("draft_agendamento"), dict):
                     ctx["draft_agendamento"].pop("profissional", None)
 
-            # Se o usuário trouxe serviço explícito, mas não trouxe nova data/hora,
-            # não herdar data antiga automaticamente.
             if tem_servico_explicito and not tem_data_explicitada:
                 ctx.pop("data_hora", None)
                 if isinstance(ctx.get("draft_agendamento"), dict):
                     ctx["draft_agendamento"].pop("data_hora", None)
 
-            # ❌ REMOVIDO:
-            # if tem_data_explicitada and not tem_profissional_expresso: apagar profissional
-            # if tem_data_explicitada and not tem_servico_explicito: apagar serviço
-            #
-            # Motivo: quando o usuário responde só horário ("14h", "prefiro 15"),
-            # isso é continuação do fluxo, não novo pedido. Apagar aqui quebra contexto.
-
-            # consulta anterior não pode completar pedido novo automaticamente
             if isinstance(ctx.get("ultima_consulta"), dict):
                 if not tem_data_explicitada:
                     ctx["ultima_consulta"].pop("data_hora", None)
@@ -2361,173 +2500,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔒 GARANTE QUE FLUXO SEMPRE RESPONDE ANTES DO GPT
     # =========================================================
     estado_fluxo = ctx.get("estado_fluxo")
-
-    # =========================================================
-    # 🔥 PRIORIDADE ABSOLUTA — ESCOLHA DE HORÁRIO SUGERIDO
-    # Usa o bloco legado como resolvedor único, mas com precedência total
-    # =========================================================
-    if (
-        ctx.get("modo_escolha_horario")
-        or estado_fluxo == "aguardando_escolha_horario"
-    ):
-        print(
-            f"🧪 [ESCOLHA PRIORIDADE TOTAL] texto={texto_usuario} | "
-            f"estado_fluxo={ctx.get('estado_fluxo')} | "
-            f"modo_escolha_horario={ctx.get('modo_escolha_horario')} | "
-            f"horarios_sugeridos={ctx.get('horarios_sugeridos')} | "
-            f"data_hora={ctx.get('data_hora')} | "
-            f"draft={ctx.get('draft_agendamento')}",
-            flush=True
-        )
-   
-        texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
-        horarios_sugeridos = ctx.get("horarios_sugeridos") or []
-        matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
-
-        # só considera escolha se o usuário respondeu com UM único horário
-        if len(matches) == 1:
-            hora = int(matches[0][0])
-            minuto = int(matches[0][1] or 0)
-
-            # valida se está dentro das opções
-            hora_escolhida = f"{hora:02d}:{minuto:02d}"
-            horario_match = None
-
-            for faixa in horarios_sugeridos:
-                inicio = faixa.split(" - ")[0].strip()
-                if inicio == hora_escolhida:
-                    horario_match = faixa
-                    break
-
-            if horario_match:
-                data_base = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
-
-                if data_base:
-                    base = datetime.fromisoformat(data_base)
-
-                    nova_data_hora = base.replace(
-                        hour=hora,
-                        minute=minuto,
-                        second=0,
-                        microsecond=0
-                    ).isoformat()
-
-                    # sobrescreve o horário antigo
-                    ctx["data_hora"] = nova_data_hora
-                    ctx["hora_confirmada"] = True
-
-                    draft = ctx.get("draft_agendamento") or {}
-                    draft["data_hora"] = nova_data_hora
-                    ctx["draft_agendamento"] = draft
-
-                    # limpa ambiguidade / estado antigo
-                    ctx.pop("modo_escolha_horario", None)
-                    ctx.pop("horarios_sugeridos", None)
-                    ctx["aguardando_confirmacao_agendamento"] = False
-                    ctx.pop("dados_confirmacao_agendamento", None)
-
-                    servico = (
-                        ctx.get("servico")
-                        or draft.get("servico")
-                        or (ctx.get("dados_anteriores") or {}).get("servico")
-                    )
-                    profissional = (
-                        ctx.get("profissional_escolhido")
-                        or draft.get("profissional")
-                        or (ctx.get("dados_anteriores") or {}).get("profissional")
-                    )
-
-                    ctx["dados_anteriores"] = {
-                        "profissional": profissional,
-                        "servico": servico,
-                        "data_hora": nova_data_hora
-                    }
-
-                    if servico and profissional:
-                        ctx["estado_fluxo"] = "agendando"
-                        ctx["aguardando_confirmacao_agendamento"] = True
-                        ctx["ultima_acao"] = "criar_evento"
-                        ctx["dados_confirmacao_agendamento"] = {
-                            "profissional": profissional,
-                            "servico": servico,
-                            "data_hora": nova_data_hora,
-                            "duracao": estimar_duracao(servico),
-                            "descricao": formatar_descricao_evento(servico, profissional),
-                        }
-                    else:
-                        if servico and not profissional:
-                            ctx["estado_fluxo"] = "aguardando_profissional"
-                        elif profissional and not servico:
-                            ctx["estado_fluxo"] = "aguardando_servico"
-                        else:
-                            ctx["estado_fluxo"] = "idle"
-
-                        ctx["aguardando_confirmacao_agendamento"] = False
-                        ctx["ultima_acao"] = None
-                        ctx["dados_confirmacao_agendamento"] = None
-
-                    print(
-                        f"🔥 [ESCOLHA_HORARIO] nova_data_hora={nova_data_hora} | "
-                        f"estado_fluxo={ctx.get('estado_fluxo')} | "
-                        f"ctx_data_hora={ctx.get('data_hora')} | "
-                        f"draft_data_hora={(ctx.get('draft_agendamento') or {}).get('data_hora')} | "
-                        f"dados_confirmacao={ctx.get('dados_confirmacao_agendamento')}",
-                        flush=True
-                    )
-
-                    await salvar_contexto_temporario(user_id, ctx)
-
-                    # trava: já consolidou a escolha, então encerra aqui
-                    if servico and profissional:
-                        return await _send_and_stop(
-                            context,
-                            user_id,
-                            f"Perfeito — *{servico}* com *{profissional}* "
-                            f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                            "Posso confirmar esse horário?"
-                        )
-
-                    if servico and not profissional:
-                        return await _send_and_stop(
-                            context,
-                            user_id,
-                            f"Perfeito — *{servico}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                            "Qual profissional você prefere?"
-                        )
-
-                    if profissional and not servico:
-                        return await _send_and_stop(
-                            context,
-                            user_id,
-                            f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                            "Qual serviço você quer fazer?"
-                        )
-
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        f"Perfeito — *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                        "Agora me diga o serviço e o profissional."
-                    )
-
-        # fallback: usuário respondeu errado ou fora das opções
-        if horarios_sugeridos:
-            opcoes = " ou ".join(
-                h.split(" - ")[0].strip() if " - " in str(h) else str(h).strip()
-                for h in horarios_sugeridos
-            )
-
-            return await _send_and_stop(
-                context,
-                user_id,
-                f"Me diga um dos horários sugeridos, por exemplo: {opcoes}."
-            )
-
-        return await _send_and_stop(
-            context,
-            user_id,
-            "Me diga o horário que você prefere."
-        )
 
     if estado_fluxo in [
         "aguardando_servico",
