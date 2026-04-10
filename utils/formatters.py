@@ -141,39 +141,53 @@ def gerar_sugestoes_de_horario(
             gap_depois = int((proximo_evento_inicio - fim_slot).total_seconds() // 60)
 
         desperdicio = 0
-        if gap_antes and gap_antes > 0:
+        if gap_antes is not None and gap_antes > 0:
             desperdicio += gap_antes
-        if gap_depois and gap_depois > 0:
+        if gap_depois is not None and gap_depois > 0:
             desperdicio += gap_depois
 
         distancia = abs(int((horario - inicio_base).total_seconds() // 60))
 
+        # ✅ bônus para horários mais naturais
+        minuto = horario.minute
+        if minuto in (0, 30):
+            penalidade_visual = 0
+        elif minuto in (15, 45):
+            penalidade_visual = 1
+        else:
+            penalidade_visual = 2
+
+        # ✅ bônus para encaixe colado
+        encosta = 0
+        if gap_antes == 0:
+            encosta += 1
+        if gap_depois == 0:
+            encosta += 1
+
         # =========================
         # 🔥 FASE 1 — BAIXA OCUPAÇÃO
+        # prioriza proximidade do pedido
         # =========================
         if ocupacao_ratio < 0.7:
             return (
-                desperdicio,     # minimizar buraco
-                horario,         # MAIS CEDO = prioridade
-                distancia        # depois proximidade
+                distancia,           # 1) mais próximo do horário pedido
+                penalidade_visual,   # 2) horário mais bonito
+                desperdicio,         # 3) menor buraco
+                -encosta,            # 4) se encosta em outro evento, melhor
+                horario              # 5) desempate cronológico
             )
 
         # =========================
         # 🔥 FASE 2 — ALTA OCUPAÇÃO
+        # encaixe mais agressivo, mas sem ignorar proximidade
         # =========================
-        else:
-            encosta = 0
-            if gap_antes == 0:
-                encosta += 1
-            if gap_depois == 0:
-                encosta += 1
-
-            return (
-                -encosta,        # colar nos eventos
-                desperdicio,
-                distancia,
-                horario
-            )
+        return (
+            -encosta,               # 1) colar em eventos
+            desperdicio,            # 2) minimizar buraco
+            distancia,              # 3) respeitar horário pedido
+            penalidade_visual,      # 4) evitar horários feios
+            horario                 # 5) desempate cronológico
+        )
 
     candidatos_ordenados = sorted(candidatos, key=score_slot)
 
