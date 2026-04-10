@@ -17,7 +17,7 @@ from utils.gpt_utils import estimar_duracao, formatar_descricao_evento
 import pytz
 import re
 from unidecode import unidecode
-
+from telegram.ext import ApplicationHandlerStop
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
