@@ -1341,12 +1341,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             horarios_sugeridos = ctx.get("horarios_sugeridos") or []
             matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
 
+            print(f"🧪 [TESTE-DESISTENCIA] texto_usuario={texto_usuario}", flush=True)
+            print(f"🧪 [TESTE-DESISTENCIA] texto_normalizado={normalizar(texto_usuario)}", flush=True)
+            print(f"🧪 [TESTE-DESISTENCIA] retorno={eh_desistencia_fluxo(texto_usuario)}", flush=True)
+
             # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DENTRO DA ESCOLHA
             if eh_desistencia_fluxo(texto_usuario):
-                print(f"🧪 [TESTE-DESISTENCIA] texto_usuario={texto_usuario}", flush=True)
-                print(f"🧪 [TESTE-DESISTENCIA] texto_normalizado={normalizar(texto_usuario)}", flush=True)
-                print(f"🧪 [TESTE-DESISTENCIA] retorno={eh_desistencia_fluxo(texto_usuario)}", flush=True)
-
+                print("🧪 [DESISTENCIA DENTRO ESCOLHA]", flush=True)
                 await limpar_contexto_agendamento(user_id)
 
                 return await _send_and_stop(
