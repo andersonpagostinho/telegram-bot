@@ -1899,6 +1899,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             await salvar_contexto_temporario(user_id, ctx)
 
+            print(
+                f"🧪 [POS-SAVE CONFLITO] estado_fluxo={ctx.get('estado_fluxo')} | "
+                f"modo_escolha_horario={ctx.get('modo_escolha_horario')} | "
+                f"horarios_sugeridos={ctx.get('horarios_sugeridos')} | "
+                f"data_hora={ctx.get('data_hora')} | "
+                f"draft={ctx.get('draft_agendamento')}",
+                flush=True
+            )
+
             # 🔥 horário original
             hora_original = datetime.fromisoformat(data_hora).strftime("%H:%M")
 
@@ -2448,17 +2457,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         else:
             proximo_passo = "coletar_dado_faltante"
     else:
+        data_hora_final = slots_extraidos.get("data_hora") or ctx.get("data_hora")
 
-        if tem_hora_real(ctx.get("data_hora")):
+        if tem_hora_real(data_hora_final):
             proximo_passo = "confirmar_ou_executar"
         else:
             proximo_passo = "coletar_dado_faltante"
 
-    proximo_passo_real = resolver_proximo_passo_real(
-        proximo_passo,
-        slots_extraidos,
-        ctx
-    )
+        proximo_passo_real = resolver_proximo_passo_real(
+            proximo_passo,
+            slots_extraidos,
+            ctx
+        )
 
     frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
 
