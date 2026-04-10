@@ -150,6 +150,9 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             resposta = await roteador_principal(user_id, mensagem, update, context)
             print("🧪 [bot] resposta do router =", resposta, flush=True)
 
+            if resposta is True:
+                raise ApplicationHandlerStop
+
             if isinstance(resposta, dict) and resposta.get("already_sent"):
                 raise ApplicationHandlerStop
 
@@ -204,8 +207,17 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
 
     # --- 3) roteador inteligente (IA) ---
     try:
+        # 🔥 NÃO chamar de novo se já foi tratado antes
+        if context.user_data.get("ja_processado"):
+            raise ApplicationHandlerStop
+
+        context.user_data["ja_processado"] = True
+
         resposta = await roteador_principal(user_id, mensagem, update, context)
         print("🧪 [bot] resposta do router =", resposta, flush=True)
+
+        if resposta is True:
+            raise ApplicationHandlerStop
 
         # ✅ Se o router já enviou mensagem, parar sem cair em erro falso
         if isinstance(resposta, dict) and resposta.get("already_sent"):
@@ -225,6 +237,9 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     except Exception as e:
         logger.exception(f"❌ Erro no roteador_principal: {e}")
         await update.message.reply_text("⚠️ Tive um problema para processar sua solicitação agora. Pode repetir?")
+
+    finally:
+        context.user_data.pop("ja_processado", None)
 
 
 # ============== COMANDOS ==============
