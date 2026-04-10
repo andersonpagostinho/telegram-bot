@@ -195,6 +195,50 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 except Exception as e:
                     print(f"⚠️ Falha ao montar alternativas no mesmo horário: {e}", flush=True)
 
+                # =========================================================
+                # 🔥 SALVA ESTADO DE ESCOLHA ANTES DE RESPONDER
+                # =========================================================
+                contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+
+                horarios_formatados = []
+                for s in sugestoes[:3]:
+                    s_str = str(s).strip()
+                    horarios_formatados.append(s_str)
+
+                contexto_tmp["estado_fluxo"] = "aguardando_escolha_horario"
+                contexto_tmp["modo_escolha_horario"] = True
+                contexto_tmp["horarios_sugeridos"] = horarios_formatados
+                contexto_tmp["alternativa_profissional"] = alternativas
+                contexto_tmp["ultima_opcao_profissionais"] = [prof] + alternativas
+
+                contexto_tmp["profissional_escolhido"] = prof
+                contexto_tmp["servico"] = servico
+                contexto_tmp["data_hora"] = data_hora
+                contexto_tmp["ultima_acao"] = "criar_evento"
+
+                contexto_tmp["aguardando_confirmacao_agendamento"] = False
+                contexto_tmp.pop("dados_confirmacao_agendamento", None)
+
+                draft_tmp = contexto_tmp.get("draft_agendamento") or {}
+                draft_tmp["profissional"] = prof
+                draft_tmp["servico"] = servico
+                draft_tmp["data_hora"] = data_hora
+                draft_tmp["modo_prechecagem"] = True
+                contexto_tmp["draft_agendamento"] = draft_tmp
+
+                from utils.contexto_temporario import salvar_contexto_temporario
+                await salvar_contexto_temporario(user_id, contexto_tmp)
+
+                print(
+                    f"🚨 [CTX SALVO PELO GPT_EXECUTOR] "
+                    f"estado_fluxo={contexto_tmp.get('estado_fluxo')} | "
+                    f"modo_escolha_horario={contexto_tmp.get('modo_escolha_horario')} | "
+                    f"horarios_sugeridos={contexto_tmp.get('horarios_sugeridos')} | "
+                    f"data_hora={contexto_tmp.get('data_hora')} | "
+                    f"draft={contexto_tmp.get('draft_agendamento')}",
+                    flush=True
+                )
+
                 alternativas_txt = ""
                 if alternativas:
                     alternativas_txt = (
