@@ -2447,6 +2447,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if not tem_hora_real(slots_extraidos["data_hora"]):
         campos_faltantes.append("data_hora")
 
+    proximo_passo = None
+
     if campos_faltantes:
         if campos_faltantes == ["servico"]:
             proximo_passo = "perguntar_servico"
@@ -2456,6 +2458,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             proximo_passo = "perguntar_data_hora"
         else:
             proximo_passo = "coletar_dado_faltante"
+
     else:
         data_hora_final = slots_extraidos.get("data_hora") or ctx.get("data_hora")
 
@@ -2464,11 +2467,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         else:
             proximo_passo = "coletar_dado_faltante"
 
-        proximo_passo_real = resolver_proximo_passo_real(
-            proximo_passo,
-            slots_extraidos,
-            ctx
-        )
+    # 🔥 GARANTIA FINAL
+    if not proximo_passo:
+        proximo_passo = "coletar_dado_faltante"
+
+    proximo_passo_real = resolver_proximo_passo_real(
+        proximo_passo,
+        slots_extraidos,
+        ctx
+    )
 
     frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
 
