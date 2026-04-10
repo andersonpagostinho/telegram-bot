@@ -1347,17 +1347,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DENTRO DA ESCOLHA
             if eh_desistencia_fluxo(texto_usuario):
-                print("🧪 [DESISTENCIA DETECTADA] Encerrando fluxo...", flush=True)
+            print("🧪 [DESISTENCIA DETECTADA] Encerrando fluxo...", flush=True)
 
-                await limpar_contexto_agendamento(user_id)
+            await limpar_contexto_agendamento(user_id)
 
-                await _send_and_stop(
-                    context,
-                    user_id,
-                    "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
-                )
+            await _send_and_stop(
+                context,
+                user_id,
+                "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
+            )
 
-                return True
+            raise ApplicationHandlerStop
 
             if len(matches) == 1:
                 hora = int(matches[0][0])
