@@ -178,16 +178,32 @@ def gerar_sugestoes_de_horario(
     candidatos_ordenados = sorted(candidatos, key=score_slot)
 
     sugestoes = []
-    vistos = set()
+
+    janelas_ocupadas = []  # [(inicio, fim)]
 
     for horario in candidatos_ordenados:
-        inicio = horario.strftime("%H:%M")
-        fim = (horario + duracao).strftime("%H:%M")
+
+        inicio_slot = horario
+        fim_slot = horario + duracao
+
+        # 🔥 verifica se esse horário conflita com alguma sugestão já escolhida
+        conflita = False
+        for ini_exist, fim_exist in janelas_ocupadas:
+            if not (fim_slot <= ini_exist or inicio_slot >= fim_exist):
+                conflita = True
+                break
+
+        if conflita:
+            continue
+
+        # ✅ adiciona como melhor daquela janela
+        janelas_ocupadas.append((inicio_slot, fim_slot))
+
+        inicio = inicio_slot.strftime("%H:%M")
+        fim = fim_slot.strftime("%H:%M")
         faixa = f"{inicio} - {fim}"
 
-        if faixa not in vistos:
-            vistos.add(faixa)
-            sugestoes.append(faixa)
+        sugestoes.append(faixa)
 
         if len(sugestoes) >= max_sugestoes:
             break
