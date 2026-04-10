@@ -1266,6 +1266,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # ✅ (B) SEMPRE-ON: extrair e mesclar slots (prof/serv/dt)
     # =========================================================
     try:
+        print(
+            f"🧪 [B-INICIO] texto={texto_usuario} | "
+            f"estado_fluxo={ctx.get('estado_fluxo')} | "
+            f"modo_escolha_horario={ctx.get('modo_escolha_horario')} | "
+            f"horarios_sugeridos={ctx.get('horarios_sugeridos')} | "
+            f"data_hora={ctx.get('data_hora')} | "
+            f"draft={ctx.get('draft_agendamento')}",
+            flush=True
+        )
+
+        print(
+            f"🧪 [ANTES IF ESCOLHA] cond1={ctx.get('modo_escolha_horario')} | "
+            f"cond2={(ctx.get('estado_fluxo') or '').strip().lower() == 'aguardando_escolha_horario'} | "
+            f"estado_fluxo_raw={ctx.get('estado_fluxo')}",
+            flush=True
+        )
+        
         # =========================================================
         # 🔥 PRIORIDADE ABSOLUTA — ESCOLHA DE HORÁRIO SUGERIDO
         # PRECISA vir antes do extrair_slots_e_mesclar
