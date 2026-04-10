@@ -154,6 +154,21 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             )
             raise ApplicationHandlerStop
 
+    # --- 1.7) mensagem neutra / social ---
+    mensagens_neutras = [
+        "obrigado", "obrigada", "valeu", "grato", "grata",
+        "ok", "certo", "perfeito", "entendi", "blz", "beleza"
+    ]
+
+    if texto_usuario in mensagens_neutras:
+        print(f"🧪 [BOT-MSG-NEUTRA] texto={mensagem!r}", flush=True)
+
+        await update.message.reply_text(
+            "De nada! 😊 Se precisar de algo, é só me chamar."
+        )
+
+        raise ApplicationHandlerStop
+
     if ctx_tmp.get("aguardando_confirmacao_agendamento"):
 
         if eh_confirmacao(texto_usuario):
