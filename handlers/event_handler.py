@@ -317,7 +317,8 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 prof_final = profissional or contexto.get("profissional_escolhido") or contexto.get("profissional")
 
                 contexto["ultima_acao"] = "criar_evento"
-                contexto["aguardando_horario"] = True
+                contexto["estado_fluxo"] = "aguardando_escolha_horario"
+                contexto.pop("aguardando_horario", None)
                 contexto["data_hora"] = start_time.replace(second=0, microsecond=0).isoformat()
 
                 if prof_final:
@@ -655,7 +656,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 prof_final = profissional or contexto.get("profissional_escolhido")
 
                 contexto["ultima_acao"] = "criar_evento"
-                contexto["aguardando_horario"] = True
+                contexto["estado_fluxo"] = "aguardando_escolha_horario"
+                contexto.pop("aguardando_horario", None)
                 contexto["data_hora"] = start_time.replace(second=0, microsecond=0).isoformat()
 
                 if prof_final:
