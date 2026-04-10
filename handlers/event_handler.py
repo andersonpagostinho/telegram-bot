@@ -756,15 +756,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                         )
 
                         await salvar_contexto_temporario(
-                              user_id,
-                              {
-                                  "estado_fluxo": "aguardando_profissional",
-                                  "ultima_opcao_profissionais": nomes_alternativos,
-                                  "profissional_escolhido": None,
-                                  "servico": servico_final,
-                                  "data_hora": start_time.replace(second=0, microsecond=0).isoformat(),
-                              },
-                          )
+                            user_id,
+                            {
+                                "estado_fluxo": "aguardando_escolha_horario",
+                                "ultima_opcao_profissionais": nomes_alternativos,
+                                "alternativa_profissional": nomes_alternativos,
+                                "profissional_escolhido": prof_final,
+                                "servico": servico_final,
+                                "data_hora": start_time.replace(second=0, microsecond=0).isoformat(),
+                            },
+                        )
 
             except Exception as e:
                 print(f"⚠️ Falha ao montar alternativas no mesmo horário: {e}", flush=True)
