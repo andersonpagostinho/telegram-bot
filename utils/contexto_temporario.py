@@ -31,23 +31,25 @@ async def limpar_contexto_agendamento(user_id: str):
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
 
     payload = {
-        "modo_escolha_horario": firestore.DELETE_FIELD,
-        "horarios_sugeridos": firestore.DELETE_FIELD,
-        "alternativa_profissional": firestore.DELETE_FIELD,
+        # 🔥 neutralização (não delete)
+        "modo_escolha_horario": False,
+        "horarios_sugeridos": [],
+        "alternativa_profissional": None,
+        "ultima_opcao_profissionais": [],
+
+        # deletes OK
         "aguardando_confirmacao_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
         "dados_anteriores": firestore.DELETE_FIELD,
-        "draft_agendamento": firestore.DELETE_FIELD,
-        "ultima_acao": firestore.DELETE_FIELD,
-        "hora_confirmada": firestore.DELETE_FIELD,
-        "ultima_opcao_profissionais": firestore.DELETE_FIELD,
-        "sugestoes": firestore.DELETE_FIELD,
-        "ultima_consulta": firestore.DELETE_FIELD,
-        "data_hora": firestore.DELETE_FIELD,
-        "servico": firestore.DELETE_FIELD,
-        "profissional_escolhido": firestore.DELETE_FIELD,
-        "pergunta_amanha_mesmo_horario": firestore.DELETE_FIELD,
-        "data_hora_pendente": firestore.DELETE_FIELD,
+        "draft_agendamento": {},
+        "ultima_acao": None,
+        "hora_confirmada": None,
+        "sugestoes": [],
+        "ultima_consulta": None,
+        "data_hora": None,
+        "servico": None,
+        "profissional_escolhido": None,
+
         "estado_fluxo": "idle"
     }
 
