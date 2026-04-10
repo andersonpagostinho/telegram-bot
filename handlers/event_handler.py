@@ -262,7 +262,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # 🧠 Recupera contexto e profissional alternativo
         contexto = await carregar_contexto_temporario(user_id) or {}
         profissional = contexto.get("profissional")  # vem do contexto anterior
-        alternativa = contexto.get("alternativa_profissional")
+        alternativa = None
 
         # 🔍 Só exige profissional se o tipo de evento precisar
         if _precisa_profissional(contexto, titulo) and not profissional:
@@ -295,7 +295,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
             sugestoes_formatadas = "\n".join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
 
-            alternativa = contexto.get("alternativa_profissional")
+            alternativa = None
 
             # ✅ Persistir agendamento pendente (data ORIGINAL) para não perder o dia
             #    (isso é o que permite o usuário mandar só "15:20" depois)
@@ -538,24 +538,43 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 return {"acao": None, "handled": True}
 
         # 🧠 Trata profissional alternativo (contexto já carregado acima)
-        resposta_usuario = (
+        resposta_usuario_norm = (
             (getattr(getattr(update, "message", None), "text", None) or "")
-            .lower()
             .strip()
+            .lower()
         )
 
         alternativa = contexto.get("alternativa_profissional")
 
-        if alternativa:
-            if alternativa.lower() in resposta_usuario:
-                profissional = alternativa.capitalize()
-                dados["profissional"] = profissional
-                print(f"🔁 Profissional substituído com sucesso: {profissional}")
-            else:
-                # ❌ Usuário não confirmou a alternativa → limpa
-                contexto.pop("alternativa_profissional", None)
-                contexto.pop("sugestoes", None)
-                await salvar_contexto_temporario(user_id, contexto)
+        nomes_alternativos = []
+        if isinstance(alternativa, list):
+            nomes_alternativos = [str(x).strip() for x in alternativa if str(x).strip()]
+        elif isinstance(alternativa, str) and alternativa.strip():
+            nomes_alternativos = [alternativa.strip()]
+
+        profissional_alternativo_escolhido = None
+        for nome_alt in nomes_alternativos:
+            if nome_alt.lower() in resposta_usuario_norm:
+                profissional_alternativo_escolhido = nome_alt
+                break
+
+        if profissional_alternativo_escolhido:
+            profissional = profissional_alternativo_escolhido
+            dados["profissional"] = profissional
+
+            # ✅ ao escolher a alternativa, limpa resíduos do modo de sugestão
+            contexto.pop("alternativa_profissional", None)
+            contexto.pop("sugestoes", None)
+            contexto.pop("modo_escolha_horario", None)
+            contexto.pop("horarios_sugeridos", None)
+
+            await salvar_contexto_temporario(user_id, contexto)
+            print(f"🔁 Profissional substituído com sucesso: {profissional}")
+        elif nomes_alternativos:
+            # ❌ Usuário não escolheu nenhuma alternativa explicitamente → limpa
+            contexto.pop("alternativa_profissional", None)
+            contexto.pop("sugestoes", None)
+            await salvar_contexto_temporario(user_id, contexto)
         
         if not profissional:
             # Só tenta descobrir/exigir profissional se realmente precisar
@@ -612,7 +631,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 max_sugestoes=3
             )
 
-            alternativa = contexto.get("alternativa_profissional")
+            alternativa = None
             sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
 
             id_dono = user_id
@@ -661,10 +680,23 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             except Exception as e:
                 print(f"⚠️ Falha ao salvar contexto pendente no conflito: {e}")
 
-            alternativa_txt = (
-                f"\n\n💡 Porém, *{alternativa}* está disponível exatamente às *{start_time.strftime('%H:%M')}*."
-                if alternativa else ""
-            )
+            nomes_alternativos = []
+            if isinstance(alternativa, list):
+                nomes_alternativos = [str(x).strip() for x in alternativa if str(x).strip()]
+            elif isinstance(alternativa, str) and alternativa.strip():
+                nomes_alternativos = [alternativa.strip()]
+
+            if len(nomes_alternativos) == 1:
+                alternativa_txt = (
+                    f"\n\n💡 Porém, *{nomes_alternativos[0]}* está disponível exatamente às *{start_time.strftime('%H:%M')}*."
+                )
+            elif len(nomes_alternativos) > 1:
+                lista_alt = ", ".join(f"*{n}*" for n in nomes_alternativos)
+                alternativa_txt = (
+                    f"\n\n💡 Tenho estas profissionais disponíveis exatamente às *{start_time.strftime('%H:%M')}*: {lista_alt}."
+                )
+            else:
+                alternativa_txt = ""
 
             # --- Alternativas no MESMO horário (mesmo serviço) ---
             alternativas_txt = ""
@@ -702,6 +734,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                             continue
                         if k in aptas_norm:
                             nomes_alternativos.append(livres_norm[k])
+
+                    alternativa = nomes_alternativos if nomes_alternativos else None
+                    contexto["alternativa_profissional"] = alternativa
 
                     print(
                         f"🧪 alternativas debug | servico={servico_final} | "
