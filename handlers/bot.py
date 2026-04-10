@@ -51,8 +51,7 @@ from handlers.encaixe_handler import handle_pedido_encaixe
 from handlers.reagendamento_handler import handle_resposta_reagendamento
 from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
 from services.gpt_executor import executar_acao_gpt
-from utils.context_manager import limpar_contexto_agendamento
-
+from utils.contexto_temporario import limpar_contexto_agendamento
 
 # 👉 Se esses não existirem no seu repo, comente este import e os CommandHandler lá embaixo
 from handlers.report_handler import (
