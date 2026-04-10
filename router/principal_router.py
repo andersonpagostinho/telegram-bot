@@ -395,27 +395,24 @@ def eh_desistencia_fluxo(txt: str) -> bool:
 
     sinais_fortes = [
         "cancelar",
-        "nao quero", "não quero",
-        "deixa pra la", "deixa pra lá",
-        "melhor nao", "melhor não",
-        "nao precisa", "não precisa",
-        "depois vejo",
-        "vou falar depois",
-        "volto a falar"
+        "cancela",
+        "nao quero",
+        "deixa pra la",
+        "melhor nao",
+        "nao precisa",
+        "desisto",
     ]
 
     sinais_contexto = [
         "nao vou conseguir",
-        "não vou conseguir",
         "nao consigo",
-        "não consigo",
         "tenho compromisso",
         "tenho reuniao",
-        "tenho reunião",
         "nesse horario nao da",
-        "nesse horário não dá",
-        "outro dia",
-        "mais tarde"
+        "depois vejo",
+        "vou falar depois",
+        "volto a falar",
+        "deixar para depois",
     ]
 
     score = 0
@@ -1346,7 +1343,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DENTRO DA ESCOLHA
             if eh_desistencia_fluxo(texto_usuario):
-                print("🧪 [DESISTENCIA DENTRO ESCOLHA] Encerrando fluxo...", flush=True)
+                print(f"🧪 [TESTE-DESISTENCIA] texto_usuario={texto_usuario}", flush=True)
+                print(f"🧪 [TESTE-DESISTENCIA] texto_normalizado={normalizar(texto_usuario)}", flush=True)
+                print(f"🧪 [TESTE-DESISTENCIA] retorno={eh_desistencia_fluxo(texto_usuario)}", flush=True)
 
                 await limpar_contexto_agendamento(user_id)
 
