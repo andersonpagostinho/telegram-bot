@@ -1323,25 +1323,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
         # =========================================================
-        # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DO FLUXO (ANTES DA ESCOLHA)
-        # =========================================================
-        if (
-            ctx.get("modo_escolha_horario")
-            or (ctx.get("estado_fluxo") or "").strip().lower() == "aguardando_escolha_horario"
-            or (ctx.get("estado_fluxo") or "").strip().lower() == "agendando"
-        ):
-            if eh_desistencia_fluxo(texto_usuario):
-                print("🧪 [DESISTENCIA DETECTADA] Encerrando fluxo...", flush=True)
-
-                await limpar_contexto_agendamento(user_id)
-
-                return await _send_and_stop(
-                    context,
-                    user_id,
-                    "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
-                )
-        
-        # =========================================================
         # 🔥 PRIORIDADE ABSOLUTA — ESCOLHA DE HORÁRIO SUGERIDO
         # PRECISA vir antes do extrair_slots_e_mesclar
         # =========================================================
@@ -1362,6 +1343,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
             horarios_sugeridos = ctx.get("horarios_sugeridos") or []
             matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
+
+            # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DENTRO DA ESCOLHA
+            if eh_desistencia_fluxo(texto_usuario):
+                print("🧪 [DESISTENCIA DENTRO ESCOLHA] Encerrando fluxo...", flush=True)
+
+                await limpar_contexto_agendamento(user_id)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
+                )
 
             if len(matches) == 1:
                 hora = int(matches[0][0])
