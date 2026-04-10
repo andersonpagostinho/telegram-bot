@@ -16,8 +16,11 @@ from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario
 from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
-from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario
-from utils.context_manager import limpar_contexto_agendamento
+from utils.contexto_temporario import (
+    salvar_contexto_temporario,
+    carregar_contexto_temporario,
+    limpar_contexto_agendamento,
+)
 
 from services.firebase_service_async import (
     salvar_cliente,

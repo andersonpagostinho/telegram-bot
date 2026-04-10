@@ -14,6 +14,7 @@ from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 from utils.contexto_temporario import (
     carregar_contexto_temporario,
     salvar_contexto_temporario,
+    limpar_contexto_agendamento,
 )
 from utils.custos_gpt import registrar_custo_gpt
 from firebase_admin import firestore
@@ -23,7 +24,6 @@ from services.session_service import pegar_sessao, resetar_sessao
 from utils.context_manager import (
     atualizar_contexto,
     limpar_contexto,
-    limpar_contexto_agendamento,
 )
 from services.profissional_service import (
     listar_servicos_cadastrados,
