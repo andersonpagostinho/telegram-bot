@@ -1351,6 +1351,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 await limpar_contexto_agendamento(user_id)
 
+                # 🔥 limpa também o contexto em memória
+                ctx.clear()
+                ctx["estado_fluxo"] = "idle"
+
                 await _send_and_stop(
                     context,
                     user_id,
@@ -1553,6 +1557,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         await salvar_contexto_temporario(user_id, ctx)
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
+
+    except ApplicationHandlerStop:
+        raise
 
     except Exception as e:
         print("⚠️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)

@@ -46,7 +46,8 @@ async def limpar_contexto_agendamento(user_id: str):
         "data_hora": firestore.DELETE_FIELD,
         "servico": firestore.DELETE_FIELD,
         "profissional_escolhido": firestore.DELETE_FIELD,
-
+        "pergunta_amanha_mesmo_horario": firestore.DELETE_FIELD,
+        "data_hora_pendente": firestore.DELETE_FIELD,
         "estado_fluxo": "idle"
     }
 
