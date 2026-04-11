@@ -1844,9 +1844,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if servico_in.startswith(prefixo):
                 servico_in = servico_in[len(prefixo):].strip()
 
-        # 🔥 tenta casar com catálogo (mesma lógica do extrair_slots_e_mesclar)
-        servico_detectado = None
-
+        # 🔥 tenta casar com catálogo (agora aceita múltiplos candidatos)
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
         todos = []
@@ -1861,24 +1859,52 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 vistos.add(s2)
                 catalogo.append(s2)
 
+        servico_norm = normalizar(servico_in)
+        servicos_candidatos = []
+
         for s in catalogo:
             s_norm = normalizar(s)
-            servico_norm = normalizar(servico_in)
             if servico_norm == s_norm or s_norm in servico_norm:
-                servico_detectado = s
-                break
+                servicos_candidatos.append(s)
 
-        # 🔥 só salva se bateu com catálogo
-        if servico_detectado:
-            draft_local["servico"] = servico_detectado
-            ctx["servico"] = servico_detectado
-            print(f"🔥 [AG_SERVICO] servico_detectado={servico_detectado}", flush=True)
-            ctx["draft_agendamento"] = draft_local
+        # remove duplicados preservando ordem
+        servicos_candidatos = list(dict.fromkeys(servicos_candidatos))
 
-        prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+        prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or  {}).get("profissional")
         data_hora = draft_local.get("data_hora") or ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         servico = draft_local.get("servico") or ctx.get("servico")
         print(f"🔥 [AG_SERVICO] prof={prof} | data_hora={data_hora} | servico={servico}", flush=True)
+
+        # 🔥 múltiplos serviços candidatos
+        if len(servicos_candidatos) > 1:
+            ctx["servicos_candidatos"] = servicos_candidatos
+            ctx["estado_fluxo"] = "aguardando_servico"
+
+            await salvar_contexto_temporario(user_id, ctx)
+  
+            horarios = ctx.get("horarios_sugeridos") or []
+            horarios_txt = " ou ".join(horarios)
+
+            base = montar_frase_data_legivel(data_hora) if data_hora else ""
+            complemento = f" {base}" if base else ""
+
+            faixa = f" por volta de {horarios_txt}" if horarios_txt else ""
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                f"Perfeito{complemento}{faixa} 😊\n\n"
+                f"Você prefere *{servicos_candidatos[0]}* ou *{servicos_candidatos[1]}*?"
+            )
+
+        # 🔥 só salva se bateu com 1 serviço
+        if len(servicos_candidatos) == 1:
+            servico_detectado = servicos_candidatos[0]
+            draft_local["servico"] = servico_detectado
+            ctx["servico"] = servico_detectado
+            ctx.pop("servicos_candidatos", None)
+            print(f"🔥 [AG_SERVICO] servico_detectado={servico_detectado}", flush=True)
+            ctx["draft_agendamento"] = draft_local
 
         if not data_hora:
             print("🛑 [AG_SERVICO] saiu por falta de data_hora", flush=True)
