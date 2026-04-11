@@ -162,6 +162,7 @@ def montar_resposta_fallback(
     # 🔹 PERGUNTAR SERVIÇO
     # =========================================================
     if proximo_passo_real == "perguntar_servico":
+        horarios_candidatos = contexto.get("horarios_sugeridos") or []
 
         # 👉 se só existe 1 serviço → assume
         if len(servicos_permitidos) == 1:
@@ -174,6 +175,9 @@ def montar_resposta_fallback(
 
             if frase_data_legivel:
                 partes.append(frase_data_legivel.strip())
+
+            if horarios_candidatos:
+                partes.append(f"por volta de {' ou '.join(horarios_candidatos)}")
 
             contexto_str = " ".join(partes)
 
@@ -194,6 +198,15 @@ def montar_resposta_fallback(
         contexto_str = " ".join(partes)
 
         if contexto_str:
+
+            if horarios_candidatos:
+                horarios_txt = " ou ".join(horarios_candidatos)
+
+                return (
+                    f"Perfeito — {contexto_str} por volta de {horarios_txt} 😊\n\n"
+                    "Qual serviço você deseja?"
+                )
+
             return (
                 f"Perfeito — {contexto_str} 😊\n\n"
                 "Qual serviço você deseja?"
