@@ -2758,6 +2758,45 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             "Qual serviço você quer fazer?"
                         )
 
+        # 🔥 BLOCO ESPECÍFICO — AGUARDANDO SERVIÇO
+        if ctx.get("estado_fluxo") == "aguardando_servico":
+            texto_norm = normalizar(texto_usuario or "")
+            partes = re.split(r"\bou\b|,|/", texto_norm)
+
+            profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+            todos = []
+            for p in profs_dict.values():
+                todos.extend(p.get("servicos") or [])
+
+            catalogo = list(dict.fromkeys([str(s).strip() for s in todos if s]))
+            servicos_candidatos = []
+
+            for parte in partes:
+                parte = parte.strip()
+                for s in catalogo:
+                    if normalizar(s) in parte:
+                        servicos_candidatos.append(s)
+
+            servicos_candidatos = list(dict.fromkeys(servicos_candidatos))
+
+            if len(servicos_candidatos) > 1:
+                ctx["servicos_candidatos"] = servicos_candidatos
+                await salvar_contexto_temporario(user_id, ctx)
+
+                horarios = ctx.get("horarios_sugeridos") or []
+                horarios_txt = " ou ".join(horarios)
+
+                base = montar_frase_data_legivel(ctx.get("data_hora"))
+                faixa = f" por volta de {horarios_txt}" if horarios_txt else ""
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Perfeito — {base}{faixa} 😊\n\n"
+                    f"Você prefere *{servicos_candidatos[0]}* ou *{servicos_candidatos[1]}*?"
+                )
+
         # primeiro tenta responder algo determinístico já existente no fluxo
         if estado_fluxo == "aguardando_profissional":
             tnorm_guard = normalizar(texto_usuario or "")
@@ -2776,10 +2815,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx
         )
 
-        # NÃO rodar se ainda está coletando serviço
-        if ctx.get("estado_fluxo") == "aguardando_servico":
-            pass  # deixa o bloco específico tratar
-        
+        # NÃO responder aqui se ainda está coletando serviço.
+        # Deixa o bloco específico de aguardando_servico tratar antes do GPT.
+        if ctx.get("estado_fluxo") != "aguardando_servico":
             return await _send_and_stop(context, user_id, resposta_texto)
  
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
