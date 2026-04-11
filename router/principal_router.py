@@ -1912,6 +1912,27 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             print(f"🔥 [AG_SERVICO] servico_detectado={servico_detectado}", flush=True)
             ctx["draft_agendamento"] = draft_local
 
+        # 🔥 monta resposta inteligente
+        if len(disponiveis) == 2:
+            return await _send_and_stop(
+                context,
+                user_id,
+                f"Perfeito — para *{servico}*, tenho *{disponiveis[0]}* e *{disponiveis[1]}* amanhã. Qual você prefere?"
+            )
+
+        if len(disponiveis) == 1:
+            return await _send_and_stop(
+                context,
+                user_id,
+                f"Perfeito — para *{servico}*, *{horarios[0]}* já está ocupado. Tenho *{disponiveis[0]}* disponível amanhã. Quer esse?"
+            )
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            f"Para *{servico}*, *{horarios[0]}* e *{horarios[1]}* não estão livres amanhã.\nPosso te sugerir outros horários?"
+        )
+
         if not data_hora:
             print("🛑 [AG_SERVICO] saiu por falta de data_hora", flush=True)
             ctx["estado_fluxo"] = "aguardando_data"
