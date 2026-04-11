@@ -1877,11 +1877,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         # 🔥 múltiplos serviços candidatos
         if len(servicos_candidatos) > 1:
+            # limpa serviço final já fixado
+            ctx.pop("servico", None)
+
+            draft_local.pop("servico", None)
+            ctx["draft_agendamento"] = draft_local
+
             ctx["servicos_candidatos"] = servicos_candidatos
             ctx["estado_fluxo"] = "aguardando_servico"
 
             await salvar_contexto_temporario(user_id, ctx)
-  
+
             horarios = ctx.get("horarios_sugeridos") or []
             horarios_txt = " ou ".join(horarios)
 
@@ -2777,25 +2783,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 for s in catalogo:
                     if normalizar(s) in parte:
                         servicos_candidatos.append(s)
-
-            servicos_candidatos = list(dict.fromkeys(servicos_candidatos))
-
-            if len(servicos_candidatos) > 1:
-                ctx["servicos_candidatos"] = servicos_candidatos
-                await salvar_contexto_temporario(user_id, ctx)
-
-                horarios = ctx.get("horarios_sugeridos") or []
-                horarios_txt = " ou ".join(horarios)
-
-                base = montar_frase_data_legivel(ctx.get("data_hora"))
-                faixa = f" por volta de {horarios_txt}" if horarios_txt else ""
-
-                return await _send_and_stop(
-                    context,
-                    user_id,
-                    f"Perfeito — {base}{faixa} 😊\n\n"
-                    f"Você prefere *{servicos_candidatos[0]}* ou *{servicos_candidatos[1]}*?"
-                )
 
         # primeiro tenta responder algo determinístico já existente no fluxo
         if estado_fluxo == "aguardando_profissional":
