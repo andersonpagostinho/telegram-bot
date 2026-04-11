@@ -105,11 +105,17 @@ def resolver_proximo_passo_real(
     tem_profissional = bool(slots_extraidos.get("profissional") or contexto.get("profissional_escolhido"))
     tem_data_valor = tem_data()
     tem_hora = tem_hora_real_local()
+    horarios_candidatos = contexto.get("horarios_sugeridos") or []
 
     # 🔥 NOVA LÓGICA CENTRAL (IGNORA proximo_passo antigo)
 
-    # 1. Tem data mas NÃO tem hora → só horário
-    if tem_data_valor and not tem_hora:
+    # 1. Se já existem horários candidatos capturados, não pergunte horário de novo.
+    # Primeiro complete os campos principais do agendamento.
+    if horarios_candidatos and not tem_hora:
+        if not tem_servico:
+            return "perguntar_servico"
+        if not tem_profissional:
+            return "perguntar_profissional"
         return "perguntar_somente_horario"
 
     # 2. Não tem data nenhuma → pedir data + hora
