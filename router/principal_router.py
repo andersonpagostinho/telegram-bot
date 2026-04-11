@@ -72,9 +72,17 @@ def resolver_proximo_passo_real(
 
     contexto = contexto or {}
 
-    # 🔥 PRIORIDADE MÁXIMA: se ainda está escolhendo horário, não pula para serviço
+    # 🔥 Se está em escolha de horário, só pode confirmar se já houver base mínima
     if contexto.get("estado_fluxo") == "aguardando_escolha_horario":
-        return "confirmar_ou_executar"
+        tem_servico_ctx = bool(slots_extraidos.get("servico") or contexto.get("servico"))
+        tem_profissional_ctx = bool(
+            slots_extraidos.get("profissional") or contexto.get("profissional_escolhido")
+        )
+
+        # só confirma se já souber serviço e profissional
+        if tem_servico_ctx and tem_profissional_ctx:
+            return "confirmar_ou_executar"
+
 
     def tem_hora_real_local():
         if "hora_confirmada" in contexto:
@@ -109,12 +117,12 @@ def resolver_proximo_passo_real(
         return "perguntar_data_hora"
 
     # 3. Falta profissional
-    if not tem_profissional:
-        return "perguntar_profissional"
-
-    # 4. Falta serviço
     if not tem_servico:
         return "perguntar_servico"
+
+    # 4. Falta serviço
+    if not tem_profissional:
+        return "perguntar_profissional"
 
     # 5. Tudo completo
     return "confirmar_ou_executar"
