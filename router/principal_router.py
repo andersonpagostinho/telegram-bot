@@ -2908,6 +2908,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # Deixa o bloco específico de aguardando_servico tratar antes do GPT.
         if ctx.get("estado_fluxo") != "aguardando_servico":
             return await _send_and_stop(context, user_id, resposta_texto)
+
+    # =========================================================
+    # 🔥 BLOQUEIO DE GPT — já tenho data + horários
+    # =========================================================
+    if ctx.get("data_hora") and ctx.get("horarios_sugeridos"):
+        print("🛑 [BLOQUEIO GPT] já tenho data + horários", flush=True)
+
+        ctx["estado_fluxo"] = "aguardando_servico"
+        await salvar_contexto_temporario(user_id, ctx)
+
+        horarios = ctx.get("horarios_sugeridos") or []
+        horarios_txt = " ou ".join(horarios)
+        base = montar_frase_data_legivel(ctx.get("data_hora"))
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            f"Perfeito — {base} por volta de {horarios_txt} 😊\n\nQual serviço você deseja?"
+        )
  
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
 
