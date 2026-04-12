@@ -1581,6 +1581,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     ctx["ultima_consulta"].pop("profissional", None)
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+        # =========================================================
+        # 🔥 PROTEÇÃO — não fixar serviço cedo demais em aguardando_servico
+        # quando o usuário mandar múltiplos serviços candidatos
+        # =========================================================
+        estado_fluxo_tmp = (ctx.get("estado_fluxo") or "").strip().lower()
+
+        if estado_fluxo_tmp in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
+            texto_norm_tmp = normalizar(texto_usuario or "")
+            partes_tmp = re.split(r"\bou\b|,|/", texto_norm_tmp)
+
+            profs_dict_tmp = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+            todos_tmp = []
+            for p in profs_dict_tmp.values():
+                todos_tmp.extend(p.get("servicos") or [])
+
+            catalogo_tmp = list(dict.fromkeys([str(s).strip() for s in todos_tmp if s]))
+            candidatos_tmp = []
+
+            for parte in partes_tmp:
+                parte = parte.strip()
+                for s in catalogo_tmp:
+                    if normalizar(s) in parte:
+                        candidatos_tmp.append(s)
+
+            candidatos_tmp = list(dict.fromkeys(candidatos_tmp))
+
+            if len(candidatos_tmp) > 1:
+                ctx.pop("servico", None)
+
+                draft_tmp = ctx.get("draft_agendamento") or {}
+                draft_tmp.pop("servico", None)
+                ctx["draft_agendamento"] = draft_tmp
+
         await salvar_contexto_temporario(user_id, ctx)
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
