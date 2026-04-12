@@ -1883,6 +1883,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             draft_local.pop("servico", None)
             ctx["draft_agendamento"] = draft_local
 
+            # importante: zera também a variável local
+            servico = None
+
             ctx["servicos_candidatos"] = servicos_candidatos
             ctx["estado_fluxo"] = "aguardando_servico"
 
