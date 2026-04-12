@@ -2025,13 +2025,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     f"Perfeito — para *{servico}*, *{ocupado_txt}* já está ocupado. Tenho *{disponiveis[0]}* disponível amanhã. Quer esse?"
                 )
 
-            if len(horarios) >= 2:
-                return await _send_and_stop(
-                    context,
-                    user_id,
-                    f"Para *{servico}*, *{horarios[0]}* e *{horarios[1]}* não estão livres amanhã.\nPosso te sugerir outros horários?"
-                )
-
             return await _send_and_stop(
                 context,
                 user_id,
