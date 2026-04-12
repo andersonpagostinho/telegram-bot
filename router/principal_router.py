@@ -1949,26 +1949,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             print(f"🔥 [AG_SERVICO] servico_detectado={servico_detectado}", flush=True)
             ctx["draft_agendamento"] = draft_local
 
-        # 🔥 monta resposta inteligente
-        if len(disponiveis) == 2:
-            return await _send_and_stop(
-                context,
-                user_id,
-                f"Perfeito — para *{servico}*, tenho *{disponiveis[0]}* e *{disponiveis[1]}* amanhã. Qual você prefere?"
-            )
-
-        if len(disponiveis) == 1:
-            return await _send_and_stop(
-                context,
-                user_id,
-                f"Perfeito — para *{servico}*, *{horarios[0]}* já está ocupado. Tenho *{disponiveis[0]}* disponível amanhã. Quer esse?"
-            )
-
-        return await _send_and_stop(
-            context,
-            user_id,
-            f"Para *{servico}*, *{horarios[0]}* e *{horarios[1]}* não estão livres amanhã.\nPosso te sugerir outros horários?"
-        )
+        # 🔥 recarrega variáveis depois de possível atualização
+        prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+        data_hora = draft_local.get("data_hora") or ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
+        servico = draft_local.get("servico") or ctx.get("servico")
 
         if not data_hora:
             print("🛑 [AG_SERVICO] saiu por falta de data_hora", flush=True)
@@ -1986,6 +1970,73 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             print("🛑 [AG_SERVICO] saiu por falta de serviço", flush=True)
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Qual serviço vai ser?")
+
+        # =========================================================
+        # 🔥 USAR HORÁRIOS SUGERIDOS COM SERVIÇO DEFINIDO
+        # =========================================================
+        horarios = ctx.get("horarios_sugeridos") or []
+
+        if horarios and data_hora and servico and prof:
+            print("🔥 [CHECK HORARIOS_CANDIDATOS COM SERVIÇO]", flush=True)
+
+            dt_base = datetime.fromisoformat(data_hora)
+            disponiveis = []
+
+            for h in horarios:
+                try:
+                    hora, minuto = map(int, h.split(":"))
+
+                    dt_teste = dt_base.replace(
+                        hour=hora,
+                        minute=minuto,
+                        second=0,
+                        microsecond=0
+                    )
+
+                    conflito = await verificar_conflito_e_sugestoes_profissional(
+                        user_id=user_id,
+                        data=dt_teste.strftime("%Y-%m-%d"),
+                        hora_inicio=dt_teste.strftime("%H:%M"),
+                        duracao_min=estimar_duracao(servico),
+                        profissional=prof,
+                        servico=servico
+                    )
+
+                    if not conflito.get("conflito"):
+                        disponiveis.append(h)
+
+                except Exception as e:
+                    print(f"⚠️ erro ao testar horário {h}: {e}", flush=True)
+
+            if len(disponiveis) == 2:
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Perfeito — para *{servico}*, tenho *{disponiveis[0]}* e *{disponiveis[1]}* amanhã. Qual você prefere?"
+                )
+
+            if len(disponiveis) == 1:
+                ocupados = [h for h in horarios if h not in disponiveis]
+                ocupado_txt = ocupados[0] if ocupados else "esse horário"
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Perfeito — para *{servico}*, *{ocupado_txt}* já está ocupado. Tenho *{disponiveis[0]}* disponível amanhã. Quer esse?"
+                )
+
+            if len(horarios) >= 2:
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Para *{servico}*, *{horarios[0]}* e *{horarios[1]}* não estão livres amanhã.\nPosso te sugerir outros horários?"
+                )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                f"Para *{servico}*, esse horário não está livre amanhã.\nPosso te sugerir outros horários?"
+            )
 
         dt_naive = _dt_from_iso_naive(data_hora)
         if dt_naive and dt_naive <= _agora_br_naive():
