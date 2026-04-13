@@ -2520,7 +2520,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if not servico:
             ctx["profissional_escolhido"] = escolha_prof
-            ctx["estado_fluxo"] = "aguardando_servico"
+            if ctx.get("estado_fluxo") not in ["aguardando_confirmacao_agendamento", "agendando"]:
+                ctx["estado_fluxo"] = "aguardando_servico"
             ctx["draft_agendamento"] = {
                 "profissional": escolha_prof,
                 "servico": None,
@@ -3027,10 +3028,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             return await _send_and_stop(context, user_id, resposta_texto)
 
     # =========================================================
-    # 🔥 BLOQUEIO DE GPT — já tenho data + horários
+    # 🔥 BLOQUEIO DE GPT — só quando ainda NÃO tem serviço
     # =========================================================
-    if ctx.get("data_hora") and ctx.get("horarios_sugeridos"):
-        print("🛑 [BLOQUEIO GPT] já tenho data + horários", flush=True)
+    if (
+        ctx.get("data_hora")
+        and ctx.get("horarios_sugeridos")
+        and not ctx.get("servico")
+    ):
+        print("🛑 [BLOQUEIO GPT] já tenho data + horários (sem serviço)", flush=True)
 
         ctx["estado_fluxo"] = "aguardando_servico"
         await salvar_contexto_temporario(user_id, ctx)
@@ -3420,7 +3425,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if not acao and proximo_passo_real:
 
         if proximo_passo_real == "perguntar_servico":
-            ctx["estado_fluxo"] = "aguardando_servico"
+            if (
+                not ctx.get("servico")
+                and ctx.get("estado_fluxo") not in ["aguardando_confirmacao_agendamento", "agendando"]
+            ):
+                ctx["estado_fluxo"] = "aguardando_servico"
 
         elif proximo_passo_real == "perguntar_profissional":
             ctx["estado_fluxo"] = "aguardando_profissional"
