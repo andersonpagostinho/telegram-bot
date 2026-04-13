@@ -2022,41 +2022,42 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await salvar_contexto_temporario(user_id, ctx)
 
             if len(horarios_livres) == 2:
-                profs_15 = ", ".join(disponibilidade_por_horario.get(horarios_livres[0], []))
-                profs_16 = ", ".join(disponibilidade_por_horario.get(horarios_livres[1], []))
-
                 return await _send_and_stop(
-                    context,
-                    user_id,
-                    (
-                        f"Perfeito — para *{servico}*, tenho *{horarios_livres[0]}* com {profs_15} "
-                        f"e *{horarios_livres[1]}* com {profs_16} amanhã.\n\n"
-                        "Qual horário você prefere?"
-                    )
+                context,
+                user_id,
+                    f"Perfeito — para *{servico}*, tenho *{horarios_livres[0]}* e *{horarios_livres[1]}* amanhã 😊\n\nQual horário você prefere?"
                 )
 
             if len(horarios_livres) == 1:
-                livres = ", ".join(disponibilidade_por_horario.get(horarios_livres[0], []))
                 ocupados = [h for h in horarios if h not in horarios_livres]
                 ocupado_txt = ocupados[0] if ocupados else "esse horário"
+
+                # 🔥 guarda só a sugestão de horário, sem fingir que já pode criar evento
+                ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                ctx["ultima_acao"] = "sugerir_horario"
+
+                draft_local["data_hora"] = datetime.fromisoformat(data_hora).replace(
+                    hour=int(horarios_livres[0].split(":")[0]),
+                    minute=int(horarios_livres[0].split(":")[1]),
+                    second=0,
+                    microsecond=0
+                ).isoformat()
+
+                ctx["draft_agendamento"] = draft_local
+                ctx["horarios_sugeridos"] = horarios_livres
+
+                await salvar_contexto_temporario(user_id, ctx)
 
                 return await _send_and_stop(
                     context,
                     user_id,
-                    (
-                        f"Perfeito — para *{servico}*, *{ocupado_txt}* não está disponível.\n"
-                        f"Tenho *{horarios_livres[0]}* com {livres} amanhã.\n\n"
-                        "Quer esse horário?"
-                    )
+                    f"Perfeito — para *{servico}*, *{ocupado_txt}* já não está disponível.\n\nTenho *{horarios_livres[0]}* livre amanhã 😊\nQuer seguir com esse horário?"
                 )
 
             return await _send_and_stop(
                 context,
                 user_id,
-                (
-                    f"Para *{servico}*, *{', '.join(horarios)}* não estão disponíveis amanhã.\n"
-                    "Posso te sugerir outros horários?"
-                )
+                f"Para *{servico}*, esses horários não estão livres amanhã 😕\n\nPosso te sugerir os horários mais próximos?"
             )
 
         if not prof:
