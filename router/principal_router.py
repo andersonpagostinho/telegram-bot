@@ -33,9 +33,16 @@ async def _send_and_stop(context, user_id: str, text: str, parse_mode: str = "Ma
 
 async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario):
     try:
+        historico = ctx.get("historico_texto") or []
+
         if texto_usuario and str(texto_usuario).strip():
-            ctx["ultimo_texto_usuario"] = str(texto_usuario).strip()
-            await salvar_contexto_temporario(user_id, ctx)
+            historico.append(str(texto_usuario).strip())
+
+        # mantém só as últimas 2 mensagens
+        ctx["historico_texto"] = historico[-2:]
+
+        await salvar_contexto_temporario(user_id, ctx)
+
     except Exception as e:
         print(f"⚠️ [_send_and_stop_ctx] erro ao salvar contexto: {e}", flush=True)
 
@@ -2208,8 +2215,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # 🔥 DECISÃO GENÉRICA DE SERVIÇO PRINCIPAL (sem hardcode)
             # ---------------------------------------------------------
 
-            texto = normalizar(texto_usuario or "")
+            historico = ctx.get("historico_texto") or []
+            texto_completo = " ".join(historico)
+            texto = normalizar(texto_completo)
             candidatos = list(dict.fromkeys(servicos_candidatos or []))  # dedupe
+
+            print(f"🧪 [TEXTO_SCORE_SERVICOS] {texto}", flush=True)
 
             def score_servico(servico: str, texto: str) -> int:
                 s = normalizar(servico)
