@@ -2174,34 +2174,75 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         # 🔥 múltiplos serviços candidatos
         if len(servicos_candidatos) > 1:
-            # limpa serviço final já fixado
-            ctx.pop("servico", None)
-
-            draft_local.pop("servico", None)
-            ctx["draft_agendamento"] = draft_local
-
-            # importante: zera também a variável local
-            servico = None
-
             ctx["servicos_candidatos"] = servicos_candidatos
-            ctx["estado_fluxo"] = "aguardando_servico"
 
-            await salvar_contexto_temporario(user_id, ctx)
+            texto = normalizar(texto_usuario or "")
 
-            horarios = ctx.get("horarios_sugeridos") or []
-            horarios_txt = " ou ".join(horarios)
+            # ---------------------------------------------------------
+            # 🔥 DECISÃO GENÉRICA DE SERVIÇO PRINCIPAL (sem hardcode)
+            # ---------------------------------------------------------
 
-            base = montar_frase_data_legivel(data_hora) if data_hora else ""
-            complemento = f" {base}" if base else ""
+            texto = normalizar(texto_usuario or "")
+            candidatos = list(dict.fromkeys(servicos_candidatos or []))  # dedupe
 
-            faixa = f" por volta de {horarios_txt}" if horarios_txt else ""
+            def score_servico(servico: str, texto: str) -> int:
+                s = normalizar(servico)
+                score = 0
 
-            return await _send_and_stop(
-                context,
-                user_id,
-                f"Perfeito{complemento}{faixa} 😊\n\n"
-                f"Você prefere *{servicos_candidatos[0]}* ou *{servicos_candidatos[1]}*?"
-            )
+                # eixo: resultado imediato / finalização rápida
+                if any(x in texto for x in ["urgente", "encaixe", "hoje", "amanha", "amanhã", "preciso", "dar um jeito"]):
+                    # serviços tipicamente de finalização ganham mais
+                    if any(k in s for k in ["escova", "finalizacao", "finalização", "penteado"]):
+                        score += 3
+                    else:
+                        score += 1
+
+                # eixo: compromisso / sair pronta (sem depender só de “evento”)
+                if any(x in texto for x in ["sair", "mais tarde", "compromisso", "reuniao", "reunião"]):
+                    if any(k in s for k in ["escova", "penteado", "finalizacao", "finalização"]):
+                        score += 2
+
+                # eixo: tratamento
+                if any(x in texto for x in ["ressecado", "quebrado", "danificado", "tratar", "hidratar", "cuidar"]):
+                    if any(k in s for k in ["hidrat", "nutri", "reconstr", "botox"]):
+                        score += 3
+
+                # eixo: transformação mais pesada (tempo maior)
+                if any(x in texto for x in ["mudar", "transformar", "cor", "clarear"]):
+                    if any(k in s for k in ["luz", "mecha", "descolor", "colora"]):
+                        score += 2
+
+                return score
+
+
+            scores = {s: score_servico(s, texto) for s in candidatos}
+            servico_escolhido = max(scores, key=scores.get) if scores else None
+
+            print(f"🧪 [SCORE_SERVICOS] {scores} | escolhido={servico_escolhido}", flush=True)
+
+            # threshold leve: só decide automático se houver sinal suficiente
+            if servico_escolhido and scores.get(servico_escolhido, 0) >= 2:
+                ctx["servico"] = servico_escolhido
+
+                draft = ctx.get("draft_agendamento") or {}
+                draft["servico"] = servico_escolhido
+                ctx["draft_agendamento"] = draft
+
+                ctx["servico_principal_recomendado"] = servico_escolhido
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                print(f"🔥 [SERVICO_DECIDIDO_AUTOMATICO] servico={servico_escolhido}", flush=True)
+
+                # segue fluxo normal (pré-check vai assumir daqui)
+
+            else:
+                # fallback (mantém seu comportamento atual)
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Para eu seguir certinho: você quer *{candidatos[0]}* ou *{candidatos[1]}*?"
+                )
 
         # 🔥 só salva se bateu com 1 serviço
         if len(servicos_candidatos) == 1:
