@@ -31,6 +31,16 @@ async def _send_and_stop(context, user_id: str, text: str, parse_mode: str = "Ma
         await context.bot.send_message(chat_id=user_id, text=text, parse_mode=parse_mode)
     return {"handled": True, "already_sent": True}
 
+async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario):
+    try:
+        if texto_usuario and str(texto_usuario).strip():
+            ctx["ultimo_texto_usuario"] = str(texto_usuario).strip()
+            await salvar_contexto_temporario(user_id, ctx)
+    except Exception as e:
+        print(f"⚠️ [_send_and_stop_ctx] erro ao salvar contexto: {e}", flush=True)
+
+    return await _send_and_stop(context, user_id, mensagem)
+
 
 # ----------------------------
 # Helpers de NLP simples
@@ -2176,7 +2186,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if len(servicos_candidatos) > 1:
             ctx["servicos_candidatos"] = servicos_candidatos
 
-            texto = normalizar(texto_usuario or "")
+            texto_atual = normalizar(texto_usuario or "")
+
+            contexto_base = ""
+
+            try:
+                ultima_consulta = ctx.get("ultima_consulta") or {}
+                data_ref = ultima_consulta.get("data_hora") or ""
+
+                # usa também texto anterior se tiver salvo
+                texto_anterior = ctx.get("ultimo_texto_usuario") or ""
+
+                contexto_base = normalizar(texto_anterior)
+
+            except:
+                contexto_base = ""
+
+            texto = f"{contexto_base} {texto_atual}".strip()
 
             # ---------------------------------------------------------
             # 🔥 DECISÃO GENÉRICA DE SERVIÇO PRINCIPAL (sem hardcode)
@@ -2238,10 +2264,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             else:
                 # fallback (mantém seu comportamento atual)
-                return await _send_and_stop(
+                return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    f"Para eu seguir certinho: você quer *{candidatos[0]}* ou *{candidatos[1]}*?"
+                    f"Para eu seguir certinho: você quer *{candidatos[0]}* ou *{candidatos[1]}*?",
+                    ctx,
+                    texto_usuario,
                 )
 
         # 🔥 só salva se bateu com 1 serviço
@@ -2446,10 +2474,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 else:
                     msg += "\nQual opção você prefere?"
 
-                return await _send_and_stop(
+                return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    msg
+                    msg,
+                    ctx,
+                    texto_usuario,
                 )
 
             # ---------------------------------------------------------
@@ -2460,10 +2490,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 profs = disponibilidade_por_horario.get(h, [])
 
                 if not profs:
-                    return await _send_and_stop(
+                    return await _send_and_stop_ctx(
                         context,
                         user_id,
-                        f"Encontrei *{h}*, mas tive um problema ao verificar as profissionais.\nPosso tentar outro horário?"
+                        f"Encontrei *{h}*, mas tive um problema ao verificar as profissionais.\nPosso tentar outro horário?",
+                        ctx,
+                        texto_usuario,
                     )
 
                 # 2A: só 1 profissional livre → fecha direto
@@ -2488,10 +2520,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                     await salvar_contexto_temporario(user_id, ctx)
 
-                    return await _send_and_stop(
+                    return await _send_and_stop_ctx(
                         context,
                         user_id,
-                        f"Perfeito — tenho *{h} com a {prof}* amanhã 😊\nPosso reservar para você?"
+                        f"Perfeito — tenho *{h} com a {prof}* amanhã 😊\nPosso reservar para você?",
+                        ctx,
+                        texto_usuario,
                     )
 
                 # 2B: mais de 1 profissional livre → cliente escolhe
@@ -2513,19 +2547,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 await salvar_contexto_temporario(user_id, ctx)
 
-                return await _send_and_stop(
+                return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    f"Perfeito — tenho *{h} com {lista}* amanhã 😊\nQual você prefere?"
+                    f"Perfeito — tenho *{h} com {lista}* amanhã 😊\nQual você prefere?",
+                    ctx,
+                    texto_usuario,
                 )
 
             # ---------------------------------------------------------
             # CASO 3: nenhum horário livre
             # ---------------------------------------------------------
-            return await _send_and_stop(
+            return await _send_and_stop_ctx(
                 context,
                 user_id,
-                f"Para *{servico}*, esses horários não estão livres amanhã 😕\n\nPosso te sugerir os horários mais próximos?"
+                f"Para *{servico}*, esses horários não estão livres amanhã 😕\n\nPosso te sugerir os horários mais próximos?",
+                ctx,
+                texto_usuario,
             )
 
         if not prof:
@@ -2591,12 +2629,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     context,
                     user_id,
                     f"Perfeito — para *{servico}*, *{ocupado_txt}* já está ocupado. Tenho *{disponiveis[0]}* disponível amanhã. Quer esse?"
+
                 )
 
             return await _send_and_stop(
                 context,
                 user_id,
                 f"Para *{servico}*, esse horário não está livre amanhã.\nPosso te sugerir outros horários?"
+
             )
 
         dt_naive = _dt_from_iso_naive(data_hora)
@@ -3416,7 +3456,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             user_id,
                             f"Perfeito — *{servico}* com *{profissional}* "
                             f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                            "Posso confirmar esse horário?"
+                            "Posso confirmar esse horário?"   
                         )
 
                     if servico and not profissional:
@@ -3425,6 +3465,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             user_id,
                             f"Perfeito — *{servico}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
                             "Qual profissional você prefere?"
+,
                         )
 
                     if profissional and not servico:
@@ -3433,6 +3474,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             user_id,
                             f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
                             "Qual serviço você quer fazer?"
+
                         )
 
         # 🔥 BLOCO ESPECÍFICO — AGUARDANDO SERVIÇO
