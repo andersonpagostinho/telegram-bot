@@ -2014,32 +2014,61 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 except Exception as e:
                     print(f"⚠️ [PRE-CHECK ANTECIPADO] erro ao testar {h}: {e}", flush=True)
 
-            # salva opções para o próximo passo
+            # profissionais livres no geral
             ctx["ultima_opcao_profissionais"] = sorted(
                 list({p for lista in disponibilidade_por_horario.values() for p in lista})
             )
 
-            await salvar_contexto_temporario(user_id, ctx)
-
+            # ---------------------------------------------------------
+            # CASO 1: dois horários livres
+            # ---------------------------------------------------------
             if len(horarios_livres) == 2:
+                h1 = horarios_livres[0]
+                h2 = horarios_livres[1]
+
+                p1 = " ou ".join(disponibilidade_por_horario.get(h1, []))
+                p2 = " ou ".join(disponibilidade_por_horario.get(h2, []))
+
+                ctx["estado_fluxo"] = "aguardando_profissional"
+                ctx.pop("servicos_candidatos", None)
+                ctx["servico"] = servico
+
+                draft_local["servico"] = servico
+                ctx["draft_agendamento"] = draft_local
+
+                await salvar_contexto_temporario(user_id, ctx)
+
                 return await _send_and_stop(
-                context,
-                user_id,
-                    f"Perfeito — para *{servico}*, tenho *{horarios_livres[0]}* e *{horarios_livres[1]}* amanhã 😊\n\nQual horário você prefere?"
+                    context,
+                    user_id,
+                    f"Perfeito — tenho *{h1} com {p1}* e *{h2} com {p2}* amanhã 😊\nQual você prefere?"
                 )
 
+            # ---------------------------------------------------------
+            # CASO 2: só um horário livre
+            # ---------------------------------------------------------
             if len(horarios_livres) == 1:
                 h = horarios_livres[0]
                 profs = disponibilidade_por_horario.get(h, [])
 
-                # 🔥 caso só 1 profissional livre → fecha direto
+                if not profs:
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        f"Encontrei *{h}*, mas tive um problema ao verificar as profissionais.\nPosso tentar outro horário?"
+                    )
+
+                # 2A: só 1 profissional livre → fecha direto
                 if len(profs) == 1:
                     prof = profs[0]
 
                     ctx["estado_fluxo"] = "aguardando_confirmacao_agendamento"
                     ctx["ultima_acao"] = "criar_evento"
+                    ctx.pop("servicos_candidatos", None)
+                    ctx["servico"] = servico
 
                     draft_local["profissional"] = prof
+                    draft_local["servico"] = servico
                     draft_local["data_hora"] = datetime.fromisoformat(data_hora).replace(
                         hour=int(h.split(":")[0]),
                         minute=int(h.split(":")[1]),
@@ -2048,6 +2077,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     ).isoformat()
 
                     ctx["draft_agendamento"] = draft_local
+
                     await salvar_contexto_temporario(user_id, ctx)
 
                     return await _send_and_stop(
@@ -2056,21 +2086,34 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         f"Perfeito — tenho *{h} com a {prof}* amanhã 😊\nPosso reservar para você?"
                     )
 
-                # 🔥 caso mais de 1 profissional
-                else:
-                    lista = " ou ".join(profs)
+                # 2B: mais de 1 profissional livre → cliente escolhe
+                lista = " ou ".join(profs)
 
-                    ctx["estado_fluxo"] = "aguardando_profissional"
-                    ctx["ultima_opcao_profissionais"] = profs
+                ctx["estado_fluxo"] = "aguardando_profissional"
+                ctx.pop("servicos_candidatos", None)
+                ctx["servico"] = servico
+  
+                draft_local["data_hora"] = datetime.fromisoformat(data_hora).replace(
+                    hour=int(h.split(":")[0]),
+                    minute=int(h.split(":")[1]),
+                    second=0,
+                    microsecond=0
+                ).isoformat()
+                draft_local["servico"] = servico
+                ctx["draft_agendamento"] = draft_local
+                ctx["ultima_opcao_profissionais"] = profs
 
-                    await salvar_contexto_temporario(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        f"Perfeito — tenho *{h} com {lista}* amanhã 😊\nQual você prefere?"
-                    )
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Perfeito — tenho *{h} com {lista}* amanhã 😊\nQual você prefere?"
+                )
 
+            # ---------------------------------------------------------
+            # CASO 3: nenhum horário livre
+            # ---------------------------------------------------------
             return await _send_and_stop(
                 context,
                 user_id,
