@@ -1960,6 +1960,105 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Qual dia e horário você prefere?")
 
+        # =========================================================
+        # 🔥 PRÉ-CHECAGEM ANTECIPADA COM HORÁRIOS CANDIDATOS
+        # reutiliza o mesmo motor de conflito já existente
+        # =========================================================
+        horarios = ctx.get("horarios_sugeridos") or []
+
+        if horarios and data_hora and servico and not prof:
+            print("🔥 [PRE-CHECK ANTECIPADO] serviço + horários candidatos, sem profissional", flush=True)
+
+            # profissionais aptos ao serviço
+            profs_aptos = []
+            for p in profs_dict.values():
+                nome_p = str(p.get("nome") or "").strip()
+                servs_p = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+
+                if nome_p and (servico or "").strip().lower() in servs_p:
+                    profs_aptos.append(nome_p)
+
+            dt_base = datetime.fromisoformat(data_hora)
+            horarios_livres = []
+            disponibilidade_por_horario = {}  # {"15:00": ["Bruna", "Carla"], ...}
+
+            for h in horarios:
+                try:
+                    hora, minuto = map(int, h.split(":"))
+                    dt_teste = dt_base.replace(
+                        hour=hora,
+                        minute=minuto,
+                        second=0,
+                        microsecond=0
+                    )
+
+                    profissionais_livres = []
+
+                    for nome_prof in profs_aptos:
+                        conflito = await verificar_conflito_e_sugestoes_profissional(
+                            user_id=user_id,
+                            data=dt_teste.strftime("%Y-%m-%d"),
+                            hora_inicio=dt_teste.strftime("%H:%M"),
+                            duracao_min=estimar_duracao(servico),
+                            profissional=nome_prof,
+                            servico=servico
+                        )
+
+                        if not conflito.get("conflito"):
+                            profissionais_livres.append(nome_prof)
+
+                    if profissionais_livres:
+                        horarios_livres.append(h)
+                        disponibilidade_por_horario[h] = profissionais_livres
+
+                except Exception as e:
+                    print(f"⚠️ [PRE-CHECK ANTECIPADO] erro ao testar {h}: {e}", flush=True)
+
+            # salva opções para o próximo passo
+            ctx["ultima_opcao_profissionais"] = sorted(
+                list({p for lista in disponibilidade_por_horario.values() for p in lista})
+            )
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            if len(horarios_livres) == 2:
+                profs_15 = ", ".join(disponibilidade_por_horario.get(horarios_livres[0], []))
+                profs_16 = ", ".join(disponibilidade_por_horario.get(horarios_livres[1], []))
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"Perfeito — para *{servico}*, tenho *{horarios_livres[0]}* com {profs_15} "
+                        f"e *{horarios_livres[1]}* com {profs_16} amanhã.\n\n"
+                        "Qual horário você prefere?"
+                    )
+                )
+
+            if len(horarios_livres) == 1:
+                livres = ", ".join(disponibilidade_por_horario.get(horarios_livres[0], []))
+                ocupados = [h for h in horarios if h not in horarios_livres]
+                ocupado_txt = ocupados[0] if ocupados else "esse horário"
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"Perfeito — para *{servico}*, *{ocupado_txt}* não está disponível.\n"
+                        f"Tenho *{horarios_livres[0]}* com {livres} amanhã.\n\n"
+                        "Quer esse horário?"
+                    )
+                )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Para *{servico}*, *{', '.join(horarios)}* não estão disponíveis amanhã.\n"
+                    "Posso te sugerir outros horários?"
+                )
+            )
+
         if not prof:
             print("🛑 [AG_SERVICO] saiu por falta de profissional", flush=True)
             ctx["estado_fluxo"] = "aguardando_profissional"
