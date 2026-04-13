@@ -989,8 +989,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     texto_lower = texto_usuario.lower().strip()
     tnorm = normalizar(texto_usuario)
 
-    # ✅ 2) Contexto temporário do router (estado_fluxo) - vem antes da consulta informativa
     ctx = await carregar_contexto_temporario(user_id) or {}
+
+    historico = ctx.get("historico_texto") or []
+    if texto_usuario:
+        historico.append(texto_usuario)
+
+    ctx["historico_texto"] = historico[-2:]
+    await salvar_contexto_temporario(user_id, {"historico_texto": ctx["historico_texto"]})
+
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
 
@@ -2227,25 +2234,33 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 score = 0
 
                 # eixo: resultado imediato / finalização rápida
-                if any(x in texto for x in ["urgente", "encaixe", "hoje", "amanha", "amanhã", "preciso", "dar um jeito"]):
-                    # serviços tipicamente de finalização ganham mais
+                if any(x in texto for x in [
+                    "urgente", "encaixe", "hoje", "amanha", "amanhã",
+                    "preciso", "dar um jeito", "evento", "meu cabelo", "horrivel", "horrível"
+                ]):
                     if any(k in s for k in ["escova", "finalizacao", "finalização", "penteado"]):
                         score += 3
                     else:
                         score += 1
 
-                # eixo: compromisso / sair pronta (sem depender só de “evento”)
-                if any(x in texto for x in ["sair", "mais tarde", "compromisso", "reuniao", "reunião"]):
+                # eixo: compromisso / sair pronta
+                if any(x in texto for x in [
+                    "sair", "mais tarde", "compromisso", "reuniao", "reunião", "evento"
+                ]):
                     if any(k in s for k in ["escova", "penteado", "finalizacao", "finalização"]):
                         score += 2
 
                 # eixo: tratamento
-                if any(x in texto for x in ["ressecado", "quebrado", "danificado", "tratar", "hidratar", "cuidar"]):
+                if any(x in texto for x in [
+                    "ressecado", "quebrado", "danificado", "tratar", "hidratar", "cuidar"
+                ]):
                     if any(k in s for k in ["hidrat", "nutri", "reconstr", "botox"]):
                         score += 3
 
-                # eixo: transformação mais pesada (tempo maior)
-                if any(x in texto for x in ["mudar", "transformar", "cor", "clarear"]):
+                # eixo: transformação mais pesada
+                if any(x in texto for x in [
+                    "mudar", "transformar", "cor", "clarear"
+                ]):
                     if any(k in s for k in ["luz", "mecha", "descolor", "colora"]):
                         score += 2
 
