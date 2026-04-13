@@ -33,18 +33,9 @@ async def _send_and_stop(context, user_id: str, text: str, parse_mode: str = "Ma
 
 async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario):
     try:
-        historico = ctx.get("historico_texto") or []
-
-        if texto_usuario and str(texto_usuario).strip():
-            historico.append(str(texto_usuario).strip())
-
-        # mantém só as últimas 2 mensagens
-        ctx["historico_texto"] = historico[-2:]
-
         await salvar_contexto_temporario(user_id, ctx)
-
     except Exception as e:
-        print(f"⚠️ [_send_and_stop_ctx] erro ao salvar contexto: {e}", flush=True)
+        print(f"⚠️ erro ao salvar contexto: {e}", flush=True)
 
     return await _send_and_stop(context, user_id, mensagem)
 
@@ -2479,7 +2470,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 await salvar_contexto_temporario(user_id, ctx)
 
-                msg = f"Perfeito — para *{servico}*, encontrei estas opções amanhã 😊\n\n"
+                frase_data = montar_frase_data_legivel(data_hora)
+                msg = f"Perfeito — encontrei estas opções {frase_data} 😊\n\n"
 
                 if profs_h1:
                     msg += f"🕒 *{h1}* com *{_formatar_profissionais(profs_h1)}*\n"
@@ -2493,8 +2485,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 if melhor_sugestao:
                     msg += (
-                        f"\n💡 O melhor encaixe aqui é *{melhor_sugestao['hora']}* "
-                        f"com *{melhor_sugestao['profissional']}*.\n"
+                        f"\n💡 Para você, o melhor encaixe é "
+                        f"*{servico} às {melhor_sugestao['hora']} com {melhor_sugestao['profissional']}*.\n"
                         f"Posso agendar?"
                     )
                 else:
