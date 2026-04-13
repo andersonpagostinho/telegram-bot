@@ -2038,13 +2038,115 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 draft_local["data_hora"] = data_hora  # continua só como data-base
                 ctx["draft_agendamento"] = draft_local
 
+                def _normalizar_lista_profissionais(lista):
+                    if not lista:
+                        return []
+
+                    saida = []
+                    vistos = set()
+
+                    for item in lista:
+                        if isinstance(item, dict):
+                            nome = (
+                                item.get("profissional")
+                                or item.get("nome")
+                                or item.get("nome_profissional")
+                                or ""
+                            ).strip()
+                        else:
+                            nome = str(item).strip()
+
+                        if not nome:
+                            continue
+
+                        chave = nome.lower()
+                        if chave not in vistos:
+                            vistos.add(chave)
+                            saida.append(nome)
+
+                    return saida
+
+                def _formatar_profissionais(lista):
+                    lista = _normalizar_lista_profissionais(lista)
+
+                    if not lista:
+                        return ""
+
+                    if len(lista) == 1:
+                        return lista[0]
+
+                    if len(lista) == 2:
+                        return f"{lista[0]} ou {lista[1]}"
+
+                    return ", ".join(lista[:-1]) + f" ou {lista[-1]}"
+
+                profs_h1 = _normalizar_lista_profissionais(
+                    disponibilidade_por_horario.get(h1) or []
+                )
+                profs_h2 = _normalizar_lista_profissionais(
+                    disponibilidade_por_horario.get(h2) or []
+                )
+
+                # salva opções enriquecidas para o próximo passo
+                opcoes_hora_profissional = []
+                for prof_nome in profs_h1:
+                    opcoes_hora_profissional.append({
+                        "hora": h1,
+                        "profissional": prof_nome
+                    })
+
+                for prof_nome in profs_h2:
+                    opcoes_hora_profissional.append({
+                        "hora": h2,
+                        "profissional": prof_nome
+                    })
+
+                ctx["opcoes_hora_profissional"] = opcoes_hora_profissional
+
+                # melhor sugestão inicial:
+                # prioriza o primeiro horário retornado e o primeiro profissional disponível nele
+                melhor_sugestao = None
+                if profs_h1:
+                    melhor_sugestao = {
+                        "hora": h1,
+                        "profissional": profs_h1[0]
+                    }
+                elif profs_h2:
+                    melhor_sugestao = {
+                        "hora": h2,
+                        "profissional": profs_h2[0]
+                    }
+
+                ctx["melhor_sugestao"] = melhor_sugestao
+
                 await salvar_contexto_temporario(user_id, ctx)
+
+                msg = f"Perfeito — para *{servico}*, encontrei estas opções amanhã 😊\n\n"
+
+                if profs_h1:
+                    msg += f"🕒 *{h1}* com *{_formatar_profissionais(profs_h1)}*\n"
+                else:
+                    msg += f"🕒 *{h1}*\n"
+
+                if profs_h2:
+                    msg += f"🕒 *{h2}* com *{_formatar_profissionais(profs_h2)}*\n"
+                else:
+                    msg += f"🕒 *{h2}*\n"
+
+                if melhor_sugestao:
+                    msg += (
+                        f"\n💡 O melhor encaixe aqui é *{melhor_sugestao['hora']}* "
+                        f"com *{melhor_sugestao['profissional']}*.\n"
+                        f"Posso agendar?"
+                    )
+                else:
+                    msg += "\nQual opção você prefere?"
 
                 return await _send_and_stop(
                     context,
                     user_id,
-                   f"Perfeito — para *{servico}*, tenho *{h1}* e *{h2}* amanhã 😊\nQual horário você prefere?"
-               )
+                    msg
+                )
 
             # ---------------------------------------------------------
             # CASO 2: só um horário livre
