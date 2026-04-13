@@ -2023,28 +2023,28 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # CASO 1: dois horários livres
             # ---------------------------------------------------------
             if len(horarios_livres) == 2:
-            h1 = horarios_livres[0]
-            h2 = horarios_livres[1]
+                h1 = horarios_livres[0]
+                h2 = horarios_livres[1]
 
-            ctx["estado_fluxo"] = "aguardando_escolha_horario"
-            ctx.pop("servicos_candidatos", None)
-            ctx["servico"] = servico
-            ctx["horarios_sugeridos"] = horarios_livres
+                ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                ctx.pop("servicos_candidatos", None)
+                ctx["servico"] = servico
+                ctx["horarios_sugeridos"] = horarios_livres
 
-            # guarda quem está livre em cada horário
-            ctx["disponibilidade_por_horario"] = disponibilidade_por_horario
+                # guarda quem está livre em cada horário
+                ctx["disponibilidade_por_horario"] = disponibilidade_por_horario
 
-            draft_local["servico"] = servico
-            draft_local["data_hora"] = data_hora  # continua só como data-base
-            ctx["draft_agendamento"] = draft_local
+                draft_local["servico"] = servico
+                draft_local["data_hora"] = data_hora  # continua só como data-base
+                ctx["draft_agendamento"] = draft_local
 
-            await salvar_contexto_temporario(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
-            return await _send_and_stop(
-                context,
-                user_id,
-                f"Perfeito — para *{servico}*, tenho *{h1}* e *{h2}* amanhã 😊\nQual horário você prefere?"
-            )
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                   f"Perfeito — para *{servico}*, tenho *{h1}* e *{h2}* amanhã 😊\nQual horário você prefere?"
+               )
 
             # ---------------------------------------------------------
             # CASO 2: só um horário livre
