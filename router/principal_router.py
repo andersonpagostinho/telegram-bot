@@ -2032,10 +2032,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 h = horarios_livres[0]
                 profs = disponibilidade_por_horario.get(h, [])
 
+                # 🔥 caso só 1 profissional livre → fecha direto
                 if len(profs) == 1:
                     prof = profs[0]
 
-                    # 🔥 agora sim pode avançar fluxo
                     ctx["estado_fluxo"] = "aguardando_confirmacao_agendamento"
                     ctx["ultima_acao"] = "criar_evento"
 
@@ -2056,11 +2056,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         f"Perfeito — tenho *{h} com a {prof}* amanhã 😊\nPosso reservar para você?"
                     )
 
+                # 🔥 caso mais de 1 profissional
                 else:
                     lista = " ou ".join(profs)
 
                     ctx["estado_fluxo"] = "aguardando_profissional"
                     ctx["ultima_opcao_profissionais"] = profs
+
                     await salvar_contexto_temporario(user_id, ctx)
 
                     return await _send_and_stop(
