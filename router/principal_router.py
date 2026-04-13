@@ -1366,6 +1366,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
             horarios_sugeridos = ctx.get("horarios_sugeridos") or []
+            opcoes_hora_profissional = ctx.get("opcoes_hora_profissional") or []
+            melhor_sugestao = ctx.get("melhor_sugestao") or {}
             matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
 
             print(f"🧪 [TESTE-DESISTENCIA] texto_usuario={texto_usuario}", flush=True)
@@ -1378,7 +1380,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 await limpar_contexto_agendamento(user_id)
 
-                # 🔥 limpa também o contexto em memória
                 ctx.clear()
                 ctx["estado_fluxo"] = "idle"
 
@@ -1390,6 +1391,256 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 raise ApplicationHandlerStop
 
+            def _extrair_profissional_citado(texto: str, nomes_validos: list[str]) -> str | None:
+                txt = normalizar(texto or "")
+                for nome in nomes_validos:
+                    if normalizar(nome) in txt:
+                        return nome
+                return None
+
+            def _resolver_escolha_para_confirmacao(hora_escolhida: str, profissional: str):
+                data_base = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
+                if not data_base:
+                    return None
+
+                try:
+                    base = datetime.fromisoformat(data_base)
+                    hh, mm = map(int, hora_escolhida.split(":"))
+                except Exception:
+                    return None
+
+                nova_data_hora = base.replace(
+                    hour=hh,
+                    minute=mm,
+                    second=0,
+                    microsecond=0
+                ).isoformat()
+
+                draft = ctx.get("draft_agendamento") or {}
+                servico = (
+                    ctx.get("servico")
+                    or draft.get("servico")
+                    or (ctx.get("dados_anteriores") or {}).get("servico")
+                )
+
+                draft["data_hora"] = nova_data_hora
+                if profissional:
+                    draft["profissional"] = profissional
+                if servico:
+                    draft["servico"] = servico
+
+                ctx["data_hora"] = nova_data_hora
+                ctx["hora_confirmada"] = True
+                ctx["draft_agendamento"] = draft
+
+                if profissional:
+                    ctx["profissional_escolhido"] = profissional
+
+                ctx.pop("modo_escolha_horario", None)
+                ctx.pop("horarios_sugeridos", None)
+                ctx["aguardando_confirmacao_agendamento"] = False
+                ctx.pop("dados_confirmacao_agendamento", None)
+
+                ctx["dados_anteriores"] = {
+                    "profissional": profissional,
+                    "servico": servico,
+                    "data_hora": nova_data_hora
+                }
+
+                if servico and profissional:
+                    ctx["estado_fluxo"] = "agendando"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+                    ctx["ultima_acao"] = "criar_evento"
+                    ctx["dados_confirmacao_agendamento"] = {
+                        "profissional": profissional,
+                        "servico": servico,
+                        "data_hora": nova_data_hora,
+                        "duracao": estimar_duracao(servico),
+                        "descricao": formatar_descricao_evento(servico, profissional),
+                    }
+                else:
+                    if servico and not profissional:
+                        ctx["estado_fluxo"] = "aguardando_profissional"
+                    elif profissional and not servico:
+                        ctx["estado_fluxo"] = "aguardando_servico"
+                    else:
+                        ctx["estado_fluxo"] = "idle"
+
+                    ctx["aguardando_confirmacao_agendamento"] = False
+                    ctx["ultima_acao"] = None
+                    ctx["dados_confirmacao_agendamento"] = None
+
+                return {
+                    "nova_data_hora": nova_data_hora,
+                    "servico": servico,
+                    "profissional": profissional
+                }
+
+            # ---------------------------------------------------------
+            # NOVO: confirmação curta usa a melhor sugestão
+            # Ex.: "pode sim", "fechado", "ok", "confirmar"
+            # ---------------------------------------------------------
+            if eh_confirmacao(texto_norm) and melhor_sugestao:
+                hora_escolhida = str(melhor_sugestao.get("hora") or "").strip()
+                prof_escolhido = str(melhor_sugestao.get("profissional") or "").strip()
+
+                if hora_escolhida and prof_escolhido:
+                    resolvido = _resolver_escolha_para_confirmacao(hora_escolhida, prof_escolhido)
+
+                    if resolvido:
+                        nova_data_hora = resolvido["nova_data_hora"]
+                        servico = resolvido["servico"]
+                        profissional = resolvido["profissional"]
+
+                        print(
+                            f"🔥 [ESCOLHA_HORARIO_CONFIRMACAO_CURTA] nova_data_hora={nova_data_hora} | "
+                            f"estado_fluxo={ctx.get('estado_fluxo')} | "
+                            f"profissional={profissional} | "
+                            f"servico={servico}",
+                            flush=True
+                        )
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        if servico and profissional:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — *{servico}* com *{profissional}* "
+                                f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Posso confirmar esse horário?"
+                            )
+
+                        if servico and not profissional:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — *{servico}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Qual profissional você prefere?"
+                            )
+
+                        if profissional and not servico:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Qual serviço você quer fazer?"
+                            )
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Agora me diga o serviço e o profissional."
+                        )
+
+            # ---------------------------------------------------------
+            # NOVO: tenta interpretar hora + profissional juntos
+            # Ex.: "15 com a Carla", "Carla às 16"
+            # ---------------------------------------------------------
+            hora_escolhida = None
+            prof_escolhido = None
+
+            if len(matches) >= 1:
+                hora = int(matches[0][0])
+                minuto = int(matches[0][1] or 0)
+                hora_escolhida = f"{hora:02d}:{minuto:02d}"
+
+            nomes_validos = sorted(
+                {str(o.get("profissional") or "").strip() for o in opcoes_hora_profissional if o.get("profissional")}
+            )
+            prof_escolhido = _extrair_profissional_citado(texto_usuario, nomes_validos)
+
+            # se falou só hora, pega o melhor profissional daquela hora
+            if hora_escolhida and not prof_escolhido and opcoes_hora_profissional:
+                candidatos = [o for o in opcoes_hora_profissional if str(o.get("hora")) == hora_escolhida]
+                if candidatos:
+                    if (
+                        melhor_sugestao
+                        and str(melhor_sugestao.get("hora") or "").strip() == hora_escolhida
+                        and str(melhor_sugestao.get("profissional") or "").strip()
+                    ):
+                        prof_escolhido = str(melhor_sugestao.get("profissional")).strip()
+                    else:
+                        prof_escolhido = str(candidatos[0].get("profissional") or "").strip()
+
+            # se falou só profissional, pega o melhor horário daquele profissional
+            if prof_escolhido and not hora_escolhida and opcoes_hora_profissional:
+                candidatos = [o for o in opcoes_hora_profissional if str(o.get("profissional") or "").strip() == prof_escolhido]
+                if candidatos:
+                    if (
+                        melhor_sugestao
+                        and str(melhor_sugestao.get("profissional") or "").strip() == prof_escolhido
+                        and str(melhor_sugestao.get("hora") or "").strip()
+                    ):
+                        hora_escolhida = str(melhor_sugestao.get("hora")).strip()
+                    else:
+                        hora_escolhida = str(candidatos[0].get("hora") or "").strip()
+
+            # valida se o par hora + profissional realmente existe nas opções
+            if hora_escolhida and prof_escolhido and opcoes_hora_profissional:
+                par_valido = None
+                for op in opcoes_hora_profissional:
+                    if (
+                        str(op.get("hora") or "").strip() == hora_escolhida
+                        and str(op.get("profissional") or "").strip() == prof_escolhido
+                    ):
+                        par_valido = op
+                        break
+
+                if par_valido:
+                    resolvido = _resolver_escolha_para_confirmacao(hora_escolhida, prof_escolhido)
+
+                    if resolvido:
+                        nova_data_hora = resolvido["nova_data_hora"]
+                        servico = resolvido["servico"]
+                        profissional = resolvido["profissional"]
+
+                        print(
+                            f"🔥 [ESCOLHA_HORARIO_PAR_VALIDO] nova_data_hora={nova_data_hora} | "
+                            f"estado_fluxo={ctx.get('estado_fluxo')} | "
+                            f"profissional={profissional} | "
+                            f"servico={servico}",
+                            flush=True
+                        )
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        if servico and profissional:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — *{servico}* com *{profissional}* "
+                                f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Posso confirmar esse horário?"
+                            )
+
+                        if servico and not profissional:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — *{servico}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Qual profissional você prefere?"
+                            )
+
+                        if profissional and not servico:
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                                "Qual serviço você quer fazer?"
+                            )
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{formatar_data_hora_br(nova_data_hora)}*.\n"
+                            "Agora me diga o serviço e o profissional."
+                        )
+
+            # ---------------------------------------------------------
+            # LEGADO: continua aceitando hora explícita das sugestões
+            # ---------------------------------------------------------
             if len(matches) == 1:
                 hora = int(matches[0][0])
                 minuto = int(matches[0][1] or 0)
@@ -1486,7 +1737,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                                 f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
                                 "Posso confirmar esse horário?"
                             )
-   
+
                         if servico and not profissional:
                             return await _send_and_stop(
                                 context,
@@ -1509,13 +1760,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             f"Perfeito — *{formatar_data_hora_br(nova_data_hora)}*.\n"
                             "Agora me diga o serviço e o profissional."
                         )
-         
+
             # fallback: usuário respondeu errado ou fora das opções
             if horarios_sugeridos:
                 opcoes = " ou ".join(
                     h.split(" - ")[0].strip() if " - " in str(h) else str(h).strip()
                     for h in horarios_sugeridos
                 )
+
+                if melhor_sugestao:
+                    hora_melhor = str(melhor_sugestao.get("hora") or "").strip()
+                    prof_melhor = str(melhor_sugestao.get("profissional") or "").strip()
+
+                    if hora_melhor and prof_melhor:
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Você pode me dizer um dos horários sugeridos, como {opcoes}, "
+                            f"ou simplesmente confirmar a melhor opção: *{hora_melhor} com {prof_melhor}*."
+                        )
 
                 return await _send_and_stop(
                     context,
