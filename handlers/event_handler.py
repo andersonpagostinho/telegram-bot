@@ -35,7 +35,10 @@ from services.firebase_service_async import (
 )
 from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo, cancelar_evento_por_texto
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento 
-from services.agenda_service import validar_horario_funcionamento
+from services.agenda_service import (
+    validar_horario_funcionamento,
+    resolver_fora_do_expediente,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -618,13 +621,31 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if not validacao_funcionamento.get("permitido"):
             motivo = validacao_funcionamento.get("motivo")
 
-            if motivo == "fechado_na_data":
-                await update.message.reply_text(
-                    "❌ Não consigo agendar nesse dia porque a agenda está fechada. Me diga outro dia que eu verifico para você."
-                )
-                return False
-
             if motivo == "fora_do_expediente":
+
+                data_ref = start_time.strftime("%Y-%m-%d")
+                hora_ref = start_time.strftime("%H:%M")
+
+                tentativa = await resolver_fora_do_expediente(
+                    user_id=id_dono,
+                    data_iso=data_ref,
+                    hora_inicio=hora_ref,
+                    duracao_min=duracao_minutos,
+                    servico=descricao,
+                    profissional=profissional,
+                )
+
+                if tentativa.get("ok"):
+                    horario = tentativa.get("horario")
+
+                    await update.message.reply_text(
+                        "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                        f"O horário mais próximo que tenho disponível é às {horario}.\n"
+                        "Posso agendar pra você? 😊"
+                    )
+                    return False
+
+                # fallback (mantém comportamento antigo)
                 await update.message.reply_text(
                     "❌ Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
                 )

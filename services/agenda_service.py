@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, date
 from typing import Any
+from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 
 from services.firebase_service_async import buscar_dado_em_path
 
@@ -296,3 +297,128 @@ async def proximo_horario_valido_no_dia(
     except Exception as e:
         print(f"❌ [agenda_service] erro em proximo_horario_valido_no_dia: {e}", flush=True)
         return None
+
+async def resolver_fora_do_expediente(
+    user_id: str,
+    data_iso: str,
+    hora_inicio: str,
+    duracao_min: int,
+    servico: str,
+    profissional: str | None = None,
+    grade_minutos: int = 10,
+) -> dict[str, Any]:
+    """
+    Resolve apenas o caso em que o horário pedido está fora do expediente.
+
+    Objetivo:
+    - encontrar o horário mais próximo que caiba no expediente
+    - se houver profissional, validar também conflito real
+    - não alterar nenhum outro fluxo do sistema
+
+    Retorno esperado:
+    {
+        "ok": bool,
+        "tipo": "horario_sugerido" | "sem_opcao",
+        "horario": str | None,
+        "data_hora": str | None,
+        "mensagem": str | None,
+    }
+    """
+    try:
+        regra = await obter_regra_agenda_da_data(user_id, data_iso)
+        if not regra.get("aberto"):
+            return {
+                "ok": False,
+                "tipo": "sem_opcao",
+                "horario": None,
+                "data_hora": None,
+                "mensagem": None,
+            }
+
+        inicio = regra.get("inicio")
+        fim = regra.get("fim")
+
+        min_ini = _hora_para_minutos(inicio)
+        min_fim = _hora_para_minutos(fim)
+        min_ref = _hora_para_minutos(hora_inicio)
+
+        if min_ini is None or min_fim is None or min_ref is None:
+            return {
+                "ok": False,
+                "tipo": "sem_opcao",
+                "horario": None,
+                "data_hora": None,
+                "mensagem": None,
+            }
+
+        candidatos = []
+        atual = min_ini
+
+        while atual + duracao_min <= min_fim:
+            hh = atual // 60
+            mm = atual % 60
+            hora = f"{hh:02d}:{mm:02d}"
+
+            if intervalo_dentro_do_expediente(hora, duracao_min, inicio, fim):
+                distancia = abs(atual - min_ref)
+                candidatos.append((distancia, atual, hora))
+
+            atual += grade_minutos
+
+        if not candidatos:
+            return {
+                "ok": False,
+                "tipo": "sem_opcao",
+                "horario": None,
+                "data_hora": None,
+                "mensagem": None,
+            }
+
+        candidatos.sort(key=lambda x: (x[0], x[1]))
+
+        for _, _, hora_candidata in candidatos:
+            # se ainda não há profissional definido, só devolve o melhor horário dentro do expediente
+            if not (profissional or "").strip():
+                return {
+                    "ok": True,
+                    "tipo": "horario_sugerido",
+                    "horario": hora_candidata,
+                    "data_hora": f"{data_iso}T{hora_candidata}:00",
+                    "mensagem": None,
+                }
+
+            resultado = await verificar_conflito_e_sugestoes_profissional(
+                user_id=user_id,
+                data=data_iso,
+                hora_inicio=hora_candidata,
+                duracao_min=duracao_min,
+                profissional=profissional,
+                servico=servico,
+            )
+
+            if not resultado.get("conflito"):
+                return {
+                    "ok": True,
+                    "tipo": "horario_sugerido",
+                    "horario": hora_candidata,
+                    "data_hora": f"{data_iso}T{hora_candidata}:00",
+                    "mensagem": None,
+                }
+
+        return {
+            "ok": False,
+            "tipo": "sem_opcao",
+            "horario": None,
+            "data_hora": None,
+            "mensagem": None,
+        }
+
+    except Exception as e:
+        print(f"❌ [agenda_service] erro em resolver_fora_do_expediente: {e}", flush=True)
+        return {
+            "ok": False,
+            "tipo": "sem_opcao",
+            "horario": None,
+            "data_hora": None,
+            "mensagem": None,
+        }
