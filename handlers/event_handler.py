@@ -35,6 +35,7 @@ from services.firebase_service_async import (
 )
 from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo, cancelar_evento_por_texto
 from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento 
+from services.agenda_service import validar_horario_funcionamento
 
 logger = logging.getLogger(__name__)
 
@@ -602,7 +603,43 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         end_time = start_time + timedelta(minutes=duracao_minutos)
 
-        eventos_do_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date()) or []
+        # =========================================================
+        # 🔒 FAIL-SAFE FINAL — VALIDAÇÃO DE EXPEDIENTE
+        # =========================================================
+        id_dono = await obter_id_dono(user_id)
+
+        validacao_funcionamento = await validar_horario_funcionamento(
+            user_id=id_dono,
+            data_iso=start_time.strftime("%Y-%m-%d"),
+            hora_inicio=start_time.strftime("%H:%M"),
+            duracao_min=duracao_minutos,
+        )
+
+        if not validacao_funcionamento.get("permitido"):
+            motivo = validacao_funcionamento.get("motivo")
+
+            if motivo == "fechado_na_data":
+                await update.message.reply_text(
+                    "❌ Não consigo agendar nesse dia porque a agenda está fechada. Me diga outro dia que eu verifico para você."
+                )
+                return False
+
+            if motivo == "fora_do_expediente":
+                await update.message.reply_text(
+                    "❌ Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
+                )
+                return False
+
+            await update.message.reply_text(
+                "❌ Não consegui validar esse horário na agenda configurada. Tente novamente."
+            )
+            return False
+
+        eventos_do_dia = await buscar_eventos_por_intervalo(
+            id_dono,
+            dia_especifico=start_time.date()
+        ) or []
+
         ocupados = []
         for ev in eventos_do_dia:
             # Se houver profissional, filtra por ele; se não, considera todos

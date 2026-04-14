@@ -14,6 +14,11 @@ from datetime import datetime, timedelta
 from utils.interpretador_datas import interpretar_data_e_hora
 from utils.gpt_utils import estimar_duracao, formatar_descricao_evento
 
+from services.agenda_service import (
+    validar_data_funcionamento,
+    validar_horario_funcionamento,
+)
+
 import pytz
 import re
 from unidecode import unidecode
@@ -1413,7 +1418,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         return nome
                 return None
 
-            def _resolver_escolha_para_confirmacao(hora_escolhida: str, profissional: str):
+            async def _resolver_escolha_para_confirmacao(
+                hora_escolhida: str,
+                profissional: str,
+                user_id: str,
+                servico: str | None,
+            ):
                 data_base = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
                 if not data_base:
                     return None
@@ -1437,6 +1447,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     or draft.get("servico")
                     or (ctx.get("dados_anteriores") or {}).get("servico")
                 )
+
+                data_ref = nova_data_hora.split("T")[0]
+                hora_ref = nova_data_hora.split("T")[1][:5]
+
+                validacao_horario = await validar_horario_funcionamento(
+                    user_id=id_dono,
+                    data_iso=data_ref,
+                    hora_inicio=hora_ref,
+                    duracao_min=estimar_duracao(servico) if servico else 0,
+                )
+
+                if not validacao_horario.get("permitido"):
+                    return {
+                        "erro": "fora_do_expediente",
+                        "nova_data_hora": nova_data_hora,
+                    }
 
                 draft["data_hora"] = nova_data_hora
                 if profissional:
@@ -1500,7 +1526,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 prof_escolhido = str(melhor_sugestao.get("profissional") or "").strip()
 
                 if hora_escolhida and prof_escolhido:
-                    resolvido = _resolver_escolha_para_confirmacao(hora_escolhida, prof_escolhido)
+                    resolvido = await _resolver_escolha_para_confirmacao(
+                        hora_escolhida,
+                        prof_escolhido,
+                        user_id,
+                        servico,
+                    )
+
+                    if resolvido and resolvido.get("erro") == "fora_do_expediente":
+                        return await _send_and_stop_ctx(
+                            context,
+                            user_id,
+                            "Esse horário está fora do expediente desse dia. Me diga outro horário que eu verifico para você.",
+                            ctx,
+                            texto_usuario,
+                        )
 
                     if resolvido:
                         nova_data_hora = resolvido["nova_data_hora"]
@@ -1604,7 +1644,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         break
 
                 if par_valido:
-                    resolvido = _resolver_escolha_para_confirmacao(hora_escolhida, prof_escolhido)
+                    resolvido = await _resolver_escolha_para_confirmacao(
+                        hora_escolhida,
+                        prof_escolhido,
+                        user_id,
+                        servico,
+                    )
+
+                    if resolvido and resolvido.get("erro") == "fora_do_expediente":
+                        return await _send_and_stop_ctx(
+                            context,
+                            user_id,
+                            "Esse horário está fora do expediente desse dia. Me diga outro horário que eu verifico para você.",
+                            ctx,
+                            texto_usuario,
+                        )
 
                     if resolvido:
                         nova_data_hora = resolvido["nova_data_hora"]
@@ -2310,6 +2364,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             return await _send_and_stop(context, user_id, "Qual dia e horário você prefere?")
 
         # =========================================================
+        # 🔒 VALIDAÇÃO DE FUNCIONAMENTO DA DATA
+        # =========================================================
+        if data_hora:
+            data_ref = data_hora.split("T")[0]
+
+            validacao_data = await validar_data_funcionamento(user_id, data_ref)
+
+            if not validacao_data.get("permitido"):
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    "Nesse dia a agenda está fechada. Me diga outro dia que eu verifico para você."
+                )
+
+        # =========================================================
         # 🔥 PRÉ-CHECAGEM ANTECIPADA COM HORÁRIOS CANDIDATOS
         # reutiliza o mesmo motor de conflito já existente
         # =========================================================
@@ -2317,6 +2386,41 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if horarios and data_hora and servico and not prof:
             print("🔥 [PRE-CHECK ANTECIPADO] serviço + horários candidatos, sem profissional", flush=True)
+
+            # =========================================================
+            # 🔒 FILTRO DE EXPEDIENTE (AQUI)
+            # =========================================================
+            data_ref = data_hora.split("T")[0]
+            duracao_servico = estimar_duracao(servico)
+
+            horarios_validos_expediente = []
+
+            for h in horarios:
+                validacao_horario = await validar_horario_funcionamento(
+                    user_id=user_id,
+                    data_iso=data_ref,
+                    hora_inicio=h,
+                    duracao_min=duracao_servico,
+                )
+
+                if validacao_horario.get("permitido"):
+                    horarios_validos_expediente.append(h)
+
+            # 🔥 substitui lista original
+            horarios = horarios_validos_expediente
+
+            # 🔥 mantém contexto consistente
+            ctx["horarios_sugeridos"] = horarios
+
+            # 🔥 trava se nada sobrou
+            if not horarios:
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    "Nesse dia eu não tenho horário dentro do expediente configurado. Me diga outro dia que eu verifico para você.",
+                    ctx,
+                    texto_usuario,
+                )
 
             # profissionais aptos ao serviço
             profs_aptos = []
@@ -2537,11 +2641,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     ctx["draft_agendamento"] = draft_local
 
                     await salvar_contexto_temporario(user_id, ctx)
+                    frase_data = montar_frase_data_legivel(draft_local.get("data_hora") or data_hora)
 
                     return await _send_and_stop_ctx(
                         context,
                         user_id,
-                        f"Perfeito — tenho *{h} com a {prof}* amanhã 😊\nPosso reservar para você?",
+                        f"Perfeito — tenho *{h} com a {prof}* {frase_data} 😊\nPosso reservar para você?",
                         ctx,
                         texto_usuario,
                     )
@@ -2564,11 +2669,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["ultima_opcao_profissionais"] = profs
 
                 await salvar_contexto_temporario(user_id, ctx)
+                frase_data = montar_frase_data_legivel(draft_local.get("data_hora") or data_hora)
 
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    f"Perfeito — tenho *{h} com {lista}* amanhã 😊\nQual você prefere?",
+                    f"Perfeito — tenho *{h} com {lista}* {frase_data} 😊\nQual você prefere?",
                     ctx,
                     texto_usuario,
                 )
@@ -2576,10 +2682,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # ---------------------------------------------------------
             # CASO 3: nenhum horário livre
             # ---------------------------------------------------------
+            frase_data = montar_frase_data_legivel(data_hora)
             return await _send_and_stop_ctx(
                 context,
                 user_id,
-                f"Para *{servico}*, esses horários não estão livres amanhã 😕\n\nPosso te sugerir os horários mais próximos?",
+                f"Para *{servico}*, esses horários não estão livres {frase_data} 😕\n\nPosso te sugerir os horários mais próximos?",
                 ctx,
                 texto_usuario,
             )
@@ -2602,6 +2709,37 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if horarios and data_hora and servico and prof:
             print("🔥 [CHECK HORARIOS_CANDIDATOS COM SERVIÇO]", flush=True)
+
+            # =========================================================
+            # 🔒 FILTRO DE EXPEDIENTE (AQUI)
+            # =========================================================
+            data_ref = data_hora.split("T")[0]
+            duracao_servico = estimar_duracao(servico)
+
+            horarios_validos_expediente = []
+
+            for h in horarios:
+                validacao_horario = await validar_horario_funcionamento(
+                    user_id=user_id,
+                    data_iso=data_ref,
+                    hora_inicio=h,
+                    duracao_min=duracao_servico,
+                )
+
+                if validacao_horario.get("permitido"):
+                    horarios_validos_expediente.append(h)
+
+            horarios = horarios_validos_expediente
+            ctx["horarios_sugeridos"] = horarios
+
+            if not horarios:
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    f"Para *{servico}*, não encontrei horário dentro do expediente desse dia. Me diga outro dia ou outro horário.",
+                    ctx,
+                    texto_usuario,
+                )
 
             dt_base = datetime.fromisoformat(data_hora)
             disponiveis = []
