@@ -3032,9 +3032,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     return await _send_and_stop_ctx(
                         context,
                         user_id,
-                        "Esse horário ficará fora do nosso atendimento comercial 😕
-
-Se quiser, posso te mostrar os horários disponíveis nesse dia 😊.",
+                        "Esse horário ficará fora do nosso atendimento comercial 😕",
                         ctx,
                         texto_usuario,
                     )
