@@ -3566,6 +3566,64 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     contexto["payload_resposta"] = payload_resposta
 
+    # =========================================================
+    # 🔒 VALIDAÇÃO GLOBAL DE EXPEDIENTE ANTES DE PERGUNTAR PROFISSIONAL
+    # =========================================================
+    data_hora_validacao = (
+        slots_extraidos.get("data_hora")
+        or ctx.get("data_hora")
+        or (ctx.get("draft_agendamento") or {}).get("data_hora")
+    )
+    servico_validacao = (
+        slots_extraidos.get("servico")
+        or ctx.get("servico")
+        or (ctx.get("draft_agendamento") or {}).get("servico")
+    )
+    profissional_validacao = (
+        slots_extraidos.get("profissional")
+        or ctx.get("profissional_escolhido")
+        or (ctx.get("draft_agendamento") or {}).get("profissional")
+    )
+
+    if (
+        proximo_passo_real == "perguntar_profissional"
+        and data_hora_validacao
+        and servico_validacao
+        and not profissional_validacao
+    ):
+        data_ref = data_hora_validacao.split("T")[0]
+        hora_ref = data_hora_validacao.split("T")[1][:5]
+
+        id_dono = await obter_id_dono(user_id)
+
+        validacao = await validar_horario_funcionamento(
+            user_id=id_dono,
+            data_iso=data_ref,
+            hora_inicio=hora_ref,
+            duracao_min=estimar_duracao(servico_validacao),
+        )
+
+        if not validacao.get("permitido"):
+            motivo = validacao.get("motivo")
+
+            if motivo == "fechado_na_data":
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    "❌ Não consigo agendar nesse dia porque a agenda está fechada. Me diga outro dia.",
+                    ctx,
+                    texto_usuario,
+                )
+
+            if motivo == "fora_do_expediente":
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
+                    ctx,
+                    texto_usuario,
+                )
+
     print("🧪 [ANTES GPT] proximo_passo=", proximo_passo, flush=True)
     print("🧪 [ANTES GPT] proximo_passo_real=", proximo_passo_real, flush=True)
     print("🧪 [ANTES GPT] slots_extraidos=", slots_extraidos, flush=True)
