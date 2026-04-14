@@ -2998,6 +2998,45 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 f"Fechado — com *{prof}* em *{formatar_data_hora_br(data_hora)}*. Qual serviço vai ser?{sugestao}"
             )
 
+        # =========================================================
+        # 🔒 VALIDAÇÃO DE EXPEDIENTE ANTES DE PERGUNTAR PROFISSIONAL
+        # =========================================================
+        if data_hora and servico and not prof:
+
+            data_ref = data_hora.split("T")[0]
+            hora_ref = data_hora.split("T")[1][:5]
+
+            id_dono = await obter_id_dono(user_id)
+
+            validacao = await validar_horario_funcionamento(
+                user_id=id_dono,
+                data_iso=data_ref,
+                hora_inicio=hora_ref,
+                duracao_min=estimar_duracao(servico),
+            )
+
+            if not validacao.get("permitido"):
+
+                motivo = validacao.get("motivo")
+
+                if motivo == "fechado_na_data":
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        "❌ Não consigo agendar nesse dia porque a agenda está fechada. Me diga outro dia.",
+                        ctx,
+                        texto_usuario,
+                    )
+
+                if motivo == "fora_do_expediente":
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
+                        ctx,
+                        texto_usuario,
+                    )
+
         if data_hora and servico and not prof:
             ctx["estado_fluxo"] = "aguardando_profissional"
             ctx["draft_agendamento"] = {"profissional": None, "data_hora": data_hora, "servico": servico, "modo_prechecagem": True}
