@@ -17,7 +17,6 @@ from utils.gpt_utils import estimar_duracao, formatar_descricao_evento
 from services.agenda_service import (
     validar_data_funcionamento,
     validar_horario_funcionamento,
-    print("🧪 AGENDA REGRA:", regra, flush=True)
 )
 
 import pytz
