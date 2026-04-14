@@ -309,24 +309,20 @@ async def resolver_fora_do_expediente(
 ) -> dict[str, Any]:
     """
     Resolve apenas o caso em que o horário pedido está fora do expediente.
-
-    Objetivo:
-    - encontrar o horário mais próximo que caiba no expediente
-    - se houver profissional, validar também conflito real
-    - não alterar nenhum outro fluxo do sistema
-
-    Retorno esperado:
-    {
-        "ok": bool,
-        "tipo": "horario_sugerido" | "sem_opcao",
-        "horario": str | None,
-        "data_hora": str | None,
-        "mensagem": str | None,
-    }
     """
     try:
+        print(
+            f"🧪 [FORA_EXP] entrada | user_id={user_id} | data_iso={data_iso} | "
+            f"hora_inicio={hora_inicio} | duracao_min={duracao_min} | "
+            f"servico={servico} | profissional={profissional}",
+            flush=True
+        )
+
         regra = await obter_regra_agenda_da_data(user_id, data_iso)
+        print(f"🧪 [FORA_EXP] regra={regra}", flush=True)
+
         if not regra.get("aberto"):
+            print("⚠️ [FORA_EXP] dia fechado", flush=True)
             return {
                 "ok": False,
                 "tipo": "sem_opcao",
@@ -342,7 +338,13 @@ async def resolver_fora_do_expediente(
         min_fim = _hora_para_minutos(fim)
         min_ref = _hora_para_minutos(hora_inicio)
 
+        print(
+            f"🧪 [FORA_EXP] min_ini={min_ini} | min_fim={min_fim} | min_ref={min_ref}",
+            flush=True
+        )
+
         if min_ini is None or min_fim is None or min_ref is None:
+            print("⚠️ [FORA_EXP] erro na conversão de horários", flush=True)
             return {
                 "ok": False,
                 "tipo": "sem_opcao",
@@ -365,7 +367,10 @@ async def resolver_fora_do_expediente(
 
             atual += grade_minutos
 
+        print(f"🧪 [FORA_EXP] candidatos={candidatos[:10]}", flush=True)
+
         if not candidatos:
+            print("⚠️ [FORA_EXP] nenhum candidato gerado", flush=True)
             return {
                 "ok": False,
                 "tipo": "sem_opcao",
@@ -377,8 +382,17 @@ async def resolver_fora_do_expediente(
         candidatos.sort(key=lambda x: (x[0], x[1]))
 
         for _, _, hora_candidata in candidatos:
-            # se ainda não há profissional definido, só devolve o melhor horário dentro do expediente
+            print(
+                f"🧪 [FORA_EXP] testando hora={hora_candidata} | profissional={profissional}",
+                flush=True
+            )
+
+            # sem profissional ainda → retorna direto o mais próximo
             if not (profissional or "").strip():
+                print(
+                    f"✅ [FORA_EXP] sugerindo (sem profissional) {hora_candidata}",
+                    flush=True
+                )
                 return {
                     "ok": True,
                     "tipo": "horario_sugerido",
@@ -396,7 +410,13 @@ async def resolver_fora_do_expediente(
                 servico=servico,
             )
 
+            print(f"🧪 [FORA_EXP] resultado_conflito={resultado}", flush=True)
+
             if not resultado.get("conflito"):
+                print(
+                    f"✅ [FORA_EXP] sugerindo (livre) {hora_candidata}",
+                    flush=True
+                )
                 return {
                     "ok": True,
                     "tipo": "horario_sugerido",
@@ -404,6 +424,8 @@ async def resolver_fora_do_expediente(
                     "data_hora": f"{data_iso}T{hora_candidata}:00",
                     "mensagem": None,
                 }
+
+        print("⚠️ [FORA_EXP] nenhum horário passou na validação final", flush=True)
 
         return {
             "ok": False,
