@@ -3419,14 +3419,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             texto_usuario,
                         )
 
-                        if motivo == "fora_do_expediente":
-                            return await _send_and_stop_ctx(
-                                context,
-                                user_id,
-                                "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
-                                ctx,
-                                texto_usuario,
-                            )
+                    if motivo == "fora_do_expediente":
+                        return await _send_and_stop_ctx(
+                            context,
+                            user_id,
+                            "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
+                            ctx,
+                            texto_usuario,
+                        )
 
                 if servico and not profissional and tem_hora_real(data_final):
                     return await _send_and_stop(
