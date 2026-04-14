@@ -90,6 +90,10 @@ async def obter_config_agenda(user_id: str) -> dict[str, Any]:
     agenda_padrao = agenda_cfg.get("agenda_padrao") or {}
     excecoes_data = agenda_cfg.get("excecoes_data") or {}
 
+    print("🧪 CONFIG RAW:", doc, flush=True)
+    print("🧪 CONFIG agenda_funcionamento:", agenda_cfg, flush=True)
+    print("🧪 CONFIG agenda_padrao:", agenda_padrao, flush=True)
+
     return {
         "agenda_padrao": agenda_padrao,
         "excecoes_data": excecoes_data,
