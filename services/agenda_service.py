@@ -120,7 +120,10 @@ async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, A
 
         data_str = _normalizar_data_iso(data_iso)
         dt = _to_date(data_str)
-        weekday_str = str(dt.weekday())
+        # Python: 0=segunda ... 6=domingo
+        # Firebase do seu projeto: 0=domingo ... 6=sábado
+        weekday_idx = (dt.weekday() + 1) % 7
+        weekday_str = str(weekday_idx)
 
         # 1) excecao da data tem prioridade maxima
         if data_str in excecoes_data:
