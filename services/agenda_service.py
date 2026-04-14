@@ -199,6 +199,8 @@ async def validar_horario_funcionamento(
     """
     regra = await obter_regra_agenda_da_data(user_id, data_iso)
 
+    print("🧪 AGENDA REGRA:", regra, flush=True)
+
     if not regra.get("aberto"):
         return {
             "permitido": False,
