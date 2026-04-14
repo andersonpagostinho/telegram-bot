@@ -115,11 +115,12 @@ async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, A
     """
     try:
         cfg = await obter_config_agenda(user_id)
-        agenda_padrao = cfg["agenda_padrao"]
-        excecoes_data = cfg["excecoes_data"]
+        agenda_padrao = cfg.get("agenda_padrao") or {}
+        excecoes_data = cfg.get("excecoes_data") or {}
 
         data_str = _normalizar_data_iso(data_iso)
         dt = _to_date(data_str)
+
         # Python: 0=segunda ... 6=domingo
         # Firebase do seu projeto: 0=domingo ... 6=sábado
         weekday_idx = (dt.weekday() + 1) % 7
@@ -134,19 +135,19 @@ async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, A
                 "fim": reg.get("fim"),
                 "origem": "excecao",
                 "data": data_str,
-                "weekday": dt.weekday(),
+                "weekday": weekday_idx,
             }
 
         # 2) agenda padrao semanal
-        if weekday_str in agenda_padrao:
-            reg = agenda_padrao.get(weekday_str) or {}
+        reg = agenda_padrao.get(weekday_str)
+        if reg:
             return {
                 "aberto": bool(reg.get("aberto", False)),
                 "inicio": reg.get("inicio"),
                 "fim": reg.get("fim"),
                 "origem": "padrao",
                 "data": data_str,
-                "weekday": dt.weekday(),
+                "weekday": weekday_idx,
             }
 
         # 3) fallback conservador
@@ -156,7 +157,7 @@ async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, A
             "fim": None,
             "origem": "fallback",
             "data": data_str,
-            "weekday": dt.weekday(),
+            "weekday": weekday_idx,
         }
 
     except Exception as e:
