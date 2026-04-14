@@ -79,20 +79,17 @@ def intervalo_dentro_do_expediente(
 async def obter_config_agenda(user_id: str) -> dict[str, Any]:
     """
     Busca configuração de agenda do tenant no caminho real do Firestore:
-    Clientes/{user_id} -> configuracao -> agenda_funcionamento
+    Clientes/{user_id}/configuracao/agenda_funcionamento
     """
-    path = f"Clientes/{user_id}"
+    path = f"Clientes/{user_id}/configuracao/agenda_funcionamento"
     doc = await buscar_dado_em_path(path) or {}
 
-    configuracao = doc.get("configuracao") or {}
-    agenda_cfg = configuracao.get("agenda_funcionamento") or {}
-
-    agenda_padrao = agenda_cfg.get("agenda_padrao") or {}
-    excecoes_data = agenda_cfg.get("excecoes_data") or {}
+    agenda_padrao = doc.get("agenda_padrao") or {}
+    excecoes_data = doc.get("excecoes_data") or {}
 
     print("🧪 CONFIG RAW:", doc, flush=True)
-    print("🧪 CONFIG agenda_funcionamento:", agenda_cfg, flush=True)
     print("🧪 CONFIG agenda_padrao:", agenda_padrao, flush=True)
+    print("🧪 CONFIG excecoes_data:", excecoes_data, flush=True)
 
     return {
         "agenda_padrao": agenda_padrao,
