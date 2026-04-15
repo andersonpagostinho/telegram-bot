@@ -1535,13 +1535,46 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     )
 
                     if resolvido and resolvido.get("erro") == "fora_do_expediente":
+
+                        tentativa = await resolver_fora_do_expediente(
+                        user_id=user_id,
+                        data_iso=data_ref,
+                        hora_inicio=hora_ref,
+                        duracao_min=estimar_duracao(servico),
+                        servico=servico,
+                        profissional=profissional,
+                    )
+
+                    if tentativa.get("ok"):
+                        horario = tentativa.get("horario")
+                        nova_data_hora = tentativa.get("data_hora")
+
+                        if nova_data_hora:
+                            ctx["data_hora"] = nova_data_hora
+
+                            draft = ctx.get("draft_agendamento") or {}
+                            draft["data_hora"] = nova_data_hora
+                            ctx["draft_agendamento"] = draft
+
+                            await salvar_contexto_temporario(user_id, ctx)
+
                         return await _send_and_stop_ctx(
                             context,
                             user_id,
-                            "Esse horário está fora do expediente desse dia. Me diga outro horário que eu verifico para você.",
+                            "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                            f"O horário mais próximo que tenho disponível é às *{horario}*.\n"
+                            "Posso agendar pra você? 😊",
                             ctx,
                             texto_usuario,
                         )
+
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico pra você.",
+                        ctx,
+                        texto_usuario,
+                    )
 
                     if resolvido:
                         nova_data_hora = resolvido["nova_data_hora"]
@@ -3685,12 +3718,36 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # =========================================================
     # 🔥 P0 — PRÉ-CHECAGEM (SEM GPT)
+    # só executa se o horário estiver válido no expediente
     # =========================================================
-    if (
-        slots_extraidos.get("data_hora")
-        and slots_extraidos.get("servico")
-        and slots_extraidos.get("profissional")
-    ):
+    data_hora_check = slots_extraidos.get("data_hora")
+    servico_check = slots_extraidos.get("servico")
+    prof_check = slots_extraidos.get("profissional")
+
+    pode_executar_p0 = False
+
+    if data_hora_check and servico_check and prof_check:
+        data_ref = data_hora_check.split("T")[0]
+        hora_ref = data_hora_check.split("T")[1][:5]
+
+        id_dono = await obter_id_dono(user_id)
+
+        validacao_p0 = await validar_horario_funcionamento(
+            user_id=id_dono,
+            data_iso=data_ref,
+            hora_inicio=hora_ref,
+            duracao_min=estimar_duracao(servico_check),
+        )
+
+        print(
+            f"🧪 [P0 CHECK] permitido={validacao_p0.get('permitido')} | motivo={validacao_p0.get('motivo')}",
+            flush=True
+        )
+
+        if validacao_p0.get("permitido"):
+            pode_executar_p0 = True
+
+    if pode_executar_p0:
         print("🔥 [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
 
         return await executar_acao_gpt(
@@ -3698,12 +3755,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             context,
             "pre_confirmar_agendamento",
             {
-                "data_hora": slots_extraidos["data_hora"],
-                "servico": slots_extraidos["servico"],
-                "profissional": slots_extraidos["profissional"]
+                "data_hora": data_hora_check,
+                "servico": servico_check,
+                "profissional": prof_check
             }
         )
-   
+
     print("🔥🔥🔥 ANTES DO CHAMAR_GPT_COM_CONTEXTO 🔥🔥🔥", flush=True)
 
     # =========================================================
