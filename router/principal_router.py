@@ -3784,14 +3784,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     estado_fluxo = ctx.get("estado_fluxo")
 
-    if estado_fluxo in [
+    interceptar_flow_guard = estado_fluxo in [
         "aguardando_servico",
         "aguardando_profissional",
         "aguardando_data",
         "aguardando_horario",
         "agendando"
-    ]:
-        print("🧪 [FLOW GUARD] interceptando mensagem no fluxo:", texto_usuario, flush=True) 
+    ]
+
+    if interceptar_flow_guard:
+        data_hora_guard = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
+        servico_guard = ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico")
+        profissional_guard = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
+
+        # não intercepta quando já existe agendamento completo;
+        # deixa seguir para a validação de expediente/conflito
+        if estado_fluxo == "agendando" and data_hora_guard and servico_guard and profissional_guard:
+            interceptar_flow_guard = False
+
+    if interceptar_flow_guard:
+        print("🧪 [FLOW GUARD] interceptando mensagem no fluxo:", texto_usuario, flush=True)
 
         # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
         if ctx.get("estado_fluxo") == "aguardando_horario":
@@ -3865,7 +3877,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         ctx["aguardando_confirmacao_agendamento"] = False
                         ctx["ultima_acao"] = None
                         ctx["dados_confirmacao_agendamento"] = None
-  
+
                     await salvar_contexto_temporario(user_id, ctx)
 
                     if servico and profissional:
@@ -3874,7 +3886,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             user_id,
                             f"Perfeito — *{servico}* com *{profissional}* "
                             f"em *{formatar_data_hora_br(nova_data_hora)}*.\n"
-                            "Posso confirmar esse horário?"   
+                            "Posso confirmar esse horário?"
                         )
 
                     if servico and not profissional:
@@ -3883,18 +3895,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             user_id,
                             f"Perfeito — *{servico}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
                             "Qual profissional você prefere?"
-,
                         )
-
+   
                     if profissional and not servico:
                         return await _send_and_stop(
                             context,
                             user_id,
                             f"Perfeito — com *{profissional}* em *{formatar_data_hora_br(nova_data_hora)}*.\n"
                             "Qual serviço você quer fazer?"
-
                         )
-
+ 
         # 🔥 BLOCO ESPECÍFICO — AGUARDANDO SERVIÇO
         if ctx.get("estado_fluxo") == "aguardando_servico":
             texto_norm = normalizar(texto_usuario or "")
