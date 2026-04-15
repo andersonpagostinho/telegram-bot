@@ -3439,6 +3439,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     duracao_min=estimar_duracao(servico),
                 )
 
+                print(f"🧪 [EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
+
                 if not validacao.get("permitido"):
 
                     motivo = validacao.get("motivo")
