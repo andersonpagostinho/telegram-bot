@@ -4087,6 +4087,60 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if exigir_confirmacao:
             if prof and servico and data_hora:
+                data_ref = data_hora.split("T")[0]
+                hora_ref = data_hora.split("T")[1][:5]
+
+                id_dono = await obter_id_dono(user_id)
+
+                validacao = await validar_horario_funcionamento(
+                    user_id=id_dono,
+                    data_iso=data_ref,
+                    hora_inicio=hora_ref,
+                    duracao_min=dados.get("duracao") or estimar_duracao(servico),
+                )
+
+                if not validacao.get("permitido"):
+                    tentativa = await resolver_fora_do_expediente(
+                        user_id=id_dono,
+                        data_iso=data_ref,
+                        hora_inicio=hora_ref,
+                        duracao_min=dados.get("duracao") or estimar_duracao(servico),
+                        servico=servico,
+                        profissional=prof,
+                    )
+
+                    if tentativa.get("ok"):
+                        horario = tentativa.get("horario")
+                        nova_data_hora = tentativa.get("data_hora")
+
+                        if nova_data_hora:
+                            ctx["data_hora"] = nova_data_hora
+
+                            draft = ctx.get("draft_agendamento") or {}
+                            draft["profissional"] = prof
+                            draft["servico"] = servico
+                            draft["data_hora"] = nova_data_hora
+                            draft["modo_prechecagem"] = True
+                            ctx["draft_agendamento"] = draft
+
+                            await salvar_contexto_temporario(user_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            (
+                                "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                                f"O horário mais próximo com *{prof}* é às *{horario}*.\n"
+                                "Posso agendar pra você? 😊"
+                            )
+                        )
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico pra você."
+                    )
+
                 ctx["estado_fluxo"] = "agendando"
                 ctx["draft_agendamento"] = {
                     "profissional": prof,
