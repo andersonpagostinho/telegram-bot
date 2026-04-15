@@ -3,7 +3,6 @@ from telegram.ext import ContextTypes
 
 from datetime import datetime
 
-# Handlers importados
 from handlers.task_handler import add_task_por_gpt, gerar_texto_tarefas, remover_tarefa_por_descricao
 from handlers.event_handler import add_evento_por_gpt
 from handlers.email_handler import listar_emails_prioritarios, ler_emails_command
@@ -13,20 +12,20 @@ from handlers.perfil_handler import meu_plano
 
 from utils.plan_utils import verificar_pagamento, verificar_acesso_modulo
 from utils.tts_utils import responder_em_audio
-from utils.context_manager import carregar_contexto_temporario  # ✅ necessário para ler MemoriaTemporaria
 from utils.gpt_utils import estimar_duracao
+from utils.formatters import formatar_eventos_telegram
+from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
 
-from services.firebase_service_async import buscar_subcolecao, obter_id_dono  # ✅ obter_id_dono para pegar dono
+from services.firebase_service_async import buscar_subcolecao, obter_id_dono
 from services.email_service import enviar_email_google
 from services.event_service_async import (
     cancelar_evento_por_texto,
     buscar_eventos_por_termo_avancado,
     cancelar_evento,
+    verificar_conflito_e_sugestoes_profissional,
+    buscar_eventos_por_intervalo,
 )
-from services.event_service_async import verificar_conflito_e_sugestoes_profissional
-from utils.formatters import formatar_eventos_telegram
 from services.agenda_service import validar_horario_funcionamento, resolver_fora_do_expediente
-from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
