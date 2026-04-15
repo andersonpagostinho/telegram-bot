@@ -4003,6 +4003,32 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             user_id,
             f"Perfeito — {base} por volta de {horarios_txt} 😊\n\nQual serviço você deseja?"
         )
+
+    # =========================================================
+    # 🔥 BLOQUEIO DE GPT — quando já temos dados suficientes
+    # =========================================================
+    if (
+        ctx.get("data_hora")
+        and (
+            (ctx.get("servico") and ctx.get("profissional_escolhido"))
+            or (
+                (ctx.get("draft_agendamento") or {}).get("servico")
+                and (ctx.get("draft_agendamento") or {}).get("profissional")
+            )
+        )
+    ):
+        print("🚫 [BLOCK GPT] já tenho dados completos — fluxo determinístico", flush=True)
+
+        return await executar_acao_gpt(
+            update,
+            context,
+            "pre_confirmar_agendamento",
+            {
+                "data_hora": ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora"),
+                "servico": ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico"),
+                "profissional": ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional"),
+            }
+        )
  
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
 
