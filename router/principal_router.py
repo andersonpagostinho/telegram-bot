@@ -3705,6 +3705,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             data_iso=data_ref,
             hora_inicio=hora_ref,
             duracao_min=estimar_duracao(servico_validacao),
+            profissional=profissional_validacao,
         )
 
         if not validacao.get("permitido"):

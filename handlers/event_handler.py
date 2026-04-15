@@ -616,6 +616,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             data_iso=start_time.strftime("%Y-%m-%d"),
             hora_inicio=start_time.strftime("%H:%M"),
             duracao_min=duracao_minutos,
+            profissional=profissional,
         )
 
         if not validacao_funcionamento.get("permitido"):

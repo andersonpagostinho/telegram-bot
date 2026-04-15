@@ -159,6 +159,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 data_iso=data,
                 hora_inicio=hora,
                 duracao_min=duracao,
+                profissional=prof,
             )
 
             print(f"🧪 [P0 EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
