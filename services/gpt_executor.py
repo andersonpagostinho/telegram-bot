@@ -148,6 +148,46 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             hora = data_hora.split("T")[1][:5]
             duracao = estimar_duracao(servico)
 
+            # =========================================================
+            # 🔒 VALIDAÇÃO DE EXPEDIENTE (FALTAVA AQUI)
+            # =========================================================
+            id_dono = await obter_id_dono(user_id)
+
+            validacao = await validar_horario_funcionamento(
+                user_id=id_dono,
+                data_iso=data,
+                hora_inicio=hora,
+                duracao_min=duracao,
+            )
+
+            print(f"🧪 [P0 EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
+
+            if not validacao.get("permitido"):
+
+                tentativa = await resolver_fora_do_expediente(
+                    user_id=id_dono,
+                    data_iso=data,
+                    hora_inicio=hora,
+                    duracao_min=duracao,
+                    servico=servico,
+                    profissional=prof,
+                )
+
+                if tentativa.get("ok"):
+                    horario = tentativa.get("horario")
+
+                    return await update.message.reply_text(
+                        "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                        f"O horário mais próximo com *{prof}* é às *{horario}*.\n"
+                        "Posso agendar pra você? 😊",
+                        parse_mode="Markdown"
+                    )
+
+                return await update.message.reply_text(
+                    "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
+                    parse_mode="Markdown"
+                )
+
             resultado = await verificar_conflito_e_sugestoes_profissional(
                 user_id=user_id,
                 data=data,
