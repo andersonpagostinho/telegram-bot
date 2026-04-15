@@ -3720,10 +3720,43 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
 
             if motivo == "fora_do_expediente":
+
+                tentativa = await resolver_fora_do_expediente(
+                    user_id=id_dono,
+                    data_iso=data_ref,
+                    hora_inicio=hora_ref,
+                    duracao_min=estimar_duracao(servico_validacao),
+                    servico=servico_validacao,
+                    profissional=None,  # aqui ainda não tem profissional
+                )
+
+                if tentativa.get("ok"):
+                    horario = tentativa.get("horario")
+                    nova_data_hora = tentativa.get("data_hora")
+
+                    if nova_data_hora:
+                        ctx["data_hora"] = nova_data_hora
+
+                        draft = ctx.get("draft_agendamento") or {}
+                        draft["data_hora"] = nova_data_hora
+                        ctx["draft_agendamento"] = draft
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                        f"O horário mais próximo que tenho disponível é às *{horario}*.\n"
+                        "Posso agendar pra você? 😊",
+                        ctx,
+                        texto_usuario,
+                    )
+
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
+                    "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico pra você.",
                     ctx,
                     texto_usuario,
                 )
