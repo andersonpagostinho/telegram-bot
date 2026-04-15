@@ -361,6 +361,11 @@ async def resolver_fora_do_expediente(
             mm = atual % 60
             hora = f"{hh:02d}:{mm:02d}"
 
+            print(
+                f"🧪 [FORA_EXP LOOP] hora={hora} | valido={intervalo_dentro_do_expediente(hora, duracao_min, inicio, fim)}",
+                flush=True
+            )
+
             if intervalo_dentro_do_expediente(hora, duracao_min, inicio, fim):
                 distancia = abs(atual - min_ref)
                 candidatos.append((distancia, atual, hora))
