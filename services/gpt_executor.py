@@ -176,6 +176,33 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
                 if tentativa.get("ok"):
                     horario = tentativa.get("horario")
+                    nova_data_hora = tentativa.get("data_hora")
+
+                    contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+
+                    contexto_tmp["estado_fluxo"] = "agendando"
+                    contexto_tmp["data_hora"] = nova_data_hora
+                    contexto_tmp["profissional_escolhido"] = prof
+                    contexto_tmp["servico"] = servico
+
+                    contexto_tmp["draft_agendamento"] = {
+                        "profissional": prof,
+                        "servico": servico,
+                        "data_hora": nova_data_hora,
+                        "modo_prechecagem": True,
+                    }
+
+                    contexto_tmp["aguardando_confirmacao_agendamento"] = True
+                    contexto_tmp["dados_confirmacao_agendamento"] = {
+                        "origem": "confirmacao_pendente",
+                        "profissional": prof,
+                        "servico": servico,
+                        "data_hora": nova_data_hora,
+                        "duracao": duracao,
+                        "descricao": f"{servico.capitalize()} com {prof}",
+                    }
+
+                    await salvar_contexto_temporario(user_id, contexto_tmp)
 
                     return await update.message.reply_text(
                         "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
