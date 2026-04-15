@@ -26,6 +26,7 @@ from services.event_service_async import (
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 from utils.formatters import formatar_eventos_telegram
 from services.agenda_service import validar_horario_funcionamento, resolver_fora_do_expediente
+from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
@@ -294,7 +295,6 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 draft_tmp["modo_prechecagem"] = True
                 contexto_tmp["draft_agendamento"] = draft_tmp
 
-                from utils.contexto_temporario import salvar_contexto_temporario
                 await salvar_contexto_temporario(user_id, contexto_tmp)
 
                 print(
