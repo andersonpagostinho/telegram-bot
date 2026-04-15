@@ -348,7 +348,6 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             contexto_tmp["data_hora"] = data_hora
             contexto_tmp["ultima_opcao_profissionais"] = [prof]
 
-            from utils.contexto_temporario import salvar_contexto_temporario
             await salvar_contexto_temporario(user_id, contexto_tmp)
 
             try:
