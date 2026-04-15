@@ -3434,8 +3434,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 profissional = ctx.get("profissional_escolhido") or draft.get("profissional")
 
                 if servico and profissional:
-                    ctx["aguardando_confirmacao_agendamento"] = True
-                    ctx["dados_confirmacao_agendamento"] = {
+
+                    data_ref = data_final.split("T")[0]
+                    hora_ref = data_final.split("T")[1][:5]
+
+                    id_dono = await obter_id_dono(user_id)
+
+                    validacao = await validar_horario_funcionamento(
+                        user_id=id_dono,
+                        data_iso=data_ref,
+                        hora_inicio=hora_ref,
+                        duracao_min=estimar_duracao(servico),
+                    )
+
+                    if not validacao.get("permitido"):
+                        print("🚫 [BLOQUEIO] confirmação impedida por horário inválido", flush=True)
+                    else:
+                        ctx["aguardando_confirmacao_agendamento"] = True
+                        ctx["dados_confirmacao_agendamento"] = {
                         "profissional": profissional,
                         "servico": servico,
                         "data_hora": data_final,
@@ -3482,8 +3498,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         hora_inicio=hora_ref,
                         duracao_min=estimar_duracao(servico),
                         servico=servico,
-                        profissional=profissional,
-                    )
+                        profissional=None,
+                    ) 
 
                     if tentativa.get("ok"):
                         horario = tentativa.get("horario")
