@@ -25,6 +25,7 @@ from services.event_service_async import (
 )
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 from utils.formatters import formatar_eventos_telegram
+from services.agenda_service import validar_horario_funcionamento, resolver_fora_do_expediente
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
