@@ -344,3 +344,70 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
     except Exception as e:
         print(f"[interpretar_data_e_hora] Erro: {e}")
         return None
+
+def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
+    texto_lower = (texto or "").lower()
+
+    # 🔥 gatilho simples e direto (P0)
+    gatilhos = [
+        "não abriremos",
+        "nao abriremos",
+        "vamos fechar",
+        "ficaremos fechados",
+        "fechar o salão",
+        "fechar agenda",
+        "bloquear agenda",
+    ]
+
+    if not any(g in texto_lower for g in gatilhos):
+        return None
+
+    datas = []
+
+    # =========================================================
+    # 1) tenta usar o parser que você JÁ TEM
+    # =========================================================
+    dt = interpretar_data_e_hora(texto)
+    if dt:
+        datas.append(dt.strftime("%Y-%m-%d"))
+
+    # =========================================================
+    # 2) múltiplos dias (ex: "20 e 21")
+    # =========================================================
+    matches = re.findall(r"\b(\d{1,2})\b", texto_lower)
+    if len(matches) > 1:
+        hoje = datetime.now()
+        for d in matches:
+            try:
+                dia = int(d)
+                data = datetime(hoje.year, hoje.month, dia)
+                datas.append(data.strftime("%Y-%m-%d"))
+            except:
+                pass
+
+    # =========================================================
+    # 3) duração (ex: "por 2 dias")
+    # =========================================================
+    m = re.search(r"por\s+(\d+)\s+dia", texto_lower)
+    if m:
+        qtd = int(m.group(1))
+        hoje = datetime.now()
+
+        datas = [
+            (hoje + timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range(qtd)
+        ]
+
+    # remove duplicadas
+    datas = sorted(set(datas))
+
+    if not datas:
+        return None
+
+    return {
+        "acao": "bloquear_agenda_salao",
+        "dados": {
+            "datas": datas,
+            "motivo": "fechado"
+        }
+    }

@@ -1,8 +1,10 @@
 # handlers/acao_router_handler.py
 import inspect
+from datetime import datetime
 from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path
 from services.profissional_service import obter_precos_servico, encontrar_servico_mais_proximo
 from utils.contexto_temporario import carregar_contexto_temporario
+
 
 async def executar_acao_por_nome(update, context, acao, dados):
     user_id = str(update.message.from_user.id)
@@ -170,6 +172,59 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 "resposta": mensagem,
                 "acao": "listar_profissionais",
                 "dados": profissionais
+            }
+
+        elif acao == "bloquear_agenda_salao":
+            from services.agenda_service import bloquear_datas_agenda_salao, normalizar_lista_datas
+
+            datas = (dados or {}).get("datas") or []
+            motivo = (dados or {}).get("motivo") or "fechado"
+
+            datas = normalizar_lista_datas(datas)
+
+            if not datas:
+                msg = "⚠️ Não consegui identificar as datas para bloquear a agenda."
+                await update.message.reply_text(msg)
+                return {
+                    "resposta": msg,
+                    "acao": "erro_bloquear_agenda_salao",
+                    "dados": {}
+                }
+
+            sucesso = await bloquear_datas_agenda_salao(
+                user_id=user_id,
+                datas=datas,
+                motivo=motivo
+            )
+
+            if not sucesso:
+                msg = "❌ Não consegui salvar o bloqueio da agenda."
+                await update.message.reply_text(msg)
+                return {
+                    "resposta": msg,
+                    "acao": "erro_bloquear_agenda_salao",
+                    "dados": {"datas": datas, "motivo": motivo}
+                }
+
+            datas_formatadas = "\n".join(
+                f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
+                for d in datas
+            )
+
+            resposta = (
+                "Perfeito 😊\n"
+                "Fechei a agenda destes dias:\n"
+                f"{datas_formatadas}"
+            )
+
+            await update.message.reply_text(resposta)
+            return {
+                "resposta": resposta,
+                "acao": "bloquear_agenda_salao",
+                "dados": {
+                    "datas": datas,
+                    "motivo": motivo
+                }
             }
 
         elif acao == "verificar_disponibilidade_profissional":

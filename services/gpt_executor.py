@@ -165,56 +165,67 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             print(f"🧪 [P0 EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
 
             if not validacao.get("permitido"):
+                motivo = validacao.get("motivo")
 
-                tentativa = await resolver_fora_do_expediente(
-                    user_id=id_dono,
-                    data_iso=data,
-                    hora_inicio=hora,
-                    duracao_min=duracao,
-                    servico=servico,
-                    profissional=prof,
-                )
-
-                if tentativa.get("ok"):
-                    horario = tentativa.get("horario")
-                    nova_data_hora = tentativa.get("data_hora")
-
-                    contexto_tmp = await carregar_contexto_temporario(user_id) or {}
-
-                    contexto_tmp["estado_fluxo"] = "agendando"
-                    contexto_tmp["data_hora"] = nova_data_hora
-                    contexto_tmp["profissional_escolhido"] = prof
-                    contexto_tmp["servico"] = servico
-
-                    contexto_tmp["draft_agendamento"] = {
-                        "profissional": prof,
-                        "servico": servico,
-                        "data_hora": nova_data_hora,
-                        "modo_prechecagem": True,
-                    }
-
-                    contexto_tmp["aguardando_confirmacao_agendamento"] = True
-                    contexto_tmp["dados_confirmacao_agendamento"] = {
-                        "origem": "confirmacao_pendente",
-                        "profissional": prof,
-                        "servico": servico,
-                        "data_hora": nova_data_hora,
-                        "duracao": duracao,
-                        "descricao": f"{servico.capitalize()} com {prof}",
-                    }
-
-                    await salvar_contexto_temporario(user_id, contexto_tmp)
-
+                # 🔥 DIA FECHADO → NÃO tenta sugerir horário
+                if motivo == "fechado_na_data":
                     return await update.message.reply_text(
-                        "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
-                        f"O horário mais próximo com *{prof}* é às *{horario}*.\n"
-                        "Posso agendar pra você? 😊",
+                        "😕 Nesse dia não vamos atender.\n\n"
+                        "Por favor, me informe outro dia que eu verifico para você 😊",
                         parse_mode="Markdown"
                     )
 
-                return await update.message.reply_text(
-                    "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
-                    parse_mode="Markdown"
+                if motivo == "fora_do_expediente":
+                    tentativa = await resolver_fora_do_expediente(
+                        user_id=id_dono,
+                        data_iso=data,
+                        hora_inicio=hora,
+                        duracao_min=duracao,
+                        servico=servico,
+                        profissional=prof,
+                    )
+
+                    if tentativa.get("ok"):
+                        horario = tentativa.get("horario")
+                        nova_data_hora = tentativa.get("data_hora")
+
+                        contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+
+                        contexto_tmp["estado_fluxo"] = "agendando"
+                        contexto_tmp["data_hora"] = nova_data_hora
+                        contexto_tmp["profissional_escolhido"] = prof
+                        contexto_tmp["servico"] = servico
+
+                        contexto_tmp["draft_agendamento"] = {
+                            "profissional": prof,
+                            "servico": servico,
+                            "data_hora": nova_data_hora,
+                            "modo_prechecagem": True,
+                        }
+
+                        contexto_tmp["aguardando_confirmacao_agendamento"] = True
+                        contexto_tmp["dados_confirmacao_agendamento"] = {
+                            "origem": "confirmacao_pendente",
+                            "profissional": prof,
+                            "servico": servico,
+                            "data_hora": nova_data_hora,
+                            "duracao": duracao,
+                            "descricao": f"{servico.capitalize()} com {prof}",
+                        }
+
+                        await salvar_contexto_temporario(user_id, contexto_tmp)
+
+                        return await update.message.reply_text(
+                            "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                            f"O horário mais próximo com *{prof}* é às *{horario}*.\n"
+                            "Posso agendar pra você? 😊",
+                            parse_mode="Markdown"
+                        )
+
+                    return await update.message.reply_text(
+                        "😕 Esse horário não encaixa e hoje já não tenho mais horários próximos disponíveis.\n\n"
+                        "Me fala outro dia e horário que eu vejo o melhor pra você 😊",
+                        parse_mode="Markdown"
                 )
 
             resultado = await verificar_conflito_e_sugestoes_profissional(

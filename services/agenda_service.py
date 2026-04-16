@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, date
 from typing import Any
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 
-from services.firebase_service_async import buscar_dado_em_path
+from services.firebase_service_async import buscar_dado_em_path, atualizar_dado_em_path
 
 def _normalizar_data_iso(data_iso: str) -> str:
     """

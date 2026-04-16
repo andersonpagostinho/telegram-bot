@@ -3995,6 +3995,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             return await _send_and_stop(context, user_id, resposta_texto)
 
     # =========================================================
+    # 🔒 BLOQUEIO DE AGENDA DO SALÃO (DONO) — determinístico
+    # entra ANTES de qualquer tentativa de GPT
+    # =========================================================
+    payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
+
+    if payload_bloqueio:
+        print(f"🔒 [BLOQUEIO_AGENDA_SALAO] payload={payload_bloqueio}", flush=True)
+        return await executar_acao_por_nome(
+            update,
+            context,
+            payload_bloqueio["acao"],
+            payload_bloqueio["dados"]
+        )
+
+    # =========================================================
     # 🔥 BLOQUEIO DE GPT — só quando ainda NÃO tem serviço
     # =========================================================
     if (
