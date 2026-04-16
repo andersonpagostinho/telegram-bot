@@ -3851,6 +3851,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if interceptar_flow_guard:
         print("🧪 [FLOW GUARD] interceptando mensagem no fluxo:", texto_usuario, flush=True)
 
+        # =========================================================
+        # 🔒 BLOQUEIO DE AGENDA DO SALÃO (DONO)
+        # precisa entrar antes de qualquer reaproveitamento do fluxo
+        # =========================================================
+        payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
+
+        if payload_bloqueio:
+            print(f"🔒 [BLOQUEIO_AGENDA_SALAO/FLOW_GUARD] payload={payload_bloqueio}", flush=True)
+            return await executar_acao_por_nome(
+                update,
+                context,
+                payload_bloqueio["acao"],
+                payload_bloqueio["dados"]
+            )
+
         # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
         if ctx.get("estado_fluxo") == "aguardando_horario":
 
@@ -3993,21 +4008,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # Deixa o bloco específico de aguardando_servico tratar antes do GPT.
         if ctx.get("estado_fluxo") != "aguardando_servico":
             return await _send_and_stop(context, user_id, resposta_texto)
-
-    # =========================================================
-    # 🔒 BLOQUEIO DE AGENDA DO SALÃO (DONO) — determinístico
-    # entra ANTES de qualquer tentativa de GPT
-    # =========================================================
-    payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
-
-    if payload_bloqueio:
-        print(f"🔒 [BLOQUEIO_AGENDA_SALAO] payload={payload_bloqueio}", flush=True)
-        return await executar_acao_por_nome(
-            update,
-            context,
-            payload_bloqueio["acao"],
-            payload_bloqueio["dados"]
-        )
 
     # =========================================================
     # 🔥 BLOQUEIO DE GPT — só quando ainda NÃO tem serviço
