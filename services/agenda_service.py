@@ -804,3 +804,29 @@ async def resolver_fora_do_expediente(
             "data_hora": None,
             "mensagem": None,
         }
+
+async def bloquear_datas_agenda_salao(
+    user_id: str,
+    datas: list[str],
+    motivo: str = "fechado"
+) -> bool:
+
+    from services.firebase_service_async import buscar_dado_em_path, atualizar_dado_em_path
+
+    path = f"Clientes/{user_id}/configuracao/agenda_funcionamento"
+
+    cfg = await buscar_dado_em_path(path) or {}
+    excecoes = cfg.get("excecoes_data") or {}
+
+    for data in datas:
+        excecoes[data] = {
+            "tipo": "bloqueio_total",
+            "aberto": False,
+            "inicio": None,
+            "fim": None,
+            "motivo": motivo,
+        }
+
+    await atualizar_dado_em_path(path, {"excecoes_data": excecoes})
+
+    return True
