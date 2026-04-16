@@ -415,6 +415,66 @@ def eh_gatilho_agendar(txt: str) -> bool:
     gatilhos = ["pode agendar", "pode marcar", "agende", "marque"]
     return any(g in t for g in gatilhos)
 
+def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
+    texto_lower = (texto or "").lower().strip()
+
+    sinais_fechamento = [
+        "não abriremos", "nao abriremos",
+        "não vai abrir", "nao vai abrir",
+        "não vamos abrir", "nao vamos abrir",
+        "fechado", "fechada", "fechar",
+        "bloquear agenda", "bloquear",
+        "não atender", "nao atender",
+        "indisponivel", "indisponível",
+    ]
+
+    tem_sinal_fechamento = any(s in texto_lower for s in sinais_fechamento)
+
+    dt = None
+    try:
+        dt = interpretar_data_e_hora(texto)
+    except Exception:
+        dt = None
+
+    tem_referencia_tempo = bool(dt) or any(p in texto_lower for p in [
+        "dia ", "hoje", "amanhã", "amanha",
+        "segunda", "terça", "terca", "quarta",
+        "quinta", "sexta", "sábado", "sabado", "domingo"
+    ])
+
+    if not (tem_sinal_fechamento and tem_referencia_tempo):
+        return None
+
+    # 🚨 FALTAVA ISSO
+    datas = []
+
+    if dt:
+        datas.append(dt.strftime("%Y-%m-%d"))
+
+    nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
+    if len(nums) > 1:
+        hoje = datetime.now()
+        for n in nums:
+            dia = int(n)
+            if 1 <= dia <= 31:
+                try:
+                    d = datetime(hoje.year, hoje.month, dia)
+                    datas.append(d.strftime("%Y-%m-%d"))
+                except:
+                    pass
+
+    datas = sorted(set(datas))
+
+    if not datas:
+        return None
+
+    return {
+        "acao": "bloquear_agenda_salao",
+        "dados": {
+            "datas": datas,
+            "motivo": "fechado"
+        }
+    }
 
 def eh_confirmacao(txt: str) -> bool:
     """
