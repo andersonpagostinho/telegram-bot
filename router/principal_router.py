@@ -24,6 +24,7 @@ import pytz
 import re
 from unidecode import unidecode
 from telegram.ext import ApplicationHandlerStop
+from handlers.acao_router_handler import executar_acao_por_nome
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
