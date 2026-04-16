@@ -677,10 +677,22 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     )
 
     # =========================================================
-    # REGRA CENTRAL: slot explícito novo SOBRESCREVE o antigo
+    # 🔥 extrai somente HORÁRIOS reais, não números soltos como dia 17
     # =========================================================
+    hora_matches = []
 
-    hora_matches = re.findall(r"\b(\d{1,2})(?::(\d{2}))?\b", texto.lower())
+    # 1) HH:MM  -> 10:00
+    for h, m in re.findall(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", texto.lower()):
+        hora_matches.append((h, m))
+
+    # 2) às 10 / as 10 / 10h / 10 horas
+    for h in re.findall(r"(?:\b(?:as|às)\s*([01]?\d|2[0-3])\b|\b([01]?\d|2[0-3])h\b|\b([01]?\d|2[0-3])\s*horas?\b)", texto.lower()):
+        hora = next((x for x in h if x), None)
+        if hora is not None:
+            hora_matches.append((hora, "00"))
+
+    # remove duplicados preservando ordem
+    hora_matches = list(dict.fromkeys((str(int(h)), str(int(m)).zfill(2)) for h, m in hora_matches))
 
     if dt_detectado:
 
