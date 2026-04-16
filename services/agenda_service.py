@@ -23,6 +23,12 @@ def _normalizar_data_iso(data_iso: str) -> str:
 
     return datetime.fromisoformat(f"{data_iso}T00:00:00").strftime("%Y-%m-%d")
 
+def normalizar_lista_datas(datas: list[str] | None) -> list[str]:
+    if not datas:
+        return []
+
+    return sorted({_normalizar_data_iso(d) for d in datas if d})
+
 
 def _to_date(data_iso: str) -> date:
     return datetime.fromisoformat(f"{_normalizar_data_iso(data_iso)}T00:00:00").date()
