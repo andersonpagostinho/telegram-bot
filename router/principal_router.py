@@ -438,11 +438,52 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     datas = []
 
     # =========================================================
+    # 🔥 1. tenta pegar intervalo: "de 20 até 23"
+    # =========================================================
+    m_intervalo = re.search(r"\bde\s+(\d{1,2})\s+(?:ate|até|a)\s+(\d{1,2})\b", texto_lower)
+
+    if m_intervalo:
+        try:
+            dia_inicio = int(m_intervalo.group(1))
+            dia_fim = int(m_intervalo.group(2))
+
+            if 1 <= dia_inicio <= 31 and 1 <= dia_fim <= 31:
+                data_inicio = datetime(hoje.year, hoje.month, dia_inicio)
+                data_fim = datetime(hoje.year, hoje.month, dia_fim)
+
+                # se já passou, joga para o próximo mês
+                if data_inicio.date() < hoje.date():
+                    mes = hoje.month + 1
+                    ano = hoje.year
+
+                    if mes > 12:
+                        mes = 1
+                        ano += 1
+
+                    ultimo_dia = monthrange(ano, mes)[1]
+                    dia_inicio_aj = min(dia_inicio, ultimo_dia)
+                    dia_fim_aj = min(dia_fim, ultimo_dia)
+
+                    data_inicio = datetime(ano, mes, dia_inicio_aj)
+                    data_fim = datetime(ano, mes, dia_fim_aj)
+
+                if data_fim < data_inicio:
+                    data_inicio, data_fim = data_fim, data_inicio
+
+                atual = data_inicio
+                while atual <= data_fim:
+                    datas.append(atual.strftime("%Y-%m-%d"))
+                    atual += timedelta(days=1)
+
+        except:
+            pass
+
+    # =========================================================
     # 🔥 1. tenta pegar múltiplos dias (20, 21, 22)
     # =========================================================
     nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
 
-    if nums:
+    elif nums:
         for n in nums:
             dia = int(n)
             if 1 <= dia <= 31:
