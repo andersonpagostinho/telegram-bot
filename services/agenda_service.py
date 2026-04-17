@@ -497,7 +497,7 @@ async def obter_janela_funcionamento(
         exc_prof = excecoes_prof.get(data_str) or {}
 
         if exc_prof.get("tipo") == "bloqueado" and exc_prof.get("ativo") is True:
-            regra_prof_final = {
+            return {
                 "aberto": False,
                 "inicio": None,
                 "fim": None,
