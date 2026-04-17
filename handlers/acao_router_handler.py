@@ -4,8 +4,7 @@ from datetime import datetime
 from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path
 from services.profissional_service import obter_precos_servico, encontrar_servico_mais_proximo
 from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
-from services.agenda_service import definir_janela_especial_agenda_salao, normalizar_lista_datas
-from utils.context_manager import limpar_contexto_agendamento
+
 
 async def executar_acao_por_nome(update, context, acao, dados):
     user_id = str(update.message.from_user.id)
@@ -244,6 +243,8 @@ async def executar_acao_por_nome(update, context, acao, dados):
             }
 
         elif acao == "definir_meio_periodo_salao":
+            from services.agenda_service import definir_janela_especial_agenda_salao, normalizar_lista_datas
+            from utils.context_manager import limpar_contexto_agendamento
             
             datas = (dados or {}).get("datas") or []
             inicio = (dados or {}).get("inicio")
