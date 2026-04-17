@@ -18,6 +18,7 @@ from services.agenda_service import (
     validar_data_funcionamento,
     validar_horario_funcionamento,
     resolver_fora_do_expediente,
+    obter_janela_funcionamento,
 )
 
 import pytz
@@ -2811,9 +2812,30 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if data_hora:
             data_ref = data_hora.split("T")[0]
 
-            validacao_data = await validar_data_funcionamento(user_id, data_ref)
+            janela_data = await obter_janela_funcionamento(
+                user_id=user_id,
+                data_str=data_ref,
+                profissional=prof
+            )
 
-            if not validacao_data.get("permitido"):
+            if not janela_data.get("aberto"):
+                origem = janela_data.get("origem")
+                motivo = janela_data.get("motivo")
+
+                if origem == "excecao_profissional":
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        f"Nesse dia a agenda da {prof} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você."
+                    )
+
+                if origem == "profissional_nao_encontrado":
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        "Não encontrei esse profissional cadastrado. Me diga o nome correto que eu verifico para você."
+                    )
+
                 return await _send_and_stop(
                     context,
                     user_id,

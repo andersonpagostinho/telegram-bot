@@ -33,6 +33,10 @@ def normalizar_lista_datas(datas: list[str] | None) -> list[str]:
 def _to_date(data_iso: str) -> date:
     return datetime.fromisoformat(f"{_normalizar_data_iso(data_iso)}T00:00:00").date()
 
+def _minutos_para_hora(total_min: int) -> str:
+    hh = total_min // 60
+    mm = total_min % 60
+    return f"{hh:02d}:{mm:02d}"
 
 def _hora_para_minutos(hora_str: str | None) -> int | None:
     if not hora_str:
@@ -40,6 +44,10 @@ def _hora_para_minutos(hora_str: str | None) -> int | None:
 
     try:
         hh, mm = map(int, str(hora_str).split(":"))
+
+        if not (0 <= hh < 24 and 0 <= mm < 60):
+            return None
+
         return hh * 60 + mm
     except Exception:
         return None
@@ -199,126 +207,6 @@ async def validar_data_funcionamento(user_id: str, data_iso: str) -> dict[str, A
         "regra": regra,
     }
 
-async def obter_janela_funcionamento(
-    user_id: str,
-    data_str: str,
-    profissional: str | None = None
-):
-    """
-    Retorna a janela real de funcionamento considerando:
-    - agenda do salão
-    - exceções do salão
-    - agenda do profissional (se existir)
-    - exceções do profissional (se existir)
-    """
-
-    from services.firebase_service_async import buscar_dado_em_path, buscar_subcolecao
-
-    # =========================================================
-    # 1. SALÃO
-    # =========================================================
-    path = f"Clientes/{user_id}/configuracao/agenda_funcionamento"
-    cfg = await buscar_dado_em_path(path) or {}
-
-    agenda_padrao = cfg.get("agenda_padrao") or {}
-    excecoes_data = cfg.get("excecoes_data") or {}
-
-    from datetime import datetime
-    dt = datetime.fromisoformat(data_str)
-    weekday = str(dt.weekday())
-
-    reg = agenda_padrao.get(weekday) or {}
-
-    aberto = reg.get("aberto")
-    inicio = reg.get("inicio")
-    fim = reg.get("fim")
-
-    # 🔥 EXCEÇÃO DO SALÃO TEM PRIORIDADE TOTAL
-    if data_str in excecoes_data:
-        exc = excecoes_data[data_str]
-        return {
-            "aberto": exc.get("aberto"),
-            "inicio": exc.get("inicio"),
-            "fim": exc.get("fim"),
-            "origem": "excecao_salao"
-        }
-
-    # se salão fechado, acabou
-    if not aberto:
-        return {
-            "aberto": False,
-            "inicio": None,
-            "fim": None,
-            "origem": "salao_fechado"
-        }
-
-    # =========================================================
-    # 2. PROFISSIONAL (OPCIONAL)
-    # =========================================================
-    if profissional:
-        profs = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
-        dados_prof = profs.get(profissional) or {}
-
-        agenda_prof = dados_prof.get("agenda_funcionamento") or {}
-
-        agenda_padrao_prof = agenda_prof.get("agenda_padrao") or agenda_padrao
-        excecoes_prof = await buscar_subcolecao(
-            f"Clientes/{user_id}/Profissionais/{profissional}/AgendaExcecoes"
-        ) or {}
-
-        reg_prof = agenda_padrao_prof.get(weekday) or {}
-
-        aberto_prof = reg_prof.get("aberto")
-        inicio_prof = reg_prof.get("inicio")
-        fim_prof = reg_prof.get("fim")
-
-        # 🔥 EXCEÇÃO DO PROFISSIONAL
-        if data_str in excecoes_prof:
-            exc = excecoes_prof.get(data_str) or {}
-
-            if exc.get("tipo") == "bloqueado" and exc.get("ativo") is True:
-                return {
-                    "aberto": False,
-                    "inicio": None,
-                    "fim": None,
-                    "origem": "excecao_profissional",
-                    "tipo": exc.get("tipo"),
-                    "motivo": exc.get("motivo"),
-                }
-
-            return {
-                "aberto": exc.get("aberto", True),
-                "inicio": exc.get("inicio"),
-                "fim": exc.get("fim"),
-                "origem": "excecao_profissional",
-                "tipo": exc.get("tipo"),
-                "motivo": exc.get("motivo"),
-            }
-
-        if not aberto_prof:
-            return {
-                "aberto": False,
-                "inicio": None,
-                "fim": None,
-                "origem": "profissional_fechado"
-            }
-
-        return {
-            "aberto": True,
-            "inicio": inicio_prof,
-            "fim": fim_prof,
-            "origem": "profissional"
-        }
-
-    # =========================================================
-    # 3. FALLBACK SALÃO
-    # =========================================================
-    return {
-        "aberto": True,
-        "inicio": inicio,
-        "fim": fim,
-        "origem": "salao"
-    }
 
 async def obter_janela_funcionamento(
     user_id: str,
@@ -444,16 +332,16 @@ async def obter_janela_funcionamento(
                 dados_prof = dados
                 break
 
-    # se não encontrou profissional, herda do salão
+    # se não encontrou profissional, não assume disponibilidade
     if not dados_prof:
-        print(f"⚠️ [JANELA] profissional '{profissional}' não encontrado. Herdando salão.", flush=True)
+        print(f"⚠️ [JANELA] profissional '{profissional}' não encontrado.", flush=True)
         return {
-            "aberto": True,
-            "inicio": regra_salao_final.get("inicio"),
-            "fim": regra_salao_final.get("fim"),
-            "origem": "fallback_salao_profissional_nao_encontrado",
-            "tipo": regra_salao_final.get("tipo"),
-            "motivo": regra_salao_final.get("motivo")
+            "aberto": False,
+            "inicio": None,
+            "fim": None,
+            "origem": "profissional_nao_encontrado",
+            "tipo": "cadastro_invalido",
+            "motivo": "profissional_nao_encontrado"
         }
 
     # =========================================================
@@ -534,17 +422,52 @@ async def obter_janela_funcionamento(
     # 11) INTERSEÇÃO SALÃO x PROFISSIONAL
     # O horário real deve caber nos dois.
     # =========================================================
-    inicio_final = max(
-        str(regra_salao_final.get("inicio")),
-        str(regra_prof_final.get("inicio"))
-    )
-    fim_final = min(
-        str(regra_salao_final.get("fim")),
-        str(regra_prof_final.get("fim"))
-    )
+    inicio_salao = regra_salao_final.get("inicio")
+    fim_salao = regra_salao_final.get("fim")
+    inicio_prof = regra_prof_final.get("inicio")
+    fim_prof = regra_prof_final.get("fim")
+
+    # 🔒 protege contra agenda inválida/incompleta
+    if not inicio_salao or not fim_salao:
+        return {
+            "aberto": False,
+            "inicio": None,
+            "fim": None,
+            "origem": "agenda_salao_invalida",
+            "tipo": "sem_janela_valida",
+            "motivo": "agenda_salao_incompleta"
+        }
+
+    if not inicio_prof or not fim_prof:
+        return {
+            "aberto": False,
+            "inicio": None,
+            "fim": None,
+            "origem": "agenda_profissional_invalida",
+            "tipo": "sem_janela_valida",
+            "motivo": "agenda_profissional_incompleta"
+        }
+
+    ini_salao_min = _hora_para_minutos(inicio_salao)
+    fim_salao_min = _hora_para_minutos(fim_salao)
+    ini_prof_min = _hora_para_minutos(inicio_prof)
+    fim_prof_min = _hora_para_minutos(fim_prof)
+
+    if None in (ini_salao_min, fim_salao_min, ini_prof_min, fim_prof_min):
+        return {
+            "aberto": False,
+            "inicio": None,
+            "fim": None,
+            "origem": "horario_invalido",
+            "tipo": "sem_janela_valida",
+            "motivo": "erro_conversao_horario"
+        }
+
+    inicio_final_min = max(ini_salao_min, ini_prof_min)
+    fim_final_min = min(fim_salao_min, fim_prof_min)
 
     # se a interseção ficar inválida, trata como fechado
-    if inicio_final >= fim_final:
+    if inicio_final_min >= fim_final_min:
         return {
             "aberto": False,
             "inicio": None,
@@ -556,8 +479,8 @@ async def obter_janela_funcionamento(
 
     return {
         "aberto": True,
-        "inicio": inicio_final,
-        "fim": fim_final,
+        "inicio": _minutos_para_hora(inicio_final_min),
+        "fim": _minutos_para_hora(fim_final_min),
         "origem": "intersecao_salao_profissional",
         "tipo": None,
         "motivo": None
@@ -571,31 +494,20 @@ async def validar_horario_funcionamento(
     profissional: str | None = None
 ) -> dict[str, Any]:
     """
-    Valida se o horário e o intervalo cabem no expediente da data.
+    Valida se o horário e o intervalo cabem na janela real da data.
 
-    Prioridade:
-    1) exceção do salão
-    2) agenda do salão
-    3) exceção do profissional
-    4) agenda do profissional
-    5) fallback do profissional para o salão
-
-    Se a função obter_janela_funcionamento ainda não existir, cai no comportamento antigo.
+    A validação considera:
+    1) agenda e exceções do salão
+    2) agenda e exceções do profissional
+    3) interseção final entre salão e profissional
     """
 
-    try:
-        # 🔥 NOVO CAMINHO: usa janela real (salão + profissional + exceções)
-        regra = await obter_janela_funcionamento(
-            user_id=user_id,
-            data_str=data_iso,
-            profissional=profissional
-        )
-        print("🧪 AGENDA JANELA REAL:", regra, flush=True)
-
-    except NameError:
-        # 🔒 FALLBACK: mantém comportamento antigo até a nova função existir
-        regra = await obter_regra_agenda_da_data(user_id, data_iso)
-        print("🧪 AGENDA REGRA (fallback antigo):", regra, flush=True)
+    regra = await obter_janela_funcionamento(
+        user_id=user_id,
+        data_str=data_iso,
+        profissional=profissional
+    )
+    print("🧪 AGENDA JANELA REAL:", regra, flush=True)
 
     if not regra.get("aberto"):
         return {
@@ -623,6 +535,7 @@ async def validar_horario_funcionamento(
 async def proxima_data_permitida(
     user_id: str,
     data_iso: str,
+    profissional: str | None = None,
     limite_dias: int = 30
 ) -> str | None:
     """
@@ -635,8 +548,12 @@ async def proxima_data_permitida(
             candidato = base + timedelta(days=i)
             data_str = candidato.strftime("%Y-%m-%d")
 
-            validacao = await validar_data_funcionamento(user_id, data_str)
-            if validacao.get("permitido"):
+            janela = await obter_janela_funcionamento(
+                user_id=user_id,
+                data_str=data_str,
+                profissional=profissional
+            )
+            if janela.get("aberto"):
                 return data_str
 
         return None
@@ -650,6 +567,7 @@ async def proximo_horario_valido_no_dia(
     user_id: str,
     data_iso: str,
     duracao_min: int,
+    profissional: str | None = None,
     grade_minutos: int = 10
 ) -> str | None:
     """
@@ -657,7 +575,11 @@ async def proximo_horario_valido_no_dia(
     Não verifica conflito com eventos; só expediente.
     """
     try:
-        regra = await obter_regra_agenda_da_data(user_id, data_iso)
+        regra = await obter_janela_funcionamento(
+            user_id=user_id,
+            data_str=data_iso,
+            profissional=profissional
+        )
         if not regra.get("aberto"):
             return None
 
@@ -707,7 +629,11 @@ async def resolver_fora_do_expediente(
             flush=True
         )
 
-        regra = await obter_regra_agenda_da_data(user_id, data_iso)
+        regra = await obter_janela_funcionamento(
+            user_id=user_id,
+            data_str=data_iso,
+            profissional=profissional
+        )
         print(f"🧪 [FORA_EXP] regra={regra}", flush=True)
 
         if not regra.get("aberto"):
