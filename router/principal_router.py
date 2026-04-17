@@ -443,34 +443,34 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
 
     if nums:
-    for n in nums:
-        dia = int(n)
-        if 1 <= dia <= 31:
-            try:
-                # tenta no mês atual
-                d = datetime(hoje.year, hoje.month, dia)
+        for n in nums:
+            dia = int(n)
+            if 1 <= dia <= 31:
+                try:
+                    # tenta no mês atual
+                    d = datetime(hoje.year, hoje.month, dia)
 
-                if d.date() < hoje.date():
-                    # próximo mês
-                    mes = hoje.month + 1
-                    ano = hoje.year
+                    if d.date() < hoje.date():
+                        # próximo mês
+                        mes = hoje.month + 1
+                        ano = hoje.year
 
-                    if mes > 12:
-                        mes = 1
-                        ano += 1
+                        if mes > 12:
+                            mes = 1
+                            ano += 1
 
-                    # 🔥 valida último dia do mês
-                    ultimo_dia = monthrange(ano, mes)[1]
+                        # 🔥 valida último dia do mês
+                        ultimo_dia = monthrange(ano, mes)[1]
 
-                    if dia > ultimo_dia:
-                        dia = ultimo_dia  # ajusta (ex: 30 → 28)
+                        if dia > ultimo_dia:
+                            dia = ultimo_dia  # ajusta (ex: 30 → 28)
 
-                    d = datetime(ano, mes, dia)
+                        d = datetime(ano, mes, dia)
 
-                datas.append(d.strftime("%Y-%m-%d"))
+                    datas.append(d.strftime("%Y-%m-%d"))
 
-            except:
-                pass
+                except:
+                    pass
 
     # =========================================================
     # 🔥 2. fallback: tenta parser padrão (amanhã, hoje...)
