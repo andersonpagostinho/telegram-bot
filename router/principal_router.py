@@ -483,7 +483,7 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     # =========================================================
     nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
 
-    elif nums:
+    if nums:
         for n in nums:
             dia = int(n)
             if 1 <= dia <= 31:
