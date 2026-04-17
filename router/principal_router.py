@@ -3852,7 +3852,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    "❌ Não consigo agendar nesse dia porque a agenda está fechada. Me diga outro dia.",
+                    "Nesse dia não teremos expediente.\n\n",
+                    "Por favor, me informe outro dia que eu verifico para você 😊",
                     ctx,
                     texto_usuario,
                 )

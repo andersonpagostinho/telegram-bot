@@ -836,3 +836,28 @@ async def bloquear_datas_agenda_salao(
     await atualizar_dado_em_path(path, {"excecoes_data": excecoes})
 
     return True
+
+async def definir_janela_especial_agenda_salao(
+    user_id: str,
+    datas: list[str],
+    inicio: str,
+    fim: str,
+    motivo: str = "expediente_reduzido"
+) -> bool:
+
+    path = f"Clientes/{user_id}/configuracao/agenda_funcionamento"
+    cfg = await buscar_dado_em_path(path) or {}
+
+    excecoes = cfg.get("excecoes_data") or {}
+
+    for data in datas:
+        excecoes[data] = {
+            "tipo": "janela_especial",
+            "aberto": True,
+            "inicio": inicio,
+            "fim": fim,
+            "motivo": motivo,
+        }
+
+    await atualizar_dado_em_path(path, {"excecoes_data": excecoes})
+    return True

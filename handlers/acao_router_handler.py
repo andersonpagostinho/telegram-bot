@@ -240,6 +240,54 @@ async def executar_acao_por_nome(update, context, acao, dados):
                     "datas": datas,
                     "motivo": motivo
                 }
+            }
+
+        elif acao == "definir_meio_periodo_salao":
+            from services.agenda_service import definir_janela_especial_agenda_salao, normalizar_lista_datas
+
+            datas = (dados or {}).get("datas") or []
+            inicio = (dados or {}).get("inicio")
+            fim = (dados or {}).get("fim")
+            motivo = (dados or {}).get("motivo") or "expediente_reduzido"
+  
+            datas = normalizar_lista_datas(datas)
+
+            if not datas or not inicio or not fim:
+                msg = "⚠️ Não consegui identificar corretamente o período de atendimento."
+                await update.message.reply_text(msg)
+                return
+
+            sucesso = await definir_janela_especial_agenda_salao(
+                user_id=user_id,
+                datas=datas,
+                inicio=inicio,
+                fim=fim,
+                motivo=motivo
+            )
+
+            if not sucesso:
+                msg = "❌ Não consegui salvar o horário especial."
+                await update.message.reply_text(msg)
+                return
+
+            datas_formatadas = "\n".join(
+                f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
+                for d in datas
+            )
+
+            resposta = (
+                "Perfeito 😊\n"
+                f"Ajustei o atendimento destes dias para:\n"
+                f"{inicio} às {fim}\n\n"
+                f"{datas_formatadas}"
+            )
+
+            await update.message.reply_text(resposta)
+
+            return {
+                "resposta": resposta,
+                "acao": "definir_meio_periodo_salao",
+                "dados": dados
             }  
 
         elif acao == "verificar_disponibilidade_profissional":
