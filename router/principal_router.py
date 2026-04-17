@@ -675,7 +675,52 @@ def detectar_bloqueio_agenda_profissional(texto: str, nomes_profissionais: list[
     if not profissional_detectado:
         return None
 
-    # 🔁 2. reaproveita o detector do salão
+    # =========================================================
+    # 2. sinais próprios de ausência total do profissional
+    # =========================================================
+    sinais_ausencia_profissional = [
+        "não vem", "nao vem",
+        "não vai vir", "nao vai vir",
+        "não atende", "nao atende",
+        "não vai atender", "nao vai atender",
+        "folga", "de folga",
+        "indisponivel", "indisponível",
+        "não trabalha", "nao trabalha",
+    ]
+
+    if any(s in texto_lower for s in sinais_ausencia_profissional):
+        datas = []
+
+        # tenta reaproveitar a extração de datas do salão, se houver
+        payload_base = detectar_bloqueio_agenda_salao(texto)
+        if payload_base:
+            dados_base = payload_base.get("dados") or {}
+            datas = dados_base.get("datas") or []
+
+        # fallback direto para parser de data
+        if not datas:
+            try:
+                dt = interpretar_data_e_hora(texto)
+                if dt:
+                    datas = [dt.strftime("%Y-%m-%d")]
+            except Exception:
+                pass
+
+        if datas:
+            return {
+                "acao": "bloquear_agenda_profissional",
+                "dados": {
+                    "profissional": profissional_detectado,
+                    "datas": datas,
+                    "motivo": "indisponivel"
+                }
+            }
+
+        return None
+
+    # =========================================================
+    # 3. reaproveita o detector do salão para janelas especiais
+    # =========================================================
     payload_base = detectar_bloqueio_agenda_salao(texto)
 
     if not payload_base:
@@ -694,6 +739,21 @@ def detectar_bloqueio_agenda_profissional(texto: str, nomes_profissionais: list[
                 "motivo": dados_base.get("motivo") or "indisponivel"
             }
         }
+
+    # 🕒 MEIO PERÍODO / JANELA
+    if acao_base == "definir_meio_periodo_salao":
+        return {
+            "acao": "definir_meio_periodo_profissional",
+            "dados": {
+                "profissional": profissional_detectado,
+                "datas": dados_base.get("datas") or [],
+                "inicio": dados_base.get("inicio"),
+                "fim": dados_base.get("fim"),
+                "motivo": dados_base.get("motivo") or "expediente_reduzido"
+            }
+        }
+
+    return None
 
     # 🕒 MEIO PERÍODO / JANELA
     if acao_base == "definir_meio_periodo_salao":
