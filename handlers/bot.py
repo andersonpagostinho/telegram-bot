@@ -118,6 +118,26 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     user_id = str(update.message.from_user.id)
     mensagem = msg_txt
 
+    # =========================================================
+    # 🔒 BLOQUEIO GLOBAL — ANTES DO ROUTER
+    # =========================================================
+    from router.principal_router import detectar_bloqueio_agenda_salao
+    from handlers.acao_router_handler import executar_acao_por_nome
+
+    payload_bloqueio = detectar_bloqueio_agenda_salao(mensagem)
+
+    if payload_bloqueio:
+        print(f"🔒 [HANDLER BLOQUEIO GLOBAL] payload={payload_bloqueio}", flush=True)
+
+        await executar_acao_por_nome(
+            update,
+            context,
+            payload_bloqueio["acao"],
+            payload_bloqueio["dados"]
+        )
+
+        raise ApplicationHandlerStop  # 🔥 MATA O FLUXO
+    
     # --- 1.5) confirmação pendente de agendamento ---
     ctx_tmp = await carregar_contexto_temporario(user_id) or {}
     print(

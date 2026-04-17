@@ -1060,21 +1060,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     print("🚨 [principal_router] Arquivo carregado")
 
     texto_usuario = (mensagem or "").strip()
-
-    # =========================================================
-    # 🔒 BLOQUEIO DE AGENDA DO SALÃO — EARLY EXIT
-    # =========================================================
-    payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
-
-    if payload_bloqueio:
-        print(f"🔒 [BLOQUEIO_AGENDA_SALAO/EARLY] payload={payload_bloqueio}", flush=True)
-        return await executar_acao_por_nome(
-            update,
-            context,
-            payload_bloqueio["acao"],
-            payload_bloqueio["dados"]
-        )    
-
     texto_lower = texto_usuario.lower().strip()
     tnorm = normalizar(texto_usuario)
 
