@@ -429,35 +429,19 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
         "indisponivel", "indisponível",
     ]
 
-    tem_sinal_fechamento = any(s in texto_lower for s in sinais_fechamento)
-
-    dt = None
-    try:
-        dt = interpretar_data_e_hora(texto)
-    except Exception:
-        dt = None
-
-    tem_referencia_tempo = bool(dt) or any(p in texto_lower for p in [
-        "dia ", "hoje", "amanhã", "amanha",
-        "segunda", "terça", "terca", "quarta",
-        "quinta", "sexta", "sábado", "sabado", "domingo"
-    ])
-
-    if not (tem_sinal_fechamento and tem_referencia_tempo):
+    # 🔥 precisa ter intenção de fechar
+    if not any(s in texto_lower for s in sinais_fechamento):
         return None
 
-    # 🚨 FALTAVA ISSO
+    hoje = datetime.now()
     datas = []
 
-    if dt:
-        datas.append(dt.strftime("%Y-%m-%d"))
-
+    # =========================================================
+    # 🔥 1. tenta pegar múltiplos dias (20, 21, 22)
+    # =========================================================
     nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
 
-    if len(nums) >= 2:
-        hoje = datetime.now()
-        datas = []
-
+    if nums:
         for n in nums:
             dia = int(n)
             if 1 <= dia <= 31:
@@ -467,6 +451,20 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
                 except:
                     pass
 
+    # =========================================================
+    # 🔥 2. fallback: tenta parser padrão (amanhã, hoje...)
+    # =========================================================
+    if not datas:
+        try:
+            dt = interpretar_data_e_hora(texto)
+            if dt:
+                datas.append(dt.strftime("%Y-%m-%d"))
+        except:
+            pass
+
+    # =========================================================
+    # 🔥 validação final
+    # =========================================================
     datas = sorted(set(datas))
 
     if not datas:
