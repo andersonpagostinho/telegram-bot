@@ -568,6 +568,7 @@ def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> 
 
     return None
 
+
 async def validar_profissional_para_servico(dono_id: str, profissional: str | None, servico: str | None):
     """
     Valida se o profissional executa o serviço.
@@ -1061,6 +1062,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     texto_usuario = (mensagem or "").strip()
     texto_lower = texto_usuario.lower().strip()
     tnorm = normalizar(texto_usuario)
+
+    # =========================================================
+    # 🔒 BLOQUEIO DE AGENDA DO SALÃO — EARLY EXIT
+    # =========================================================
+    payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
+
+    if payload_bloqueio:
+        print(f"🔒 [BLOQUEIO_AGENDA_SALAO/EARLY] payload={payload_bloqueio}", flush=True)
+        return await executar_acao_por_nome(
+            update,
+            context,
+            payload_bloqueio["acao"],
+            payload_bloqueio["dados"]
+        )
 
     ctx = await carregar_contexto_temporario(user_id) or {}
 
