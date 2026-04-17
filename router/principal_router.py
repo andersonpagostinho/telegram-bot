@@ -430,8 +430,18 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
         "indisponivel", "indisponível",
     ]
 
-    # 🔥 precisa ter intenção de fechar
-    if not any(s in texto_lower for s in sinais_fechamento):
+    sinais_janela = [
+        "até", "ate",
+        "só até", "so ate",
+        "atender só", "atender so",
+        "vamos atender", "iremos atender",
+    ]
+
+    eh_fechamento = any(s in texto_lower for s in sinais_fechamento)
+    eh_janela = any(s in texto_lower for s in sinais_janela)
+
+    # 🔥 se não for nem fechamento nem janela especial, ignora
+    if not eh_fechamento and not eh_janela:
         return None
 
     hoje = datetime.now()
@@ -451,7 +461,6 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
                 data_inicio = datetime(hoje.year, hoje.month, dia_inicio)
                 data_fim = datetime(hoje.year, hoje.month, dia_fim)
 
-                # se já passou, joga para o próximo mês
                 if data_inicio.date() < hoje.date():
                     mes = hoje.month + 1
                     ano = hoje.year
@@ -475,11 +484,11 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
                     datas.append(atual.strftime("%Y-%m-%d"))
                     atual += timedelta(days=1)
 
-        except:
+        except Exception:
             pass
 
     # =========================================================
-    # 🔥 1. tenta pegar múltiplos dias (20, 21, 22)
+    # 🔥 2. tenta pegar múltiplos dias (20, 21, 22)
     # =========================================================
     nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
 
@@ -488,11 +497,9 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
             dia = int(n)
             if 1 <= dia <= 31:
                 try:
-                    # tenta no mês atual
                     d = datetime(hoje.year, hoje.month, dia)
 
                     if d.date() < hoje.date():
-                        # próximo mês
                         mes = hoje.month + 1
                         ano = hoje.year
 
@@ -500,45 +507,69 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
                             mes = 1
                             ano += 1
 
-                        # 🔥 valida último dia do mês
                         ultimo_dia = monthrange(ano, mes)[1]
-
-                        if dia > ultimo_dia:
-                            dia = ultimo_dia  # ajusta (ex: 30 → 28)
-
+                        dia = min(dia, ultimo_dia)
                         d = datetime(ano, mes, dia)
 
                     datas.append(d.strftime("%Y-%m-%d"))
 
-                except:
+                except Exception:
                     pass
 
     # =========================================================
-    # 🔥 2. fallback: tenta parser padrão (amanhã, hoje...)
+    # 🔥 3. fallback: tenta parser padrão (amanhã, hoje...)
     # =========================================================
     if not datas:
         try:
             dt = interpretar_data_e_hora(texto)
             if dt:
                 datas.append(dt.strftime("%Y-%m-%d"))
-        except:
+        except Exception:
             pass
 
     # =========================================================
-    # 🔥 validação final
+    # 🔥 validação final das datas
     # =========================================================
     datas = sorted(set(datas))
 
     if not datas:
         return None
 
-    return {
-        "acao": "bloquear_agenda_salao",
-        "dados": {
-            "datas": datas,
-            "motivo": "fechado"
+    # =========================================================
+    # 🔥 4. janela especial: "até 12h"
+    # =========================================================
+    m_ate = re.search(
+        r"(?:até|ate)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\s*h?\b",
+        texto_lower
+    )
+
+    if m_ate and not eh_fechamento:
+        hora = int(m_ate.group(1))
+        minuto = int(m_ate.group(2) or 0)
+
+        return {
+            "acao": "definir_meio_periodo_salao",
+            "dados": {
+                "datas": datas,
+                "inicio": "08:00",
+                "fim": f"{hora:02d}:{minuto:02d}",
+                "motivo": "expediente_reduzido"
+            }
         }
-    }
+
+    # =========================================================
+    # 🔥 5. bloqueio total
+    # =========================================================
+    if eh_fechamento:
+        return {
+            "acao": "bloquear_agenda_salao",
+            "dados": {
+                "datas": datas,
+                "motivo": "fechado"
+            }
+        }
+
+    return None
 
 def eh_confirmacao(txt: str) -> bool:
     """
