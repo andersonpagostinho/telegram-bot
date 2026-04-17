@@ -206,6 +206,21 @@ async def executar_acao_por_nome(update, context, acao, dados):
                     "dados": {"datas": datas, "motivo": motivo}
                 }
 
+            # 🧹 limpa contexto de agendamento
+            ctx = await carregar_contexto_temporario(user_id) or {}
+            ctx["estado_fluxo"] = "idle"
+            ctx.pop("draft_agendamento", None)
+            ctx.pop("data_hora", None)
+
+            # opcional, mas eu recomendo fortemente já limpar também:
+            ctx.pop("servico", None)
+            ctx.pop("profissional_escolhido", None)
+            ctx.pop("ultima_consulta", None)
+            ctx.pop("aguardando_confirmacao_agendamento", None)
+            ctx.pop("dados_confirmacao_agendamento", None)
+
+            await salvar_contexto_temporario(user_id, ctx)
+
             datas_formatadas = "\n".join(
                 f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
                 for d in datas
@@ -225,7 +240,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
                     "datas": datas,
                     "motivo": motivo
                 }
-            }
+            }  
 
         elif acao == "verificar_disponibilidade_profissional":
             from services.profissional_service import buscar_profissionais_por_servico

@@ -453,8 +453,11 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
         datas.append(dt.strftime("%Y-%m-%d"))
 
     nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
-    if len(nums) > 1:
+
+    if len(nums) >= 2:
         hoje = datetime.now()
+        datas = []
+
         for n in nums:
             dia = int(n)
             if 1 <= dia <= 31:
@@ -4091,6 +4094,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             context,
             user_id,
             f"Perfeito — {base} por volta de {horarios_txt} 😊\n\nQual serviço você deseja?"
+        )
+
+    # =========================================================
+    # 🔒 BLOQUEIO DE AGENDA DO SALÃO — ANTES DO GPT (GLOBAL)
+    # =========================================================
+    payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
+
+    if payload_bloqueio:
+        print(f"🔒 [BLOQUEIO_AGENDA_SALAO/ANTES_GPT] payload={payload_bloqueio}", flush=True)
+        return await executar_acao_por_nome(
+            update,
+            context,
+            payload_bloqueio["acao"],
+            payload_bloqueio["dados"]
         )
 
     # =========================================================
