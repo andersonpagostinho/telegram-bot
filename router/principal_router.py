@@ -1060,8 +1060,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     print("🚨 [principal_router] Arquivo carregado")
 
     texto_usuario = (mensagem or "").strip()
-    texto_lower = texto_usuario.lower().strip()
-    tnorm = normalizar(texto_usuario)
 
     # =========================================================
     # 🔒 BLOQUEIO DE AGENDA DO SALÃO — EARLY EXIT
@@ -1075,7 +1073,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             context,
             payload_bloqueio["acao"],
             payload_bloqueio["dados"]
-        )
+        )    
+
+    texto_lower = texto_usuario.lower().strip()
+    tnorm = normalizar(texto_usuario)
 
     ctx = await carregar_contexto_temporario(user_id) or {}
 
