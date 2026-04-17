@@ -1655,46 +1655,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         return await _send_and_stop(context, user_id, txt)
 
     # =========================================================
-    # 🔒 BLOQUEIO DE AGENDA DO PROFISSIONAL / SALÃO — TOPO REAL
-    # antes de QUALQUER extração de slots ou contexto
-    # =========================================================
-
-    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-
-    nomes_profissionais = [
-        (p.get("nome") or chave).strip()
-        for chave, p in profs_dict.items()
-        if (p.get("nome") or chave).strip()
-    ]
-
-    # 🔥 1. PROFISSIONAL
-    payload_prof = detectar_bloqueio_agenda_profissional(
-        texto_usuario,
-        nomes_profissionais
-    )
-
-    if payload_prof:
-        print(f"🔒 [BLOQUEIO PROFISSIONAL - TOPO REAL] {payload_prof}", flush=True)
-        return await executar_acao_por_nome(
-            update,
-            context,
-            payload_prof["acao"],
-            payload_prof["dados"]
-        )
-
-    # 🔥 2. SALÃO
-    payload_salao = detectar_bloqueio_agenda_salao(texto_usuario)
-
-    if payload_salao:
-        print(f"🔒 [BLOQUEIO SALÃO - TOPO REAL] {payload_salao}", flush=True)
-        return await executar_acao_por_nome(
-            update,
-            context,
-            payload_salao["acao"],
-            payload_salao["dados"]
-        )
-
-    # =========================================================
     # ✅ (B) SEMPRE-ON: extrair e mesclar slots (prof/serv/dt)
     # =========================================================
     try:
@@ -2293,6 +2253,46 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     ctx["ultima_consulta"].pop("data_hora", None)
                 if not tem_profissional_expresso:
                     ctx["ultima_consulta"].pop("profissional", None)
+
+        # =========================================================
+        # 🔒 BLOQUEIO DE AGENDA DO PROFISSIONAL / SALÃO — PRIMEIRO PONTO REAL
+        # antes da PRIMEIRA mesclagem
+        # =========================================================
+
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+        nomes_profissionais = [
+            (p.get("nome") or chave).strip()
+            for chave, p in profs_dict.items()
+            if (p.get("nome") or chave).strip()
+        ]
+
+        # 🔥 PROFISSIONAL
+        payload_prof = detectar_bloqueio_agenda_profissional(
+            texto_usuario,
+            nomes_profissionais
+        )
+
+        if payload_prof:
+            print(f"🔒 [BLOQUEIO PROFISSIONAL - PRIMEIRO PONTO REAL] {payload_prof}", flush=True)
+            return await executar_acao_por_nome(
+                update,
+                context,
+                payload_prof["acao"],
+                payload_prof["dados"]
+            )
+
+        # 🔥 SALÃO
+        payload_salao = detectar_bloqueio_agenda_salao(texto_usuario)
+
+        if payload_salao:
+            print(f"🔒 [BLOQUEIO SALÃO - PRIMEIRO PONTO REAL] {payload_salao}", flush=True)
+            return await executar_acao_por_nome(
+                update,
+                context,
+                payload_salao["acao"],
+                payload_salao["dados"]
+            )
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
         # =========================================================
