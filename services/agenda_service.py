@@ -262,7 +262,9 @@ async def obter_janela_funcionamento(
         agenda_prof = dados_prof.get("agenda_funcionamento") or {}
 
         agenda_padrao_prof = agenda_prof.get("agenda_padrao") or agenda_padrao
-        excecoes_prof = agenda_prof.get("excecoes_data") or {}
+        excecoes_prof = await buscar_subcolecao(
+            f"Clientes/{user_id}/Profissionais/{profissional}/AgendaExcecoes"
+        ) or {}
 
         reg_prof = agenda_padrao_prof.get(weekday) or {}
 
@@ -272,12 +274,25 @@ async def obter_janela_funcionamento(
 
         # 🔥 EXCEÇÃO DO PROFISSIONAL
         if data_str in excecoes_prof:
-            exc = excecoes_prof[data_str]
+            exc = excecoes_prof.get(data_str) or {}
+
+            if exc.get("tipo") == "bloqueado" and exc.get("ativo") is True:
+                return {
+                    "aberto": False,
+                    "inicio": None,
+                    "fim": None,
+                    "origem": "excecao_profissional",
+                    "tipo": exc.get("tipo"),
+                    "motivo": exc.get("motivo"),
+                }
+
             return {
-                "aberto": exc.get("aberto"),
+                "aberto": exc.get("aberto", True),
                 "inicio": exc.get("inicio"),
                 "fim": exc.get("fim"),
-                "origem": "excecao_profissional"
+                "origem": "excecao_profissional",
+                "tipo": exc.get("tipo"),
+                "motivo": exc.get("motivo"),
             }
 
         if not aberto_prof:
@@ -446,7 +461,10 @@ async def obter_janela_funcionamento(
     # =========================================================
     agenda_prof = dados_prof.get("agenda_funcionamento") or {}
     agenda_padrao_prof = agenda_prof.get("agenda_padrao") or {}
-    excecoes_prof = agenda_prof.get("excecoes_data") or {}
+
+    excecoes_prof = await buscar_subcolecao(
+        f"Clientes/{user_id}/Profissionais/{profissional}/AgendaExcecoes"
+    ) or {}
 
     print(f"🧪 [JANELA] profissional={profissional}", flush=True)
     print(f"🧪 [JANELA] agenda_padrao_prof={agenda_padrao_prof}", flush=True)
@@ -478,14 +496,24 @@ async def obter_janela_funcionamento(
     if data_str in excecoes_prof:
         exc_prof = excecoes_prof.get(data_str) or {}
 
-        regra_prof_final = {
-            "aberto": exc_prof.get("aberto", False),
-            "inicio": exc_prof.get("inicio"),
-            "fim": exc_prof.get("fim"),
-            "origem": "excecao_profissional",
-            "tipo": exc_prof.get("tipo"),
-            "motivo": exc_prof.get("motivo")
-        }
+        if exc_prof.get("tipo") == "bloqueado" and exc_prof.get("ativo") is True:
+            regra_prof_final = {
+                "aberto": False,
+                "inicio": None,
+                "fim": None,
+                "origem": "excecao_profissional",
+                "tipo": exc_prof.get("tipo"),
+                "motivo": exc_prof.get("motivo"),
+            }
+        else:
+            regra_prof_final = {
+                "aberto": exc_prof.get("aberto", True),
+                "inicio": exc_prof.get("inicio"),
+                "fim": exc_prof.get("fim"),
+                "origem": "excecao_profissional",
+                "tipo": exc_prof.get("tipo"),
+                "motivo": exc_prof.get("motivo"),
+            }
 
     print(f"🧪 [JANELA] regra_prof_final={regra_prof_final}", flush=True)
 
