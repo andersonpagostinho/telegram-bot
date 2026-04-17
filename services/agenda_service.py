@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, date
 from typing import Any
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
 
-from services.firebase_service_async import buscar_dado_em_path, atualizar_dado_em_path
+from services.firebase_service_async import buscar_dado_em_path, atualizar_dado_em_path, salvar_dado_em_path
 
 def _normalizar_data_iso(data_iso: str) -> str:
     """
@@ -861,3 +861,69 @@ async def definir_janela_especial_agenda_salao(
 
     await atualizar_dado_em_path(path, {"excecoes_data": excecoes})
     return True
+
+async def bloquear_agenda_profissional(
+    user_id: str,
+    profissional: str,
+    datas: list[str],
+    motivo: str = "indisponivel"
+) -> bool:
+    try:
+        datas = normalizar_lista_datas(datas)
+        profissional = (profissional or "").strip()
+
+        if not user_id or not profissional or not datas:
+            return False
+
+        for data in datas:
+            path = f"Clientes/{user_id}/Profissionais/{profissional}/AgendaExcecoes/{data}"
+            payload = {
+                "data": data,
+                "tipo": "bloqueado",
+                "motivo": motivo,
+                "ativo": True,
+                "profissional": profissional,
+            }
+            await salvar_dado_em_path(path, payload)
+
+        return True
+
+    except Exception as e:
+        print(f"❌ [bloquear_agenda_profissional] erro: {e}", flush=True)
+        return False
+
+async def definir_janela_especial_profissional(
+    user_id: str,
+    profissional: str,
+    datas: list[str],
+    inicio: str,
+    fim: str,
+    motivo: str = "expediente_reduzido"
+) -> bool:
+    try:
+        datas = normalizar_lista_datas(datas)
+        profissional = (profissional or "").strip()
+        inicio = (inicio or "").strip()
+        fim = (fim or "").strip()
+
+        if not user_id or not profissional or not datas or not inicio or not fim:
+            return False
+
+        for data in datas:
+            path = f"Clientes/{user_id}/Profissionais/{profissional}/AgendaExcecoes/{data}"
+            payload = {
+                "data": data,
+                "tipo": "janela_especial",
+                "inicio": inicio,
+                "fim": fim,
+                "motivo": motivo,
+                "ativo": True,
+                "profissional": profissional,
+            }
+            await salvar_dado_em_path(path, payload)
+
+        return True
+
+    except Exception as e:
+        print(f"❌ [definir_janela_especial_profissional] erro: {e}", flush=True)
+        return False

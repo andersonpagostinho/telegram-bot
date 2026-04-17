@@ -659,6 +659,57 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
 
     return None
 
+def detectar_bloqueio_agenda_profissional(texto: str, nomes_profissionais: list[str]) -> dict | None:
+    texto_lower = (texto or "").lower().strip()
+
+    if not texto_lower or not nomes_profissionais:
+        return None
+
+    # 🔍 1. identificar profissional no texto
+    profissional_detectado = None
+    for nome in nomes_profissionais:
+        if nome and nome.lower() in texto_lower:
+            profissional_detectado = nome
+            break
+
+    if not profissional_detectado:
+        return None
+
+    # 🔁 2. reaproveita o detector do salão
+    payload_base = detectar_bloqueio_agenda_salao(texto)
+
+    if not payload_base:
+        return None
+
+    acao_base = payload_base.get("acao")
+    dados_base = payload_base.get("dados") or {}
+
+    # 🔒 BLOQUEIO TOTAL
+    if acao_base == "bloquear_agenda_salao":
+        return {
+            "acao": "bloquear_agenda_profissional",
+            "dados": {
+                "profissional": profissional_detectado,
+                "datas": dados_base.get("datas") or [],
+                "motivo": dados_base.get("motivo") or "indisponivel"
+            }
+        }
+
+    # 🕒 MEIO PERÍODO / JANELA
+    if acao_base == "definir_meio_periodo_salao":
+        return {
+            "acao": "definir_meio_periodo_profissional",
+            "dados": {
+                "profissional": profissional_detectado,
+                "datas": dados_base.get("datas") or [],
+                "inicio": dados_base.get("inicio"),
+                "fim": dados_base.get("fim"),
+                "motivo": dados_base.get("motivo") or "expediente_reduzido"
+            }
+        }
+
+    return None
+
 def eh_confirmacao(txt: str) -> bool:
     """
     Confirmação genérica (sem depender de comando).
@@ -4097,9 +4148,34 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print("🧪 [FLOW GUARD] interceptando mensagem no fluxo:", texto_usuario, flush=True)
 
         # =========================================================
-        # 🔒 BLOQUEIO DE AGENDA DO SALÃO (DONO)
+        # 🔒 BLOQUEIO DE AGENDA DO PROFISSIONAL / SALÃO
         # precisa entrar antes de qualquer reaproveitamento do fluxo
         # =========================================================
+
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+        nomes_profissionais = [
+            (p.get("nome") or chave).strip()
+            for chave, p in profs_dict.items()
+            if (p.get("nome") or chave).strip()
+        ]
+
+        # 1) primeiro tenta profissional (mais específico)
+        payload_bloqueio_prof = detectar_bloqueio_agenda_profissional(
+            texto_usuario,
+            nomes_profissionais
+        )
+
+        if payload_bloqueio_prof:
+            print(f"🔒 [BLOQUEIO_AGENDA_PROFISSIONAL/FLOW_GUARD] payload={payload_bloqueio_prof}", flush=True)
+            return await executar_acao_por_nome(
+                update,
+                context,
+                payload_bloqueio_prof["acao"],
+                payload_bloqueio_prof["dados"]
+            )
+
+        # 2) depois tenta salão (mais geral)
         payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
 
         if payload_bloqueio:
@@ -4278,8 +4354,33 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
     # =========================================================
-    # 🔒 BLOQUEIO DE AGENDA DO SALÃO — ANTES DO GPT (GLOBAL)
+    # 🔒 BLOQUEIO DE AGENDA DO PROFISSIONAL / SALÃO — ANTES DO GPT
     # =========================================================
+
+    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+    nomes_profissionais = [
+        (p.get("nome") or chave).strip()
+        for chave, p in profs_dict.items()
+        if (p.get("nome") or chave).strip()
+    ]
+
+    # 1) primeiro tenta profissional (mais específico)
+    payload_bloqueio_prof = detectar_bloqueio_agenda_profissional(
+        texto_usuario,
+        nomes_profissionais
+    )
+
+    if payload_bloqueio_prof:
+        print(f"🔒 [BLOQUEIO_AGENDA_PROFISSIONAL/ANTES_GPT] payload={payload_bloqueio_prof}", flush=True)
+        return await executar_acao_por_nome(
+            update,
+            context,
+            payload_bloqueio_prof["acao"],
+            payload_bloqueio_prof["dados"]
+        )
+
+    # 2) depois tenta salão (mais geral)
     payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
 
     if payload_bloqueio:
@@ -4316,7 +4417,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "profissional": ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional"),
             }
         )
- 
+
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
 
     # 🔥 BLOQUEIO: se GPT respondeu algo direto, NÃO entra no fluxo

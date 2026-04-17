@@ -294,6 +294,133 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 "dados": dados
             }  
 
+        elif acao == "bloquear_agenda_profissional":
+            from services.agenda_service import bloquear_agenda_profissional, normalizar_lista_datas
+            from utils.context_manager import limpar_contexto_agendamento
+
+            profissional = (dados or {}).get("profissional")
+            datas = (dados or {}).get("datas") or []
+            motivo = (dados or {}).get("motivo") or "indisponivel"
+
+            profissional = (profissional or "").strip()
+            datas = normalizar_lista_datas(datas)
+
+            if not profissional or not datas:
+                msg = "⚠️ Não consegui identificar corretamente o profissional ou as datas do bloqueio."
+                await update.message.reply_text(msg)
+                return {
+                    "resposta": msg,
+                    "acao": "erro_bloquear_agenda_profissional",
+                    "dados": {}
+                }
+
+            sucesso = await bloquear_agenda_profissional(
+                user_id=user_id,
+                profissional=profissional,
+                datas=datas,
+                motivo=motivo
+            )
+
+            if not sucesso:
+                msg = f"❌ Não consegui salvar o bloqueio da agenda de {profissional}."
+                await update.message.reply_text(msg)
+                return {
+                    "resposta": msg,
+                    "acao": "erro_bloquear_agenda_profissional",
+                    "dados": dados
+                }
+
+            await limpar_contexto_agendamento(user_id)
+
+            datas_formatadas = "\n".join(
+                f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
+                for d in datas
+            )
+
+            resposta = (
+                f"Perfeito 😊\n"
+                f"Bloqueei a agenda de {profissional} nestes dias:\n"
+                f"{datas_formatadas}"
+            )
+
+            await update.message.reply_text(resposta)
+            return {
+                "resposta": resposta,
+                "acao": "bloquear_agenda_profissional",
+                "dados": {
+                    "profissional": profissional,
+                    "datas": datas,
+                    "motivo": motivo
+                }
+            }
+
+        elif acao == "definir_meio_periodo_profissional":
+            from services.agenda_service import definir_janela_especial_profissional, normalizar_lista_datas
+            from utils.context_manager import limpar_contexto_agendamento
+
+            profissional = (dados or {}).get("profissional")
+            datas = (dados or {}).get("datas") or []
+            inicio = (dados or {}).get("inicio")
+            fim = (dados or {}).get("fim")
+            motivo = (dados or {}).get("motivo") or "expediente_reduzido"
+
+            profissional = (profissional or "").strip()
+            datas = normalizar_lista_datas(datas)
+
+            if not profissional or not datas or not inicio or not fim:
+                msg = "⚠️ Não consegui identificar corretamente o profissional ou o período especial."
+                await update.message.reply_text(msg)
+                return {
+                    "resposta": msg,
+                    "acao": "erro_definir_meio_periodo_profissional",
+                    "dados": {}
+                }
+
+            sucesso = await definir_janela_especial_profissional(
+                user_id=user_id,
+                profissional=profissional,
+                datas=datas,
+                inicio=inicio,
+                fim=fim,
+                motivo=motivo
+            )
+
+            if not sucesso:
+                msg = f"❌ Não consegui salvar o horário especial de {profissional}."
+                await update.message.reply_text(msg)
+                return {
+                    "resposta": msg,
+                    "acao": "erro_definir_meio_periodo_profissional",
+                    "dados": dados
+                }
+
+            await limpar_contexto_agendamento(user_id)
+
+            datas_formatadas = "\n".join(
+                f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
+                for d in datas
+            )
+
+            resposta = (
+                f"Perfeito 😊\n"
+                f"Ajustei o atendimento de {profissional} para:\n"
+                f"{inicio} às {fim}\n\n"
+                f"{datas_formatadas}"
+            )
+
+            await update.message.reply_text(resposta)
+            return {
+                "resposta": resposta,
+                "acao": "definir_meio_periodo_profissional",
+                "dados": {
+                    "profissional": profissional,
+                    "datas": datas,
+                    "inicio": inicio,
+                    "fim": fim,
+                    "motivo": motivo
+                }
+            }
+
         elif acao == "verificar_disponibilidade_profissional":
             from services.profissional_service import buscar_profissionais_por_servico
             from .acao_handler import verificar_disponibilidade_profissional
