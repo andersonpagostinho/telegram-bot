@@ -435,47 +435,63 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
         "só até", "so ate",
         "atender só", "atender so",
         "vamos atender", "iremos atender",
+        "a partir das", "a partir de", "depois das",
+        "das", "de",  # intervalo será validado por regex
+        "só de manhã", "so de manha", "somente de manhã", "somente de manha",
+        "só à tarde", "so a tarde", "só de tarde", "so de tarde",
+        "somente à tarde", "somente a tarde",
+        "meio período", "meio periodo",
     ]
 
     eh_fechamento = any(s in texto_lower for s in sinais_fechamento)
     eh_janela = any(s in texto_lower for s in sinais_janela)
 
-    # 🔥 se não for nem fechamento nem janela especial, ignora
+    # se não for bloqueio nem janela especial, ignora
     if not eh_fechamento and not eh_janela:
         return None
 
     hoje = datetime.now()
     datas = []
 
-    # =========================================================
-    # 🔥 1. tenta pegar intervalo: "de 20 até 23"
-    # =========================================================
-    m_intervalo = re.search(r"\bde\s+(\d{1,2})\s+(?:ate|até|a)\s+(\d{1,2})\b", texto_lower)
+    def ajustar_data_futura(dia: int) -> datetime | None:
+        if not (1 <= dia <= 31):
+            return None
 
-    if m_intervalo:
         try:
-            dia_inicio = int(m_intervalo.group(1))
-            dia_fim = int(m_intervalo.group(2))
+            d = datetime(hoje.year, hoje.month, dia)
 
-            if 1 <= dia_inicio <= 31 and 1 <= dia_fim <= 31:
-                data_inicio = datetime(hoje.year, hoje.month, dia_inicio)
-                data_fim = datetime(hoje.year, hoje.month, dia_fim)
+            if d.date() < hoje.date():
+                mes = hoje.month + 1
+                ano = hoje.year
+                if mes > 12:
+                    mes = 1
+                    ano += 1
 
-                if data_inicio.date() < hoje.date():
-                    mes = hoje.month + 1
-                    ano = hoje.year
+                ultimo_dia = monthrange(ano, mes)[1]
+                dia_aj = min(dia, ultimo_dia)
+                d = datetime(ano, mes, dia_aj)
 
-                    if mes > 12:
-                        mes = 1
-                        ano += 1
+            return d
+        except Exception:
+            return None
 
-                    ultimo_dia = monthrange(ano, mes)[1]
-                    dia_inicio_aj = min(dia_inicio, ultimo_dia)
-                    dia_fim_aj = min(dia_fim, ultimo_dia)
+    # =========================================================
+    # 1. intervalo de dias: "de 20 até 23"
+    # =========================================================
+    m_intervalo_dias = re.search(
+        r"\bde\s+(\d{1,2})\s+(?:ate|até|a)\s+(\d{1,2})\b",
+        texto_lower
+    )
 
-                    data_inicio = datetime(ano, mes, dia_inicio_aj)
-                    data_fim = datetime(ano, mes, dia_fim_aj)
+    if m_intervalo_dias:
+        try:
+            dia_inicio = int(m_intervalo_dias.group(1))
+            dia_fim = int(m_intervalo_dias.group(2))
 
+            data_inicio = ajustar_data_futura(dia_inicio)
+            data_fim = ajustar_data_futura(dia_fim)
+
+            if data_inicio and data_fim:
                 if data_fim < data_inicio:
                     data_inicio, data_fim = data_fim, data_inicio
 
@@ -483,41 +499,31 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
                 while atual <= data_fim:
                     datas.append(atual.strftime("%Y-%m-%d"))
                     atual += timedelta(days=1)
-
         except Exception:
             pass
 
     # =========================================================
-    # 🔥 2. tenta pegar múltiplos dias (20, 21, 22)
+    # 2. múltiplos dias: "20, 21 e 22"
+    # evita capturar números de hora quando já houver janela horária
     # =========================================================
-    nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
+    possui_janela_horaria = any([
+        re.search(r"(?:até|ate)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\s*h?\b", texto_lower),
+        re.search(r"(?:a\s+partir\s+das?|depois\s+das?)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\s*h?\b", texto_lower),
+        re.search(r"\bdas?\s+([01]?\d|2[0-3])(?::([0-5]\d))?\s*(?:h)?\s*(?:às|as|ate|até|a)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\s*h?\b", texto_lower),
+    ])
 
-    if nums:
+    if not datas and not possui_janela_horaria:
+        nums = re.findall(r"\b(\d{1,2})\b", texto_lower)
         for n in nums:
-            dia = int(n)
-            if 1 <= dia <= 31:
-                try:
-                    d = datetime(hoje.year, hoje.month, dia)
-
-                    if d.date() < hoje.date():
-                        mes = hoje.month + 1
-                        ano = hoje.year
-
-                        if mes > 12:
-                            mes = 1
-                            ano += 1
-
-                        ultimo_dia = monthrange(ano, mes)[1]
-                        dia = min(dia, ultimo_dia)
-                        d = datetime(ano, mes, dia)
-
+            try:
+                d = ajustar_data_futura(int(n))
+                if d:
                     datas.append(d.strftime("%Y-%m-%d"))
-
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
     # =========================================================
-    # 🔥 3. fallback: tenta parser padrão (amanhã, hoje...)
+    # 3. fallback parser padrão: hoje, amanhã, etc.
     # =========================================================
     if not datas:
         try:
@@ -527,23 +533,58 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
         except Exception:
             pass
 
-    # =========================================================
-    # 🔥 validação final das datas
-    # =========================================================
     datas = sorted(set(datas))
 
     if not datas:
         return None
 
     # =========================================================
-    # 🔥 4. janela especial: "até 12h"
+    # 4. BLOQUEIO TOTAL sempre prevalece
+    # =========================================================
+    if eh_fechamento:
+        return {
+            "acao": "bloquear_agenda_salao",
+            "dados": {
+                "datas": datas,
+                "motivo": "fechado"
+            }
+        }
+
+    # =========================================================
+    # 5. intervalos completos: "das 10 às 15"
+    # =========================================================
+    m_intervalo_horas = re.search(
+        r"\bdas?\s+([01]?\d|2[0-3])(?::([0-5]\d))?\s*(?:h)?\s*(?:às|as|ate|até|a)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\s*h?\b",
+        texto_lower
+    )
+    if m_intervalo_horas:
+        h1 = int(m_intervalo_horas.group(1))
+        m1 = int(m_intervalo_horas.group(2) or 0)
+        h2 = int(m_intervalo_horas.group(3))
+        m2 = int(m_intervalo_horas.group(4) or 0)
+
+        inicio = f"{h1:02d}:{m1:02d}"
+        fim = f"{h2:02d}:{m2:02d}"
+
+        if inicio < fim:
+            return {
+                "acao": "definir_meio_periodo_salao",
+                "dados": {
+                    "datas": datas,
+                    "inicio": inicio,
+                    "fim": fim,
+                    "motivo": "janela_especial"
+                }
+            }
+
+    # =========================================================
+    # 6. até X horas: "até 12h"
     # =========================================================
     m_ate = re.search(
         r"(?:até|ate)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\s*h?\b",
         texto_lower
     )
-
-    if m_ate and not eh_fechamento:
+    if m_ate:
         hora = int(m_ate.group(1))
         minuto = int(m_ate.group(2) or 0)
 
@@ -558,14 +599,61 @@ def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
         }
 
     # =========================================================
-    # 🔥 5. bloqueio total
+    # 7. a partir de X horas: "a partir das 13h"
     # =========================================================
-    if eh_fechamento:
+    m_apartir = re.search(
+        r"(?:a\s+partir\s+das?|depois\s+das?)\s*([01]?\d|2[0-3])(?::([0-5]\d))?\s*h?\b",
+        texto_lower
+    )
+    if m_apartir:
+        hora = int(m_apartir.group(1))
+        minuto = int(m_apartir.group(2) or 0)
+
         return {
-            "acao": "bloquear_agenda_salao",
+            "acao": "definir_meio_periodo_salao",
             "dados": {
                 "datas": datas,
-                "motivo": "fechado"
+                "inicio": f"{hora:02d}:{minuto:02d}",
+                "fim": "18:00",
+                "motivo": "abertura_parcial"
+            }
+        }
+
+    # =========================================================
+    # 8. manhã / tarde
+    # =========================================================
+    sinais_manha = [
+        "só de manhã", "so de manha",
+        "somente de manhã", "somente de manha",
+        "apenas de manhã", "apenas de manha",
+        "só pela manhã", "so pela manha",
+    ]
+    if any(s in texto_lower for s in sinais_manha):
+        return {
+            "acao": "definir_meio_periodo_salao",
+            "dados": {
+                "datas": datas,
+                "inicio": "08:00",
+                "fim": "12:00",
+                "motivo": "turno_manha"
+            }
+        }
+
+    sinais_tarde = [
+        "só à tarde", "so a tarde",
+        "só de tarde", "so de tarde",
+        "somente à tarde", "somente a tarde",
+        "apenas à tarde", "apenas a tarde",
+        "só pela tarde", "so pela tarde",
+    ]
+    if any(s in texto_lower for s in sinais_tarde):
+        return {
+            "acao": "definir_meio_periodo_salao",
+            "dados": {
+                "datas": datas,
+                "inicio": "13:00",
+                "fim": "18:00",
+                "motivo": "turno_tarde"
             }
         }
 

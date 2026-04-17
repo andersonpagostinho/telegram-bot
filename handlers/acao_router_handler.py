@@ -270,6 +270,9 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 await update.message.reply_text(msg)
                 return
 
+            # 🧹 limpa contexto de agendamento
+            await salvar_contexto_temporario(user_id, ctx)
+
             datas_formatadas = "\n".join(
                 f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
                 for d in datas
