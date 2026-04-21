@@ -1059,6 +1059,29 @@ async def processar_com_gpt_com_acao(
             resultado.setdefault("acao", None)
             resultado.setdefault("dados", {})
 
+            # 🔒 BLOQUEIO: GPT não pode transformar pedido de agendamento em configuração de agenda
+            acao = resultado.get("acao")
+            texto_lower = (texto_usuario or "").lower()
+
+            acoes_configuracao = {
+                "definir_meio_periodo_salao",
+                "definir_meio_periodo_profissional",
+                "bloquear_agenda_salao",
+                "bloquear_agenda_profissional",
+            }
+
+            parece_agendamento = any(x in texto_lower for x in [
+                "quero", "agendar", "marcar", "horário", "horario"
+            ])
+
+            if acao in acoes_configuracao and parece_agendamento:
+                print(
+                    f"🚫 [GPT BLOQUEADO] acao={acao} em frase de agendamento: {texto_usuario!r}",
+                    flush=True
+                )
+                resultado["acao"] = None
+                resultado["dados"] = {}
+
         except Exception as e:
             print(f"❌ Erro ao acessar/interpretar a resposta da IA: {e}", flush=True)
             try:
@@ -2451,6 +2474,36 @@ async def processar_com_gpt_com_acao(
                     )
 
                 resultado = json.loads(json_puro)
+
+                if not isinstance(resultado, dict):
+                    raise ValueError("Resposta não é um objeto JSON.")
+
+                resultado.setdefault("resposta", "OK")
+                resultado.setdefault("acao", None)
+                resultado.setdefault("dados", {})
+
+                # 🔒 BLOQUEIO: GPT não pode transformar pedido de agendamento em configuração de agenda
+                acao = resultado.get("acao")
+                texto_lower = (texto_usuario or "").lower()
+
+                acoes_configuracao = {
+                    "definir_meio_periodo_salao",
+                    "definir_meio_periodo_profissional",
+                    "bloquear_agenda_salao",
+                    "bloquear_agenda_profissional",
+                }
+
+                parece_agendamento = any(x in texto_lower for x in [
+                    "quero", "agendar", "marcar", "horário", "horario"
+                ])
+
+                if acao in acoes_configuracao and parece_agendamento:
+                    print(
+                        f"🚫 [GPT BLOQUEADO] acao={acao} em frase de agendamento: {texto_usuario!r}",
+                        flush=True
+                    )
+                    resultado["acao"] = None
+                    resultado["dados"] = {}
 
             except Exception as e:
                 print("🛑 Erro ao interpretar resposta do GPT:")
