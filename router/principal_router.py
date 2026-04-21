@@ -4198,6 +4198,61 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     print("🧪 [ANTES GPT] slots_extraidos=", slots_extraidos, flush=True)
 
     # =========================================================
+    # 🔒 PRÉ-CHECAGEM LEVE DE JANELA-BASE
+    # Se já existe profissional + data_hora com hora explícita,
+    # mas ainda falta serviço, valida se a hora pedida existe
+    # dentro da janela-base do dia. Não valida duração ainda.
+    # =========================================================
+    if (
+        proximo_passo_real == "perguntar_servico"
+        and slots_extraidos.get("data_hora")
+        and slots_extraidos.get("profissional")
+    ):
+        try:
+            data_hora_base = slots_extraidos["data_hora"]
+            data_ref = data_hora_base.split("T")[0]
+            hora_ref = data_hora_base.split("T")[1][:5]
+            prof_ref = slots_extraidos.get("profissional")
+
+            id_dono = await obter_id_dono(user_id)
+
+            janela = await obter_janela_funcionamento(
+                user_id=id_dono,
+                data_str=data_ref,
+                profissional=prof_ref
+            )
+
+            print(f"🧪 [PRECHECK JANELA-BASE] janela={janela}", flush=True)
+
+            inicio_janela = janela.get("inicio") if janela.get("aberto") else None
+            fim_janela = janela.get("fim") if janela.get("aberto") else None
+
+            # sem serviço, valida só se o INÍCIO pedido cabe na janela-base
+            if (
+                not janela.get("aberto")
+                or not inicio_janela
+                or not fim_janela
+                or hora_ref < inicio_janela
+                or hora_ref >= fim_janela
+            ):
+                limite = fim_janela or "o horário configurado"
+
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    (
+                        f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n"
+                        "Mesmo com outro profissional, esse horário não fica disponível.\n"
+                        "Se quiser, eu posso te mostrar os horários disponíveis dentro do horário de atendimento."
+                    ),
+                    ctx,
+                    texto_usuario,
+                )
+
+        except Exception as e:
+            print(f"⚠️ [PRECHECK JANELA-BASE] erro: {e}", flush=True)
+
+    # =========================================================
     # 🔥 P0 — PRÉ-CHECAGEM (SEM GPT)
     # só executa se o horário estiver válido no expediente
     # =========================================================
