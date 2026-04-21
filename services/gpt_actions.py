@@ -53,7 +53,74 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
     dados_anteriores = contexto_salvo.get("dados_anteriores")
 
     if not ultima_acao or not dados_anteriores:
-        return {"resposta": "⚠️ Não encontrei nenhuma ação recente para confirmar.", "acao": None, "dados": {}}
+        return {
+            "resposta": "⚠️ Não encontrei nenhuma ação recente para confirmar.",
+            "acao": None,
+            "dados": {}
+        }
+
+    if ultima_acao == "resolver_fora_do_expediente":
+        from services.agenda_service import resolver_fora_do_expediente
+
+        profissional = dados_anteriores.get("profissional")
+        data = dados_anteriores.get("data")
+        hora_inicio = dados_anteriores.get("hora_inicio")
+
+        resultado = await resolver_fora_do_expediente(
+            user_id=user_id,
+            data_iso=data,
+            hora_inicio=hora_inicio,
+            duracao_min=30,  # fallback mínimo sem serviço
+            profissional=profissional,
+            servico=None,
+        )
+
+        horario = None
+        if resultado:
+            horario = (
+                resultado.get("horario_sugerido")
+                or resultado.get("horario")
+            )
+
+        if horario:
+            # monta novo data_hora sugerido
+            data_hora_sugerida = f"{data}T{horario}:00"
+
+            draft = contexto_salvo.get("draft_agendamento") or {}
+            draft["profissional"] = profissional
+            draft["data_hora"] = data_hora_sugerida
+            contexto_salvo["draft_agendamento"] = draft
+            contexto_salvo["profissional_escolhido"] = profissional
+            contexto_salvo["data_hora"] = data_hora_sugerida
+
+            # mantém continuidade
+            contexto_salvo["ultima_acao"] = "criar_evento"
+            contexto_salvo["ultima_intencao"] = "criar_evento"
+            contexto_salvo["dados_anteriores"] = {
+                "profissional": profissional,
+                "data_hora": data_hora_sugerida,
+            }
+
+            await salvar_contexto_temporario(user_id, contexto_salvo)
+
+            return {
+                "resposta": f"O horário mais próximo com {profissional} é às {horario}.\nPosso seguir com esse horário pra você? 😊",
+                "acao": None,
+                "dados": {}
+            }
+
+        contexto_salvo.update({
+            "ultima_acao": None,
+            "ultima_intencao": None,
+            "dados_anteriores": None,
+        })
+        await salvar_contexto_temporario(user_id, contexto_salvo)
+
+        return {
+            "resposta": "Não encontrei outro horário próximo nesse dia. Quer que eu veja outro dia?",
+            "acao": None,
+            "dados": {}
+        }
 
     if ultima_acao == "criar_evento":
         profissional = contexto_salvo.get("profissional_escolhido")
@@ -94,7 +161,11 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
                 "dados": {},
             }
 
-    contexto_salvo.update({"ultima_acao": None, "ultima_intencao": None, "dados_anteriores": None})
+    contexto_salvo.update({
+        "ultima_acao": None,
+        "ultima_intencao": None,
+        "dados_anteriores": None
+    })
     await salvar_contexto_temporario(user_id, contexto_salvo)
     return {
         "resposta": f"✅ Ação confirmada: {ultima_intencao.replace('_', ' ').capitalize()}!",

@@ -4237,13 +4237,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ):
                 limite = fim_janela or "o horário configurado"
 
+                # 🔥 prepara a continuidade curta: "quero", "sim", "pode ser"
+                ctx["ultima_acao"] = "resolver_fora_do_expediente"
+                ctx["dados_anteriores"] = {
+                    "profissional": prof_ref,
+                    "data": data_ref,
+                    "hora_inicio": hora_ref,
+                }
+
+                await salvar_contexto_temporario(user_id, ctx)
+
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
                     (
                         f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n"
                         "Mesmo com outro profissional, esse horário não fica disponível.\n"
-                        "Se quiser, eu posso te mostrar os horários disponíveis dentro do horário de atendimento."
+                        f"Se você quiser, eu posso te mostrar o horário mais próximo com {prof_ref} dentro desse horário de atendimento."
                     ),
                     ctx,
                     texto_usuario,
