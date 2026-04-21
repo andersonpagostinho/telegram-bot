@@ -52,6 +52,8 @@ from handlers.reagendamento_handler import handle_resposta_reagendamento
 from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
 from services.gpt_executor import executar_acao_gpt
 from utils.contexto_temporario import limpar_contexto_agendamento
+from router.principal_router import eh_gatilho_agendar
+
 
 # 👉 Se esses não existirem no seu repo, comente este import e os CommandHandler lá embaixo
 from handlers.report_handler import (
@@ -128,19 +130,23 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     from handlers.acao_router_handler import executar_acao_por_nome
     from services.firebase_service_async import buscar_subcolecao
 
-    # 🔍 busca profissionais do tenant
-    profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
-    nomes_profissionais = [p.get("nome") for p in profissionais_dict.values() if p.get("nome")]
+    # 🔥 🚨 NOVO: NÃO intercepta se for intenção de agendamento
+    if eh_gatilho_agendar(mensagem):
+        payload_bloqueio = None
+    else:
+        # 🔍 busca profissionais
+        profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+        nomes_profissionais = [p.get("nome") for p in profissionais_dict.values() if p.get("nome")]
 
-    # 🔥 1. tenta detectar profissional primeiro
-    payload_bloqueio = detectar_bloqueio_agenda_profissional(
-        mensagem,
-        nomes_profissionais
-    )
+        # 🔥 tenta profissional primeiro
+        payload_bloqueio = detectar_bloqueio_agenda_profissional(
+            mensagem,
+            nomes_profissionais
+        )
 
-    # 🔥 2. fallback: salão
-    if not payload_bloqueio:
-        payload_bloqueio = detectar_bloqueio_agenda_salao(mensagem)
+        # 🔥 fallback salão
+        if not payload_bloqueio:
+            payload_bloqueio = detectar_bloqueio_agenda_salao(mensagem)
 
     # 🔥 execução
     if payload_bloqueio:
