@@ -4237,15 +4237,34 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ):
                 limite = fim_janela or "o horário configurado"
 
-                # 🔥 prepara a continuidade curta: "quero", "sim", "pode ser"
-                ctx["ultima_acao"] = "resolver_fora_do_expediente"
-                ctx["dados_anteriores"] = {
-                    "profissional": prof_ref,
-                    "data": data_ref,
-                    "hora_inicio": hora_ref,
-                }
+                tentativa = await resolver_fora_do_expediente(
+                    user_id=id_dono,
+                    data_iso=data_ref,
+                    hora_inicio=hora_ref,
+                    duracao_min=30,  # fallback mínimo sem serviço
+                    profissional=prof_ref,
+                    servico=None,
+                )
 
-                await salvar_contexto_temporario(user_id, ctx)
+                horario = None
+                if tentativa:
+                    horario = (
+                        tentativa.get("horario_sugerido")
+                        or tentativa.get("horario")
+                    )
+
+                if horario:
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        (
+                            f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n\n"
+                            f"O horário mais próximo com {prof_ref} é às *{horario}*.\n"
+                            "Posso seguir com esse horário pra você? 😊"
+                        ),
+                        ctx,
+                        texto_usuario,
+                    )
 
                 return await _send_and_stop_ctx(
                     context,
@@ -4253,7 +4272,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     (
                         f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n"
                         "Mesmo com outro profissional, esse horário não fica disponível.\n"
-                        f"Se você quiser, eu posso te mostrar o horário mais próximo com {prof_ref} dentro desse horário de atendimento."
+                        "Me diga outro horário que eu verifico pra você."
                     ),
                     ctx,
                     texto_usuario,
