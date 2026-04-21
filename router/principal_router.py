@@ -4254,29 +4254,46 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     )
 
                 if horario:
+                    data_hora_sugerida = f"{data_ref}T{horario}:00"
+
+                    # 🔥 copia o padrão que já funciona no sistema
+                    ctx["data_hora"] = data_hora_sugerida
+                    ctx["profissional_escolhido"] = prof_ref
+
+                    draft = ctx.get("draft_agendamento") or {}
+                    draft["profissional"] = prof_ref
+                    draft["data_hora"] = data_hora_sugerida
+                    draft["modo_prechecagem"] = True
+                    ctx["draft_agendamento"] = draft
+
+                    # 🔥 prepara continuidade curta
+                    ctx["ultima_acao"] = "criar_evento"
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
                     return await _send_and_stop_ctx(
                         context,
                         user_id,
-                        (
-                            f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n\n"
-                            f"O horário mais próximo com {prof_ref} é às *{horario}*.\n"
-                            "Posso seguir com esse horário pra você? 😊"
-                        ),
-                        ctx,
-                        texto_usuario,
-                    )
-
-                return await _send_and_stop_ctx(
-                    context,
-                    user_id,
                     (
-                        f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n"
-                        "Mesmo com outro profissional, esse horário não fica disponível.\n"
-                        "Me diga outro horário que eu verifico pra você."
+                        f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n\n"
+                        f"O horário mais próximo com {prof_ref} é às *{horario}*.\n"
+                        "Posso seguir com esse horário pra você? 😊"
                     ),
                     ctx,
                     texto_usuario,
                 )
+
+            return await _send_and_stop_ctx(
+                context,
+                user_id,
+            (
+                f"Esse horário não está disponível amanhã, porque o salão atende só até {limite} nesse dia.\n"
+                "Mesmo com outro profissional, esse horário não fica disponível.\n"
+                "Me diga outro horário que eu verifico pra você."
+            ),
+            ctx,
+            texto_usuario,
+        )
 
         except Exception as e:
             print(f"⚠️ [PRECHECK JANELA-BASE] erro: {e}", flush=True)
