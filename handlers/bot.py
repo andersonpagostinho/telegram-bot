@@ -121,11 +121,28 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     # =========================================================
     # 🔒 BLOQUEIO GLOBAL — ANTES DO ROUTER
     # =========================================================
-    from router.principal_router import detectar_bloqueio_agenda_salao
+    from router.principal_router import (
+        detectar_bloqueio_agenda_salao,
+        detectar_bloqueio_agenda_profissional
+    )
     from handlers.acao_router_handler import executar_acao_por_nome
+    from services.firebase_service_async import buscar_subcolecao
 
-    payload_bloqueio = detectar_bloqueio_agenda_salao(mensagem)
+    # 🔍 busca profissionais do tenant
+    profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+    nomes_profissionais = [p.get("nome") for p in profissionais_dict.values() if p.get("nome")]
 
+    # 🔥 1. tenta detectar profissional primeiro
+    payload_bloqueio = detectar_bloqueio_agenda_profissional(
+        mensagem,
+        nomes_profissionais
+    )
+
+    # 🔥 2. fallback: salão
+    if not payload_bloqueio:
+        payload_bloqueio = detectar_bloqueio_agenda_salao(mensagem)
+
+    # 🔥 execução
     if payload_bloqueio:
         print(f"🔒 [HANDLER BLOQUEIO GLOBAL] payload={payload_bloqueio}", flush=True)
 
@@ -136,7 +153,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             payload_bloqueio["dados"]
         )
 
-        raise ApplicationHandlerStop  # 🔥 MATA O FLUXO
+        raise ApplicationHandlerStop
     
     # --- 1.5) confirmação pendente de agendamento ---
     ctx_tmp = await carregar_contexto_temporario(user_id) or {}
