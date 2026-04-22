@@ -1259,17 +1259,7 @@ def tem_contexto_agendamento_ativo(ctx: dict) -> bool:
 
 def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
     ctx = ctx or {}
-
-    if ctx.get("aguardando_confirmacao_agendamento"):
-        return True
-
-    if ctx.get("ultima_acao") in [
-        "resolver_fora_do_expediente",
-        "criar_evento",
-    ]:
-        return True
-
-    return False
+    return bool(ctx.get("aguardando_confirmacao_agendamento"))
 
 def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
     """
@@ -1516,6 +1506,35 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "Quer *amanhã no mesmo horário* ou prefere outro horário?"
             )
         )
+
+    # =========================================================
+    # PRIORIDADE ALTA — CONTINUIDADE DE AÇÃO PENDENTE
+    # Ex.: resolver_fora_do_expediente, trocar profissional, etc.
+    # =========================================================
+    if ctx.get("ultima_acao") and eh_aceite_de_acao_pendente(texto_usuario, ctx):
+        print(
+            f"🔥 [CONTINUIDADE PENDENTE] ultima_acao={ctx.get('ultima_acao')}",
+            flush=True
+        )
+
+        from services.gpt_actions import executar_confirmacao_generica
+
+        resultado = await executar_confirmacao_generica(user_id, ctx)
+
+        if resultado and resultado.get("acao"):
+            return await executar_acao_gpt(
+                update,
+                context,
+                resultado.get("acao"),
+                resultado.get("dados"),
+            )
+
+        if resultado and resultado.get("resposta"):
+            return await _send_and_stop(
+                context,
+                user_id,
+                resultado.get("resposta")
+            )
 
     # =========================================================
     # PRIORIDADE MÁXIMA — CONFIRMAÇÃO FINAL DE AGENDAMENTO
