@@ -4267,6 +4267,51 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         id_dono = await obter_id_dono(user_id)
 
+        # 🔒 valida se o profissional realmente faz o serviço
+        profissionais_dict = await buscar_subcolecao(f"Clientes/{id_dono}/Profissionais") or {}
+        prof_doc = None
+
+        for _, p in profissionais_dict.items():
+            nomep = (p.get("nome") or "").strip()
+            if nomep and normalizar(nomep) == normalizar(prof_check):
+                prof_doc = p
+                break
+
+        servicos_prof = [str(s).strip() for s in (prof_doc or {}).get("servicos", []) if str(s).strip()]
+
+        if not any(normalizar(servico_check) == normalizar(s) for s in servicos_prof):
+            profissionais_aptos = []
+            for _, p in profissionais_dict.items():
+                nome_alt = (p.get("nome") or "").strip()
+                servs_alt = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+                if nome_alt and any(normalizar(servico_check) == normalizar(s) for s in servs_alt):
+                    profissionais_aptos.append(nome_alt)
+
+            if profissionais_aptos:
+                lista = ", ".join(profissionais_aptos)
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    (
+                        f"A {prof_check} não faz *{servico_check}*.\n\n"
+                        f"Quem faz esse serviço é: {lista}.\n"
+                        "Se quiser, eu verifico o melhor horário para você com uma delas. 😊"
+                    ),
+                    ctx,
+                    texto_usuario,
+                )
+
+            return await _send_and_stop_ctx(
+                context,
+                user_id,
+                (
+                    f"A {prof_check} não faz *{servico_check}*.\n\n"
+                    "No momento, não encontrei outra profissional para esse serviço."
+                ),
+                ctx,
+                texto_usuario,
+            )
+
         validacao_p0 = await validar_horario_funcionamento(
             user_id=id_dono,
             data_iso=data_ref,
