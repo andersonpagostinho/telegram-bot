@@ -1259,7 +1259,18 @@ def tem_contexto_agendamento_ativo(ctx: dict) -> bool:
 
 def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
     ctx = ctx or {}
-    return bool(ctx.get("aguardando_confirmacao_agendamento"))
+
+    if ctx.get("aguardando_confirmacao_agendamento"):
+        return True
+
+    # 🔥 continuidade curta via ultima_acao
+    if ctx.get("ultima_acao") in [
+        "resolver_fora_do_expediente",
+        "criar_evento",
+    ]:
+        return True
+
+    return False
 
 
 def eh_reacao_a_sugestao(txt: str, ctx: dict) -> bool:
