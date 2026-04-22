@@ -1495,46 +1495,45 @@ async def processar_com_gpt_com_acao(
         if resposta_curta and contexto_salvo.get("ultima_acao"):
             print("✅ Detectada confirmação de continuidade.")
 
-            # ✅ Verifica se a última mensagem do BOT foi uma sugestão ou pergunta
             historico = contexto_salvo.get("historico", [])
-            if historico:
-                ultima_interacao = historico[-1]
-                ultima_mensagem_bot = ultima_interacao.get("bot", "").lower()
 
-                print("🧪 [DEBUG] Última mensagem do bot:", ultima_mensagem_bot)
+            # 🔥 se já existe ação pendente e não há histórico estruturado,
+            # executa mesmo assim para não travar a continuidade
+            if not historico:
+                print("⚠️ Sem histórico estruturado; executando continuidade pela ação pendente.")
+                return await executar_confirmacao_generica(user_id, contexto_salvo)
 
-                if any(
-                    p in ultima_mensagem_bot
-                    for p in [
-                        "deseja",
-                        "prefere",
-                        "posso",
-                        "quer que",
-                        "confirmar",
-                        "gostaria",
-                        "agendar",
-                        "continuar",
-                        "seguir",
-                        "fechar",
-                        "?",
-                        "vamos",
-                        "pode",
-                    ]
-                ):
-                    print("🧠 Última mensagem do bot indica ação pendente.")
-                    print(
-                        "➡️ Executando ação confirmada:",
-                        contexto_salvo.get("ultima_acao"),
-                    )
-                    return await executar_confirmacao_generica(user_id, contexto_salvo)
-                else:
-                    print(
-                        "🚫 Última mensagem do bot não parece ser uma sugestão de ação."
-                    )
-            else:
-                print("🚫 Sem histórico suficiente para validar confirmação.")
+            ultima_interacao = historico[-1]
+            ultima_mensagem_bot = ultima_interacao.get("bot", "").lower()
 
-            # ⛔️ Caso não seja uma resposta a uma sugestão, não executa ação
+            print("🧪 [DEBUG] Última mensagem do bot:", ultima_mensagem_bot)
+
+            if any(
+                p in ultima_mensagem_bot
+                for p in [
+                    "deseja",
+                    "prefere",
+                    "posso",
+                    "quer que",
+                    "confirmar",
+                    "gostaria",
+                    "agendar",
+                    "continuar",
+                    "seguir",
+                    "fechar",
+                    "?",
+                    "vamos",
+                    "pode",
+                ]
+            ):
+                print("🧠 Última mensagem do bot indica ação pendente.")
+                print(
+                    "➡️ Executando ação confirmada:",
+                    contexto_salvo.get("ultima_acao"),
+                )
+                return await executar_confirmacao_generica(user_id, contexto_salvo)
+
+            print("🚫 Última mensagem do bot não parece ser uma sugestão de ação.")
             return {
                 "resposta": "❌ Não entendi o que deseja continuar. Pode repetir o pedido?",
                 "acao": None,
