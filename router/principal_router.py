@@ -4288,14 +4288,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     profissionais_aptos.append(nome_alt)
 
             if profissionais_aptos:
-                lista = ", ".join(profissionais_aptos)
+                if len(profissionais_aptos) == 1:
+                    nome_unico = profissionais_aptos[0]
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        (
+                            f"A {prof_check} não faz *{servico_check}*.\n\n"
+                            f"Quem faz esse serviço é a *{nome_unico}*.\n"
+                            "Se você quiser, eu verifico o melhor horário para você com ela. 😊"
+                        ),
+                        ctx,
+                        texto_usuario,
+                    )
+
+                lista = ", ".join(profissionais_aptos[:-1]) + f" e {profissionais_aptos[-1]}"
+
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
                     (
                         f"A {prof_check} não faz *{servico_check}*.\n\n"
-                        f"Quem faz esse serviço é: {lista}.\n"
-                        "Se quiser, eu verifico o melhor horário para você com uma delas. 😊"
+                        f"Quem faz esse serviço é: *{lista}*.\n"
+                        "Se você quiser, eu verifico o melhor horário para você com uma delas. 😊"
                     ),
                     ctx,
                     texto_usuario,
