@@ -65,32 +65,42 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
         profissional = dados_anteriores.get("profissional")
         data = dados_anteriores.get("data")
         hora_inicio = dados_anteriores.get("hora_inicio")
+        servico = dados_anteriores.get("servico")
+        origem = dados_anteriores.get("origem")
 
         resultado = await resolver_fora_do_expediente(
             user_id=user_id,
             data_iso=data,
             hora_inicio=hora_inicio,
-            duracao_min=30,  # fallback mínimo sem serviço
+            duracao_min=estimar_duracao(servico) if servico else 30,
             profissional=profissional,
-            servico=None,
+            servico=servico,
         )
 
         horario = None
+        data_hora_sugerida = None
+
         if resultado:
             horario = (
                 resultado.get("horario_sugerido")
                 or resultado.get("horario")
             )
+            data_hora_sugerida = resultado.get("data_hora")
 
         if horario:
             # monta novo data_hora sugerido
-            data_hora_sugerida = f"{data}T{horario}:00"
+            data_hora_sugerida = data_hora_sugerida or f"{data}T{horario}:00"
 
             draft = contexto_salvo.get("draft_agendamento") or {}
             draft["profissional"] = profissional
+            if servico:
+                draft["servico"] = servico
             draft["data_hora"] = data_hora_sugerida
             contexto_salvo["draft_agendamento"] = draft
+
             contexto_salvo["profissional_escolhido"] = profissional
+            if servico:
+                contexto_salvo["servico"] = servico
             contexto_salvo["data_hora"] = data_hora_sugerida
 
             # mantém continuidade
@@ -98,10 +108,19 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
             contexto_salvo["ultima_intencao"] = "criar_evento"
             contexto_salvo["dados_anteriores"] = {
                 "profissional": profissional,
+                "servico": servico,
                 "data_hora": data_hora_sugerida,
             }
 
             await salvar_contexto_temporario(user_id, contexto_salvo)
+
+            # 🔥 se veio de troca de profissional, não repete a explicação do expediente
+            if origem == "troca_profissional":
+                return {
+                    "resposta": f"O horário mais próximo com {profissional} é às {horario}.\nPosso agendar pra você? 😊",
+                    "acao": None,
+                    "dados": {}
+                }
 
             return {
                 "resposta": f"O horário mais próximo com {profissional} é às {horario}.\nPosso seguir com esse horário pra você? 😊",
@@ -115,6 +134,13 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
             "dados_anteriores": None,
         })
         await salvar_contexto_temporario(user_id, contexto_salvo)
+
+        if origem == "troca_profissional":
+            return {
+                "resposta": f"Não encontrei um horário próximo com {profissional} nesse dia. Quer que eu veja outro dia pra você?",
+                "acao": None,
+                "dados": {}
+            }
 
         return {
             "resposta": "Não encontrei outro horário próximo nesse dia. Quer que eu veja outro dia?",

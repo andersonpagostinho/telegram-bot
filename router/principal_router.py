@@ -4290,6 +4290,27 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if profissionais_aptos:
                 if len(profissionais_aptos) == 1:
                     nome_unico = profissionais_aptos[0]
+
+                    # 🔥 troca o contexto para a profissional correta
+                    ctx["profissional_escolhido"] = nome_unico
+                    ctx["alternativa_profissional"] = nome_unico
+                    ctx["servico"] = servico_check
+                    ctx["ultima_acao"] = "resolver_fora_do_expediente"
+                    ctx["dados_anteriores"] = {
+                        "profissional": nome_unico,
+                        "data": data_ref,
+                        "hora_inicio": hora_ref,
+                        "servico": servico_check,
+                        "origem": "troca_profissional",
+                    }
+
+                    draft = ctx.get("draft_agendamento") or {}
+                    draft["profissional"] = nome_unico
+                    draft["servico"] = servico_check
+                    ctx["draft_agendamento"] = draft
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
                     return await _send_and_stop_ctx(
                         context,
                         user_id,
@@ -4304,13 +4325,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 lista = ", ".join(profissionais_aptos[:-1]) + f" e {profissionais_aptos[-1]}"
 
+                # 🔥 guarda opções para o próximo passo
+                ctx["servico"] = servico_check
+                ctx["ultima_opcao_profissionais"] = profissionais_aptos
+                ctx["estado_fluxo"] = "aguardando_profissional"
+
+                draft = ctx.get("draft_agendamento") or {}
+                draft["servico"] = servico_check
+                ctx["draft_agendamento"] = draft
+
+                await salvar_contexto_temporario(user_id, ctx)
+
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
                     (
                         f"A {prof_check} não faz *{servico_check}*.\n\n"
                         f"Quem faz esse serviço é: *{lista}*.\n"
-                        "Se você quiser, eu verifico o melhor horário para você com uma delas. 😊"
+                        "Me diga com qual delas você prefere que eu verifique o melhor horário. 😊"
                     ),
                     ctx,
                     texto_usuario,
