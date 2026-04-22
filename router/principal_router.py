@@ -1263,7 +1263,6 @@ def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
     if ctx.get("aguardando_confirmacao_agendamento"):
         return True
 
-    # 🔥 continuidade curta via ultima_acao
     if ctx.get("ultima_acao") in [
         "resolver_fora_do_expediente",
         "criar_evento",
@@ -1272,6 +1271,41 @@ def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
 
     return False
 
+def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
+    """
+    Detecta aceite/continuação de uma ação já pendente com base no contexto,
+    sem depender de palavras fixas.
+
+    Regra:
+    - se existe ultima_acao pendente,
+    - e a mensagem é curta,
+    - e não é negativa,
+    - e não traz novo horário,
+    - então assume continuidade.
+    """
+    ctx = ctx or {}
+    t = normalizar(txt or "")
+
+    if not t:
+        return False
+
+    # precisa haver ação pendente
+    if not ctx.get("ultima_acao"):
+        return False
+
+    # negativa/desistência nunca é aceite
+    if eh_desistencia_fluxo(t):
+        return False
+
+    # se trouxe novo horário, não é aceite puro; é uma nova escolha
+    if _tem_indicio_de_hora(t):
+        return False
+
+    # mensagens muito longas tendem a ser nova intenção, não aceite curto
+    if len(t.split()) > 6:
+        return False
+
+    return True
 
 def eh_reacao_a_sugestao(txt: str, ctx: dict) -> bool:
     """
@@ -1486,7 +1520,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # PRIORIDADE MÁXIMA — CONFIRMAÇÃO FINAL DE AGENDAMENTO
     # =========================================================
-    if eh_confirmacao_pendente_ativa(ctx) and eh_confirmacao(texto_lower):
+    if eh_confirmacao_pendente_ativa(ctx) and (
+        eh_confirmacao(texto_lower) or eh_aceite_de_acao_pendente(texto_usuario, ctx)
+    ):
 
         _audit_confirmacao("BLOCO_PENDENTE_ENTRADA", ctx, texto_usuario)
 
