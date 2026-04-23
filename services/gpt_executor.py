@@ -204,9 +204,34 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
                         if nomes_validos:
                             alternativo = nomes_validos[0]
+                            nova_data_hora = f"{data}T{hora}:00"
 
                             contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+
                             contexto_tmp["alternativa_profissional"] = alternativo
+                            contexto_tmp["profissional_escolhido"] = alternativo
+                            contexto_tmp["servico"] = servico
+                            contexto_tmp["data_hora"] = nova_data_hora
+
+                            contexto_tmp["estado_fluxo"] = "agendando"
+                            contexto_tmp["aguardando_confirmacao_agendamento"] = True
+
+                            contexto_tmp["draft_agendamento"] = {
+                                "profissional": alternativo,
+                                "servico": servico,
+                                "data_hora": nova_data_hora,
+                                "modo_prechecagem": True,
+                            }
+
+                            contexto_tmp["dados_confirmacao_agendamento"] = {
+                                "origem": "confirmacao_pendente",
+                                "profissional": alternativo,
+                                "servico": servico,
+                                "data_hora": nova_data_hora,
+                                "duracao": duracao,
+                                "descricao": f"{servico.capitalize()} com {alternativo}",
+                            }
+
                             await salvar_contexto_temporario(user_id, contexto_tmp)
 
                             return await update.message.reply_text(
