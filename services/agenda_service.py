@@ -358,15 +358,30 @@ async def obter_janela_funcionamento(
     print(f"🧪 [JANELA] agenda_padrao_prof={agenda_padrao_prof}", flush=True)
     print(f"🧪 [JANELA] excecoes_prof={excecoes_prof}", flush=True)
 
-    # se o profissional não tiver agenda própria, herda do salão
+    # =========================================================
+    # PROFISSIONAL SEM AGENDA PRÓPRIA → herda salão
+    # MAS ainda precisa respeitar exceções_prof
+    # =========================================================
     if not agenda_padrao_prof:
-        return {
+
+        regra_prof_final = {
             "aberto": True,
             "inicio": regra_salao_final.get("inicio"),
             "fim": regra_salao_final.get("fim"),
             "origem": "fallback_salao_sem_agenda_profissional",
             "tipo": regra_salao_final.get("tipo"),
             "motivo": regra_salao_final.get("motivo")
+        }
+
+    else:
+
+        reg_prof = agenda_padrao_prof.get(weekday_str) or {}
+
+        regra_prof_final = {
+            "aberto": reg_prof.get("aberto", False),
+            "inicio": reg_prof.get("inicio"),
+            "fim": reg_prof.get("fim"),
+            "origem": "agenda_padrao_profissional"
         }
 
     reg_prof = agenda_padrao_prof.get(weekday_str) or {}
@@ -713,12 +728,24 @@ async def resolver_fora_do_expediente(
                     f"✅ [FORA_EXP] sugerindo (sem profissional) {hora_candidata}",
                     flush=True
                 )
+                motivo_texto = ""
+
+                if fim:
+                    motivo_texto = (
+                        f"Esse horário não está disponível nesse dia, "
+                        f"porque o salão atende só até {fim}.\n\n"
+                    )
+                else:
+                    motivo_texto = (
+                        "Esse horário não está disponível nesse dia.\n\n"
+                    )
+
                 return {
                     "ok": True,
                     "tipo": "horario_sugerido",
                     "horario": hora_candidata,
                     "data_hora": f"{data_iso}T{hora_candidata}:00",
-                    "mensagem": None,
+                    "mensagem": motivo_texto,
                 }
 
             resultado = await verificar_conflito_e_sugestoes_profissional(
@@ -737,12 +764,24 @@ async def resolver_fora_do_expediente(
                     f"✅ [FORA_EXP] sugerindo (livre) {hora_candidata}",
                     flush=True
                 )
+                motivo_texto = ""
+
+                if fim:
+                    motivo_texto = (
+                        f"Esse horário não está disponível nesse dia, "
+                        f"porque o salão atende só até {fim}.\n\n"
+                    )
+                else:
+                    motivo_texto = (
+                        "Esse horário não está disponível nesse dia.\n\n"
+                    )
+
                 return {
                     "ok": True,
                     "tipo": "horario_sugerido",
                     "horario": hora_candidata,
                     "data_hora": f"{data_iso}T{hora_candidata}:00",
-                    "mensagem": None,
+                    "mensagem": motivo_texto,
                 }
 
         print("⚠️ [FORA_EXP] nenhum horário passou na validação final", flush=True)
