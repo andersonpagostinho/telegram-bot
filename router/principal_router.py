@@ -2928,14 +2928,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             nomes_validos.append(nome_alt)
 
                     if nomes_validos:
+                        # =========================================================
+                        # 🔥 TRANSFORMA ALTERNATIVA EM NOVO FLUXO OFICIAL
+                        # =========================================================
+
                         alternativo = nomes_validos[0]
+                        nova_data_hora = f"{data_ref}T{hora_ref}:00"
+                        duracao = estimar_duracao(servico)
 
                         ctx["alternativa_profissional"] = alternativo
                         ctx["profissional_escolhido"] = alternativo
                         ctx["estado_fluxo"] = "agendando"
                         ctx["aguardando_confirmacao_agendamento"] = True
-
-                        nova_data_hora = f"{data_ref}T{hora_ref}:00"
 
                         ctx["data_hora"] = nova_data_hora
                         ctx["servico"] = servico
@@ -2943,7 +2947,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         ctx["draft_agendamento"] = {
                             "profissional": alternativo,
                             "servico": servico,
-                            "data_hora": f"{data_ref}T{hora_ref}:00",
+                            "data_hora": nova_data_hora,
                             "modo_prechecagem": True,
                         }
 
@@ -2951,8 +2955,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             "origem": "confirmacao_pendente",
                             "profissional": alternativo,
                             "servico": servico,
-                            "data_hora": f"{data_ref}T{hora_ref}:00",
-                            "duracao": estimar_duracao(servico),
+                            "data_hora": nova_data_hora,
+                            "duracao": duracao,
                             "descricao": f"{servico.capitalize()} com {alternativo}",
                         }
 
