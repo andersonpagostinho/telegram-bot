@@ -2935,6 +2935,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         ctx["estado_fluxo"] = "agendando"
                         ctx["aguardando_confirmacao_agendamento"] = True
 
+                        nova_data_hora = f"{data_ref}T{hora_ref}:00"
+
+                        ctx["data_hora"] = nova_data_hora
+                        ctx["servico"] = servico
+
                         ctx["draft_agendamento"] = {
                             "profissional": alternativo,
                             "servico": servico,
