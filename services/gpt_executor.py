@@ -215,10 +215,29 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
                         await salvar_contexto_temporario(user_id, contexto_tmp)
 
+                        janela = await obter_janela_funcionamento(
+                            user_id=id_dono,
+                            data_str=data,
+                            profissional=prof,
+                        )
+
+                        fim_janela = janela.get("fim") if janela.get("aberto") else None
+
+                        texto_base = ""
+
+                        if fim_janela:
+                            texto_base = (
+                                f"Esse horário não está disponível nesse dia, porque o salão atende só até {fim_janela}.\n\n"
+                            )
+                        else:
+                            texto_base = (
+                                "Esse horário não está disponível nesse dia.\n\n"
+                            )
+
                         return await update.message.reply_text(
-                            "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
-                            f"O horário mais próximo com *{prof}* é às *{horario}*.\n"
-                            "Posso agendar pra você? 😊",
+                            texto_base
+                            + f"O horário mais próximo com *{prof}* é às *{horario}*.\n"
+                            + "Posso agendar pra você? 😊",
                             parse_mode="Markdown"
                         )
 

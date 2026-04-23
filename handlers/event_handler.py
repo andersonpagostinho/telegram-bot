@@ -639,10 +639,29 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 if tentativa.get("ok"):
                     horario = tentativa.get("horario")
 
+                    janela = await obter_janela_funcionamento(
+                        user_id=id_dono,
+                        data_str=data_ref,
+                        profissional=profissional,
+                    )
+
+                    fim_janela = janela.get("fim") if janela.get("aberto") else None
+
+                    texto_base = ""
+
+                    if fim_janela:
+                        texto_base = (
+                            f"Esse horário não está disponível nesse dia, porque o salão atende só até {fim_janela}.\n\n"
+                        )
+                    else:
+                        texto_base = (
+                            "Esse horário não está disponível nesse dia.\n\n"
+                        )
+
                     await update.message.reply_text(
-                        "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
-                        f"O horário mais próximo que tenho disponível é às {horario}.\n"
-                        "Posso agendar pra você? 😊"
+                        texto_base
+                        + f"O horário mais próximo que tenho disponível é às {horario}.\n"
+                        + "Posso agendar pra você? 😊"
                     )
                     return False
 
