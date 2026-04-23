@@ -2931,6 +2931,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         alternativo = nomes_validos[0]
 
                         ctx["alternativa_profissional"] = alternativo
+                        ctx["profissional_escolhido"] = alternativo
+                        ctx["estado_fluxo"] = "agendando"
+                        ctx["aguardando_confirmacao_agendamento"] = True
+
+                        ctx["draft_agendamento"] = {
+                            "profissional": alternativo,
+                            "servico": servico,
+                            "data_hora": f"{data_ref}T{hora_ref}:00",
+                            "modo_prechecagem": True,
+                        }
+
+                        ctx["dados_confirmacao_agendamento"] = {
+                            "origem": "confirmacao_pendente",
+                            "profissional": alternativo,
+                            "servico": servico,
+                            "data_hora": f"{data_ref}T{hora_ref}:00",
+                            "duracao": estimar_duracao(servico),
+                            "descricao": f"{servico.capitalize()} com {alternativo}",
+                        }
+
                         await salvar_contexto_temporario(user_id, ctx)
 
                         return await _send_and_stop(
