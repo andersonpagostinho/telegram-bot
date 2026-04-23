@@ -179,9 +179,11 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
                     if origem == "excecao_profissional":
 
+                        data_obj = datetime.strptime(data, "%Y-%m-%d")
+
                         alternativas = await buscar_profissionais_disponiveis_no_horario(
                             user_id=id_dono,
-                            data=data,
+                            data=data_obj,
                             hora=hora,
                             duracao=duracao,
                         ) or {}
