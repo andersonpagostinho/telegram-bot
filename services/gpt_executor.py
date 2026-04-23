@@ -25,7 +25,11 @@ from services.event_service_async import (
     verificar_conflito_e_sugestoes_profissional,
     buscar_eventos_por_intervalo,
 )
-from services.agenda_service import validar_horario_funcionamento, resolver_fora_do_expediente
+from services.agenda_service import (
+    validar_horario_funcionamento,
+    resolver_fora_do_expediente,
+    obter_janela_funcionamento,
+)
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
