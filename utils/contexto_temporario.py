@@ -31,24 +31,33 @@ async def limpar_contexto_agendamento(user_id: str):
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
 
     payload = {
-        # 🔥 neutralização (não delete)
         "modo_escolha_horario": False,
         "horarios_sugeridos": [],
         "alternativa_profissional": None,
         "ultima_opcao_profissionais": [],
 
-        # deletes OK
         "aguardando_confirmacao_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
         "dados_anteriores": firestore.DELETE_FIELD,
+
         "draft_agendamento": {},
         "ultima_acao": None,
+        "ultima_intencao": None,
+
         "hora_confirmada": None,
         "sugestoes": [],
         "ultima_consulta": None,
+
         "data_hora": None,
         "servico": None,
         "profissional_escolhido": None,
+
+        "historico_texto": [],
+
+        "evento_criado": False,
+
+        "pergunta_amanha_mesmo_horario": False,
+        "data_hora_pendente": None,
 
         "estado_fluxo": "idle"
     }
