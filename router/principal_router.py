@@ -27,6 +27,7 @@ from unidecode import unidecode
 from telegram.ext import ApplicationHandlerStop
 from handlers.acao_router_handler import executar_acao_por_nome
 from calendar import monthrange
+from services.profissional_service import buscar_profissionais_disponiveis_no_horario
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -2908,6 +2909,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 motivo = janela_data.get("motivo")
 
                 if origem == "excecao_profissional":
+
+                    alternativas = await buscar_profissionais_disponiveis_no_horario(
+                        user_id=user_id,
+                        data=data_ref,
+                        hora=hora_ref,
+                        duracao=estimar_duracao(servico),
+                    ) or {}
+
+                    nomes_validos = []
+
+                    for nome_alt, dados_alt in alternativas.items():
+                        if (nome_alt or "").strip().lower() == (prof or "").strip().lower():
+                            continue
+
+                        servicos_alt = [str(s).strip().lower() for s in (dados_alt.get("servicos") or [])]
+                        if (servico or "").strip().lower() in servicos_alt:
+                            nomes_validos.append(nome_alt)
+
+                        if nomes_validos:
+                            alternativo = nomes_validos[0]
+
+                            ctx["alternativa_profissional"] = alternativo
+                            await salvar_contexto_temporario(user_id, ctx)
+
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                            (
+                                f"A {prof} não estará atendendo nesse dia 😕\n\n"
+                                f"Tenho *{alternativo}* disponível às *{hora_ref}* para *{servico}*.\n"
+                                "Posso agendar pra você? 😊"
+                            )
+                        )
+
                     return await _send_and_stop(
                         context,
                         user_id,
@@ -4264,7 +4299,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     "Nesse dia não teremos expediente.\n\nPor favor, me informe outro dia que eu verifico para você 😊",
                     ctx,
                     texto_usuario,
-                )
+                    )
 
             if motivo == "fora_do_expediente":
 
