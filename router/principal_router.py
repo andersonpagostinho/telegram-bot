@@ -2927,27 +2927,27 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         if (servico or "").strip().lower() in servicos_alt:
                             nomes_validos.append(nome_alt)
 
-                        if nomes_validos:
-                            alternativo = nomes_validos[0]
+                    if nomes_validos:
+                        alternativo = nomes_validos[0]
 
-                            ctx["alternativa_profissional"] = alternativo
-                            await salvar_contexto_temporario(user_id, ctx)
+                        ctx["alternativa_profissional"] = alternativo
+                        await salvar_contexto_temporario(user_id, ctx)
 
-                            return await _send_and_stop(
-                                context,
-                                user_id,
-                            (
-                                f"A {prof} não estará atendendo nesse dia 😕\n\n"
-                                f"Tenho *{alternativo}* disponível às *{hora_ref}* para *{servico}*.\n"
-                                "Posso agendar pra você? 😊"
-                            )
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                        (
+                            f"A {prof} não estará atendendo nesse dia 😕\n\n"
+                            f"Tenho *{alternativo}* disponível às *{hora_ref}* para *{servico}*.\n"
+                            "Posso agendar pra você? 😊"
                         )
-
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        f"Nesse dia a agenda da {prof} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você."
                     )
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Nesse dia a agenda da {prof} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você."
+                )
 
                 if origem == "profissional_nao_encontrado":
                     return await _send_and_stop(
