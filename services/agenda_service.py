@@ -365,7 +365,7 @@ async def obter_janela_funcionamento(
     if not agenda_padrao_prof:
 
         regra_prof_final = {
-            "aberto": True,
+            "aberto": regra_salao_final.get("aberto", False),
             "inicio": regra_salao_final.get("inicio"),
             "fim": regra_salao_final.get("fim"),
             "origem": "fallback_salao_sem_agenda_profissional",
@@ -381,17 +381,10 @@ async def obter_janela_funcionamento(
             "aberto": reg_prof.get("aberto", False),
             "inicio": reg_prof.get("inicio"),
             "fim": reg_prof.get("fim"),
-            "origem": "agenda_padrao_profissional"
+            "origem": "agenda_padrao_profissional",
+            "tipo": reg_prof.get("tipo"),
+            "motivo": reg_prof.get("motivo")
         }
-
-    reg_prof = agenda_padrao_prof.get(weekday_str) or {}
-
-    regra_prof_final = {
-        "aberto": reg_prof.get("aberto", False),
-        "inicio": reg_prof.get("inicio"),
-        "fim": reg_prof.get("fim"),
-        "origem": "agenda_padrao_profissional"
-    }
 
     # =========================================================
     # 9) EXCEÇÃO DO PROFISSIONAL SOBRESCREVE A BASE DELE
