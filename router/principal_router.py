@@ -3569,6 +3569,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 motivo = validacao.get("motivo")
 
                 if motivo == "fechado_na_data":
+                    regra = validacao.get("regra") or {}
+                    origem = regra.get("origem")
+
+                    if origem == "excecao_profissional":
+                        return await _send_and_stop_ctx(
+                            context,
+                            user_id,
+                            f"Nesse dia a agenda da {prof} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você.",
+                            ctx,
+                            texto_usuario,
+                        )
+
                     return await _send_and_stop_ctx(
                         context,
                         user_id,
@@ -4234,11 +4246,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             motivo = validacao.get("motivo")
 
             if motivo == "fechado_na_data":
+                regra = validacao.get("regra") or {}
+                origem = regra.get("origem")
+
+                if origem == "excecao_profissional":
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        f"Nesse dia a agenda da {profissional_validacao} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você.",
+                        ctx,
+                        texto_usuario,
+                    )
+
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    "Nesse dia não teremos expediente.\n\n",
-                    "Por favor, me informe outro dia que eu verifico para você 😊",
+                    "Nesse dia não teremos expediente.\n\nPor favor, me informe outro dia que eu verifico para você 😊",
                     ctx,
                     texto_usuario,
                 )

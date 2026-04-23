@@ -173,6 +173,16 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
                 # 🔥 DIA FECHADO → NÃO tenta sugerir horário
                 if motivo == "fechado_na_data":
+                    regra = validacao.get("regra") or {}
+                    origem = regra.get("origem")
+
+                    if origem == "excecao_profissional":
+                        return await update.message.reply_text(
+                            f"😕 Nesse dia a agenda da {prof} está bloqueada.\n\n"
+                            "Me diga outro dia ou outro profissional que eu verifico para você 😊",
+                            parse_mode="Markdown"
+                        )
+
                     return await update.message.reply_text(
                         "😕 Nesse dia não vamos atender.\n\n"
                         "Por favor, me informe outro dia que eu verifico para você 😊",
