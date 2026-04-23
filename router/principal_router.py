@@ -3559,45 +3559,33 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     )
 
                 if motivo == "fora_do_expediente":
-                    tentativa = await resolver_fora_do_expediente(
+                    janela = await obter_janela_funcionamento(
                         user_id=id_dono,
-                        data_iso=data_ref,
-                        hora_inicio=hora_ref,
-                        duracao_min=estimar_duracao(servico),
-                        servico=servico,
+                        data_str=data_ref,
                         profissional=None,
                     )
 
-                    if tentativa.get("ok"):
-                        horario = tentativa.get("horario")
-                        nova_data_hora = tentativa.get("data_hora")
-
-                        if nova_data_hora:
-                            ctx["data_hora"] = nova_data_hora
-
-                            draft = ctx.get("draft_agendamento") or {}
-                            draft["data_hora"] = nova_data_hora
-                            ctx["draft_agendamento"] = draft
-
-                            await salvar_contexto_temporario(user_id, ctx)
-
-                        return await _send_and_stop_ctx(
-                            context,
-                            user_id,
-                            "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
-                            f"O horário mais próximo que tenho disponível é às *{horario}*.\n"
-                            "Posso agendar pra você? 😊",
-                            ctx,
-                            texto_usuario,
-                        )
+                    fim_janela = janela.get("fim") if janela.get("aberto") else None
+                    limite = fim_janela or "o horário configurado"
 
                     return await _send_and_stop_ctx(
                         context,
                         user_id,
-                        "Esse horário ficará fora do nosso atendimento comercial 😕",
+                        (
+                            f"Esse horário não está disponível nesse dia, porque o salão atende só até {limite}.\n\n"
+                            f"Me diga qual profissional você prefere para *{servico}* que eu verifico um horário possível para você 😊"
+                        ),
                         ctx,
                         texto_usuario,
                     )
+
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    "❌ Não consegui validar esse horário na agenda configurada. Tente novamente.",
+                    ctx,
+                    texto_usuario,
+                )
 
         if data_hora and servico and not prof:
             ctx["estado_fluxo"] = "aguardando_profissional"
@@ -4228,36 +4216,27 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     profissional=None,  # aqui ainda não tem profissional
                 )
 
-                if tentativa.get("ok"):
-                    horario = tentativa.get("horario")
-                    nova_data_hora = tentativa.get("data_hora")
-
-                    if nova_data_hora:
-                        ctx["data_hora"] = nova_data_hora
-
-                        draft = ctx.get("draft_agendamento") or {}
-                        draft["data_hora"] = nova_data_hora
-                        ctx["draft_agendamento"] = draft
-
-                        await salvar_contexto_temporario(user_id, ctx)
-
-                    return await _send_and_stop_ctx(
-                        context,
-                        user_id,
-                        "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
-                        f"O horário mais próximo que tenho disponível é às *{horario}*.\n"
-                        "Posso agendar pra você? 😊",
-                        ctx,
-                        texto_usuario,
-                    )
+                fim_janela = janela.get("fim") if janela.get("aberto") else None
+                limite = fim_janela or "o horário configurado"
 
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico pra você.",
+                    (
+                        f"Esse horário não está disponível nesse dia, porque o salão atende só até {limite}.\n\n"
+                        f"Me diga qual profissional você prefere para *{servico_validacao}* que eu verifico um horário possível para você 😊"
+                    ),
                     ctx,
                     texto_usuario,
                 )
+
+            return await _send_and_stop_ctx(
+                context,
+                user_id,
+                "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico para você.",
+                ctx,
+                texto_usuario,
+            )
 
     print("🧪 [ANTES GPT] proximo_passo=", proximo_passo, flush=True)
     print("🧪 [ANTES GPT] proximo_passo_real=", proximo_passo_real, flush=True)
