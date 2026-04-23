@@ -30,6 +30,7 @@ from services.agenda_service import (
     resolver_fora_do_expediente,
     obter_janela_funcionamento,
 )
+from services.profissional_service import buscar_profissionais_disponiveis_no_horario
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
@@ -177,9 +178,49 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     origem = regra.get("origem")
 
                     if origem == "excecao_profissional":
+
+                        alternativas = await buscar_profissionais_disponiveis_no_horario(
+                            user_id=id_dono,
+                            data=data,
+                            hora=hora,
+                            duracao=duracao,
+                        ) or {}
+
+                        nomes_validos = []
+
+                        for nome_alt, dados_alt in alternativas.items():
+                            if (nome_alt or "").strip().lower() == (prof or "").strip().lower():
+                                continue
+
+                            servicos_alt = [
+                                str(s).strip().lower()
+                                for s in (dados_alt.get("servicos") or [])
+                            ]
+
+                            if (servico or "").strip().lower() in servicos_alt:
+                                nomes_validos.append(nome_alt)
+
+                        if nomes_validos:
+                            alternativo = nomes_validos[0]
+
+                            contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+                            contexto_tmp["alternativa_profissional"] = alternativo
+                            await salvar_contexto_temporario(user_id, contexto_tmp)
+
+                            return await update.message.reply_text(
+                                (
+                                    f"😕 A {prof} não estará atendendo nesse dia.\n\n"
+                                    f"Tenho *{alternativo}* disponível às *{hora}* para *{servico}*.\n"
+                                    "Posso agendar pra você? 😊"
+                                ),
+                                parse_mode="Markdown"
+                            )
+
                         return await update.message.reply_text(
-                            f"😕 Nesse dia a agenda da {prof} está bloqueada.\n\n"
-                            "Me diga outro dia ou outro profissional que eu verifico para você 😊",
+                            (
+                                f"😕 A {prof} não estará atendendo nesse dia.\n\n"
+                                "Me diga outro dia ou outro profissional que eu verifico para você 😊"
+                            ),
                             parse_mode="Markdown"
                         )
 
