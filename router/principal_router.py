@@ -2938,12 +2938,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                         ctx["alternativa_profissional"] = alternativo
                         ctx["profissional_escolhido"] = alternativo
+                        ctx["servico"] = servico
+                        ctx["data_hora"] = nova_data_hora
 
                         ctx["estado_fluxo"] = "agendando"
                         ctx["aguardando_confirmacao_agendamento"] = True
-
-                        ctx["data_hora"] = nova_data_hora
-                        ctx["servico"] = servico
 
                         ctx["draft_agendamento"] = {
                             "profissional": alternativo,
