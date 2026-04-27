@@ -2327,6 +2327,61 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
                 
                 # =========================================================
+                # 🔥 ESCOLHA DIRETA DE PROFISSIONAL ALTERNATIVO
+                # =========================================================
+
+                alternativas = ctx.get("alternativa_profissional") or []
+                texto_norm = normalizar(texto_usuario or "")
+
+                for prof_alt in alternativas:
+
+                    prof_norm = normalizar(prof_alt)
+
+                    if prof_norm and prof_norm in texto_norm:
+
+                        data_base = ctx.get("data_hora")
+                        servico_ctx = ctx.get("servico")
+
+                        if data_base and servico_ctx:
+
+                            nova_data_hora = data_base
+
+                            ctx["profissional_escolhido"] = prof_alt
+                            ctx["estado_fluxo"] = "agendando"
+                            ctx["aguardando_confirmacao_agendamento"] = True
+
+                            ctx["draft_agendamento"] = {
+                                "profissional": prof_alt,
+                                "servico": servico_ctx,
+                                "data_hora": nova_data_hora,
+                                "modo_prechecagem": True,
+                            }
+
+                            ctx["dados_confirmacao_agendamento"] = {
+                                "origem": "alternativa_profissional_escolhida",
+                                "profissional": prof_alt,
+                                "servico": servico_ctx,
+                                "data_hora": nova_data_hora,
+                                "duracao": estimar_duracao(servico_ctx),
+                                "descricao": f"{servico_ctx.capitalize()} com {prof_alt}",
+                            }
+
+                            await salvar_contexto_temporario(user_id, ctx)
+
+                            return await _send_and_stop_ctx(
+                                context,
+                                user_id,
+                            (
+                                f"Perfeito 😊\n\n"
+                                f"{servico_ctx.capitalize()} com *{prof_alt}* "
+                                f"em *{formatar_data_hora_br(nova_data_hora)}*.\n\n"
+                                "Posso confirmar esse horário pra você?"
+                            ),
+                            ctx,
+                            texto_usuario,
+                        )
+                
+                # =========================================================
                 # GPT HUMANO — dúvida/objeção em conflito
                 # =========================================================
 
