@@ -1351,19 +1351,162 @@ async def resolver_alteracao_draft_agendamento(
     ctx: dict,
     alteracao: dict
 ):
+    draft = (ctx or {}).get("draft_agendamento") or {}
 
-    texto = (
-        "🔥 Alteração detectada\n\n"
-        f"tipo: {alteracao.get('tipo')}\n"
-        f"valor: {alteracao.get('valor') or alteracao.get('direcao')}"
-    )
+    servico = draft.get("servico") or ctx.get("servico")
+    profissional = draft.get("profissional") or ctx.get("profissional_escolhido")
+    data_hora = draft.get("data_hora") or ctx.get("data_hora")
+
+    if not (servico and profissional and data_hora):
+        return await _send_and_stop(
+            context,
+            user_id,
+            "Consigo ajustar, mas preciso manter o serviço, profissional e horário do agendamento. Me diga como prefere seguir.",
+            parse_mode=None
+        )
+
+    # =====================================================
+    # 🔥 ALTERAÇÃO DE HORÁRIO
+    # =====================================================
+    if alteracao.get("tipo") == "horario":
+        direcao = alteracao.get("direcao")
+
+        data = data_hora.split("T")[0]
+        hora_atual = data_hora.split("T")[1][:5]
+        duracao = estimar_duracao(servico)
+
+        resultado = await buscar_horario_ajuste_no_dia(
+            user_id=user_id,
+            data=data,
+            hora_referencia=hora_atual,
+            duracao_min=duracao,
+            profissional=profissional,
+            servico=servico,
+            direcao=direcao
+        )
+
+        if not resultado:
+            if direcao == "mais_cedo":
+                texto = (
+                    f"Verifiquei aqui 😊\n\n"
+                    f"Para {servico} com {profissional}, não encontrei horário mais cedo disponível nesse dia.\n\n"
+                    f"O horário das {hora_atual} continua sendo o mais cedo que encaixa.\n"
+                    f"Posso manter esse horário?"
+                )
+            else:
+                texto = (
+                    f"Verifiquei aqui 😊\n\n"
+                    f"Para {servico} com {profissional}, não encontrei horário mais tarde disponível nesse dia.\n\n"
+                    f"Posso manter {hora_atual}?"
+                )
+
+            return await _send_and_stop(context, user_id, texto, parse_mode=None)
+
+        nova_hora = resultado["hora"]
+        nova_data_hora = f"{data}T{nova_hora}:00"
+
+        draft["data_hora"] = nova_data_hora
+        draft["modo_prechecagem"] = True
+
+        ctx["draft_agendamento"] = draft
+        ctx["data_hora"] = nova_data_hora
+        ctx["estado_fluxo"] = "agendando"
+        ctx["aguardando_confirmacao_agendamento"] = True
+        ctx["dados_confirmacao_agendamento"] = {
+            "origem": "confirmacao_pendente",
+            "profissional": profissional,
+            "servico": servico,
+            "data_hora": nova_data_hora,
+            "duracao": duracao,
+            "descricao": f"{servico.capitalize()} com {profissional}",
+        }
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        texto = (
+            f"Tenho sim 😊\n\n"
+            f"Encontrei {nova_hora} para {servico} com {profissional}.\n\n"
+            f"Posso trocar para esse horário?"
+        )
+
+        return await _send_and_stop(context, user_id, texto, parse_mode=None)
 
     return await _send_and_stop(
         context,
         user_id,
-        texto,
+        "Entendi que você quer alterar o agendamento. Vou ajustar isso.",
         parse_mode=None
     )
+
+async def buscar_horario_ajuste_no_dia(
+    user_id: str,
+    data: str,
+    hora_referencia: str,
+    duracao_min: int,
+    profissional: str,
+    servico: str,
+    direcao: str
+):
+    janela = await obter_janela_funcionamento(
+        user_id=user_id,
+        data_iso=data,
+        profissional=profissional
+    )
+
+    if not janela or not janela.get("aberto"):
+        return None
+
+    inicio = janela.get("inicio")
+    fim = janela.get("fim")
+
+    if not inicio or not fim:
+        return None
+
+    def para_min(h: str) -> int:
+        hh, mm = h.split(":")
+        return int(hh) * 60 + int(mm)
+
+    def para_hora(m: int) -> str:
+        return f"{m // 60:02d}:{m % 60:02d}"
+
+    inicio_min = para_min(inicio)
+    fim_min = para_min(fim)
+    ref_min = para_min(hora_referencia)
+
+    grade = 10
+
+    if direcao == "mais_cedo":
+        candidatos = range(ref_min - grade, inicio_min - 1, -grade)
+    else:
+        candidatos = range(ref_min + grade, fim_min - duracao_min + 1, grade)
+
+    for minuto in candidatos:
+        hora = para_hora(minuto)
+
+        permitido = await validar_horario_funcionamento(
+            user_id=user_id,
+            data_iso=data,
+            hora_inicio=hora,
+            duracao_min=duracao_min,
+            profissional=profissional
+        )
+
+        if not permitido or not permitido.get("permitido"):
+            continue
+
+        conflito = await verificar_conflito_e_sugestoes_profissional(
+            user_id=user_id,
+            data=data,
+            hora_inicio=hora,
+            duracao_min=duracao_min,
+            profissional=profissional,
+            servico=servico
+        )
+
+        if not conflito.get("conflito"):
+            return {"hora": hora}
+
+    return None
 
 def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
     """
