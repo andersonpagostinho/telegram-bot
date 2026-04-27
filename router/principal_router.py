@@ -28,6 +28,7 @@ from telegram.ext import ApplicationHandlerStop
 from handlers.acao_router_handler import executar_acao_por_nome
 from calendar import monthrange
 from services.profissional_service import buscar_profissionais_disponiveis_no_horario
+from services.normalizacao_service import encontrar_servico_mais_proximo
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -1014,6 +1015,13 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     if prof_detectado:
         ctx["profissional_escolhido"] = prof_detectado
         draft["profissional"] = prof_detectado
+
+    # 🔥 NOVO — detectar serviço com erro de digitação ANTES da data/hora
+    if not servico_detectado:
+        servico_detectado = await encontrar_servico_mais_proximo(
+            texto_usuario,
+            dono_id
+        )
 
     if servico_detectado:
         ctx["servico"] = servico_detectado
