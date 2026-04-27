@@ -1538,46 +1538,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
 
     # =========================================================
-    # GPT HUMANO — dúvida/objeção em conflito
-    # =========================================================
-
-    if (
-        ctx.get("estado_fluxo") in [
-            "aguardando_escolha_horario",
-            "aguardando_confirmacao_agendamento",
-        ]
-    ):
-
-        texto_norm = normalizar(texto_usuario)
-
-        if not eh_confirmacao(texto_norm):
-
-            horarios = ctx.get("horarios_sugeridos") or []
-            alternativas = ctx.get("ultima_opcao_profissionais") or []
-
-            dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
-
-            resposta_humana = await gerar_resposta_humana_agendamento({
-                "mensagem_cliente": texto_usuario,
-                "profissional": dados_conf.get("profissional"),
-                "servico": dados_conf.get("servico"),
-                "horario_solicitado": dados_conf.get("data_hora"),
-                "horarios_disponiveis": horarios,
-                "alternativas_profissionais": alternativas,
-                "estado_fluxo": ctx.get("estado_fluxo"),
-            })
-
-            if resposta_humana:
-
-                return await _send_and_stop_ctx(
-                    context,
-                    user_id,
-                    resposta_humana,
-                    ctx,
-                    texto_usuario,
-                )
-
-    # =========================================================
     # PRIORIDADE MÁXIMA — CONFIRMAÇÃO FINAL DE AGENDAMENTO
     # =========================================================
     if eh_confirmacao_pendente_ativa(ctx) and (
@@ -2365,6 +2325,37 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     h.split(" - ")[0].strip() if " - " in str(h) else str(h).strip()
                     for h in horarios_sugeridos
                 )
+                
+                # =========================================================
+                # GPT HUMANO — dúvida/objeção em conflito
+                # =========================================================
+
+                from services.gpt_service import gerar_resposta_humana_agendamento
+
+                resposta_humana = await gerar_resposta_humana_agendamento({
+                    "mensagem_cliente": texto_usuario,
+                    "estado_fluxo": ctx.get("estado_fluxo"),
+                    "profissional_original": ctx.get("profissional_escolhido"),
+                    "servico": ctx.get("servico"),
+                    "data_hora_original": ctx.get("data_hora"),
+                    "horarios_disponiveis_mesmo_profissional": ctx.get("horarios_sugeridos") or [],
+                    "profissionais_alternativos": ctx.get("alternativa_profissional") or [],
+                    "ultima_opcao_profissionais": ctx.get("ultima_opcao_profissionais") or [],
+                    "regra": (
+                        "O cliente não escolheu uma opção válida ainda. "
+                        "Não crie evento, não confirme agendamento e não invente disponibilidade. "
+                        "Acolha a mensagem e conduza para escolher uma das opções disponíveis."
+                    ),
+                })
+
+                if resposta_humana:
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        resposta_humana,
+                        ctx,
+                        texto_usuario,
+                    )
 
                 if melhor_sugestao:
                     hora_melhor = str(melhor_sugestao.get("hora") or "").strip()
