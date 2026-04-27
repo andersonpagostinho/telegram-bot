@@ -1352,10 +1352,16 @@ async def resolver_alteracao_draft_agendamento(
     alteracao: dict
 ):
 
+    texto = (
+        "🔥 Alteração detectada\n\n"
+        f"tipo: {alteracao.get('tipo')}\n"
+        f"valor: {alteracao.get('valor') or alteracao.get('direcao')}"
+    )
+
     return await _send_and_stop(
         context,
         user_id,
-        f"🔥 ALTERAÇÃO DETECTADA: {alteracao}"
+        texto
     )
 
 def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
