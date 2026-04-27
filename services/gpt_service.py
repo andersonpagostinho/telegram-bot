@@ -3137,3 +3137,48 @@ Responda apenas com o plano formatado.
     except Exception as e:
         print(f"[GPT] Erro ao organizar semana: {e}", flush=True)
         return "❌ Houve um erro ao tentar planejar sua semana."
+
+async def gerar_resposta_humana_agendamento(contexto_decisao: dict) -> str:
+
+    try:
+
+        prompt = f"""
+Você é uma atendente humana extremamente natural.
+
+Você NÃO pode:
+- inventar horário
+- inventar disponibilidade
+- confirmar agendamento
+- escolher pelo cliente
+- mudar profissional
+- criar evento
+
+Você deve apenas responder de forma humana.
+
+Contexto:
+{json.dumps(contexto_decisao, ensure_ascii=False)}
+
+Retorne SOMENTE JSON:
+
+{{
+  "resposta": "texto"
+}}
+"""
+
+        resposta = await client.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.7,
+            messages=[
+                {"role": "system", "content": prompt}
+            ]
+        )
+
+        conteudo = resposta.choices[0].message.content.strip()
+
+        data = json.loads(conteudo)
+
+        return data.get("resposta", "")
+
+    except Exception as e:
+        print(f"❌ erro gerar_resposta_humana_agendamento: {e}")
+        return ""
