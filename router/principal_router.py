@@ -1270,6 +1270,94 @@ def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
     ctx = ctx or {}
     return bool(ctx.get("aguardando_confirmacao_agendamento"))
 
+async def detectar_alteracao_draft_agendamento(
+    texto_usuario: str,
+    ctx: dict,
+    dono_id: str
+) -> dict | None:
+
+    t = normalizar(texto_usuario or "")
+
+    draft = (ctx or {}).get("draft_agendamento") or {}
+
+    servico_atual = draft.get("servico") or ctx.get("servico")
+    profissional_atual = draft.get("profissional") or ctx.get("profissional_escolhido")
+
+    # =====================================================
+    # 🔥 horário relativo
+    # =====================================================
+    if any(x in t for x in [
+        "mais cedo",
+        "antes",
+        "mais tarde",
+        "depois",
+    ]):
+
+        if "cedo" in t or "antes" in t:
+            return {
+                "tipo": "horario",
+                "direcao": "mais_cedo"
+            }
+
+        if "tarde" in t or "depois" in t:
+            return {
+                "tipo": "horario",
+                "direcao": "mais_tarde"
+            }
+
+    # =====================================================
+    # 🔥 troca de profissional
+    # =====================================================
+    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+    for _, p in profissionais.items():
+        nome = p.get("nome")
+
+        if not nome:
+            continue
+
+        nome_norm = normalizar(nome)
+
+        if nome_norm in t:
+
+            if normalizar(nome) != normalizar(profissional_atual or ""):
+                return {
+                    "tipo": "profissional",
+                    "valor": nome
+                }
+
+    # =====================================================
+    # 🔥 troca de serviço
+    # =====================================================
+    servico_detectado = await encontrar_servico_mais_proximo(
+        texto_usuario,
+        dono_id
+    )
+
+    if servico_detectado:
+
+        if normalizar(servico_detectado) != normalizar(servico_atual or ""):
+            return {
+                "tipo": "servico",
+                "valor": servico_detectado
+            }
+
+    return None
+
+async def resolver_alteracao_draft_agendamento(
+    update,
+    context,
+    user_id: str,
+    ctx: dict,
+    alteracao: dict
+):
+
+    return await _send_and_stop(
+        context,
+        user_id,
+        f"🔥 ALTERAÇÃO DETECTADA: {alteracao}"
+    )
+
 def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
     """
     Detecta aceite/continuação de uma ação já pendente com base no contexto,
@@ -1515,6 +1603,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "Quer *amanhã no mesmo horário* ou prefere outro horário?"
             )
         )
+
+    # =========================================================
+    # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
+    # =========================================================
+    if eh_confirmacao_pendente_ativa(ctx):
+        alteracao_draft = await detectar_alteracao_draft_agendamento(
+            texto_usuario=texto_usuario,
+            ctx=ctx,
+            dono_id=dono_id
+        )
+
+        if alteracao_draft:
+            return await resolver_alteracao_draft_agendamento(
+                update=update,
+                context=context,
+                user_id=user_id,
+                ctx=ctx,
+                alteracao=alteracao_draft
+            )
 
     # =========================================================
     # PRIORIDADE MÁXIMA — CONFIRMAÇÃO FINAL DE AGENDAMENTO
