@@ -1361,7 +1361,8 @@ async def resolver_alteracao_draft_agendamento(
     return await _send_and_stop(
         context,
         user_id,
-        texto
+        texto,
+        parse_mode=None
     )
 
 def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
