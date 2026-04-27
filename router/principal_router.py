@@ -1449,7 +1449,7 @@ async def buscar_horario_ajuste_no_dia(
 ):
     janela = await obter_janela_funcionamento(
         user_id=user_id,
-        data_iso=data,
+        data_str=data,
         profissional=profissional
     )
 
