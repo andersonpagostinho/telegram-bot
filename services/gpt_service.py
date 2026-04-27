@@ -3143,23 +3143,36 @@ async def gerar_resposta_humana_agendamento(contexto_decisao: dict) -> str:
     try:
 
         prompt = f"""
-Você é uma atendente humana extremamente natural.
+Você é uma atendente de salão respondendo pelo WhatsApp.
 
-Você NÃO pode:
-- inventar horário
-- inventar disponibilidade
-- confirmar agendamento
-- escolher pelo cliente
-- mudar profissional
-- criar evento
+Sua função é acolher uma dúvida, insistência ou objeção do cliente durante um conflito de agenda.
 
-Você deve apenas responder de forma humana.
+REGRAS ABSOLUTAS:
+- Não invente horário.
+- Não invente profissional.
+- Não confirme agendamento.
+- Não diga que agendou.
+- Não escolha pelo cliente.
+- Use somente os dados do contexto.
+- Seja natural, curta e objetiva.
+- Não use linguagem genérica de suporte, como "pode ser frustrante" ou "entendo sua frustração".
+- Cite explicitamente os horários disponíveis com a profissional original.
+- Cite explicitamente os profissionais alternativos, se existirem.
+- Termine com uma pergunta objetiva entre as opções.
 
 Contexto:
 {json.dumps(contexto_decisao, ensure_ascii=False)}
 
-Retorne SOMENTE JSON:
+Estilo desejado:
+"Eu entendo 😕 Tentei manter esse horário com Bruna, mas ela já tem atendimento nesse horário.
 
+Com Bruna, consigo 13:30 ou 14:30.
+
+Se quiser manter 14:00, tenho Gloria ou Joana disponíveis para corte.
+
+Você prefere Bruna em um horário próximo ou manter 14:00 com outra profissional?"
+
+Retorne SOMENTE JSON:
 {{
   "resposta": "texto"
 }}
@@ -3167,7 +3180,7 @@ Retorne SOMENTE JSON:
 
         resposta = await client.chat.completions.create(
             model="gpt-4o",
-            temperature=0.7,
+            temperature=0.3,
             messages=[
                 {"role": "system", "content": prompt}
             ]
