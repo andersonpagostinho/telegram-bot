@@ -1069,6 +1069,17 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             ctx["estado_fluxo"] = "agendando"
 
         # =========================================================
+        # 🔥 HH:MM explícito NÃO pode virar múltiplas opções
+        # =========================================================
+        m_hora_minuto = (
+            re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", texto.lower())
+            or re.search(r"\b([01]?\d|2[0-3])h([0-5]\d)\b", texto.lower())
+        )
+
+        if m_hora_minuto:
+            hora_matches = [(m_hora_minuto.group(1), m_hora_minuto.group(2))]
+
+        # =========================================================
         # 🔥 CASO 1 — 1 horário → segue normal
         # =========================================================
         if len(hora_matches) == 1:
