@@ -244,7 +244,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
 
         elif acao == "definir_meio_periodo_salao":
             from services.agenda_service import definir_janela_especial_agenda_salao, normalizar_lista_datas
-            from utils.contexto_temporario import limpar_contexto_agendamento
+            from utils.context_manager import limpar_contexto_agendamento
             
             datas = (dados or {}).get("datas") or []
             inicio = (dados or {}).get("inicio")
@@ -296,7 +296,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
 
         elif acao == "bloquear_agenda_profissional":
             from services.agenda_service import bloquear_agenda_profissional, normalizar_lista_datas
-            from utils.contexto_temporario import limpar_contexto_agendamento
+            from utils.context_manager import limpar_contexto_agendamento
 
             profissional = (dados or {}).get("profissional")
             datas = (dados or {}).get("datas") or []
@@ -356,7 +356,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
 
         elif acao == "definir_meio_periodo_profissional":
             from services.agenda_service import definir_janela_especial_profissional, normalizar_lista_datas
-            from utils.contexto_temporario import limpar_contexto_agendamento
+            from utils.context_manager import limpar_contexto_agendamento
 
             profissional = (dados or {}).get("profissional")
             datas = (dados or {}).get("datas") or []

@@ -29,6 +29,7 @@ from handlers.acao_router_handler import executar_acao_por_nome
 from calendar import monthrange
 from services.profissional_service import buscar_profissionais_disponiveis_no_horario
 from services.normalizacao_service import encontrar_servico_mais_proximo
+from router.conversation_classifier import classificar_contexto_conversa
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -149,7 +150,11 @@ def resolver_proximo_passo_real(
     if not tem_profissional:
         return "perguntar_profissional"
 
-    # 5. Tudo completo
+    # 5. Tem data, serviço e profissional, mas NÃO tem hora real
+    if not tem_hora:
+        return "perguntar_somente_horario"
+
+    # 6. Tudo completo
     return "confirmar_ou_executar"
 
 def tem_hora_real(dt_iso: str | None) -> bool:
@@ -3034,6 +3039,51 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 payload_salao["acao"],
                 payload_salao["dados"]
             )
+
+        # =========================================================
+        # 🧠 CLASSIFICADOR CONVERSACIONAL
+        # =========================================================
+
+        profs_dict_classificador = await buscar_subcolecao(
+            f"Clientes/{dono_id}/Profissionais"
+        ) or {}
+
+        profissionais_catalogo = []
+        servicos_catalogo = []
+
+        for chave, p in profs_dict_classificador.items():
+
+            nome = (p.get("nome") or chave or "").strip()
+
+            if nome:
+                profissionais_catalogo.append(nome)
+
+            for s in p.get("servicos") or []:
+                s = str(s).strip()
+
+                if s:
+                    servicos_catalogo.append(s)
+
+        servicos_catalogo = list(dict.fromkeys(servicos_catalogo))
+        profissionais_catalogo = list(dict.fromkeys(profissionais_catalogo))
+
+        classificacao_conversa = await classificar_contexto_conversa(
+            texto_usuario=texto_usuario,
+            ctx=ctx,
+            dono_id=dono_id,
+            servicos_catalogo=servicos_catalogo,
+            profissionais_catalogo=profissionais_catalogo,
+            actor_tipo=ctx.get("actor_tipo") or ctx.get("tipo_usuario")
+        )
+
+        print(
+            f"🧠 [CLASSIFICADOR CONVERSA] {classificacao_conversa}",
+            flush=True
+        )
+
+        # =========================================================
+        # 🔥 EXTRAÇÃO PRINCIPAL
+        # =========================================================
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
         # =========================================================
