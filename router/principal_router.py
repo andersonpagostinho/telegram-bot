@@ -1657,7 +1657,8 @@ async def resolver_alteracao_draft_agendamento(
             user_id,
             (
                 f"Perfeito 😊\n\n"
-                f"Ficou {servico} com {profissional} em {nova_data} às {hora}.\n\n"
+                f"{servico.capitalize()} com {profissional}\n"
+                f"📆 {data_legivel}\n\n"
                 "Posso confirmar?"
             ),
             parse_mode=None
