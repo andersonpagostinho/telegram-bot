@@ -1353,6 +1353,24 @@ async def detectar_alteracao_draft_agendamento(
                 "valor": servico_detectado
             }
 
+    # =====================================================
+    # 🔥 troca de data
+    # =====================================================
+    dt_novo = interpretar_data_e_hora(texto_usuario)
+
+    if dt_novo:
+        data_hora_atual = draft.get("data_hora") or ctx.get("data_hora")
+
+        if data_hora_atual:
+            data_atual = data_hora_atual.split("T")[0]
+            data_nova = dt_novo.strftime("%Y-%m-%d")
+
+            if data_nova != data_atual:
+                return {
+                    "tipo": "data",
+                    "valor": data_nova
+                }
+
     return None
 
 async def resolver_alteracao_draft_agendamento(
@@ -1548,6 +1566,98 @@ async def resolver_alteracao_draft_agendamento(
             (
                 f"Perfeito 😊\n\n"
                 f"Ficou {servico} com {novo_profissional} às {hora}.\n\n"
+                "Posso confirmar?"
+            ),
+            parse_mode=None
+        )
+
+    # =====================================================
+    # 🔥 ALTERAÇÃO DE DATA
+    # =====================================================
+    if alteracao.get("tipo") == "data":
+        nova_data = alteracao.get("valor")
+
+        hora = data_hora.split("T")[1][:5]
+        duracao = estimar_duracao(servico)
+        nova_data_hora = f"{nova_data}T{hora}:00"
+
+        validacao = await validar_horario_funcionamento(
+            user_id=user_id,
+            data_iso=nova_data,
+            hora_inicio=hora,
+            duracao_min=duracao,
+            profissional=profissional
+        )
+
+        if not validacao.get("permitido"):
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Nesse dia, esse horário não encaixa na agenda.\n\n"
+                    f"Quer que eu procure um horário disponível para {servico} com {profissional} nesse novo dia?"
+                ),
+                parse_mode=None
+            )
+
+        conflito = await verificar_conflito_e_sugestoes_profissional(
+            user_id=user_id,
+            data=nova_data,
+            hora_inicio=hora,
+            duracao_min=duracao,
+            profissional=profissional,
+            servico=servico
+        )
+
+        if conflito.get("conflito"):
+            sugestoes = conflito.get("sugestoes") or []
+
+            if sugestoes:
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"Nesse novo dia, {profissional} já tem atendimento às {hora}.\n\n"
+                        f"Tenho esta opção: {sugestoes[0]}.\n\n"
+                        "Quer esse horário?"
+                    ),
+                    parse_mode=None
+                )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Nesse novo dia, {profissional} já tem atendimento às {hora}.\n\n"
+                    "Quer que eu procure outro horário?"
+                ),
+                parse_mode=None
+            )
+
+        draft["data_hora"] = nova_data_hora
+        draft["modo_prechecagem"] = True
+
+        ctx["draft_agendamento"] = draft
+        ctx["data_hora"] = nova_data_hora
+        ctx["estado_fluxo"] = "agendando"
+        ctx["aguardando_confirmacao_agendamento"] = True
+        ctx["dados_confirmacao_agendamento"] = {
+            "origem": "confirmacao_pendente",
+            "profissional": profissional,
+            "servico": servico,
+            "data_hora": nova_data_hora,
+            "duracao": duracao,
+            "descricao": f"{servico.capitalize()} com {profissional}",
+        }
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Perfeito 😊\n\n"
+                f"Ficou {servico} com {profissional} em {nova_data} às {hora}.\n\n"
                 "Posso confirmar?"
             ),
             parse_mode=None
