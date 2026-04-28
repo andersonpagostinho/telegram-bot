@@ -1587,7 +1587,7 @@ async def buscar_horario_ajuste_no_dia(
     grade = 10
 
     if direcao == "mais_cedo":
-        candidatos = range(ref_min - grade, inicio_min - 1, -grade)
+        candidatos = range(inicio_min, ref_min, grade)
     else:
         candidatos = range(ref_min + grade, fim_min - duracao_min + 1, grade)
 
@@ -2201,7 +2201,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             horarios_sugeridos = ctx.get("horarios_sugeridos") or []
             opcoes_hora_profissional = ctx.get("opcoes_hora_profissional") or []
             melhor_sugestao = ctx.get("melhor_sugestao") or {}
-            matches = re.findall(r"\b(?:as\s*)?(\d{1,2})(?::(\d{2}))?\b", texto_norm)
+            matches = []
+
+            # HH:MM primeiro — ex.: 11:20
+            for h, m in re.findall(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", texto_norm):
+                matches.append((h, m))
+
+            # Só captura hora isolada se NÃO houver HH:MM
+            # ex.: "11", "as 11", "11h"
+            if not matches:
+                for h in re.findall(r"\b(?:as\s*)?([01]?\d|2[0-3])h?\b", texto_norm):
+                    matches.append((h, "00"))
 
             print(f"🧪 [TESTE-DESISTENCIA] texto_usuario={texto_usuario}", flush=True)
             print(f"🧪 [TESTE-DESISTENCIA] texto_normalizado={normalizar(texto_usuario)}", flush=True)
