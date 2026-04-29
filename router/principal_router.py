@@ -3080,6 +3080,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             f"🧠 [CLASSIFICADOR CONVERSA] {classificacao_conversa}",
             flush=True
         )
+        # =========================================================
+        # 🧠 BLOQUEIO DE CONVERSA PESSOAL
+        # =========================================================
+        if classificacao_conversa.get("tipo") == "mensagem_pessoal":
+
+            print(
+                "🧠 [CLASSIFICADOR] mensagem pessoal detectada — ignorando fluxo operacional",
+                flush=True
+            )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                "😊"
+            )
 
         # =========================================================
         # 🔥 EXTRAÇÃO PRINCIPAL
