@@ -1159,6 +1159,23 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             ctx["data_hora"] = iso
             draft["data_hora"] = iso
 
+            # 🔥 impede 00:00 de virar horário operacional
+            ctx["hora_confirmada"] = False
+
+            # 🔥 se já tem serviço + profissional, isso é consulta de disponibilidade
+            if servico_detectado:
+                ctx["servico"] = servico_detectado
+                draft["servico"] = servico_detectado
+
+            if prof_detectado:
+                ctx["profissional_escolhido"] = prof_detectado
+                draft["profissional"] = prof_detectado
+
+            if ctx.get("servico") and ctx.get("profissional_escolhido"):
+                ctx["estado_fluxo"] = "consultando"
+            else:
+                ctx["estado_fluxo"] = "aguardando_horario"
+
         # =========================================================
         # 🔥 salvar ultima consulta
         # =========================================================
@@ -3093,8 +3110,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             return await _send_and_stop(
                 context,
                 user_id,
-                "😊"
+            (
+                "Sou a assistente virtual dela 😊\n\n"
+                "Vou encaminhar sua mensagem para que ela te responda assim que possível."
             )
+        )
 
         # =========================================================
         # 🔥 EXTRAÇÃO PRINCIPAL
