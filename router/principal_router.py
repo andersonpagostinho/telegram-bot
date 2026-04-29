@@ -5513,15 +5513,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # 🔥 BLOQUEIO DE GPT — quando já temos dados suficientes
     # =========================================================
-    if (
-        ctx.get("data_hora")
-        and (
-            (ctx.get("servico") and ctx.get("profissional_escolhido"))
-            or (
-                (ctx.get("draft_agendamento") or {}).get("servico")
-                and (ctx.get("draft_agendamento") or {}).get("profissional")
-            )
+    data_hora_ctx = ctx.get("data_hora")
+    draft_ag = ctx.get("draft_agendamento") or {}
+
+    tem_servico_profissional = (
+        (ctx.get("servico") and ctx.get("profissional_escolhido"))
+        or (
+            draft_ag.get("servico")
+            and draft_ag.get("profissional")
         )
+    )
+
+    if (
+        data_hora_ctx
+        and tem_hora_real(data_hora_ctx)
+        and ctx.get("hora_confirmada") is True
+        and tem_servico_profissional
     ):
         print("🚫 [BLOCK GPT] já tenho dados completos — fluxo determinístico", flush=True)
 
