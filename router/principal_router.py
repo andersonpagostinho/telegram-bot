@@ -6013,6 +6013,79 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx["estado_fluxo"] = "aguardando_profissional"
 
         elif proximo_passo_real == "perguntar_somente_horario":
+
+            texto_norm_periodo = normalizar(texto_usuario or "")
+
+            tem_pedido_periodo = any(x in texto_norm_periodo for x in [
+                "cedo",
+                "manha",
+                "manhã",
+                "tarde",
+                "noite",
+            ])
+
+            if (
+                tem_pedido_periodo
+                and ctx.get("servico")
+                and ctx.get("profissional_escolhido")
+                and ctx.get("data_hora")
+                and ctx.get("hora_confirmada") is not True
+            ):
+                print("🔥 [CONSULTA PERÍODO] buscando horário sugerido", flush=True)
+
+                data_ref = ctx["data_hora"].split("T")[0]
+                servico_ref = ctx["servico"]
+                prof_ref = ctx["profissional_escolhido"]
+                duracao_ref = estimar_duracao(servico_ref)
+
+                resultado_periodo = await resolver_fora_do_expediente(
+                    user_id=user_id,
+                    data_iso=data_ref,
+                    hora_inicio="00:00",
+                    duracao_min=duracao_ref,
+                    servico=servico_ref,
+                    profissional=prof_ref,
+                )
+
+                horario = (
+                    resultado_periodo.get("horario")
+                    or resultado_periodo.get("hora")
+                )
+
+                if horario:
+                    nova_data_hora = f"{data_ref}T{horario}:00"
+
+                    ctx["data_hora"] = nova_data_hora
+                    ctx["hora_confirmada"] = True
+                    ctx["estado_fluxo"] = "agendando"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+                    ctx["dados_confirmacao_agendamento"] = {
+                        "origem": "confirmacao_pendente",
+                        "profissional": prof_ref,
+                        "servico": servico_ref,
+                        "data_hora": nova_data_hora,
+                        "duracao": duracao_ref,
+                        "descricao": f"{servico_ref.capitalize()} com {prof_ref}",
+                    }
+
+                    draft = ctx.get("draft_agendamento") or {}
+                    draft["profissional"] = prof_ref
+                    draft["servico"] = servico_ref
+                    draft["data_hora"] = nova_data_hora
+                    draft["modo_prechecagem"] = True
+                    ctx["draft_agendamento"] = draft
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        (
+                            f"O horário mais próximo com *{prof_ref}* é às *{horario}*.\n"
+                            "Posso agendar pra você? 😊"
+                        ),
+                    )
+
             ctx["estado_fluxo"] = "aguardando_horario"
 
         elif proximo_passo_real == "perguntar_data_hora":
