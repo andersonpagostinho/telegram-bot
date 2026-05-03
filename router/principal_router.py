@@ -1944,7 +1944,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
     ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
     ctx["modo_conversa"] = modo_conversa
-    ctx["objetivo_conversacional"] = objetivo_conversacional
 
     # =========================================================
     # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
