@@ -132,6 +132,16 @@ def resolver_proximo_passo_real(
     tem_hora = tem_hora_real_local()
     horarios_candidatos = contexto.get("horarios_sugeridos") or []
 
+    objetivo = contexto.get("objetivo_conversacional")
+
+    if objetivo == "descobrir_servico_para_consulta":
+        if not tem_servico:
+            return "perguntar_servico"
+        if not tem_profissional:
+            return "perguntar_profissional"
+        if tem_data_valor and not tem_hora:
+            return "perguntar_somente_horario"
+
     # 🔥 NOVA LÓGICA CENTRAL (IGNORA proximo_passo antigo)
 
     # 1. Se já existem horários candidatos capturados, não pergunte horário de novo.
@@ -147,11 +157,11 @@ def resolver_proximo_passo_real(
     if not tem_data_valor:
         return "perguntar_data_hora"
 
-    # 3. Falta profissional
+    # 3. Falta serviço
     if not tem_servico:
         return "perguntar_servico"
 
-    # 4. Falta serviço
+    # 4. Falta profissional
     if not tem_profissional:
         return "perguntar_profissional"
 
