@@ -1188,6 +1188,16 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
             if ctx.get("servico") and ctx.get("profissional_escolhido"):
                 ctx["estado_fluxo"] = "consultando"
+
+            elif ctx.get("objetivo_conversacional") == "descobrir_servico_para_consulta" and not ctx.get("servico"):
+                ctx["estado_fluxo"] = "aguardando_servico"
+
+            elif not ctx.get("servico"):
+                ctx["estado_fluxo"] = "aguardando_servico"
+
+            elif not ctx.get("profissional_escolhido"):
+                ctx["estado_fluxo"] = "aguardando_profissional"
+
             else:
                 ctx["estado_fluxo"] = "aguardando_horario"
 
