@@ -5000,8 +5000,50 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # PRÉ-GPT — usa a extração central do projeto
     # =========================================================
+
+    # =========================================================
+    # AJUSTE INCREMENTAL — mantém continuidade do draft
+    # =========================================================
+    objetivo_conv = ctx.get("objetivo_conversacional")
+
+    if objetivo_conv == "ajustar_draft_existente":
+
+        print("🔁 [AJUSTE_INCREMENTAL] continuidade detectada", flush=True)
+
+        draft_existente = ctx.get("draft_agendamento") or {}
+
+        # garante continuidade forte
+        if draft_existente:
+
+            ctx["modo_incremental"] = True
+
+            # preserva base do draft
+            ctx["data_hora"] = ctx.get("data_hora") or draft_existente.get("data_hora")
+            ctx["servico"] = ctx.get("servico") or draft_existente.get("servico")
+            ctx["profissional_escolhido"] = (
+                ctx.get("profissional_escolhido")
+                or draft_existente.get("profissional")
+            )
+
+            print(
+                f"🔁 [AJUSTE_INCREMENTAL] draft preservado={draft_existente}",
+                flush=True
+            )
     
     ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+
+    # =========================================================
+    # AJUSTE INCREMENTAL — pós-extração
+    # =========================================================
+    if ctx.get("objetivo_conversacional") == "ajustar_draft_existente":
+        print("🔁 [AJUSTE_INCREMENTAL] pós-extração", flush=True)
+
+        draft_inc = ctx.get("draft_agendamento") or {}
+
+        if draft_inc:
+            ctx["estado_fluxo"] = "ajustando_agendamento"
+            ctx["modo_incremental"] = True
+            ctx["draft_agendamento"] = draft_inc
 
     # 🔥 PROTEÇÃO CRÍTICA
     if not isinstance(ctx, dict):
