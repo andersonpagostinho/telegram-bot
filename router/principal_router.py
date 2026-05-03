@@ -1944,6 +1944,37 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
     ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
     ctx["modo_conversa"] = modo_conversa
+    ctx["objetivo_conversacional"] = objetivo_conversacional
+
+    # =========================================================
+    # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
+    # Transforma intenção em direção de fluxo, sem executar agenda
+    # =========================================================
+    intencao_conv = class_intencao.get("intencao_conversacional")
+
+    objetivo_conversacional = None
+
+    if intencao_conv == "consulta_disponibilidade_aberta":
+        objetivo_conversacional = "descobrir_servico_para_consulta"
+
+    elif intencao_conv == "consulta_disponibilidade_servico":
+        objetivo_conversacional = "consultar_disponibilidade_por_servico"
+
+    elif intencao_conv == "agendamento_direto":
+        objetivo_conversacional = "preparar_prechecagem_agendamento"
+
+    elif intencao_conv == "ajuste_incremental":
+        objetivo_conversacional = "ajustar_draft_existente"
+
+    elif intencao_conv == "cancelamento":
+        objetivo_conversacional = "avaliar_cancelamento"
+
+    ctx["objetivo_conversacional"] = objetivo_conversacional
+
+    print(
+        f"🎯 [OBJETIVO CONVERSACIONAL] {objetivo_conversacional}",
+        flush=True
+    )
 
     historico = ctx.get("historico_texto") or []
     if texto_usuario:
