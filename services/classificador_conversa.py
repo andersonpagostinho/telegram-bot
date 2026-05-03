@@ -75,7 +75,10 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         r"mercado|compra|pao|pão|me liga|depois te conto|festa|barzinho)\b",
         t
     )
-
+    tem_ref_profissional = _tem(
+        r"\b(com\s+[a-zA-ZÀ-ÿ]+|trocar profissional|outra profissional|outro profissional)\b",
+        t
+    )
     return {
         "tem_fluxo_ativo": tem_fluxo_ativo,
         "tem_draft": tem_draft,
@@ -88,6 +91,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         "tem_ajuste": tem_ajuste,
         "tem_cancelamento": tem_cancelamento,
         "tem_social": tem_social,
+        "tem_ref_profissional": tem_ref_profissional,
     }
 
 
@@ -201,6 +205,9 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
 def detectar_tipo_ajuste_incremental(texto: str) -> str:
     t = normalizar_txt(texto)
 
+    if _tem(r"\b(com\s+[a-zA-ZÀ-ÿ]+|trocar para|outra profissional|outro profissional)\b", t):
+        return "profissional"
+
     # horário
     if (
         _tem(r"\b(cedo|mais cedo|mais tarde|horario|horário|manha|manhã|tarde|noite)\b", t)
@@ -237,7 +244,7 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     if f["tem_cancelamento"]:
         return {"intencao_conversacional": "cancelamento", "confianca": 90, "features": f}
 
-    if f["tem_ajuste"] and (f["tem_fluxo_ativo"] or f["tem_draft"]):
+    if (f["tem_ajuste"] or f.get("tem_ref_profissional")) and (f["tem_fluxo_ativo"] or f["tem_draft"]):
 
         tipo_ajuste = detectar_tipo_ajuste_incremental(texto)
 
