@@ -1997,11 +1997,30 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     )
 
     historico = ctx.get("historico_texto") or []
+
     if texto_usuario:
         historico.append(texto_usuario)
 
     ctx["historico_texto"] = historico[-2:]
-    await salvar_contexto_temporario(user_id, {"historico_texto": ctx["historico_texto"]})
+
+    print(
+        "🧪 [CTX ANTES SAVE CLASSIFICADOR]",
+        {
+            "intencao": ctx.get("intencao_conversacional"),
+            "tipo_ajuste": ctx.get("tipo_ajuste_incremental"),
+            "objetivo": ctx.get("objetivo_conversacional"),
+        },
+        flush=True
+    )
+
+    await salvar_contexto_temporario(user_id, {
+        "historico_texto": ctx["historico_texto"],
+        "intencao_conversacional": ctx.get("intencao_conversacional"),
+        "tipo_ajuste_incremental": ctx.get("tipo_ajuste_incremental"),
+        "objetivo_conversacional": ctx.get("objetivo_conversacional"),
+        "modo_conversa": ctx.get("modo_conversa"),
+        "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
+    })
 
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
