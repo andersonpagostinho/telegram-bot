@@ -21,6 +21,32 @@ def get_ref_from_path(path: str):
             ref = ref.document(partes[i])
     return ref
 
+async def buscar_notificacoes_pendentes(user_id: str):
+    """
+    Busca apenas notificações ainda não avisadas.
+    O status continua sendo validado no scheduler.
+    """
+    try:
+        ref = (
+            client.collection("Clientes")
+            .document(str(user_id))
+            .collection("NotificacoesAgendadas")
+        )
+
+        query = ref.where("avisado", "==", False)
+
+        docs = query.stream()
+        resultado = {}
+
+        async for doc in docs:
+            resultado[doc.id] = doc.to_dict()
+
+        return resultado
+
+    except Exception as e:
+        print(f"❌ buscar_notificacoes_pendentes erro: {e}")
+        return {}
+
 async def verificar_firebase():
     try:
         dados = await buscar_dados("Usuarios")  # ou outro caminho válido

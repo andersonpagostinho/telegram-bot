@@ -7,6 +7,7 @@ from services.firebase_service_async import (
     buscar_subcolecao,
     atualizar_dado_em_path,
     buscar_dado_em_path,
+    buscar_notificacoes_pendentes,
 )
 from services.recorrencia_service import checar_e_propor_recorrencias_todos
 import logging
@@ -69,7 +70,7 @@ async def processar_notificacoes_agendadas():
 
         for user_id in clientes.keys():
             path = f"Clientes/{user_id}/NotificacoesAgendadas"
-            notificacoes = await buscar_subcolecao(path) or {}
+            notificacoes = await buscar_notificacoes_pendentes(user_id)
 
             for notif_id, notif in notificacoes.items():
                 if not isinstance(notif, dict):
