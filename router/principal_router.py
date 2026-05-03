@@ -3243,6 +3243,39 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # =========================================================
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+
+        # =====================================================
+        # FORÇA EXTRAÇÃO DE SERVIÇO EM AJUSTE INCREMENTAL
+        # =====================================================
+        if (
+            ctx.get("tipo_ajuste_incremental") == "servico"
+            and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
+        ):
+            print("🔁 [AJUSTE_INCREMENTAL] tentando sobrescrever serviço", flush=True)
+
+            profissionais_dict = await buscar_subcolecao(
+                f"Clientes/{dono_id}/Profissionais"
+            ) or {}
+
+            servicos_validos = set()
+
+            for _, prof_data in profissionais_dict.items():
+                for s in (prof_data.get("servicos") or []):
+                    servicos_validos.add(normalizar(str(s)))
+
+            texto_norm = normalizar(texto_usuario)
+
+            for serv in servicos_validos:
+                if serv in texto_norm:
+                    print(f"🔁 [AJUSTE_INCREMENTAL] serviço detectado={serv}", flush=True)
+
+                    ctx["servico"] = serv
+
+                    draft_tmp = ctx.get("draft_agendamento") or {}
+                    draft_tmp["servico"] = serv
+                    ctx["draft_agendamento"] = draft_tmp
+
+                    break
         # =========================================================
         # 🔥 PROTEÇÃO — não fixar serviço cedo demais em aguardando_servico
         # quando o usuário mandar múltiplos serviços candidatos
