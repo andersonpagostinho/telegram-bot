@@ -267,6 +267,14 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     if f["tem_pedido"] and f["tem_tempo"]:
         return {"intencao_conversacional": "pedido_aberto_temporal", "confianca": 75, "features": f}
 
+    if f["tem_contexto_servico"] and (f["tem_fluxo_ativo"] or f["tem_draft"]):
+        return {
+            "intencao_conversacional": "ajuste_incremental",
+            "tipo_ajuste_incremental": "servico",
+            "confianca": 90,
+            "features": f
+        }
+
     if f["tem_contexto_servico"]:
         return {"intencao_conversacional": "consulta_servico", "confianca": 70, "features": f}
 
