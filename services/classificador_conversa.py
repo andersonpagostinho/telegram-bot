@@ -5,75 +5,89 @@ import unicodedata
 def normalizar_txt(txt: str) -> str:
     txt = (txt or "").lower().strip()
     txt = unicodedata.normalize("NFKD", txt)
-    txt = "".join(c for c in txt if not unicodedata.combining(c))
-    return txt
+    return "".join(c for c in txt if not unicodedata.combining(c))
+
+
+def _tem(regex: str, t: str) -> bool:
+    return bool(re.search(regex, t, flags=re.IGNORECASE))
 
 
 def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
 
-    tem_fluxo_ativo = bool(ctx.get("estado_fluxo") and ctx.get("estado_fluxo") != "idle")
-    tem_confirmacao_pendente = bool(ctx.get("aguardando_confirmacao_agendamento"))
+    estado_fluxo = ctx.get("estado_fluxo")
+
+    tem_fluxo_ativo = bool(estado_fluxo and estado_fluxo != "idle")
     tem_draft = bool(ctx.get("draft_agendamento"))
+    tem_confirmacao_pendente = bool(ctx.get("aguardando_confirmacao_agendamento"))
 
-    tem_pergunta = "?" in t or t.startswith((
-        "tem ", "consegue", "consigo", "da pra", "da para",
-        "sera que", "seria possivel", "voce consegue"
-    ))
-
-    tem_tempo = bool(
-        re.search(r"\b\d{1,2}:\d{2}\b", t)
-        or re.search(r"\b\d{1,2}h\b", t)
-        or re.search(r"\bdia\s+\d{1,2}\b", t)
-        or any(x in t for x in [
-            "hoje", "amanha", "depois de amanha",
-            "segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo",
-            "cedo", "manha", "tarde", "noite", "almoco", "fim do dia"
-        ])
+    # Estrutura interrogativa, não frase fixa
+    tem_pergunta = (
+        "?" in t
+        or _tem(r"^(tem|da|dá|consegue|pode|sera|será|existe|consigo)\b", t)
     )
 
-    tem_pedido = any(x in t for x in [
-        "quero", "queria", "preciso", "gostaria",
-        "pode", "consegue", "da pra", "da para",
-        "ve pra mim", "ve se", "me ajuda", "me encaixa"
-    ])
+    # Referência temporal ampla
+    tem_tempo = (
+        _tem(r"\b\d{1,2}:\d{2}\b", t)
+        or _tem(r"\b\d{1,2}h\b", t)
+        or _tem(r"\bdia\s+\d{1,2}\b", t)
+        or _tem(r"\b(hoje|amanha|amanhã|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo)\b", t)
+        or _tem(r"\b(cedo|manha|manhã|tarde|noite|almoco|almoço|fim do dia|meio dia)\b", t)
+    )
 
-    tem_servico_ou_estetica = any(x in t for x in [
-        "cabelo", "unha", "mao", "pe", "sobrancelha",
-        "barba", "pele", "rosto", "raiz", "mecha",
-        "escova", "corte", "progressiva", "hidratacao",
-        "luzes", "depilacao", "alongamento"
-    ])
+    # Pedido amplo: intenção de obter ação/ajuda
+    tem_pedido = _tem(
+        r"\b(quero|queria|preciso|gostaria|pode|consegue|consigo|ve|vê|ajuda|encaixa|resolver|fazer)\b",
+        t
+    )
 
-    tem_ajuste = any(x in t for x in [
-        "mais cedo", "mais tarde", "outro dia", "outro horario",
-        "melhor", "pensei melhor", "trocar", "mudar",
-        "adiantar", "atrasar"
-    ])
+    # Indefinição operacional: cliente não sabe exatamente o horário/serviço
+    tem_indefinido = _tem(
+        r"\b(algo|alguma|algum|qualquer|coisa|encaixe|um horario|uma hora|um tempo|uma vaga)\b",
+        t
+    )
 
-    tem_cancelamento = any(x in t for x in [
-        "cancelar", "desmarcar", "nao vou conseguir",
-        "nao precisa mais", "deixa pra la"
-    ])
+    # Domínio de serviço/beleza/atendimento
+    tem_contexto_servico = _tem(
+        r"\b(cabelo|unha|mao|mão|pe|pé|sobrancelha|barba|pele|rosto|raiz|mecha|"
+        r"escova|corte|progressiva|hidratacao|hidratação|luzes|depilacao|depilação|"
+        r"alongamento|manicure|pedicure|botox|coloracao|coloração)\b",
+        t
+    )
 
-    tem_social_forte = any(x in t for x in [
-        "kkkk", "rsrs", "churrasco", "almocar", "almoçar",
-        "saudade", "te amo", "familia", "mercado",
-        "compra pao", "me liga", "depois te conto"
-    ])
+    # Ajuste sobre algo anterior
+    tem_ajuste = _tem(
+        r"\b(mais cedo|mais tarde|outro|outra|trocar|mudar|adiantar|atrasar|pensei melhor|melhor)\b",
+        t
+    )
+
+    # Cancelamento/desistência
+    tem_cancelamento = _tem(
+        r"\b(cancelar|desmarcar|nao vou|não vou|nao consigo|não consigo|nao precisa|não precisa|deixa pra la|deixa pra lá)\b",
+        t
+    )
+
+    # Social forte: só pesa contra se não houver sinal operacional suficiente
+    tem_social = _tem(
+        r"\b(kkkk|rsrs|churrasco|almocar|almoçar|saudade|te amo|familia|família|"
+        r"mercado|compra|pao|pão|me liga|depois te conto|festa|barzinho)\b",
+        t
+    )
 
     return {
         "tem_fluxo_ativo": tem_fluxo_ativo,
-        "tem_confirmacao_pendente": tem_confirmacao_pendente,
         "tem_draft": tem_draft,
+        "tem_confirmacao_pendente": tem_confirmacao_pendente,
         "tem_pergunta": tem_pergunta,
         "tem_tempo": tem_tempo,
         "tem_pedido": tem_pedido,
-        "tem_servico_ou_estetica": tem_servico_ou_estetica,
+        "tem_indefinido": tem_indefinido,
+        "tem_contexto_servico": tem_contexto_servico,
         "tem_ajuste": tem_ajuste,
         "tem_cancelamento": tem_cancelamento,
-        "tem_social_forte": tem_social_forte,
+        "tem_social": tem_social,
     }
 
 
@@ -83,61 +97,68 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
     f = extrair_features_conversa(t, ctx)
 
     if not t:
-        return {"modo_conversa": "neutro", "confianca": 0, "motivo": "texto_vazio"}
+        return {"modo_conversa": "neutro", "confianca": 0, "motivo": "texto_vazio", "features": f}
 
     score_operacional = 0
     score_pessoal = 0
     motivos = []
 
+    # Continuidade tem prioridade
     if f["tem_fluxo_ativo"]:
         score_operacional += 35
         motivos.append("fluxo_ativo")
-
-    if f["tem_confirmacao_pendente"]:
-        score_operacional += 45
-        motivos.append("confirmacao_pendente")
 
     if f["tem_draft"]:
         score_operacional += 30
         motivos.append("draft_existente")
 
-    if f["tem_servico_ou_estetica"]:
+    if f["tem_confirmacao_pendente"]:
+        score_operacional += 45
+        motivos.append("confirmacao_pendente")
+
+    # Composições estruturais
+    if f["tem_contexto_servico"]:
         score_operacional += 35
-        motivos.append("contexto_servico_estetica")
+        motivos.append("contexto_servico")
 
-    if f["tem_tempo"]:
-        score_operacional += 15
-        motivos.append("referencia_temporal")
+    if f["tem_pedido"] and f["tem_contexto_servico"]:
+        score_operacional += 35
+        motivos.append("pedido_com_servico")
 
-    if f["tem_pedido"]:
-        score_operacional += 20
-        motivos.append("estrutura_de_pedido")
+    if f["tem_pergunta"] and f["tem_tempo"] and f["tem_indefinido"]:
+        score_operacional += 45
+        motivos.append("busca_aberta_temporal")
 
-    if f["tem_pergunta"]:
-        score_operacional += 10
-        motivos.append("estrutura_de_pergunta")
+    if f["tem_pedido"] and f["tem_tempo"]:
+        score_operacional += 30
+        motivos.append("pedido_temporal")
+
+    if f["tem_pergunta"] and f["tem_contexto_servico"]:
+        score_operacional += 30
+        motivos.append("pergunta_sobre_servico")
 
     if f["tem_ajuste"] and (f["tem_fluxo_ativo"] or f["tem_draft"]):
-        score_operacional += 35
-        motivos.append("ajuste_sobre_fluxo_existente")
+        score_operacional += 45
+        motivos.append("ajuste_de_fluxo")
 
-    if f["tem_cancelamento"]:
-        score_operacional += 35
-        motivos.append("cancelamento_possivel")
+    if f["tem_cancelamento"] and (f["tem_fluxo_ativo"] or f["tem_draft"] or f["tem_contexto_servico"]):
+        score_operacional += 45
+        motivos.append("cancelamento_operacional")
 
-    if f["tem_social_forte"]:
-        score_pessoal += 40
-        motivos.append("contexto_social_forte")
+    # Social só bloqueia se não houver composição operacional forte
+    if f["tem_social"]:
+        score_pessoal += 45
+        motivos.append("social_forte")
 
-    # Saudação pura sem fluxo não inicia NeoEve
-    if t in ["oi", "ola", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem"]:
+    # Saudação isolada não inicia atendimento
+    if t in {"oi", "ola", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem"}:
         if f["tem_fluxo_ativo"] or f["tem_draft"]:
-            return {"modo_conversa": "operacional", "confianca": 70, "motivo": "saudacao_dentro_de_fluxo"}
-        return {"modo_conversa": "neutro", "confianca": 40, "motivo": "saudacao_sem_contexto"}
+            return {"modo_conversa": "operacional", "confianca": 70, "motivo": "saudacao_dentro_de_fluxo", "features": f}
+        return {"modo_conversa": "neutro", "confianca": 40, "motivo": "saudacao_sem_contexto", "features": f}
 
     diferenca = score_operacional - score_pessoal
 
-    if score_operacional >= 50 and diferenca >= 15:
+    if score_operacional >= 50 and diferenca >= 10:
         return {
             "modo_conversa": "operacional",
             "confianca": min(score_operacional, 100),
@@ -145,7 +166,7 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
             "features": f,
         }
 
-    if score_pessoal >= 40 and score_operacional < 50:
+    if score_pessoal >= 45 and score_operacional < 50:
         return {
             "modo_conversa": "pessoal",
             "confianca": min(score_pessoal, 100),
@@ -156,7 +177,7 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
     return {
         "modo_conversa": "neutro",
         "confianca": max(score_operacional, score_pessoal),
-        "motivo": ", ".join(motivos) or "sem_sinal_suficiente",
+        "motivo": ", ".join(motivos) or "sem_composicao_suficiente",
         "features": f,
     }
 
@@ -172,19 +193,19 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     if f["tem_ajuste"] and (f["tem_fluxo_ativo"] or f["tem_draft"]):
         return {"intencao_conversacional": "ajuste_incremental", "confianca": 90, "features": f}
 
-    if f["tem_pergunta"] and f["tem_tempo"] and not f["tem_servico_ou_estetica"]:
-        return {"intencao_conversacional": "consulta_disponibilidade_periodo", "confianca": 80, "features": f}
+    if f["tem_pergunta"] and f["tem_tempo"] and f["tem_indefinido"]:
+        return {"intencao_conversacional": "consulta_disponibilidade_aberta", "confianca": 88, "features": f}
 
-    if f["tem_pergunta"] and f["tem_servico_ou_estetica"]:
-        return {"intencao_conversacional": "consulta_disponibilidade", "confianca": 85, "features": f}
+    if f["tem_pergunta"] and f["tem_contexto_servico"]:
+        return {"intencao_conversacional": "consulta_disponibilidade_servico", "confianca": 85, "features": f}
 
-    if f["tem_pedido"] and f["tem_servico_ou_estetica"] and f["tem_tempo"]:
+    if f["tem_pedido"] and f["tem_contexto_servico"] and f["tem_tempo"]:
         return {"intencao_conversacional": "agendamento_direto", "confianca": 85, "features": f}
 
     if f["tem_pedido"] and f["tem_tempo"]:
-        return {"intencao_conversacional": "pedido_aberto", "confianca": 75, "features": f}
+        return {"intencao_conversacional": "pedido_aberto_temporal", "confianca": 75, "features": f}
 
-    if f["tem_servico_ou_estetica"]:
+    if f["tem_contexto_servico"]:
         return {"intencao_conversacional": "consulta_servico", "confianca": 70, "features": f}
 
     return {"intencao_conversacional": "indefinida", "confianca": 40, "features": f}
