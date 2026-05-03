@@ -30,6 +30,11 @@ from calendar import monthrange
 from services.profissional_service import buscar_profissionais_disponiveis_no_horario
 from services.normalizacao_service import encontrar_servico_mais_proximo
 from router.conversation_classifier import classificar_contexto_conversa
+from services.classificador_conversa import (
+    classificar_contexto_mensagem,
+    classificar_intencao_conversacional,
+)
+
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -1892,6 +1897,53 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     tnorm = normalizar(texto_usuario)
 
     ctx = await carregar_contexto_temporario(user_id) or {}
+
+    # =========================================================
+    # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
+    # =========================================================
+    class_ctx = classificar_contexto_mensagem(texto_usuario, ctx)
+
+    print(f"🧭 [CLASSIFICADOR CONTEXTO] {class_ctx}", flush=True)
+
+    modo_conversa = class_ctx.get("modo_conversa")
+
+    # ---------------------------------------------------------
+    # BLOQUEIA NeoEve para conversa pessoal
+    # ---------------------------------------------------------
+    if modo_conversa == "pessoal":
+        print("🛑 [NEOEVE SILENCIADA] conversa pessoal", flush=True)
+
+        return {
+            "handled": True,
+            "acao": "ignorar",
+            "motivo": "contexto_pessoal"
+        }
+
+    # ---------------------------------------------------------
+    # neutro fora de fluxo não deve abrir atendimento
+    # ---------------------------------------------------------
+    if modo_conversa == "neutro":
+        estado_fluxo = ctx.get("estado_fluxo")
+
+        if not estado_fluxo or estado_fluxo == "idle":
+            print("⚪ [NEOEVE NEUTRA] sem fluxo ativo", flush=True)
+
+            return {
+                "handled": True,
+                "acao": "ignorar",
+                "motivo": "contexto_neutro"
+            }
+
+    # =========================================================
+    # CAMADA 1 — INTENÇÃO CONVERSACIONAL
+    # =========================================================
+    class_intencao = classificar_intencao_conversacional(texto_usuario, ctx)
+
+    print(f"🧠 [INTENÇÃO CONVERSACIONAL] {class_intencao}", flush=True)
+
+    ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
+    ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
+    ctx["modo_conversa"] = modo_conversa
 
     historico = ctx.get("historico_texto") or []
     if texto_usuario:
