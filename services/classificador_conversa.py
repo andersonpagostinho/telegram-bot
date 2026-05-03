@@ -158,7 +158,24 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
 
     diferenca = score_operacional - score_pessoal
 
-    if score_operacional >= 50 and diferenca >= 10:
+    if f["tem_social"]:
+        score_pessoal += 45
+        motivos.append("social_forte")
+
+    # ---------------------------------------------------------
+    # Pergunta temporal aberta quase sempre é operacional
+    # ---------------------------------------------------------
+    if (
+        f["tem_pergunta"]
+        and f["tem_tempo"]
+        and f["tem_indefinido"]
+    ):
+        score_operacional += 10
+        motivos.append("boost_busca_aberta")
+
+    diferenca = score_operacional - score_pessoal
+
+    if score_operacional >= 45 and diferenca >= 5:
         return {
             "modo_conversa": "operacional",
             "confianca": min(score_operacional, 100),
