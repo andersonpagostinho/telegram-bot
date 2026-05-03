@@ -198,6 +198,36 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
         "features": f,
     }
 
+def detectar_tipo_ajuste_incremental(texto: str) -> str:
+    t = normalizar_txt(texto)
+
+    # horário
+    if (
+        _tem(r"\b(cedo|mais cedo|mais tarde|horario|horário|manha|manhã|tarde|noite)\b", t)
+        or _tem(r"\b\d{1,2}:\d{2}\b", t)
+        or _tem(r"\b\d{1,2}h\b", t)
+    ):
+        return "horario"
+
+    # profissional
+    if _tem(r"\b(com|trocar para|outra profissional|outro profissional)\b", t):
+        return "profissional"
+
+    # data
+    if _tem(
+        r"\b(amanha|amanhã|hoje|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|outro dia)\b",
+        t
+    ):
+        return "data"
+
+    # serviço
+    if _tem(
+        r"\b(corte|escova|hidratacao|hidratação|luzes|coloracao|coloração|manicure|pedicure|unha)\b",
+        t
+    ):
+        return "servico"
+
+    return "indefinido"
 
 def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> dict:
     ctx = ctx or {}
@@ -208,7 +238,15 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
         return {"intencao_conversacional": "cancelamento", "confianca": 90, "features": f}
 
     if f["tem_ajuste"] and (f["tem_fluxo_ativo"] or f["tem_draft"]):
-        return {"intencao_conversacional": "ajuste_incremental", "confianca": 90, "features": f}
+
+        tipo_ajuste = detectar_tipo_ajuste_incremental(texto)
+
+        return {
+            "intencao_conversacional": "ajuste_incremental",
+            "tipo_ajuste_incremental": tipo_ajuste,
+            "confianca": 90,
+            "features": f
+        }
 
     if f["tem_pergunta"] and f["tem_tempo"] and f["tem_indefinido"]:
         return {"intencao_conversacional": "consulta_disponibilidade_aberta", "confianca": 88, "features": f}
