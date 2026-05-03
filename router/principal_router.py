@@ -5059,11 +5059,30 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print("🔁 [AJUSTE_INCREMENTAL] pós-extração", flush=True)
 
         draft_inc = ctx.get("draft_agendamento") or {}
+        tipo_ajuste = ctx.get("tipo_ajuste_incremental")
 
         if draft_inc:
             ctx["estado_fluxo"] = "ajustando_agendamento"
             ctx["modo_incremental"] = True
-            ctx["draft_agendamento"] = draft_inc
+
+            # =====================================================
+            # Aplica somente o eixo alterado
+            # =====================================================
+            if tipo_ajuste == "servico" and ctx.get("servico"):
+                print("🔁 [AJUSTE_INCREMENTAL] aplicando ajuste de serviço", flush=True)
+
+                draft_inc["servico"] = ctx.get("servico")
+
+                ctx["draft_agendamento"] = draft_inc
+                ctx["dados_confirmacao_agendamento"] = {
+                    **(ctx.get("dados_confirmacao_agendamento") or {}),
+                    "servico": ctx.get("servico"),
+                    "profissional": draft_inc.get("profissional") or ctx.get("profissional_escolhido"),
+                    "data_hora": draft_inc.get("data_hora") or ctx.get("data_hora"),
+                }
+
+            else:
+                ctx["draft_agendamento"] = draft_inc
 
     # 🔥 PROTEÇÃO CRÍTICA
     if not isinstance(ctx, dict):
