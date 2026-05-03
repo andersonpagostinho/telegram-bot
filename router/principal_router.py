@@ -4085,16 +4085,61 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 texto_usuario,
             )
 
-        if not prof:
-            print("🛑 [AG_SERVICO] saiu por falta de profissional", flush=True)
-            ctx["estado_fluxo"] = "aguardando_profissional"
-            await salvar_contexto_temporario(user_id, ctx)
-            return await _send_and_stop(context, user_id, "Qual profissional você prefere?")
+        # =========================================================
+        # PRIORIDADE — objetivo conversacional manda no fluxo
+        # =========================================================
+        objetivo_conv = ctx.get("objetivo_conversacional")
 
+        if objetivo_conv == "descobrir_servico_para_consulta" and not servico:
+            print("🎯 [AG_SERVICO] objetivo prioriza descoberta de serviço", flush=True)
+
+            ctx["estado_fluxo"] = "aguardando_servico"
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            frase_data = montar_frase_data_legivel(data_hora) if data_hora else ""
+
+            if frase_data:
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Perfeito — {frase_data} 😊\n\nQual serviço você deseja?"
+                )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Qual serviço você deseja?"
+            )
+
+        # =========================================================
+        # fluxo padrão
+        # =========================================================
         if not servico:
             print("🛑 [AG_SERVICO] saiu por falta de serviço", flush=True)
+
+            ctx["estado_fluxo"] = "aguardando_servico"
+
             await salvar_contexto_temporario(user_id, ctx)
-            return await _send_and_stop(context, user_id, "Qual serviço vai ser?")
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Qual serviço vai ser?"
+            )
+
+        if not prof:
+            print("🛑 [AG_SERVICO] saiu por falta de profissional", flush=True)
+
+            ctx["estado_fluxo"] = "aguardando_profissional"
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Qual profissional você prefere?"
+            )
 
         # =========================================================
         # 🔥 USAR HORÁRIOS SUGERIDOS COM SERVIÇO DEFINIDO
