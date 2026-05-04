@@ -3141,8 +3141,40 @@ Responda apenas com o plano formatado.
 async def gerar_resposta_humana_agendamento(contexto_decisao: dict) -> str:
 
     try:
+        tipo = (contexto_decisao or {}).get("tipo")
 
-        prompt = f"""
+        if tipo == "cancelamento_confirmacao":
+            prompt = f"""
+Você é uma secretária profissional de salão respondendo pelo WhatsApp.
+
+O cliente desistiu de um agendamento que ainda NÃO foi confirmado.
+
+Sua função é apenas responder de forma curta, natural e profissional.
+
+REGRAS ABSOLUTAS:
+- Não confirme agendamento.
+- Não diga que cancelou evento, porque o evento ainda não foi criado.
+- Não ofereça horário.
+- Não tente convencer o cliente.
+- Não invente informação.
+- Responda no máximo em 1 frase.
+- Seja humana, simples e objetiva.
+
+Contexto:
+{json.dumps(contexto_decisao, ensure_ascii=False)}
+
+Exemplos de estilo:
+"Tudo certo 😊 Não vou agendar."
+"Sem problema, não vou marcar então."
+"Combinado, deixei sem agendar."
+
+Retorne SOMENTE JSON:
+{{
+  "resposta": "texto"
+}}
+"""
+        else:
+            prompt = f"""
 Você é uma atendente de salão respondendo pelo WhatsApp.
 
 Sua função é acolher uma dúvida, insistência ou objeção do cliente durante um conflito de agenda.
@@ -3187,7 +3219,6 @@ Retorne SOMENTE JSON:
         )
 
         conteudo = resposta.choices[0].message.content.strip()
-
         data = json.loads(conteudo)
 
         return data.get("resposta", "")
