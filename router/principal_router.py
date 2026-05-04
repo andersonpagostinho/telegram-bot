@@ -2117,6 +2117,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ctx = await carregar_contexto_temporario(user_id) or {}
 
     # =========================================================
+    # 🧑‍💼 BLOQUEIO GLOBAL — atendimento assumido pelo humano
+    # =========================================================
+    if ctx.get("controle_atendimento") == "humano":
+        print("🧑‍💼 [HANDOFF HUMANO] NeoEve em silêncio", flush=True)
+
+        return {
+            "handled": True,
+            "acao": "silencioso",
+            "motivo": "controle_humano"
+        }
+
+
+    # =========================================================
     # 🧑‍💼 HANDOFF EXPLÍCITO PARA HUMANO
     # cliente pediu para falar com a dona/pessoa
     # =========================================================
