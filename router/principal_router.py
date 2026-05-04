@@ -1643,6 +1643,29 @@ async def resolver_alteracao_draft_agendamento(
         )
 
     # =====================================================
+    # 🔥 ALTERAÇÃO DE DATA ABERTA
+    # Ex.: "outro dia"
+    # =====================================================
+    if alteracao.get("tipo") == "data_aberta":
+        ctx["estado_fluxo"] = "aguardando_data"
+        ctx["aguardando_confirmacao_agendamento"] = False
+
+        draft["modo_prechecagem"] = True
+        ctx["draft_agendamento"] = draft
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Claro 😊\n\n"
+                f"Para {servico} com {profissional}, qual outro dia você prefere?"
+            ),
+            parse_mode=None
+        )
+
+    # =====================================================
     # 🔥 ALTERAÇÃO DE DATA
     # =====================================================
     if alteracao.get("tipo") == "data":
