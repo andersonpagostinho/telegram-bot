@@ -1711,6 +1711,108 @@ async def resolver_alteracao_draft_agendamento(
             parse_mode=None
         )
 
+    # =====================================================
+    # 🔥 ALTERAÇÃO DE SERVIÇO
+    # =====================================================
+    if alteracao.get("tipo") == "servico":
+        novo_servico = alteracao.get("valor")
+
+        if not novo_servico:
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Qual serviço você quer colocar no lugar?",
+                parse_mode=None
+            )
+
+        duracao = estimar_duracao(novo_servico)
+
+        data = data_hora.split("T")[0]
+        hora = data_hora.split("T")[1][:5]
+
+        valido = await validar_profissional_para_servico(
+            dono_id=user_id,
+            profissional=profissional,
+            servico=novo_servico
+        )
+
+        if not valido.get("ok"):
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"{profissional} não atende {novo_servico}.\n\n"
+                    "Quer trocar de profissional?"
+                ),
+                parse_mode=None
+            )
+
+        conflito = await verificar_conflito_e_sugestoes_profissional(
+            user_id=user_id,
+            data=data,
+            hora_inicio=hora,
+            duracao_min=duracao,
+            profissional=profissional,
+            servico=novo_servico
+        )
+
+        if conflito.get("conflito"):
+            sugestoes = conflito.get("sugestoes") or []
+
+            if sugestoes:
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"Consigo trocar para {novo_servico}, mas esse horário não encaixa.\n\n"
+                        f"Tenho esta opção: {sugestoes[0]}.\n\n"
+                        "Quer esse horário?"
+                    ),
+                    parse_mode=None
+                )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Consigo trocar para {novo_servico}, mas esse horário não está disponível.\n\n"
+                    "Quer que eu procure outro horário?"
+                ),
+                parse_mode=None
+            )
+
+        draft["servico"] = novo_servico
+        draft["modo_prechecagem"] = True
+
+        ctx["draft_agendamento"] = draft
+        ctx["servico"] = novo_servico
+        ctx["estado_fluxo"] = "agendando"
+        ctx["aguardando_confirmacao_agendamento"] = True
+        ctx["dados_confirmacao_agendamento"] = {
+            "origem": "confirmacao_pendente",
+            "profissional": profissional,
+            "servico": novo_servico,
+            "data_hora": data_hora,
+            "duracao": duracao,
+            "descricao": f"{novo_servico.capitalize()} com {profissional}",
+        }
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        data_legivel = formatar_data_hora_br(data_hora)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Perfeito 😊\n\n"
+                f"{novo_servico.capitalize()} com {profissional}\n"
+                f"📆 {data_legivel}\n\n"
+                "Posso confirmar?"
+            ),
+            parse_mode=None
+        )
+
     return await _send_and_stop(
         context,
         user_id,
