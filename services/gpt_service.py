@@ -3205,6 +3205,7 @@ COMPORTAMENTO:
 - Se o cliente rejeitar os horários:
   - NÃO repita as opções.
   - Pergunte qual horário seria melhor para ele.
+  - Se o cliente perguntar por um horário específico e ele não estiver disponível, informe que não há esse horário com a profissional original e cite apenas o horário mais próximo disponível. Se houver profissionais alternativos, diga que pode verificar/manter o horário com elas.
 
 - Se o cliente pedir "mais cedo":
   - Direcione para horários anteriores.
