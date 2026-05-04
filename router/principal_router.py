@@ -4678,6 +4678,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Qual dia e horário você prefere?")
 
+        # =====================================================
+        # 🔒 NÃO REVALIDAR SE JÁ EXISTE CONFIRMAÇÃO PRONTA
+        # =====================================================
+        if (
+            ctx.get("aguardando_confirmacao_agendamento")
+            and ctx.get("dados_confirmacao_agendamento")
+        ):
+            print(
+                "🔒 [SKIP REVALIDACAO] confirmação já pronta",
+                flush=True
+            )
+
+            return None
+
         # ✅ valida profissional x serviço ANTES de confirmar
         validacao = await validar_profissional_para_servico(dono_id, prof, servico)
         if not validacao["ok"]:
