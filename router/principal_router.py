@@ -2237,25 +2237,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
     # =========================================================
-    # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
-    # =========================================================
-    if eh_confirmacao_pendente_ativa(ctx):
-        alteracao_draft = await detectar_alteracao_draft_agendamento(
-            texto_usuario=texto_usuario,
-            ctx=ctx,
-            dono_id=dono_id
-        )
-
-        if alteracao_draft:
-            return await resolver_alteracao_draft_agendamento(
-                update=update,
-                context=context,
-                user_id=user_id,
-                ctx=ctx,
-                alteracao=alteracao_draft
-            )
-
-    # =========================================================
     # PRIORIDADE MÁXIMA — CONFIRMAÇÃO FINAL DE AGENDAMENTO
     # =========================================================
     if eh_confirmacao_pendente_ativa(ctx) and (
@@ -2312,6 +2293,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             user_id,
             "Perdi parte dos dados da confirmação. Me diga novamente o profissional, serviço e horário para eu concluir."
         )
+
+    # =========================================================
+    # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
+    # =========================================================
+    if eh_confirmacao_pendente_ativa(ctx):
+        alteracao_draft = await detectar_alteracao_draft_agendamento(
+            texto_usuario=texto_usuario,
+            ctx=ctx,
+            dono_id=dono_id
+        )
+
+        if alteracao_draft:
+            return await resolver_alteracao_draft_agendamento(
+                update=update,
+                context=context,
+                user_id=user_id,
+                ctx=ctx,
+                alteracao=alteracao_draft
+            )
 
     # =========================================================
     # PRIORIDADE ALTA — CONTINUIDADE DE AÇÃO PENDENTE
@@ -4690,7 +4690,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 flush=True
             )
 
-            return None
+            return {"handled": True, "skip": "confirmacao_ja_pronta"}
 
         # ✅ valida profissional x serviço ANTES de confirmar
         validacao = await validar_profissional_para_servico(dono_id, prof, servico)
