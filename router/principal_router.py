@@ -34,6 +34,7 @@ from services.classificador_conversa import (
     classificar_contexto_mensagem,
     classificar_intencao_conversacional,
 )
+from services.interpretador_conversacional import interpretar_conversa_operacional
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -2177,6 +2178,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         flush=True
     )
 
+    # =========================================================
+    # 🧠 CAMADA CONVERSACIONAL OFICIAL — NeoEve
+    # Interpreta linguagem; não executa agenda.
+    # =========================================================
+    interpretacao_conv = interpretar_conversa_operacional(
+        texto=texto_usuario,
+        ctx=ctx,
+        servicos_catalogo=servicos_catalogo,
+        profissionais_catalogo=profissionais_catalogo,
+    )
+
+    print(
+        f"🧠 [INTERPRETADOR CONVERSACIONAL] {interpretacao_conv}",
+        flush=True
+    )
+
+    ctx["interpretacao_conversacional"] = interpretacao_conv
+
     historico = ctx.get("historico_texto") or []
 
     if texto_usuario:
@@ -2310,6 +2329,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 f"Esse horário (*{formatar_data_hora_br(data_hora_iso)}*) já passou.\n"
                 "Quer *amanhã no mesmo horário* ou prefere outro horário?"
             )
+        )
+    # =========================================================
+    # 🔥 NEGATIVA / DESISTÊNCIA EM CONFIRMAÇÃO PENDENTE
+    # via interpretador conversacional
+    # =========================================================
+    interpretacao_conv = ctx.get("interpretacao_conversacional") or {}
+
+    if (
+        eh_confirmacao_pendente_ativa(ctx)
+       and interpretacao_conv.get("intencao") == "negacao_confirmacao_agendamento"
+    ):
+        await limpar_contexto_agendamento(user_id)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            "Tudo bem 😊 Não vou agendar."
         )
 
     # =========================================================
