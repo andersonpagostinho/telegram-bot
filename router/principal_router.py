@@ -2194,7 +2194,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         flush=True
     )
 
-    ctx["interpretacao_conversacional"] = interpretacao_conv
+    if interpretacao_conv.get("intencao") != "indefinida":
+        ctx["interpretacao_conversacional"] = interpretacao_conv
 
     historico = ctx.get("historico_texto") or []
 
@@ -2338,8 +2339,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     if (
         eh_confirmacao_pendente_ativa(ctx)
-       and interpretacao_conv.get("intencao") == "negacao_confirmacao_agendamento"
+        and interpretacao_conv.get("intencao") == "negacao_confirmacao_agendamento"
     ):
+
+        from services.gpt_service import gerar_resposta_humana_agendamento
+
+        resposta_humana = await gerar_resposta_humana_agendamento({
+            "tipo": "cancelamento_confirmacao",
+            "servico": ctx.get("servico"),
+            "profissional": ctx.get("profissional_escolhido"),
+            "data_hora": ctx.get("data_hora"),
+        })
+
         await limpar_contexto_agendamento(user_id)
 
         return await _send_and_stop(
