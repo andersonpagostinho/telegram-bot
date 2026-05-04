@@ -3,7 +3,7 @@
 from services.session_service import pegar_sessao
 from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt
 from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario
-from utils.context_manager import atualizar_contexto  # apenas histórico user/bot
+from utils.context_manager import atualizar_contexto, limpar_contexto_agendamento
 from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
@@ -34,7 +34,6 @@ from services.classificador_conversa import (
     classificar_contexto_mensagem,
     classificar_intencao_conversacional,
 )
-
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
