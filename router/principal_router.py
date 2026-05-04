@@ -2371,6 +2371,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "Perdi parte dos dados da confirmação. Me diga novamente o profissional, serviço e horário para eu concluir."
         )
 
+    if (
+        eh_confirmacao_pendente_ativa(ctx)
+        and ctx.get("intencao_conversacional") == "negacao_confirmacao_agendamento"
+    ):
+        await limpar_contexto_agendamento(user_id)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            "Tudo bem 😊 Não vou agendar."
+        )
+
     # =========================================================
     # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
     # =========================================================

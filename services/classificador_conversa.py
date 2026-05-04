@@ -241,6 +241,19 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     t = normalizar_txt(texto)
     f = extrair_features_conversa(t, ctx)
 
+    # =====================================================
+    # 🔥 NEGAÇÃO / DESISTÊNCIA EM CONFIRMAÇÃO PENDENTE
+    # GPT/classificador interpreta; router executa.
+    # =====================================================
+    if ctx.get("aguardando_confirmacao_agendamento") is True:
+        if classificar_negacao_confirmacao(texto, ctx):
+            return {
+                "intencao_conversacional": "negacao_confirmacao_agendamento",
+                "tipo_ajuste_incremental": None,
+                "confianca": 90,
+                "features": f
+            }
+
     if f["tem_cancelamento"]:
         return {"intencao_conversacional": "cancelamento", "confianca": 90, "features": f}
 
@@ -279,3 +292,28 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
         return {"intencao_conversacional": "consulta_servico", "confianca": 70, "features": f}
 
     return {"intencao_conversacional": "indefinida", "confianca": 40, "features": f}
+
+def classificar_negacao_confirmacao(texto: str, ctx: dict | None = None) -> bool:
+    t = normalizar_txt(texto or "")
+
+    negativos = {
+        "nao", "n", "negativo", "recuso"
+    }
+
+    if t in negativos:
+        return True
+
+    sinais_negacao = [
+        "nao quero",
+        "nao precisa",
+        "melhor nao",
+        "deixa",
+        "esquece",
+        "cancela",
+        "desisti",
+        "vou ver depois",
+        "depois eu vejo",
+        "agora nao",
+    ]
+
+    return any(s in t for s in sinais_negacao)
