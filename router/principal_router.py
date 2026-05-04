@@ -2425,7 +2425,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         return await _send_and_stop(
             context,
             user_id,
-            "Tudo bem 😊 Não vou agendar."
+            resposta_humana or "Tudo bem 😊 Não vou agendar."
         )
 
     # =========================================================
@@ -3349,6 +3349,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 from services.gpt_service import gerar_resposta_humana_agendamento
 
                 resposta_humana = await gerar_resposta_humana_agendamento({
+                    "tipo": "conflito_agenda",
                     "mensagem_cliente": texto_usuario,
                     "estado_fluxo": ctx.get("estado_fluxo"),
                     "profissional_original": ctx.get("profissional_escolhido"),

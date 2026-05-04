@@ -3164,7 +3164,7 @@ Contexto:
 {json.dumps(contexto_decisao, ensure_ascii=False)}
 
 Exemplos de estilo:
-"Tudo certo 😊 Não vou agendar."
+
 "Sem problema, não vou marcar então."
 "Combinado, deixei sem agendar."
 "Beleza, então não vou agendar 😊"
@@ -3178,7 +3178,7 @@ Retorne SOMENTE JSON:
   "resposta": "texto"
 }}
 """
-        else:
+        elif tipo == "conflito_agenda":
             prompt = f"""
 Você é uma atendente de salão respondendo pelo WhatsApp.
 
@@ -3214,6 +3214,8 @@ Retorne SOMENTE JSON:
   "resposta": "texto"
 }}
 """
+        else:
+            return ""
 
         resposta = await client.chat.completions.create(
             model="gpt-4o",
