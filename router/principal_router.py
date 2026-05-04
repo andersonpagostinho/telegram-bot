@@ -2521,7 +2521,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # PRIORIDADE ALTA — CONTINUIDADE DE AÇÃO PENDENTE
     # Ex.: resolver_fora_do_expediente, trocar profissional, etc.
     # =========================================================
-    if ctx.get("ultima_acao") and eh_aceite_de_acao_pendente(texto_usuario, ctx):
+    if (
+        ctx.get("ultima_acao")
+        and ctx.get("estado_fluxo") not in ["aguardando_escolha_horario"]
+        and eh_aceite_de_acao_pendente(texto_usuario, ctx)
+    ):
         print(
             f"🔥 [CONTINUIDADE PENDENTE] ultima_acao={ctx.get('ultima_acao')}",
             flush=True
