@@ -3388,6 +3388,55 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
         # =========================================================
+        # 🔥 CONTINUIDADE FORÇADA — aguardando_data
+        # evita cair no parser global e corromper serviço/profissional
+        # =========================================================
+        if ctx.get("estado_fluxo") == "aguardando_data":
+
+            print("🔥 [GUARD_AGUARDANDO_DATA] EXECUTOU ANTES DA EXTRAÇÃO PRINCIPAL", flush=True)
+
+            dt = interpretar_data_e_hora(texto_usuario)
+
+            if dt:
+
+                draft = ctx.get("draft_agendamento") or {}
+
+                data_iso = dt.strftime("%Y-%m-%d")
+
+                hora_original = "09:00"
+
+                data_hora_antiga = (
+                    draft.get("data_hora")
+                    or ctx.get("data_hora")
+                )
+
+                if data_hora_antiga and "T" in data_hora_antiga:
+                    hora_original = data_hora_antiga.split("T")[1][:5]
+
+                nova_data_hora = f"{data_iso}T{hora_original}:00"
+
+                draft["data_hora"] = nova_data_hora
+
+                ctx["draft_agendamento"] = draft
+                ctx["data_hora"] = nova_data_hora
+                ctx["estado_fluxo"] = "agendando"
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                alteracao = {
+                    "tipo": "data",
+                    "valor": data_iso
+                }
+
+                return await resolver_alteracao_draft_agendamento(
+                    update=update,
+                    context=context,
+                    user_id=user_id,
+                    ctx=ctx,
+                    alteracao=alteracao
+                )
+
+        # =========================================================
         # 🔥 EXTRAÇÃO PRINCIPAL
         # =========================================================
 
