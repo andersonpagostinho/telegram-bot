@@ -1341,6 +1341,27 @@ async def detectar_alteracao_draft_agendamento(
     servico_atual = draft.get("servico") or ctx.get("servico")
     profissional_atual = draft.get("profissional") or ctx.get("profissional_escolhido")
 
+    tipo_ajuste_ctx = (ctx or {}).get("tipo_ajuste_incremental")
+
+    # =====================================================
+    # 🔒 Se a camada conversacional já definiu ajuste de data,
+    # não deixar outro detector transformar isso em serviço.
+    # Ex.: "outro dia"
+    # =====================================================
+    if tipo_ajuste_ctx == "data":
+        dt_novo = interpretar_data_e_hora(texto_usuario)
+
+        if not dt_novo:
+            return {
+                "tipo": "data_aberta",
+                "valor": None
+            }
+
+        return {
+            "tipo": "data",
+            "valor": dt_novo.strftime("%Y-%m-%d")
+        }
+
     # =====================================================
     # 🔥 horário relativo
     # =====================================================
