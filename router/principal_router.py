@@ -2185,8 +2185,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     interpretacao_conv = interpretar_conversa_operacional(
         texto=texto_usuario,
         ctx=ctx,
-        servicos_catalogo=servicos_catalogo,
-        profissionais_catalogo=profissionais_catalogo,
+        servicos_catalogo=[],
+        profissionais_catalogo=[],
     )
 
     print(
