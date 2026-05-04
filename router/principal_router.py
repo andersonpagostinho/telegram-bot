@@ -1589,11 +1589,14 @@ async def resolver_alteracao_draft_agendamento(
             )
 
         draft["profissional"] = novo_profissional
+        draft["servico"] = servico
         draft["data_hora"] = data_hora
         draft["modo_prechecagem"] = True
 
         ctx["draft_agendamento"] = draft
         ctx["profissional_escolhido"] = novo_profissional
+        ctx["servico"] = servico
+        ctx["data_hora"] = data_hora
         ctx["estado_fluxo"] = "agendando"
         ctx["aguardando_confirmacao_agendamento"] = True
         ctx["dados_confirmacao_agendamento"] = {
