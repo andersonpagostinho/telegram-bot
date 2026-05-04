@@ -1744,6 +1744,16 @@ async def resolver_alteracao_draft_agendamento(
             "descricao": f"{servico.capitalize()} com {profissional}",
         }
 
+        print(
+            "🧪 [ALTERACAO_DATA_FINAL]",
+            {
+                "ctx_data_hora": ctx.get("data_hora"),
+                "draft": ctx.get("draft_agendamento"),
+                "confirmacao": ctx.get("dados_confirmacao_agendamento"),
+            },
+            flush=True
+        )
+
         await salvar_contexto_temporario(user_id, ctx)
 
         return await _send_and_stop(
