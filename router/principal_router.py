@@ -3345,6 +3345,45 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             ctx,
                             texto_usuario,
                         )
+                # =========================================================
+                # 🔥 CLIENTE QUER OUTRO DIA
+                # =========================================================
+                texto_norm = normalizar(texto_usuario or "")
+
+                if any(x in texto_norm for x in [
+                    "outro dia",
+                    "outra data",
+                    "em outro dia",
+                    "tem outro dia",
+                    "pode ser outro dia",
+                ]):
+
+                    print("📆 [OUTRO DIA] cliente pediu nova data", flush=True)
+
+                    draft = ctx.get("draft_agendamento") or {}
+
+                    ctx["estado_fluxo"] = "aguardando_data"
+                    ctx["modo_escolha_horario"] = False
+                    ctx["aguardando_confirmacao_agendamento"] = False
+
+                    # mantém serviço e profissional
+                    ctx["draft_agendamento"] = draft
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    servico_ctx = ctx.get("servico") or draft.get("servico")
+                    prof_ctx = ctx.get("profissional_escolhido") or draft.get("profissional")
+
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                    (
+                        f"Claro 😊\n\n"
+                        f"Para *{servico_ctx}* com *{prof_ctx}*, qual outro dia você prefere?"
+                    ),
+                    ctx,
+                    texto_usuario,
+                )
                 
                 # =========================================================
                 # GPT HUMANO — dúvida/objeção em conflito
