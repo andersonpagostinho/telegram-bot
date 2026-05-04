@@ -3167,6 +3167,11 @@ Exemplos de estilo:
 "Tudo certo 😊 Não vou agendar."
 "Sem problema, não vou marcar então."
 "Combinado, deixei sem agendar."
+"Beleza, então não vou agendar 😊"
+"Perfeito, deixei sem marcar 👍"
+"Tranquilo, não segui com o agendamento"
+"Ok, parei por aqui então"
+"Sem problema, não reservei esse horário"
 
 Retorne SOMENTE JSON:
 {{
@@ -3212,7 +3217,7 @@ Retorne SOMENTE JSON:
 
         resposta = await client.chat.completions.create(
             model="gpt-4o",
-            temperature=0.3,
+            temperature=0.6,
             messages=[
                 {"role": "system", "content": prompt}
             ]

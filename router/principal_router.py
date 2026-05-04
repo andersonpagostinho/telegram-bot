@@ -89,6 +89,45 @@ def montar_frase_data_legivel(data_hora_iso: str | None) -> str:
     except Exception:
         return ""
 
+def quer_falar_com_humano(texto: str, ctx: dict | None = None) -> bool:
+    ctx = ctx or {}
+    t = normalizar(texto or "")
+
+    nome_dono = (
+        ctx.get("nome_dono")
+        or ctx.get("nome_responsavel")
+        or ctx.get("nome_empresa_responsavel")
+        or ""
+    )
+
+    nome_dono_norm = normalizar(nome_dono)
+
+    sinais_genericos = [
+        "falar com a dona",
+        "falar com a responsavel",
+        "falar com a pessoa",
+        "falar com humano",
+        "prefiro falar direto",
+        "me passa pra ela",
+        "me passa para ela",
+        "atendente humana",
+    ]
+
+    if any(s in t for s in sinais_genericos):
+        return True
+
+    if nome_dono_norm and any(x in t for x in [
+        f"falar com {nome_dono_norm}",
+        f"quero falar com {nome_dono_norm}",
+        f"prefiro falar com {nome_dono_norm}",
+        f"me passa para {nome_dono_norm}",
+        f"me passa pra {nome_dono_norm}",
+        f"chama {nome_dono_norm}",
+    ]):
+        return True
+
+    return False
+
 def resolver_proximo_passo_real(
     proximo_passo: str | None,
     slots_extraidos: dict,
@@ -2078,6 +2117,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ctx = await carregar_contexto_temporario(user_id) or {}
 
     # =========================================================
+    # 🧑‍💼 HANDOFF EXPLÍCITO PARA HUMANO
+    # cliente pediu para falar com a dona/pessoa
+    # =========================================================
+    if quer_falar_com_humano(texto_usuario, ctx):
+        ctx["controle_atendimento"] = "humano"
+        ctx["estado_fluxo"] = "encaminhado_humano"
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        print("🧑‍💼 [HANDOFF ATIVADO] cliente pediu humano", flush=True)
+
+        return {
+            "handled": True,
+            "acao": "silencioso",
+            "motivo": "handoff_humano"
+        }
+
+    # =========================================================
     # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
     # =========================================================
     class_ctx = classificar_contexto_mensagem(texto_usuario, ctx)
@@ -2106,6 +2163,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if not estado_fluxo or estado_fluxo == "idle":
             print("⚪ [NEOEVE NEUTRA] sem fluxo ativo", flush=True)
+
+            saudacoes_usuario = [
+                "oi", "ola", "olá", "bom dia", "boa tarde", "boa noite",
+                "e ai", "e aí", "eai", "opa", "oie"
+            ]
+
+            if texto_lower in saudacoes_usuario:
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    "👋 Olá! Como posso te ajudar hoje?"
+                )
 
             return {
                 "handled": True,
@@ -2225,19 +2294,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
-
-    # 🔥 BLOQUEIO DE SAUDAÇÃO (ANTES DE QUALQUER FLUXO OU GPT)
-    saudacoes_usuario = [
-        "oi", "ola", "olá", "bom dia", "boa tarde", "boa noite",
-        "e ai", "e aí", "eai", "opa", "oie"
-    ]
-
-    if estado_fluxo == "idle" and texto_lower in saudacoes_usuario:
-        return await _send_and_stop(
-            context,
-            user_id,
-            "👋 Olá! Como posso te ajudar hoje?"
-        )
 
     # ✅ 0) Consulta informativa só quando está IDLE (não atrapalha o fluxo de agendamento)
     if estado_fluxo == "idle":
@@ -3465,18 +3521,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if classificacao_conversa.get("tipo") == "mensagem_pessoal":
 
             print(
-                "🧠 [CLASSIFICADOR] mensagem pessoal detectada — ignorando fluxo operacional",
+                "🧠 [CLASSIFICADOR] mensagem pessoal detectada — handoff silencioso",
                 flush=True
             )
 
-            return await _send_and_stop(
-                context,
-                user_id,
-            (
-                "Sou a assistente virtual dela 😊\n\n"
-                "Vou encaminhar sua mensagem para que ela te responda assim que possível."
-            )
-        )
+            ctx["controle_atendimento"] = "humano"
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return {
+                "handled": True,
+                "acao": "silencioso",
+                "motivo": "handoff_humano"
+            }
 
         # =========================================================
         # 🔥 CONTINUIDADE FORÇADA — aguardando_data
