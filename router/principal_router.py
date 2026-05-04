@@ -2110,16 +2110,33 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     print(f"🧠 [INTENÇÃO CONVERSACIONAL] {class_intencao}", flush=True)
 
-    ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
-    ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
-    ctx["modo_conversa"] = modo_conversa
-    ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
+    preservar_continuidade_data = (
+        ctx.get("estado_fluxo") == "aguardando_data"
+        and bool(ctx.get("draft_agendamento"))
+    )
+
+    if preservar_continuidade_data:
+        print(
+            "🔒 [CONTEXTO PRESERVADO] aguardando_data ativo — não sobrescrevendo intenção",
+            flush=True
+        )
+
+        ctx["modo_conversa"] = modo_conversa
+
+    else:
+        ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
+        ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
+        ctx["modo_conversa"] = modo_conversa
+        ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
 
     # =========================================================
     # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
     # Transforma intenção em direção de fluxo, sem executar agenda
     # =========================================================
-    intencao_conv = class_intencao.get("intencao_conversacional")
+    if preservar_continuidade_data:
+        intencao_conv = ctx.get("intencao_conversacional")
+    else:
+        intencao_conv = class_intencao.get("intencao_conversacional")
 
     objetivo_conversacional = None
 
@@ -2138,7 +2155,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     elif intencao_conv == "cancelamento":
         objetivo_conversacional = "avaliar_cancelamento"
 
-    ctx["objetivo_conversacional"] = objetivo_conversacional
+    if not preservar_continuidade_data:
+        ctx["objetivo_conversacional"] = objetivo_conversacional
+    else:
+        print(
+            "🔒 [CONTEXTO PRESERVADO] aguardando_data ativo — não sobrescrevendo objetivo",
+            flush=True
+        )
 
     print(
         f"🎯 [OBJETIVO CONVERSACIONAL] {objetivo_conversacional}",
