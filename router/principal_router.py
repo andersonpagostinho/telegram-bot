@@ -1493,6 +1493,42 @@ async def resolver_alteracao_draft_agendamento(
     profissional = draft.get("profissional") or ctx.get("profissional_escolhido")
     data_hora = draft.get("data_hora") or ctx.get("data_hora")
 
+    # =====================================================
+    # 🔥 AJUSTE DE DATA — mantém serviço/profissional,
+    # mas NÃO reaproveita horário antigo automaticamente
+    # =====================================================
+    if alteracao.get("tipo") == "data":
+        data_nova = alteracao.get("valor")
+
+        if not (servico and profissional and data_nova):
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Consigo ajustar o dia, mas preciso manter o serviço e a profissional. Me diga como prefere seguir.",
+                parse_mode=None
+            )
+
+        ctx["data_hora"] = None
+        ctx["estado_fluxo"] = "aguardando_horario"
+        ctx["aguardando_confirmacao_agendamento"] = False
+
+        draft["servico"] = servico
+        draft["profissional"] = profissional
+        draft["data"] = data_nova
+        draft["data_hora"] = None
+        ctx["draft_agendamento"] = draft
+
+        if ctx.get("dados_confirmacao_agendamento"):
+            ctx["dados_confirmacao_agendamento"]["data_hora"] = None
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            f"Perfeito 😊 Para *{servico}* com *{profissional}*, qual horário você prefere nesse dia?"
+        )
+
     if not (servico and profissional and data_hora):
         return await _send_and_stop(
             context,
