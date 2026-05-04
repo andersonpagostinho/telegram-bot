@@ -5374,7 +5374,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 alteracao=alteracao
             )
     
-    ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+    # =========================================================
+    # 🔥 BLOQUEIO TOTAL — ajuste incremental de data
+    # evita parser destruir draft após alteração
+    # =========================================================
+    if (
+        ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
+        and ctx.get("tipo_ajuste_incremental") == "data"
+        and ctx.get("draft_agendamento")
+    ):
+        print(
+            "🛑 [SKIP MESCLAR] ajuste incremental de data ativo",
+            flush=True
+        )
+
+    else:
+        ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
 
     # =========================================================
     # AJUSTE INCREMENTAL — pós-extração
