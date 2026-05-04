@@ -1,4 +1,4 @@
-from utils.text_utils import normalizar_txt
+from router.principal_router import normalizar as normalizar_txt
 
 
 def interpretar_conversa_operacional(
