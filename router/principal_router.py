@@ -5793,7 +5793,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if (
         pode_executar_p0
         and tem_hora_real(data_hora_check)
-        and ctx.get("hora_confirmada") is True
     ):
         print("🔥 [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
 
@@ -5810,7 +5809,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     elif pode_executar_p0:
         print(
-            "⛔ [P0 BLOQUEADO] data_hora sem horário confirmado",
+            f"⛔ [P0 BLOQUEADO] data_hora inválida: {data_hora_check}",
             flush=True
     )
 
@@ -6104,7 +6103,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if (
         data_hora_ctx
         and tem_hora_real(data_hora_ctx)
-        and ctx.get("hora_confirmada") is True
         and tem_servico_profissional
     ):
         print("🚫 [BLOCK GPT] já tenho dados completos — fluxo determinístico", flush=True)
@@ -6315,7 +6313,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if (
         slots_extraidos.get("data_hora")
         and tem_hora_real(slots_extraidos.get("data_hora"))
-        and ctx.get("hora_confirmada") is True
         and slots_extraidos.get("servico")
         and slots_extraidos.get("profissional")
     ):
