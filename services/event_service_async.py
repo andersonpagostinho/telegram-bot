@@ -20,6 +20,22 @@ FUSO_BR = timezone("America/Sao_Paulo")
 # 🔁 Salvar ou atualizar um evento
 async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> bool:
     try:
+
+        def normalizar_hora_para_grade(hora_str: str) -> str:
+            try:
+                h, m = map(int, str(hora_str).split(":"))
+                m = (m // 20) * 20
+                return f"{h:02d}:{m:02d}"
+            except:
+                return hora_str
+
+        # 🔥 normaliza antes de conflito, idempotência e salvamento
+        if evento.get("hora_inicio"):
+            evento["hora_inicio"] = normalizar_hora_para_grade(evento["hora_inicio"])
+
+        if evento.get("hora_fim"):
+            evento["hora_fim"] = normalizar_hora_para_grade(evento["hora_fim"])
+
         # ✅ Verifica conflitos antes de salvar
         conflitos = await verificar_conflito(
             user_id=user_id,
@@ -28,6 +44,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
             duracao_min=evento.get("duracao", 60),
             profissional=evento.get("profissional", "")
         )
+
         if conflitos:
             print("⛔ Conflito de horário detectado. Evento não será salvo.")
             return False

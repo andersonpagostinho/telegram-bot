@@ -5517,7 +5517,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 if servico and profissional:
 
                     data_ref = data_final.split("T")[0]
-                    hora_ref = data_final.split("T")[1][:5]
+                    hora_ref_raw = data_final.split("T")[1][:5]
+                    hora_ref = normalizar_hora_para_grade(hora_ref_raw)
 
                     if hora_ref == "00:00":
                         print("🧠 [HORA_NAO_DEFINIDA] não confirmar com hora fictícia", flush=True)
@@ -5572,7 +5573,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 # 🔒 VALIDAÇÃO DE EXPEDIENTE (BLOCO DATA COMPLEXA)
                 # =========================================================
                 data_ref = data_final.split("T")[0]
-                hora_ref = data_final.split("T")[1][:5]
+                hora_ref_raw = data_final.split("T")[1][:5]
+                hora_ref = normalizar_hora_para_grade(hora_ref_raw)
 
                 if hora_ref == "00:00":
                     print("🧠 [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
