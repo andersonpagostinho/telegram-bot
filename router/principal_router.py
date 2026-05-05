@@ -2318,8 +2318,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # 🧠 GPT — INTERPRETAÇÃO AVANÇADA DE LINGUAGEM (ANTES DO MOTOR)
     # =========================================================
+    intencao_atual = ctx.get("intencao_conversacional")
+
     if (
-        interpretacao_conv.get("intencao") == "indefinida"
+        (not intencao_atual or intencao_atual == "indefinida")
+        and interpretacao_conv.get("intencao") == "indefinida"
         and not eh_confirmacao_pendente_ativa(ctx)
         and ctx.get("estado_fluxo") not in [
             "aguardando_escolha_horario",
@@ -2354,6 +2357,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["objetivo_conversacional"] = "preparar_prechecagem_agendamento"
             elif interpretacao_gpt.get("intencao") == "consulta":
                 ctx["objetivo_conversacional"] = "consultar_disponibilidade_por_servico"
+
+    else:
+        print(
+            f"🔒 [GPT BLOQUEADO] intencao_atual={intencao_atual} | estado_fluxo={ctx.get('estado_fluxo')}",
+            flush=True
+        )
 
     historico = ctx.get("historico_texto") or []
 
