@@ -5527,6 +5527,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                     data_ref = data_final.split("T")[0]
                     hora_ref_raw = data_final.split("T")[1][:5]
+                    if hora_ref_raw == "00:00":
+                        print("🧠 [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
+
+                        ctx["estado_fluxo"] = "aguardando_horario"
+                        ctx["hora_confirmada"] = False
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — para *{servico}* com *{profissional}* nesse dia 😊 Qual horário você prefere?"
+                        )
                     hora_ref = normalizar_hora_para_grade(hora_ref_raw)
 
                     if hora_ref == "00:00":
@@ -5583,6 +5596,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 # =========================================================
                 data_ref = data_final.split("T")[0]
                 hora_ref_raw = data_final.split("T")[1][:5]
+                if hora_ref_raw == "00:00":
+                    print("🧠 [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
+
+                    ctx["estado_fluxo"] = "aguardando_horario"
+                    ctx["hora_confirmada"] = False
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        f"Perfeito — para *{servico}* com *{profissional}* nesse dia 😊 Qual horário você prefere?"
+                    )
                 hora_ref = normalizar_hora_para_grade(hora_ref_raw)
 
                 if hora_ref == "00:00":
