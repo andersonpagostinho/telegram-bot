@@ -2672,6 +2672,37 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 servico=servico_ctx
             )
 
+            # =========================================================
+            # 🧠 AJUSTE INTELIGENTE POR PERÍODO (ex: "mais cedo")
+            # =========================================================
+            periodo = (
+                ctx.get("interpretacao_conversacional", {})
+                .get("entidades", {})
+                .get("periodo")
+            )
+
+            def filtrar_por_periodo(sugestoes, periodo):
+                if not periodo:
+                    return sugestoes
+
+                filtradas = []
+
+                for s in sugestoes:
+                    try:
+                        hora = int(s.split(":")[0])
+                    except:
+                        continue
+
+                    if periodo in ["mais cedo", "manha"] and hora <= 11:
+                        filtradas.append(s)
+
+                    elif periodo in ["tarde", "fim_tarde"] and hora >= 12:
+                        filtradas.append(s)
+
+                return filtradas if filtradas else sugestoes  # fallback inteligente
+
+            sugestoes = filtrar_por_periodo(sugestoes, periodo)
+
             sugestoes = resultado_disp.get("sugestoes") or []
             conflito = resultado_disp.get("conflito")
 
