@@ -2315,6 +2315,46 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if interpretacao_conv.get("intencao") != "indefinida":
         ctx["interpretacao_conversacional"] = interpretacao_conv
 
+    # =========================================================
+    # 🧠 GPT — INTERPRETAÇÃO AVANÇADA DE LINGUAGEM (ANTES DO MOTOR)
+    # =========================================================
+    if (
+        interpretacao_conv.get("intencao") == "indefinida"
+        and not eh_confirmacao_pendente_ativa(ctx)
+        and ctx.get("estado_fluxo") not in [
+            "aguardando_escolha_horario",
+            "aguardando_data",
+            "agendando",
+        ]
+    ):
+
+        from services.gpt_service import interpretar_linguagem_operacional_gpt
+
+        interpretacao_gpt = await interpretar_linguagem_operacional_gpt(
+            texto_usuario,
+            ctx
+        )
+
+        print("🧠 [GPT INTERPRETAÇÃO]", interpretacao_gpt, flush=True)
+
+        if interpretacao_gpt and interpretacao_gpt.get("intencao") != "indefinida":
+            ctx["interpretacao_conversacional"] = interpretacao_gpt
+
+            ctx["intencao_conversacional"] = interpretacao_gpt.get("intencao")
+            ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+
+            if interpretacao_gpt.get("tipo_ajuste"):
+                ctx["tipo_ajuste_incremental"] = interpretacao_gpt.get("tipo_ajuste")
+
+            if interpretacao_gpt.get("intencao") == "ajuste_incremental":
+                ctx["objetivo_conversacional"] = "ajustar_draft_existente"
+            elif interpretacao_gpt.get("intencao") == "cancelamento":
+                ctx["objetivo_conversacional"] = "avaliar_cancelamento"
+            elif interpretacao_gpt.get("intencao") == "agendamento_direto":
+                ctx["objetivo_conversacional"] = "preparar_prechecagem_agendamento"
+            elif interpretacao_gpt.get("intencao") == "consulta":
+                ctx["objetivo_conversacional"] = "consultar_disponibilidade_por_servico"
+
     historico = ctx.get("historico_texto") or []
 
     if texto_usuario:

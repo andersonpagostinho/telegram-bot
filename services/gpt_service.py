@@ -3138,6 +3138,72 @@ Responda apenas com o plano formatado.
         print(f"[GPT] Erro ao organizar semana: {e}", flush=True)
         return "❌ Houve um erro ao tentar planejar sua semana."
 
+async def interpretar_linguagem_operacional_gpt(texto: str, ctx: dict) -> dict:
+    try:
+
+        prompt = f"""
+Você é um interpretador de linguagem para uma secretária de salão.
+
+Sua função é transformar a fala do cliente em intenção estruturada.
+
+REGRAS ABSOLUTAS:
+- NÃO sugerir horário
+- NÃO confirmar agendamento
+- NÃO tomar decisão
+- NÃO inventar dados
+- NÃO responder texto humano
+- Apenas interpretar
+
+Retorne JSON com:
+
+{{
+  "intencao": "...",
+  "tipo_ajuste": "...",
+  "entidades": {{}},
+  "confianca": 0-100
+}}
+
+Possíveis intenções:
+- agendamento_direto
+- ajuste_incremental
+- cancelamento
+- consulta
+- indefinida
+
+Tipos de ajuste:
+- data
+- horario
+- profissional
+- servico
+- periodo
+
+Mensagem:
+\"{texto}\"
+
+Contexto atual:
+{json.dumps(ctx, ensure_ascii=False)}
+"""
+
+        resposta = await client.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.2,
+            messages=[{"role": "system", "content": prompt}]
+        )
+
+        conteudo = resposta.choices[0].message.content.strip()
+        conteudo = conteudo.replace("```json", "").replace("```", "").strip()
+        return json.loads(conteudo)
+
+    except Exception as e:
+        print(f"❌ erro interpretar_linguagem_operacional_gpt: {e}")
+        return {
+            "intencao": "indefinida",
+            "tipo_ajuste": None,
+            "entidades": {},
+            "confianca": 0,
+            "motivo": "erro_gpt_interpretacao",
+        }
+
 async def gerar_resposta_humana_agendamento(contexto_decisao: dict) -> str:
 
     try:
