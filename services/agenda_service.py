@@ -657,6 +657,11 @@ async def resolver_fora_do_expediente(
         inicio = regra.get("inicio")
         fim = regra.get("fim")
 
+        # 🧠 MODO PERÍODO — quando não existe hora real escolhida
+        if not hora_inicio or hora_inicio == "00:00":
+            print("🧠 [MODO PERÍODO] sem hora base — iniciando pela abertura do dia", flush=True)
+            hora_inicio = inicio or "08:00"
+
         min_ini = _hora_para_minutos(inicio)
         min_fim = _hora_para_minutos(fim)
         min_ref = _hora_para_minutos(hora_inicio)

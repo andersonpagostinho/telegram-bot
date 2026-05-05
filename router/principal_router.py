@@ -7048,7 +7048,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 resultado_periodo = await resolver_fora_do_expediente(
                     user_id=user_id,
                     data_iso=data_ref,
-                    hora_inicio="00:00",
+                    hora_inicio=None,
                     duracao_min=duracao_ref,
                     servico=servico_ref,
                     profissional=prof_ref,
