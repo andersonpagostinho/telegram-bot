@@ -3672,6 +3672,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 servico_ctx = draft.get("servico") or ctx.get("servico")
                 prof_ctx = draft.get("profissional") or ctx.get("profissional_escolhido")
 
+                if not servico_ctx or not prof_ctx:
+                    ctx["estado_fluxo"] = "aguardando_servico" if not servico_ctx else "aguardando_profissional"
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        "Perfeito. Só preciso confirmar o serviço e a profissional antes de consultar os horários."
+                    )
+
+                dono_id = await obter_id_dono(user_id)
+                duracao_ctx = estimar_duracao(servico_ctx)
+
                 hora_preferida = "09:00"
 
                 data_hora_antiga = (
