@@ -7038,6 +7038,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 and ctx.get("data_hora")
                 and ctx.get("hora_confirmada") is not True
             ):
+
+                # 🚫 BLOQUEIO CRÍTICO — não sugerir período sem horário definido
+                if ctx.get("estado_fluxo") == "aguardando_horario" or ctx.get("hora_confirmada") is False:
+                    print("🛑 [BLOQUEIO CONSULTA PERÍODO] aguardando horário do usuário", flush=True)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        f"Perfeito — para *{ctx.get('servico')}* com *{ctx.get('profissional_escolhido')}* 😊 Qual horário você prefere?"
+                    )
                 print("🔥 [CONSULTA PERÍODO] buscando horário sugerido", flush=True)
 
                 data_ref = ctx["data_hora"].split("T")[0]
