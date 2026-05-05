@@ -62,6 +62,13 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
                 user_id_efetivo = await obter_id_dono(user_id)
 
         path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
+
+        # 🔥 ANTIDUPLICIDADE (AQUI)
+        existente = await buscar_dado_em_path(path)
+        if existente:
+            print("♻️ Evento já existe (idempotente). Não criando duplicado.")
+            return "duplicado"
+
         await salvar_dado_em_path(path, evento)
 
         print(f"✅ Evento salvo para {user_id_efetivo} com ID {event_id}: {evento}")

@@ -872,7 +872,15 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             evento_data["profissional"] = profissional
 
         print("📦 Disparando salvar_evento com:", evento_data)
-        await salvar_evento(user_id, evento_data)
+        resultado_salvamento = await salvar_evento(user_id, evento_data)
+
+        if resultado_salvamento == "duplicado":
+            await update.message.reply_text("Esse horário já foi confirmado. Está tudo certo 😊")
+            return True
+
+        if not resultado_salvamento:
+            return True
+
         print("✅ Evento salvo")
 
         # 🔔 Lembretes (60 e 10 min antes)
