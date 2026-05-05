@@ -5519,6 +5519,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     data_ref = data_final.split("T")[0]
                     hora_ref = data_final.split("T")[1][:5]
 
+                    if hora_ref == "00:00":
+                        print("🧠 [HORA_NAO_DEFINIDA] não confirmar com hora fictícia", flush=True)
+
+                        ctx["estado_fluxo"] = "aguardando_horario"
+                        ctx["hora_confirmada"] = False
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito 😊 Para *{servico}* com *{profissional}*, qual horário você prefere nesse dia?"
+                        )
+
                     id_dono = await obter_id_dono(user_id)
 
                     validacao = await validar_horario_funcionamento(
@@ -5559,6 +5573,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 # =========================================================
                 data_ref = data_final.split("T")[0]
                 hora_ref = data_final.split("T")[1][:5]
+
+                if hora_ref == "00:00":
+                    print("🧠 [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
+
+                    ctx["estado_fluxo"] = "aguardando_horario"
+                    ctx["hora_confirmada"] = False
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        f"Perfeito 😊 Para *{servico}*, qual horário você prefere nesse dia?"
+                    )
 
                 id_dono = await obter_id_dono(user_id)
 
