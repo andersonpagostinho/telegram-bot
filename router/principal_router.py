@@ -7039,69 +7039,62 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 and ctx.get("hora_confirmada") is not True
             ):
 
-                # 🚫 BLOQUEIO CRÍTICO — não sugerir período sem horário definido
-                if ctx.get("estado_fluxo") == "aguardando_horario" or ctx.get("hora_confirmada") is False:
-                    print("🛑 [BLOQUEIO CONSULTA PERÍODO] aguardando horário do usuário", flush=True)
-
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        f"Perfeito — para *{ctx.get('servico')}* com *{ctx.get('profissional_escolhido')}* 😊 Qual horário você prefere?"
-                    )
-                print("🔥 [CONSULTA PERÍODO] buscando horário sugerido", flush=True)
+                print("🔥 [CONSULTA PERÍODO] buscando horários por período", flush=True)
 
                 data_ref = ctx["data_hora"].split("T")[0]
                 servico_ref = ctx["servico"]
                 prof_ref = ctx["profissional_escolhido"]
                 duracao_ref = estimar_duracao(servico_ref)
 
-                resultado_periodo = await resolver_fora_do_expediente(
+                periodo_ref = "cedo"
+                if "tarde" in texto_norm_periodo:
+                    periodo_ref = "tarde"
+                elif "noite" in texto_norm_periodo:
+                    periodo_ref = "noite"
+                elif "manha" in texto_norm_periodo or "manhã" in texto_norm_periodo or "cedo" in texto_norm_periodo:
+                    periodo_ref = "cedo"
+
+                horarios = await buscar_horarios_livres_por_periodo(
                     user_id=user_id,
                     data_iso=data_ref,
-                    hora_inicio=None,
-                    duracao_min=duracao_ref,
                     servico=servico_ref,
                     profissional=prof_ref,
+                    periodo=periodo_ref,
+                    limite=3,
                 )
 
-                horario = (
-                    resultado_periodo.get("horario")
-                    or resultado_periodo.get("hora")
-                )
-
-                if horario:
-                    nova_data_hora = f"{data_ref}T{horario}:00"
-
-                    ctx["data_hora"] = nova_data_hora
-                    ctx["hora_confirmada"] = True
-                    ctx["estado_fluxo"] = "agendando"
-                    ctx["aguardando_confirmacao_agendamento"] = True
-                    ctx["dados_confirmacao_agendamento"] = {
-                        "origem": "confirmacao_pendente",
+                if horarios:
+                    ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                    ctx["modo_escolha_horario"] = True
+                    ctx["horarios_sugeridos"] = horarios
+                    ctx["draft_agendamento"] = {
                         "profissional": prof_ref,
                         "servico": servico_ref,
-                        "data_hora": nova_data_hora,
-                        "duracao": duracao_ref,
-                        "descricao": f"{servico_ref.capitalize()} com {prof_ref}",
+                        "data_hora": None,
+                        "data": data_ref,
+                        "modo_prechecagem": True,
                     }
 
-                    draft = ctx.get("draft_agendamento") or {}
-                    draft["profissional"] = prof_ref
-                    draft["servico"] = servico_ref
-                    draft["data_hora"] = nova_data_hora
-                    draft["modo_prechecagem"] = True
-                    ctx["draft_agendamento"] = draft
-
                     await salvar_contexto_temporario(user_id, ctx)
+
+                    opcoes = "\n".join(f"🔄 {h}" for h in horarios)
 
                     return await _send_and_stop(
                         context,
                         user_id,
                         (
-                            f"O horário mais próximo com *{prof_ref}* é às *{horario}*.\n"
-                            "Posso agendar pra você? 😊"
-                        ),
+                            f"Consigo sim 😊\n\n"
+                            f"Para *{servico_ref}* com *{prof_ref}* nesse dia, tenho estes horários:\n"
+                            f"{opcoes}\n\n"
+                            "Qual fica melhor pra você?"
+                        )
                     )
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Não encontrei horário livre nesse período para *{servico_ref}* com *{prof_ref}*. Quer tentar outro período?"
+                )
 
             ctx["estado_fluxo"] = "aguardando_horario"
 
