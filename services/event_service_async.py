@@ -775,6 +775,22 @@ async def verificar_conflito_e_sugestoes_profissional(
     # helpers (aceita HH:MM + ISO)
     # -------------------------
  
+    # =========================================================
+    # 🔥 NORMALIZAÇÃO DE HORA (evita 09:10, 09:07, etc)
+    # =========================================================
+    def normalizar_hora_para_grade(hora_str: str) -> str:
+        try:
+            h, m = map(int, hora_str.split(":"))
+
+            # ajuste para múltiplos de 20 (compatível com seus eventos)
+            m = (m // 20) * 20
+
+            return f"{h:02d}:{m:02d}"
+        except:
+            return hora_str
+
+    hora_inicio = normalizar_hora_para_grade(hora_inicio)
+    
     # 1) Converte a hora nova para datetime
     inicio_novo = datetime.fromisoformat(f"{data}T{hora_inicio}")
     fim_novo = inicio_novo + timedelta(minutes=duracao_min)
