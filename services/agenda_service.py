@@ -624,7 +624,7 @@ async def resolver_fora_do_expediente(
     duracao_min: int,
     servico: str,
     profissional: str | None = None,
-    grade_minutos: int = 10,
+    grade_minutos: int = 20,
 ) -> dict[str, Any]:
     """
     Resolve apenas o caso em que o horário pedido está fora do expediente.
