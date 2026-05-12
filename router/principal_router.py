@@ -5316,6 +5316,39 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         data_hora = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
 
         if servico and data_hora:
+
+            data_hora_ref = str(data_hora or "")
+
+            if (
+                ctx.get("data_sem_hora") is True
+                or ctx.get("hora_confirmada") is False
+                or data_hora_ref.endswith("T00:00:00")
+            ):
+                ctx["profissional_escolhido"] = escolha_prof
+                ctx["estado_fluxo"] = "aguardando_horario"
+
+                ctx["aguardando_confirmacao_agendamento"] = False
+                ctx["dados_confirmacao_agendamento"] = None
+
+                ctx["draft_agendamento"] = {
+                    "profissional": escolha_prof,
+                    "servico": servico,
+                    "data_hora": data_hora,
+                    "modo_prechecagem": True
+                }
+
+                ctx["ultima_opcao_profissionais"] = [escolha_prof]
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                   (
+                        f"Perfeito — *{servico}* com *{escolha_prof}* nesse dia 😊\n"
+                        f"Qual horário você prefere?"
+                    )
+                )
             ctx["profissional_escolhido"] = escolha_prof
             ctx["estado_fluxo"] = "agendando"
             ctx["aguardando_confirmacao_agendamento"] = True
