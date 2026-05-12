@@ -7155,6 +7155,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             if (
                 tem_pedido_periodo
+                and not ctx.get("horarios_sugeridos")
                 and ctx.get("servico")
                 and ctx.get("profissional_escolhido")
                 and ctx.get("data_hora")
