@@ -7251,7 +7251,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     f"Não encontrei horário livre nesse período para *{servico_ref}* com *{prof_ref}*. Quer tentar outro período?"
                 )
 
-            ctx["estado_fluxo"] = "aguardando_horario"
+            if ctx.get("horarios_sugeridos"):
+                ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                ctx["modo_escolha_horario"] = True
+            else:
+                ctx["estado_fluxo"] = "aguardando_horario"
 
         elif proximo_passo_real == "perguntar_data_hora":
             ctx["estado_fluxo"] = "aguardando_data"
