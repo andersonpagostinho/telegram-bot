@@ -35,6 +35,7 @@ from services.classificador_conversa import (
     classificar_intencao_conversacional,
 )
 from services.interpretador_conversacional import interpretar_conversa_operacional
+from utils.normalizador_humano import normalizar_intencao_humana
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -2189,6 +2190,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     tnorm = normalizar(texto_usuario)
 
     ctx = await carregar_contexto_temporario(user_id) or {}
+
+    # =========================================================
+    # 🧠 NORMALIZADOR HUMANO — sinais sociais/implícitos
+    # Não decide agenda. Não cria evento. Só enriquece contexto.
+    # =========================================================
+    sinais_humanos = normalizar_intencao_humana(texto_usuario)
+
+    if sinais_humanos:
+        ctx.update(sinais_humanos)
+        await salvar_contexto_temporario(user_id, ctx)
+
+        print(
+            f"🧠 [NORMALIZADOR_HUMANO] sinais={sinais_humanos}",
+            flush=True
+        )
 
     # =========================================================
     # 🧑‍💼 BLOQUEIO GLOBAL — atendimento assumido pelo humano
