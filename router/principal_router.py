@@ -1208,13 +1208,19 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                 microsecond=0
             )
 
+            data_iso = dt_final.date().isoformat()
             iso = dt_final.isoformat()
 
+            # 🔥 data existe, mas hora NÃO foi informada
+            ctx["data"] = data_iso
+            draft["data"] = data_iso
+
+            # mantém compatibilidade temporária com o restante do sistema
             ctx["data_hora"] = iso
             draft["data_hora"] = iso
 
-            # 🔥 impede 00:00 de virar horário operacional
             ctx["hora_confirmada"] = False
+            ctx["data_sem_hora"] = True
 
             # 🔥 se já tem serviço + profissional, isso é consulta de disponibilidade
             if servico_detectado:
@@ -2710,9 +2716,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 return filtradas if filtradas else sugestoes  # fallback inteligente
 
-            sugestoes = filtrar_por_periodo(sugestoes, periodo)
+            
 
             sugestoes = resultado_disp.get("sugestoes") or []
+            sugestoes = filtrar_por_periodo(sugestoes, periodo)
             conflito = resultado_disp.get("conflito")
 
             if not conflito:
@@ -7041,7 +7048,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 print("🔥 [CONSULTA PERÍODO] buscando horários por período", flush=True)
 
-                data_ref = ctx["data_hora"].split("T")[0]
+                data_ref = ctx.get("data") or ctx["data_hora"].split("T")[0]
                 servico_ref = ctx["servico"]
                 prof_ref = ctx["profissional_escolhido"]
                 duracao_ref = estimar_duracao(servico_ref)
@@ -7054,14 +7061,39 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 elif "manha" in texto_norm_periodo or "manhã" in texto_norm_periodo or "cedo" in texto_norm_periodo:
                     periodo_ref = "cedo"
 
-                horarios = await buscar_horarios_livres_por_periodo(
-                    user_id=user_id,
-                    data_iso=data_ref,
-                    servico=servico_ref,
+                id_dono = await obter_id_dono(user_id)
+
+                hora_base = "09:00"
+                if periodo_ref == "tarde":
+                    hora_base = "13:00"
+                elif periodo_ref == "noite":
+                    hora_base = "18:00"
+
+                resultado_disp = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=id_dono,
+                    data=data_ref,
+                    hora_inicio=hora_base,
+                    duracao_min=duracao_ref,
                     profissional=prof_ref,
-                    periodo=periodo_ref,
-                    limite=3,
+                    servico=servico_ref,
                 )
+
+                horarios = resultado_disp.get("sugestoes") or []
+
+                def _hora_inicio_sugestao(s: str) -> int:
+                    try:
+                        return int(str(s).split("-")[0].strip().split(":")[0])
+                    except Exception:
+                        return 99
+
+                if periodo_ref == "cedo":
+                    horarios = [h for h in horarios if _hora_inicio_sugestao(h) <= 11]
+                elif periodo_ref == "tarde":
+                    horarios = [h for h in horarios if 12 <= _hora_inicio_sugestao(h) <= 17]
+                elif periodo_ref == "noite":
+                    horarios = [h for h in horarios if _hora_inicio_sugestao(h) >= 18]
+
+                horarios = horarios[:3]
 
                 if horarios:
                     ctx["estado_fluxo"] = "aguardando_escolha_horario"
