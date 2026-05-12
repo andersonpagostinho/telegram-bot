@@ -1115,6 +1115,14 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
         if hora is not None:
             hora_matches.append((hora, "00"))
 
+    # 3) múltiplos horários: "15 ou 16", "15:00 ou 16:00"
+    for h1, m1, h2, m2 in re.findall(
+        r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\s*ou\s*([01]?\d|2[0-3])(?::([0-5]\d))?\b",
+        texto.lower()
+    ):
+        hora_matches.append((h1, m1 or "00"))
+        hora_matches.append((h2, m2 or "00"))
+
     # remove duplicados preservando ordem
     hora_matches = list(dict.fromkeys((str(int(h)), str(int(m)).zfill(2)) for h, m in hora_matches))
 
