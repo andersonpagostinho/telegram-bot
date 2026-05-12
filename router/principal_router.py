@@ -7096,22 +7096,30 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 id_dono = await obter_id_dono(user_id)
 
-                hora_base = "09:00"
+                hora_base = "00:00"
                 if periodo_ref == "tarde":
                     hora_base = "13:00"
                 elif periodo_ref == "noite":
                     hora_base = "18:00"
 
-                resultado_disp = await verificar_conflito_e_sugestoes_profissional(
+                resultado_periodo = await resolver_fora_do_expediente(
                     user_id=id_dono,
-                    data=data_ref,
+                    data_iso=data_ref,
                     hora_inicio=hora_base,
                     duracao_min=duracao_ref,
-                    profissional=prof_ref,
                     servico=servico_ref,
+                    profissional=prof_ref,
                 )
 
-                horarios = resultado_disp.get("sugestoes") or []
+                horario_base = (
+                    resultado_periodo.get("horario")
+                    or resultado_periodo.get("hora")
+                )
+
+                horarios = []
+
+                if horario_base:
+                    horarios.append(horario_base)
 
                 def _hora_inicio_sugestao(s: str) -> int:
                     try:
