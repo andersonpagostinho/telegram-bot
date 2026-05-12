@@ -3656,6 +3656,48 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     ctx,
                     texto_usuario,
                 )
+
+                # =========================================================
+                # CONFIRMAÇÃO DETERMINÍSTICA — ÚNICO HORÁRIO SUGERIDO
+                # =========================================================
+                horarios = ctx.get("horarios_sugeridos") or []
+
+                if (
+                    len(horarios) == 1
+                    and eh_confirmacao(texto_usuario)
+                ):
+                    horario_escolhido = horarios[0]
+
+                    data_base = (
+                    ctx.get("data")
+                    or (ctx.get("draft_agendamento") or {}).get("data")
+                    or (ctx.get("data_hora") or "").split("T")[0]
+                )
+
+                nova_data_hora = f"{data_base}T{horario_escolhido}:00"
+
+                ctx["data_hora"] = nova_data_hora
+                ctx["hora_confirmada"] = True
+                ctx["data_sem_hora"] = False
+                ctx["modo_escolha_horario"] = False
+                ctx["estado_fluxo"] = "agendando"
+
+                draft = ctx.get("draft_agendamento") or {}
+                draft["data_hora"] = nova_data_hora
+                ctx["draft_agendamento"] = draft
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return await executar_acao_gpt(
+                    update,
+                    context,
+                    "pre_confirmar_agendamento",
+                    {
+                        "data_hora": nova_data_hora,
+                        "servico": ctx.get("servico"),
+                        "profissional": ctx.get("profissional_escolhido"),
+                    }
+                )
                 
                 # =========================================================
                 # GPT HUMANO — dúvida/objeção em conflito
