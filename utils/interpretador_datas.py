@@ -195,10 +195,13 @@ def extrair_trecho_temporal(texto: str) -> str:
     t = texto.strip().lower()
 
     padroes = [
-        r"\b(depois de amanhã)\b",
-        r"\b(amanhã)\b",
-        r"\b(amanha)\b",
-        r"\b(hoje)\b",
+        r"\b(depois de amanhã(?:\s+(?:às|as)?\s*\d{1,2}(?::\d{2})?(?:\s*ou\s*\d{1,2}(?::\d{2})?)*)?)\b",
+
+        r"\b(amanhã(?:\s+(?:às|as)?\s*\d{1,2}(?::\d{2})?(?:\s*ou\s*\d{1,2}(?::\d{2})?)*)?)\b",
+
+        r"\b(amanha(?:\s+(?:às|as)?\s*\d{1,2}(?::\d{2})?(?:\s*ou\s*\d{1,2}(?::\d{2})?)*)?)\b",
+
+        r"\b(hoje(?:\s+(?:às|as)?\s*\d{1,2}(?::\d{2})?(?:\s*ou\s*\d{1,2}(?::\d{2})?)*)?)\b",
         r"\b(segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo)(?:\s*(?:às|as)?\s*\d{1,2}(?::\d{2})?)?\b",
         r"\b(dia\s+\d{1,2}(?:\s+de\s+\w+)?(?:\s+(?:às|as)\s+\d{1,2}(?::\d{2})?)?)\b",
         r"\b((?:às|as)\s+\d{1,2}(?::\d{2})?)\b",

@@ -6300,20 +6300,28 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 texto_usuario,
             )
 
-        validacao_p0 = await validar_horario_funcionamento(
-            user_id=id_dono,
-            data_iso=data_ref,
-            hora_inicio=hora_ref,
-            duracao_min=estimar_duracao(servico_check),
-        )
+        if (
+            ctx.get("hora_confirmada") is False
+            or ctx.get("data_sem_hora") is True
+            or str(data_hora_check or "").endswith("T00:00:00")
+        ):
+            print("🧠 [P0 IGNORADO] sem horário confirmado", flush=True)
 
-        print(
-            f"🧪 [P0 CHECK] permitido={validacao_p0.get('permitido')} | motivo={validacao_p0.get('motivo')}",
-            flush=True
-        )
+        else:
+            validacao_p0 = await validar_horario_funcionamento(
+                user_id=id_dono,
+                data_iso=data_ref,
+                hora_inicio=hora_ref,
+                duracao_min=estimar_duracao(servico_check),
+            )
 
-        if validacao_p0.get("permitido"):
-            pode_executar_p0 = True
+            print(
+                f"🧪 [P0 CHECK] permitido={validacao_p0.get('permitido')} | motivo={validacao_p0.get('motivo')}",
+                flush=True
+            )
+
+            if validacao_p0.get("permitido"):
+                pode_executar_p0 = True
 
     if (
         pode_executar_p0
@@ -6336,7 +6344,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print(
             f"⛔ [P0 BLOQUEADO] data_hora inválida: {data_hora_check}",
             flush=True
-    )
+        )
 
     print("🔥🔥🔥 ANTES DO CHAMAR_GPT_COM_CONTEXTO 🔥🔥🔥", flush=True)
 
