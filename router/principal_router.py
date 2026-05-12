@@ -7157,9 +7157,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         user_id,
                         (
                             f"Consigo sim 😊\n\n"
-                            f"Para *{servico_ref}* com *{prof_ref}* nesse dia, tenho estes horários:\n"
-                            f"{opcoes}\n\n"
-                            "Qual fica melhor pra você?"
+                            f"Para *{servico_ref}* com *{prof_ref}* nesse dia, tenho *{horarios[0]}*.\n\n"
+                            "Posso seguir com esse horário?"
                         )
                     )
 
