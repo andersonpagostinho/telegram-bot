@@ -1118,6 +1118,23 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     # remove duplicados preservando ordem
     hora_matches = list(dict.fromkeys((str(int(h)), str(int(m)).zfill(2)) for h, m in hora_matches))
 
+    # =========================================================
+    # 🔥 múltiplos horários → remove hora arbitrária do parser
+    # =========================================================
+    if dt_detectado and len(hora_matches) > 1:
+
+        dt_detectado = dt_detectado.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+
+        print(
+            "🧠 [MULTI-HORARIO] removendo hora arbitrária do parser",
+            flush=True
+        )
+
     if dt_detectado:
 
         # 🔥 NÃO limpar se está aguardando escolha de horário
