@@ -123,3 +123,35 @@ def normalizar_intencao_humana(texto: str) -> dict:
         sinais["objetivo_evento"] = True
 
     return sinais
+
+# =========================================================
+# 🧹 LIMPEZA DE SINAIS HUMANOS TEMPORÁRIOS
+# =========================================================
+
+SINAIS_HUMANOS_TEMPORARIOS = [
+    "profissional_indiferente",
+    "preferencia_rapidez",
+    "horario_flexivel",
+    "pedido_recomendacao",
+    "objetivo_evento",
+]
+
+
+def limpar_sinais_humanos(ctx: dict) -> dict:
+    """
+    Remove sinais humanos temporários do contexto.
+
+    IMPORTANTE:
+    - Não limpa dados de negócio.
+    - Não limpa agendamento.
+    - Não limpa histórico.
+    - Apenas sinais sociais/contextuais transitórios.
+    """
+
+    if not isinstance(ctx, dict):
+        return {}
+
+    for chave in SINAIS_HUMANOS_TEMPORARIOS:
+        ctx.pop(chave, None)
+
+    return ctx

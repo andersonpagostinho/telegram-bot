@@ -4899,6 +4899,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             await salvar_contexto_temporario(user_id, ctx)
 
+            if ctx.get("preferencia_rapidez"):
+                ctx["servico_sugerido_humano"] = "escova"
+                ctx["aguardando_confirmacao_servico_sugerido"] = True
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    "Perfeito 😊 Para algo rápido, eu recomendo *escova*.\n\nPosso verificar um horário para amanhã?"
+                )
+
             return await _send_and_stop(
                 context,
                 user_id,

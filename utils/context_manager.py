@@ -1,5 +1,6 @@
 # utils/context_manager.py
 from services.firebase_service_async import atualizar_dado_em_path, buscar_dado_em_path
+from utils.normalizador_humano import limpar_sinais_humanos
 
 CONTEXT_PATH_TEMPLATE = "Clientes/{user_id}/MemoriaTemporaria/contexto"
 
@@ -57,6 +58,8 @@ async def limpar_contexto_agendamento(user_id: str):
         "data_hora_pendente": None,
         "ultima_consulta": None,
     })
+
+    contexto = limpar_sinais_humanos(contexto)
 
     await salvar_contexto_temporario(user_id, contexto)
     print("🧹 Contexto de agendamento limpo com sucesso.")
