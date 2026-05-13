@@ -1100,6 +1100,46 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     print("🧪 [MESCLAR] texto=", texto, flush=True)
     print("🧪 [MESCLAR] dt_detectado=", dt_detectado, flush=True)
 
+    # =========================================================
+    # 🔥 HORA INCREMENTAL
+    # Ex.: "amanhã" → depois "às 10"
+    # =========================================================
+    if not dt_detectado:
+
+        data_ctx = (
+            ctx.get("data")
+            or (ctx.get("data_hora") or "").split("T")[0]
+        )
+
+        if data_ctx:
+
+            m_hora_ctx = (
+                re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", texto.lower())
+                or re.search(r"\b([01]?\d|2[0-3])h([0-5]\d)\b", texto.lower())
+                or re.search(r"\b(?:as|às)\s*([01]?\d|2[0-3])\b", texto.lower())
+            )
+
+            if m_hora_ctx:
+
+                hora = int(m_hora_ctx.group(1))
+                minuto = int(m_hora_ctx.group(2)) if len(m_hora_ctx.groups()) > 1 and m_hora_ctx.group(2) else 0
+
+                try:
+                    dt_detectado = datetime.fromisoformat(
+                        f"{data_ctx}T{hora:02d}:{minuto:02d}:00"
+                    )
+
+                    print(
+                        f"🧠 [HORA_INCREMENTAL] reutilizando data_ctx={data_ctx} hora={hora:02d}:{minuto:02d}",
+                        flush=True
+                    )
+
+                except Exception as e:
+                    print(
+                        f"❌ [HORA_INCREMENTAL] erro: {e}",
+                        flush=True
+                    )
+
     tem_hora_explicita = bool(
         re.search(r"\b\d{1,2}:\d{2}\b", texto.lower())
         or re.search(r"\b\d{1,2}\s*h\b", texto.lower())
