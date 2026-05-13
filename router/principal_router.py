@@ -2301,6 +2301,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     print(f"🧠 [INTENÇÃO CONVERSACIONAL] {class_intencao}", flush=True)
 
+    # =========================================================
+    # ✅ CONFIRMAÇÃO DE SERVIÇO SUGERIDO PELO NORMALIZADOR HUMANO
+    # Ex.: "algo rápido" → sugere escova → cliente diz "pode sim"
+    # =========================================================
+    if ctx.get("aguardando_confirmacao_servico_sugerido"):
+        servico_sugerido = ctx.get("servico_sugerido_humano")
+
+        if servico_sugerido and eh_confirmacao(texto_usuario):
+            print(
+                f"✅ [SERVICO_SUGERIDO_CONFIRMADO] servico={servico_sugerido}",
+                flush=True
+            )
+
+            ctx["servico"] = servico_sugerido
+            ctx["aguardando_confirmacao_servico_sugerido"] = False
+            ctx["servico_sugerido_humano"] = None
+
+            draft = ctx.get("draft_agendamento") or {}
+            draft["servico"] = servico_sugerido
+            ctx["draft_agendamento"] = draft
+
+            await salvar_contexto_temporario(user_id, ctx)
+
     preservar_continuidade_data = (
         ctx.get("estado_fluxo") == "aguardando_data"
         and bool(ctx.get("draft_agendamento"))
