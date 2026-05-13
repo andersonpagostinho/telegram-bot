@@ -2259,9 +2259,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         }
 
     # ---------------------------------------------------------
-    # neutro fora de fluxo não deve abrir atendimento
+    # neutro fora de fluxo não deve abrir atendimento,
+    # exceto quando houver sinal humano operacional
     # ---------------------------------------------------------
-    if modo_conversa == "neutro":
+    sinais_humanos_operacionais = any([
+        ctx.get("profissional_indiferente"),
+        ctx.get("preferencia_rapidez"),
+        ctx.get("horario_flexivel"),
+        ctx.get("pedido_recomendacao"),
+        ctx.get("objetivo_evento"),
+    ])
+
+    if modo_conversa == "neutro" and not sinais_humanos_operacionais:
         estado_fluxo = ctx.get("estado_fluxo")
 
         if not estado_fluxo or estado_fluxo == "idle":
