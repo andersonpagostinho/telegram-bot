@@ -6205,7 +6205,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     profissional=None,  # aqui ainda não tem profissional
                 )
 
-                fim_janela = janela.get("fim") if janela.get("aberto") else None
+                regra = validacao.get("regra") or {}
+                fim_janela = regra.get("fim") if regra.get("aberto") else None
                 limite = fim_janela or "o horário configurado"
 
                 return await _send_and_stop_ctx(
