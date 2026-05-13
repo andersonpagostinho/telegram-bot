@@ -2318,12 +2318,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx["estado_fluxo"] = "agendando"
             ctx["aguardando_confirmacao_servico_sugerido"] = False
             ctx["servico_sugerido_humano"] = None
+            ctx["profissional_indiferente"] = True
 
             draft = ctx.get("draft_agendamento") or {}
             draft["servico"] = servico_sugerido
             ctx["draft_agendamento"] = draft
 
             await salvar_contexto_temporario(user_id, ctx)
+
+            if ctx.get("data_sem_hora"):
+                frase_data = montar_frase_data_legivel(ctx.get("data_hora"))
+                servico_legivel = servico_sugerido
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"Perfeito 😊\n\n"
+                        f"Qual horário você prefere {frase_data} para *{servico_legivel}*?"
+                    )
+                )
 
     preservar_continuidade_data = (
         ctx.get("estado_fluxo") == "aguardando_data"
@@ -4924,15 +4938,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await salvar_contexto_temporario(user_id, ctx)
 
             if ctx.get("preferencia_rapidez"):
-                ctx["servico_sugerido_humano"] = "escova"
+                servico_sugerido = "escova"
+
+                ctx["servico_sugerido_humano"] = servico_sugerido
                 ctx["aguardando_confirmacao_servico_sugerido"] = True
 
                 await salvar_contexto_temporario(user_id, ctx)
 
+                frase_data = montar_frase_data_legivel(data_hora) if data_hora else "nesse dia"
+
                 return await _send_and_stop(
                     context,
                     user_id,
-                    "Perfeito 😊 Para algo rápido, eu recomendo *escova*.\n\nPosso verificar um horário para amanhã?"
+                    (
+                        f"Perfeito 😊 Para algo rápido, eu recomendo *{servico_sugerido}*.\n\n"
+                        f"Posso verificar um horário {frase_data}?"
+                    )
                 )
 
             return await _send_and_stop(
