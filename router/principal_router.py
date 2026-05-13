@@ -2315,6 +2315,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
 
             ctx["servico"] = servico_sugerido
+            ctx["estado_fluxo"] = "agendando"
             ctx["aguardando_confirmacao_servico_sugerido"] = False
             ctx["servico_sugerido_humano"] = None
 
