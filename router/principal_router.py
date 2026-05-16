@@ -5339,7 +5339,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     regra = validacao.get("regra") or {}
                     origem = regra.get("origem")
 
-                    if origem == "excecao_profissional":
+                    if origem == "excecao_profissional" and prof:
                         return await _send_and_stop_ctx(
                             context,
                             user_id,
