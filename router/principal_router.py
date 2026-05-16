@@ -3209,16 +3209,47 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DENTRO DA ESCOLHA
             if eh_desistencia_fluxo(texto_usuario):
                 print("🧪 [DESISTENCIA DETECTADA] Encerrando fluxo...", flush=True)
+                print("🛑 [DESISTENCIA_PARCIAL] mantendo draft operacional", flush=True)
 
-                await limpar_contexto_agendamento(user_id)
+                dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
 
-                ctx.clear()
-                ctx["estado_fluxo"] = "idle"
+                ctx["aguardando_confirmacao_agendamento"] = False
+                ctx["dados_confirmacao_agendamento"] = None
+                ctx["estado_fluxo"] = "agendando"
+
+                draft = ctx.get("draft_agendamento") or {}
+
+                draft["servico"] = (
+                    ctx.get("servico")
+                    or draft.get("servico")
+                    or dados_conf.get("servico")
+                )
+
+                draft["data_hora"] = (
+                    ctx.get("data_hora")
+                    or draft.get("data_hora")
+                    or dados_conf.get("data_hora")
+                )
+
+                draft["profissional"] = (
+                    ctx.get("profissional_escolhido")
+                    or draft.get("profissional")
+                    or dados_conf.get("profissional")
+                )
+
+                # remove só a sugestão confirmável, se ela veio de escolha automática
+                if ctx.get("profissional_indiferente"):
+                    ctx["profissional_escolhido"] = None
+                    draft["profissional"] = None
+
+                ctx["draft_agendamento"] = draft
+
+                await salvar_contexto_temporario(user_id, ctx)
 
                 await _send_and_stop(
                     context,
                     user_id,
-                    "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
+                    "Tudo bem 😊 Me diga outro horário que eu verifico para você."
                 )
 
                 raise ApplicationHandlerStop
