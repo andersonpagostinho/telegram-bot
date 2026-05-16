@@ -1129,6 +1129,9 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                         f"{data_ctx}T{hora:02d}:{minuto:02d}:00"
                     )
 
+                    ctx["hora_confirmada"] = True
+                    ctx["data_sem_hora"] = False
+
                     print(
                         f"🧠 [HORA_INCREMENTAL] reutilizando data_ctx={data_ctx} hora={hora:02d}:{minuto:02d}",
                         flush=True
