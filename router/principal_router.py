@@ -5392,6 +5392,87 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     texto_usuario,
                 )
 
+        # =========================================================
+        # 🔥 PROFISSIONAL INDIFERENTE
+        # escolhe automaticamente disponível
+        # =========================================================
+        if (
+            data_hora
+            and servico
+            and not prof
+            and ctx.get("profissional_indiferente")
+        ):
+
+            print(
+                "🔥 [PROFISSIONAL_INDIFERENTE] buscando automático",
+                flush=True
+            )
+
+            data_ref = datetime.fromisoformat(data_hora).date()
+            hora_ref = data_hora.split("T")[1][:5]
+
+            disponiveis_dict = await buscar_profissionais_disponiveis_no_horario(
+                user_id=user_id,
+                data=data_ref,
+                hora=hora_ref,
+                duracao=estimar_duracao(servico),
+            ) or {}
+
+            profissionais_compativeis = []
+
+            for nome, dados in disponiveis_dict.items():
+
+                servicos_prof = [
+                    normalizar(s)
+                    for s in (dados.get("servicos") or [])
+                ]
+
+                if normalizar(servico) in servicos_prof:
+                    profissionais_compativeis.append(nome)
+
+            if profissionais_compativeis:
+
+                profissional_escolhido = profissionais_compativeis[0]
+
+                print(
+                    f"✅ [PROFISSIONAL_AUTO] escolhido={profissional_escolhido}",
+                    flush=True
+                )
+
+                ctx["profissional_escolhido"] = profissional_escolhido
+                ctx["aguardando_confirmacao_agendamento"] = True
+                ctx["dados_confirmacao_agendamento"] = {
+                    "data_hora": data_hora,
+                    "servico": servico,
+                    "profissional": profissional_escolhido,
+                }
+
+                draft = ctx.get("draft_agendamento") or {}
+                draft["profissional"] = profissional_escolhido
+                ctx["draft_agendamento"] = draft
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"Tenho *{profissional_escolhido}* disponível às "
+                        f"*{hora_ref}* para *{servico}* 😊\n\n"
+                        "Posso agendar?"
+                    )
+                )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Não encontrei ninguém disponível às *{hora_ref}* "
+                    f"para *{servico}* 😕\n\n"
+                    "Quer que eu te sugira os horários mais próximos?"
+                )
+            )
+
         if data_hora and servico and not prof:
             ctx["estado_fluxo"] = "aguardando_profissional"
             ctx["draft_agendamento"] = {"profissional": None, "data_hora": data_hora, "servico": servico, "modo_prechecagem": True}
@@ -5985,6 +6066,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     print("🔥🔥🔥 BLOCO DATA COMPLEXA EXECUTOU 🔥🔥🔥", flush=True)
 
     # =========================================================
+    # 🔥 SKIP — fluxo operacional já completo
+    # Ex.: serviço + horário real + profissional indiferente
+    # =========================================================
+    skip_data_complexa = False
+
+    if (
+        ctx.get("profissional_indiferente")
+        and (
+            ctx.get("servico")
+            or (ctx.get("draft_agendamento") or {}).get("servico")
+        )
+        and tem_hora_real(
+            ctx.get("data_hora")
+            or (ctx.get("draft_agendamento") or {}).get("data_hora")
+        )
+    ):
+        print(
+            "🔥 [SKIP DATA_COMPLEXA] fluxo operacional prioritário",
+            flush=True
+        )
+        skip_data_complexa = True
+
+    # =========================================================
     # PRÉ-GPT — usa a extração central do projeto
     # =========================================================
 
@@ -5993,7 +6097,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     objetivo_conv = ctx.get("objetivo_conversacional")
 
-    if objetivo_conv == "ajustar_draft_existente":
+    if not skip_data_complexa and objetivo_conv == "ajustar_draft_existente":
 
         print("🔁 [AJUSTE_INCREMENTAL] continuidade detectada", flush=True)
 
@@ -6020,7 +6124,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔥 CONTINUIDADE FORÇADA — aguardando_data
     # evita cair no parser global e corromper serviço/profissional
     # =========================================================
-    if ctx.get("estado_fluxo") == "aguardando_data":
+    if not skip_data_complexa and ctx.get("estado_fluxo") == "aguardando_data":
 
         dt = interpretar_data_e_hora(texto_usuario)
 
