@@ -3243,6 +3243,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     draft["profissional"] = None
 
                 ctx["draft_agendamento"] = draft
+                ctx["servico"] = draft.get("servico")
+                ctx["data_hora"] = draft.get("data_hora")
+
+                if draft.get("data_hora") and "T" in draft["data_hora"]:
+                    ctx["data"] = draft["data_hora"].split("T")[0]
 
                 await salvar_contexto_temporario(user_id, ctx)
 
