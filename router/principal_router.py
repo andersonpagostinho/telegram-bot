@@ -4547,7 +4547,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 origem = janela_data.get("origem")
                 motivo = janela_data.get("motivo")
 
-                if origem == "excecao_profissional":
+                if origem == "excecao_profissional" and prof:
 
                     alternativas = await buscar_profissionais_disponiveis_no_horario(
                         user_id=user_id,
