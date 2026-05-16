@@ -6106,6 +6106,43 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     user_id,
                     f"Perfeito — agora falta só o horário para *{data_legivel}*. Qual horário você prefere?"
                 )
+    # =========================================================
+    # 🔥 FAST PATH — fluxo operacional já pronto
+    # Evita passar novamente por DATA_COMPLEXA
+    # =========================================================
+    draft_fast = ctx.get("draft_agendamento") or {}
+
+    data_hora_fast = (
+        ctx.get("data_hora")
+        or draft_fast.get("data_hora")
+    )
+
+    servico_fast = (
+        ctx.get("servico")
+        or draft_fast.get("servico")
+    )
+
+    if (
+        ctx.get("estado_fluxo") == "agendando"
+        and servico_fast
+        and data_hora_fast
+        and tem_hora_real(data_hora_fast)
+        and ctx.get("profissional_indiferente")
+    ):
+        print("🔥 [FAST PATH OPERACIONAL] pulando DATA_COMPLEXA", flush=True)
+
+        ctx["data_hora"] = data_hora_fast
+        ctx["servico"] = servico_fast
+        ctx["hora_confirmada"] = True
+        ctx["data_sem_hora"] = False
+
+        draft_fast["data_hora"] = data_hora_fast
+        draft_fast["servico"] = servico_fast
+        ctx["draft_agendamento"] = draft_fast
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        print("🔥 [FAST PATH OPERACIONAL] contexto preparado", flush=True)
 
     print("🔥🔥🔥 BLOCO DATA COMPLEXA EXECUTOU 🔥🔥🔥", flush=True)
 
