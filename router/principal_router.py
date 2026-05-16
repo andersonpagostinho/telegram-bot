@@ -6191,6 +6191,109 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     else:
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+    
+    # =========================================================
+    # 🔥 PROFISSIONAL INDIFERENTE — PÓS EXTRAÇÃO
+    # serviço + horário real + sem profissional
+    # =========================================================
+    draft_auto = ctx.get("draft_agendamento") or {}
+
+    data_hora_auto = (
+        ctx.get("data_hora")
+        or draft_auto.get("data_hora")
+    )
+
+    servico_auto = (
+        ctx.get("servico")
+        or draft_auto.get("servico")
+    )
+
+    prof_auto = (
+        ctx.get("profissional_escolhido")
+        or draft_auto.get("profissional")
+    )
+
+    print(
+        f"🧪 [CHECK AUTO_PROF POS-EXTRACAO] "
+        f"data_hora={data_hora_auto} | "
+        f"servico={servico_auto} | "
+        f"prof={prof_auto} | "
+        f"prof_indiferente={ctx.get('profissional_indiferente')}",
+        flush=True
+    )
+
+    if (
+        data_hora_auto
+        and tem_hora_real(data_hora_auto)
+        and servico_auto
+        and not prof_auto
+        and ctx.get("profissional_indiferente")
+    ):
+        print("🔥 [PROFISSIONAL_INDIFERENTE POS-EXTRACAO] buscando automático", flush=True)
+
+        data_ref = datetime.fromisoformat(data_hora_auto).date()
+        hora_ref = data_hora_auto.split("T")[1][:5]
+
+        disponiveis_dict = await buscar_profissionais_disponiveis_no_horario(
+            user_id=user_id,
+            data=data_ref,
+            hora=hora_ref,
+            duracao=estimar_duracao(servico_auto),
+        ) or {}
+
+        profissionais_compativeis = []
+
+        for nome, dados in disponiveis_dict.items():
+            servicos_prof = [
+                normalizar(s)
+                for s in (dados.get("servicos") or [])
+            ]
+
+            if normalizar(servico_auto) in servicos_prof:
+                profissionais_compativeis.append(nome)
+
+        if profissionais_compativeis:
+            profissional_escolhido = profissionais_compativeis[0]
+
+            print(
+                f"✅ [PROFISSIONAL_AUTO POS-EXTRACAO] escolhido={profissional_escolhido}",
+                flush=True
+            )
+
+            ctx["profissional_escolhido"] = profissional_escolhido
+            ctx["aguardando_confirmacao_agendamento"] = True
+            ctx["dados_confirmacao_agendamento"] = {
+                "data_hora": data_hora_auto,
+                "servico": servico_auto,
+                "profissional": profissional_escolhido,
+            }
+
+            draft_auto["profissional"] = profissional_escolhido
+            draft_auto["servico"] = servico_auto
+            draft_auto["data_hora"] = data_hora_auto
+            ctx["draft_agendamento"] = draft_auto
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Tenho *{profissional_escolhido}* disponível às "
+                    f"*{hora_ref}* para *{servico_auto}*.\n\n"
+                    "Posso agendar?"
+                )
+            )
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Não encontrei ninguém disponível às *{hora_ref}* "
+                f"para *{servico_auto}*.\n\n"
+                "Quer que eu te sugira os horários mais próximos?"
+            )
+        )
 
     # =========================================================
     # AJUSTE INCREMENTAL — pós-extração
