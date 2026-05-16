@@ -4611,10 +4611,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         )
                     )
 
+                if prof:
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        f"Nesse dia a agenda da {prof} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você."
+                    )
+
                 return await _send_and_stop(
                     context,
                     user_id,
-                    f"Nesse dia a agenda da {prof} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você."
+                    "Nesse dia não teremos expediente. Me diga outro dia que eu verifico para você."
                 )
 
                 if origem == "profissional_nao_encontrado":
