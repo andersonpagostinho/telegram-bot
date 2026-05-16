@@ -6225,7 +6225,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             flush=True
         )
 
-    else:
+    elif not skip_data_complexa:
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
     
     # =========================================================
