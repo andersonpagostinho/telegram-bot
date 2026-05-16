@@ -5392,6 +5392,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     texto_usuario,
                 )
 
+        print(
+            f"🧪 [CHECK AUTO_PROF] "
+            f"data_hora={data_hora} | "
+            f"servico={servico} | "
+            f"prof={prof} | "
+            f"prof_indiferente={ctx.get('profissional_indiferente')}",
+            flush=True
+        )
+
         # =========================================================
         # 🔥 PROFISSIONAL INDIFERENTE
         # escolhe automaticamente disponível
@@ -5473,17 +5482,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
             )
 
-        if data_hora and servico and not prof:
+        if (
+            data_hora
+            and servico
+            and not prof
+            and not ctx.get("profissional_indiferente")
+        ):
             ctx["estado_fluxo"] = "aguardando_profissional"
             ctx["draft_agendamento"] = {"profissional": None, "data_hora": data_hora, "servico": servico, "modo_prechecagem": True}
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Perfeito. Qual profissional você prefere?")
-
-        if not data_hora:
-            ctx["estado_fluxo"] = "aguardando_data"
-            ctx["draft_agendamento"] = {"profissional": prof, "data_hora": None, "servico": servico, "modo_prechecagem": True}
-            await salvar_contexto_temporario(user_id, ctx)
-            return await _send_and_stop(context, user_id, "Qual dia e horário você prefere?")
 
         # =====================================================
         # 🔒 NÃO REVALIDAR SE JÁ EXISTE CONFIRMAÇÃO PRONTA
