@@ -79,6 +79,41 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         r"\b(com\s+[a-zA-ZÀ-ÿ]+|trocar profissional|outra profissional|outro profissional)\b",
         t
     )
+
+    # Dúvida/insegurança sobre profissional — por composição, não frase fixa
+    tem_sinal_qualidade_confianca = _tem(
+        r"\b(boa|bom|melhor|bem|qualidade|confio|confiavel|confiável|experiente|recomenda|indicaria|segura|seguro|habilidosa|habilidoso|caprichosa|caprichoso)\b",
+        t
+    )
+
+    tem_sinal_inseguranca = _tem(
+        r"\b(conheco|conheço|nunca|primeira vez|nao sei|não sei|duvida|dúvida|receio|medo|estranho|estranha)\b",
+        t
+    )
+
+    tem_sinal_comparacao = _tem(
+        r"\b(quanto|igual|comparado|comparada|melhor|pior|mesmo nivel|mesmo nível|parecida|parecido)\b",
+        t
+    )
+
+    tem_referencia_pessoa_profissional = (
+        _tem(r"\b(ela|ele|profissional|cabeleireira|manicure|atendente|pessoa)\b", t)
+        or tem_ref_profissional
+        or bool(ctx.get("profissional_escolhido"))
+        or bool((ctx.get("draft_agendamento") or {}).get("profissional"))
+    )
+
+    tem_duvida_confianca_profissional = (
+        tem_confirmacao_pendente
+        and tem_pergunta
+        and tem_referencia_pessoa_profissional
+        and (
+            tem_sinal_qualidade_confianca
+            or tem_sinal_inseguranca
+            or tem_sinal_comparacao
+        )
+    )
+
     return {
         "tem_fluxo_ativo": tem_fluxo_ativo,
         "tem_draft": tem_draft,
@@ -93,8 +128,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         "tem_social": tem_social,
         "tem_ref_profissional": tem_ref_profissional,
     }
-
-
+    
 def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
@@ -253,6 +287,18 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
                 "confianca": 90,
                 "features": f
             }
+
+    # =====================================================
+    # DÚVIDA / INSEGURANÇA SOBRE PROFISSIONAL
+    # Não executa ação. Só permite resposta humana guiada.
+    # =====================================================
+    if f.get("tem_duvida_confianca_profissional"):
+        return {
+            "intencao_conversacional": "duvida_confianca_profissional",
+            "tipo_ajuste_incremental": None,
+            "confianca": 92,
+            "features": f
+        }
 
     if f["tem_cancelamento"]:
         return {"intencao_conversacional": "cancelamento", "confianca": 90, "features": f}
