@@ -2649,7 +2649,46 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "data_hora": ctx.get("data_hora"),
         })
 
-        await limpar_contexto_agendamento(user_id)
+        dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
+        draft = ctx.get("draft_agendamento") or {}
+
+        draft["servico"] = (
+            ctx.get("servico")
+            or draft.get("servico")
+            or dados_conf.get("servico")
+        )
+
+        draft["data_hora"] = (
+            ctx.get("data_hora")
+            or draft.get("data_hora")
+            or dados_conf.get("data_hora")
+        )
+
+        if ctx.get("profissional_indiferente"):
+            draft["profissional"] = None
+            ctx["profissional_escolhido"] = None
+        else:
+            draft["profissional"] = (
+                ctx.get("profissional_escolhido")
+                or draft.get("profissional")
+                or dados_conf.get("profissional")
+            )
+
+        ctx["draft_agendamento"] = draft
+        ctx["servico"] = draft.get("servico")
+        ctx["data_hora"] = draft.get("data_hora")
+
+        if draft.get("data_hora") and "T" in draft["data_hora"]:
+            ctx["data"] = draft["data_hora"].split("T")[0]
+
+        ctx["aguardando_confirmacao_agendamento"] = False
+        ctx["dados_confirmacao_agendamento"] = None
+        ctx["estado_fluxo"] = "agendando"
+        ctx["intencao_conversacional"] = None
+        ctx["objetivo_conversacional"] = None
+        ctx["tipo_ajuste_incremental"] = None
+
+        await salvar_contexto_temporario(user_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -2745,7 +2784,46 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         eh_confirmacao_pendente_ativa(ctx)
         and ctx.get("intencao_conversacional") == "negacao_confirmacao_agendamento"
     ):
-        await limpar_contexto_agendamento(user_id)
+        dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
+        draft = ctx.get("draft_agendamento") or {}
+
+        draft["servico"] = (
+            ctx.get("servico")
+            or draft.get("servico")
+            or dados_conf.get("servico")
+        )
+
+        draft["data_hora"] = (
+            ctx.get("data_hora")
+            or draft.get("data_hora")
+            or dados_conf.get("data_hora")
+        )
+
+        # se a profissional veio de sugestão automática, remove só a profissional
+        if ctx.get("profissional_indiferente"):
+            draft["profissional"] = None
+            ctx["profissional_escolhido"] = None
+        else:
+            draft["profissional"] = (
+                ctx.get("profissional_escolhido")
+                or draft.get("profissional")
+                or dados_conf.get("profissional")
+            )
+
+        ctx["draft_agendamento"] = draft
+        ctx["servico"] = draft.get("servico")
+        ctx["data_hora"] = draft.get("data_hora")
+        ctx["aguardando_confirmacao_agendamento"] = False
+        ctx["dados_confirmacao_agendamento"] = None
+        ctx["estado_fluxo"] = "agendando"
+        ctx["intencao_conversacional"] = None
+        ctx["objetivo_conversacional"] = None
+        ctx["tipo_ajuste_incremental"] = None
+
+        if draft.get("data_hora") and "T" in draft["data_hora"]:
+            ctx["data"] = draft["data_hora"].split("T")[0]
+
+        await salvar_contexto_temporario(user_id, ctx)
 
         return await _send_and_stop(
             context,
