@@ -39,6 +39,7 @@ from services.agenda_service import (
     validar_horario_funcionamento,
     resolver_fora_do_expediente,
 )
+from services.event_service_async import evento_deve_entrar_na_agenda
 
 logger = logging.getLogger(__name__)
 
@@ -683,15 +684,46 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         ) or []
 
         ocupados = []
+
         for ev in eventos_do_dia:
-            # Se houver profissional, filtra por ele; se não, considera todos
+
+            evento_id = (
+                ev.get("id")
+                or ev.get("event_id")
+                or ev.get("evento_id")
+                or ""
+            )
+
+            # 🔥 filtro estrutural da agenda
+            if not evento_deve_entrar_na_agenda(
+                evento_id=evento_id,
+                evento=ev,
+                data_consulta=start_time.strftime("%Y-%m-%d")
+            ):
+                print(
+                    f"🧹 [EVENTO_IGNORADO_HANDLER] id={evento_id}",
+                    flush=True
+                )
+                continue
+
+            # Se houver profissional, filtra por ele
             if profissional:
                 if ev.get("profissional", "").lower() != profissional.lower():
                     continue
+
             try:
-                ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
-                ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
+                ev_inicio = datetime.strptime(
+                    f"{ev['data']} {ev['hora_inicio']}",
+                    "%Y-%m-%d %H:%M"
+                )
+
+                ev_fim = datetime.strptime(
+                    f"{ev['data']} {ev['hora_fim']}",
+                    "%Y-%m-%d %H:%M"
+                )
+
                 ocupados.append((ev_inicio, ev_fim))
+
             except Exception as e:
                 print(f"⚠️ Erro ao processar evento: {e}")
                 continue
