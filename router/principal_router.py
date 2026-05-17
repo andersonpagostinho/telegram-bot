@@ -4507,6 +4507,86 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         await salvar_contexto_temporario(user_id, ctx)
     
     # =========================================================
+    # ✅ CONFIRMAÇÃO EXPLÍCITA OU IMPLÍCITA DE SERVIÇO SUGERIDO
+    # =========================================================
+    if ctx.get("aguardando_confirmacao_servico_sugerido"):
+
+        servico_sugerido = ctx.get("servico_sugerido_humano")
+
+        tem_continuidade_operacional = (
+            interpretar_data_e_hora(texto_usuario) is not None
+            or bool((ctx.get("interpretacao_conversacional") or {}).get("entidades"))
+            or ctx.get("tipo_ajuste_incremental") in ["horario", "data", "periodo"]
+            or ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
+        )
+
+        if servico_sugerido and (
+            eh_confirmacao(texto_usuario)
+            or tem_continuidade_operacional
+        ):
+
+            print(
+                f"✅ [SERVICO_SUGERIDO_CONFIRMADO] servico={servico_sugerido}",
+                flush=True
+            )
+
+            ctx["servico"] = servico_sugerido
+
+            # =========================================================
+            # 🔥 Draft já operacional
+            # não pode continuar em modo de sugestão humana
+            # =========================================================
+            if (
+                ctx.get("data_hora")
+                and "T" in str(ctx.get("data_hora"))
+                and bool(ctx.get("hora_confirmada"))
+            ):
+
+                ctx["aguardando_confirmacao_servico_sugerido"] = False
+                ctx["estado_fluxo"] = "agendando"
+
+            ctx["estado_fluxo"] = "agendando"
+            ctx["aguardando_confirmacao_servico_sugerido"] = False
+            ctx["servico_sugerido_humano"] = None
+            ctx["profissional_indiferente"] = True
+
+            draft = ctx.get("draft_agendamento") or {}
+            draft["servico"] = servico_sugerido
+            ctx["draft_agendamento"] = draft
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            # =========================================================
+            # 🔥 FAST PATH — serviço sugerido + data/hora já completos
+            # Não responde aqui. Deixa o pipeline operacional continuar.
+            # =========================================================
+            if (
+                servico_sugerido
+                and ctx.get("data_hora")
+                and bool(ctx.get("hora_confirmada"))
+            ):
+                print(
+                    "🔥 [FAST_PATH_SERVICO_SUGERIDO] draft operacional pronto",
+                    flush=True
+                )
+
+            # confirmação simples sem horário
+            if eh_confirmacao(texto_usuario) and not tem_continuidade_operacional:
+
+                if ctx.get("data_sem_hora"):
+
+                    frase_data = montar_frase_data_legivel(ctx.get("data_hora"))
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        (
+                            f"Perfeito 😊\n\n"
+                            f"Qual horário você prefere {frase_data} para *{servico_sugerido}*?"
+                        )
+                    )
+    
+    # =========================================================
     # ✅ (F) Estado aguardando_servico: captura serviço e fecha automático se completo
     # =========================================================
     if estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
@@ -6332,85 +6412,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 flush=True
             )
 
-    # =========================================================
-    # ✅ CONFIRMAÇÃO EXPLÍCITA OU IMPLÍCITA DE SERVIÇO SUGERIDO
-    # =========================================================
-    if ctx.get("aguardando_confirmacao_servico_sugerido"):
-
-        servico_sugerido = ctx.get("servico_sugerido_humano")
-
-        tem_continuidade_operacional = (
-            interpretar_data_e_hora(texto_usuario) is not None
-            or bool((ctx.get("interpretacao_conversacional") or {}).get("entidades"))
-            or ctx.get("tipo_ajuste_incremental") in ["horario", "data", "periodo"]
-            or ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
-        )
-
-        if servico_sugerido and (
-            eh_confirmacao(texto_usuario)
-            or tem_continuidade_operacional
-        ):
-
-            print(
-                f"✅ [SERVICO_SUGERIDO_CONFIRMADO] servico={servico_sugerido}",
-                flush=True
-            )
-
-            ctx["servico"] = servico_sugerido
-
-            # =========================================================
-            # 🔥 Draft já operacional
-            # não pode continuar em modo de sugestão humana
-            # =========================================================
-            if (
-                ctx.get("data_hora")
-                and "T" in str(ctx.get("data_hora"))
-                and ctx.get("hora_confirmada") is True
-            ):
-
-                ctx["aguardando_confirmacao_servico_sugerido"] = False
-                ctx["estado_fluxo"] = "agendando"
-
-            ctx["estado_fluxo"] = "agendando"
-            ctx["aguardando_confirmacao_servico_sugerido"] = False
-            ctx["servico_sugerido_humano"] = None
-            ctx["profissional_indiferente"] = True
-
-            draft = ctx.get("draft_agendamento") or {}
-            draft["servico"] = servico_sugerido
-            ctx["draft_agendamento"] = draft
-
-            await salvar_contexto_temporario(user_id, ctx)
-
-            # =========================================================
-            # 🔥 FAST PATH — serviço sugerido + data/hora já completos
-            # Não responde aqui. Deixa o pipeline operacional continuar.
-            # =========================================================
-            if (
-                servico_sugerido
-                and ctx.get("data_hora")
-                and bool(ctx.get("hora_confirmada"))
-            ):
-                print(
-                    "🔥 [FAST_PATH_SERVICO_SUGERIDO] draft operacional pronto",
-                    flush=True
-                )
-
-            # confirmação simples sem horário
-            if eh_confirmacao(texto_usuario) and not tem_continuidade_operacional:
-
-                if ctx.get("data_sem_hora"):
-
-                    frase_data = montar_frase_data_legivel(ctx.get("data_hora"))
-
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        (
-                            f"Perfeito 😊\n\n"
-                            f"Qual horário você prefere {frase_data} para *{servico_sugerido}*?"
-                        )
-                    )
     # =========================================================
     # 🔥 CONTINUIDADE FORÇADA — aguardando_data
     # evita cair no parser global e corromper serviço/profissional
