@@ -212,8 +212,12 @@ async def buscar_eventos_por_intervalo(
             if not isinstance(evento, dict):
                 continue
 
-            # ❗ Ignora cancelados
-            if (evento.get("status") or "").lower() == "cancelado":
+            # 🔥 filtro estrutural único da agenda
+            if evento_deve_ser_ignorado(evento, event_id):
+                print(
+                    f"🧹 [EVENTO_IGNORADO_BASE] id={event_id}",
+                    flush=True
+                )
                 continue
 
             data_str = evento.get("data")
@@ -682,10 +686,20 @@ async def tentar_split_simples(
     ocupados_por_prof = {}
 
     for eid, ev in eventos.items():
+
         if event_id and eid == event_id:
             continue
 
+        # 🔥 filtro estrutural único da agenda
+        if evento_deve_ser_ignorado(ev, eid):
+            print(
+                f"🧹 [EVENTO_IGNORADO_DISPONIBILIDADE] id={eid}",
+                flush=True
+            )
+            continue
+
         ev_prof = unidecode(str(ev.get("profissional", "")).strip().lower())
+
         if not ev_prof:
             continue
 
@@ -828,6 +842,25 @@ def verificar_encaixe_exato(inicio_novo, ocupados, duracao_min):
             return False
 
     return True
+
+def evento_deve_ser_ignorado(ev: dict, event_id: str | None = None) -> bool:
+    try:
+        eid = str(event_id or "")
+
+        if eid.startswith("none_"):
+            return True
+
+        status = (ev.get("status") or "").strip().lower()
+        if status in ["cancelado", "pendente"]:
+            return True
+
+        if ev.get("confirmado") is not True:
+            return True
+
+        return False
+
+    except Exception:
+        return False
 
 async def verificar_conflito_e_sugestoes_profissional(
     user_id: str,
