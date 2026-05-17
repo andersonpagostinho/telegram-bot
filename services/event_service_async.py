@@ -29,19 +29,13 @@ def evento_deve_entrar_na_agenda(
     if not isinstance(evento, dict):
         return False
 
-    evento_id = str(evento_id or "").strip().lower()
-
-    # 🔥 lixo legado
-    if evento_id.startswith("none_"):
-        return False
-
     # 🔥 sem profissional
     if not evento.get("profissional"):
         return False
 
-    # 🔥 cancelado
+    # 🔥 cancelado/removido não ocupa agenda
     status = str(evento.get("status") or "").strip().lower()
-    if status == "cancelado":
+    if status in ["cancelado", "cancelada", "removido", "removida", "excluido", "excluído"]:
         return False
 
     # 🔥 sem estrutura mínima
