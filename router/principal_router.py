@@ -6382,6 +6382,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             await salvar_contexto_temporario(user_id, ctx)
 
+            # =========================================================
+            # 🔥 FAST PATH — serviço sugerido + data/hora já completos
+            # Não responde aqui. Deixa o pipeline operacional continuar.
+            # =========================================================
+            if (
+                ctx.get("servico")
+                and ctx.get("data_hora")
+                and ctx.get("hora_confirmada") is True
+            ):
+                print(
+                    "🔥 [FAST_PATH_SERVICO_SUGERIDO] draft operacional pronto",
+                    flush=True
+                )
+
             # confirmação simples sem horário
             if eh_confirmacao(texto_usuario) and not tem_continuidade_operacional:
 
