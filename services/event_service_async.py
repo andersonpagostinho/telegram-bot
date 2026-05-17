@@ -849,6 +849,19 @@ def evento_deve_ser_ignorado(ev: dict, event_id: str | None = None) -> bool:
     except Exception:
         return False
 
+def verificar_encaixe_exato(inicio_novo, ocupados, duracao_min):
+    fim_novo = inicio_novo + timedelta(minutes=duracao_min)
+
+    for ev_ini, ev_fim in ocupados:
+        if not ev_ini or not ev_fim:
+            continue
+
+        # conflito se os intervalos se cruzam
+        if inicio_novo < ev_fim and fim_novo > ev_ini:
+            return False
+
+    return True
+
 async def verificar_conflito_e_sugestoes_profissional(
     user_id: str,
     data: str,
