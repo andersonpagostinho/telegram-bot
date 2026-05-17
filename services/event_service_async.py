@@ -386,9 +386,17 @@ async def verificar_conflito(
         prof_novo = (profissional or "").strip().lower()
 
         for eid, ev in (eventos or {}).items():
-            # ❗ Ignora cancelados
-            status = (ev.get("status") or "").strip().lower()
-            if status == "cancelado":
+
+            # 🔥 filtro estrutural único da agenda
+            if not evento_deve_entrar_na_agenda(
+                evento_id=eid,
+                evento=ev,
+                data_consulta=data
+            ):
+                print(
+                    f"🧹 [EVENTO_IGNORADO_SALVAR] id={eid}",
+                    flush=True
+                )
                 continue
 
             # ✅ ignorar o próprio evento (quando event_id conhecido)
