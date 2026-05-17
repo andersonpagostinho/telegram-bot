@@ -2638,6 +2638,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if (
         eh_confirmacao_pendente_ativa(ctx)
         and interpretacao_conv.get("intencao") == "negacao_confirmacao_agendamento"
+        and eh_desistencia_fluxo(texto_usuario)
     ):
 
         from services.gpt_service import gerar_resposta_humana_agendamento
@@ -2783,6 +2784,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if (
         eh_confirmacao_pendente_ativa(ctx)
         and ctx.get("intencao_conversacional") == "negacao_confirmacao_agendamento"
+        and eh_desistencia_fluxo(texto_usuario)
     ):
         dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
         draft = ctx.get("draft_agendamento") or {}
@@ -5572,7 +5574,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 draft = ctx.get("draft_agendamento") or {}
                 draft["profissional"] = profissional_escolhido
+                draft["servico"] = servico
+                draft["data_hora"] = data_hora
                 ctx["draft_agendamento"] = draft
+
+                ctx["estado_fluxo"] = "agendando"
+                ctx["interpretacao_conversacional"] = None
+                ctx["intencao_conversacional"] = None
+                ctx["objetivo_conversacional"] = None
+                ctx["tipo_ajuste_incremental"] = None
 
                 await salvar_contexto_temporario(user_id, ctx)
 
@@ -6435,6 +6445,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx["objetivo_conversacional"] = None
             ctx["tipo_ajuste_incremental"] = None
             ctx["intencao_conversacional"] = None
+            ctx["interpretacao_conversacional"] = None
 
             await salvar_contexto_temporario(user_id, ctx)
 
