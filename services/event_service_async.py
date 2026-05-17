@@ -838,18 +838,22 @@ def _parse_event_interval(ev: dict):
     except Exception:
         return None, None
 
-def verificar_encaixe_exato(inicio_novo, ocupados, duracao_min):
-    fim_novo = inicio_novo + timedelta(minutes=duracao_min)
+def evento_deve_ser_ignorado(ev: dict, event_id: str | None = None) -> bool:
+    try:
+        status = (ev.get("status") or "").strip().lower()
 
-    for ev_ini, ev_fim in ocupados:
-        if not ev_ini or not ev_fim:
-            continue
+        # Só eventos cancelados/removidos liberam horário
+        if status in ["cancelado", "cancelada", "removido", "removida", "excluido", "excluído"]:
+            return True
 
-        # se qualquer evento intercepta o intervalo, não cabe
-        if inicio_novo < ev_fim and fim_novo > ev_ini:
+        # Se tem data e horário, ocupa agenda mesmo se ainda estiver pendente
+        if ev.get("data") and ev.get("hora_inicio"):
             return False
 
-    return True
+        return False
+
+    except Exception:
+        return False
 
 def evento_deve_ser_ignorado(ev: dict, event_id: str | None = None) -> bool:
     try:
