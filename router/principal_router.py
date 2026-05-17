@@ -6387,7 +6387,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # Não responde aqui. Deixa o pipeline operacional continuar.
             # =========================================================
             if (
-                ctx.get("servico")
+                servico_sugerido
                 and ctx.get("data_hora")
                 and ctx.get("hora_confirmada") is True
             ):
