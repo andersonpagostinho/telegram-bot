@@ -6325,6 +6325,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if normalizar(servico_auto) in servicos_prof:
                 profissionais_compativeis.append(nome)
 
+        print(
+            f"🧪 [AUTO_PROF FILTRO] servico_auto={servico_auto} | "
+            f"disponiveis={list(disponiveis_dict.keys())} | "
+            f"compativeis={profissionais_compativeis}",
+            flush=True
+        )
+
         if profissionais_compativeis:
             profissional_escolhido = profissionais_compativeis[0]
 
