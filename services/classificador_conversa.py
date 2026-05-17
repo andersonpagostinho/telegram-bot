@@ -127,6 +127,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         "tem_cancelamento": tem_cancelamento,
         "tem_social": tem_social,
         "tem_ref_profissional": tem_ref_profissional,
+        "tem_duvida_confianca_profissional": tem_duvida_confianca_profissional,
     }
     
 def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
