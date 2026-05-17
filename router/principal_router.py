@@ -6357,6 +6357,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
 
             ctx["servico"] = servico_sugerido
+
+            # =========================================================
+            # 🔥 Draft já operacional
+            # não pode continuar em modo de sugestão humana
+            # =========================================================
+            if (
+                ctx.get("data_hora")
+                and "T" in str(ctx.get("data_hora"))
+                and ctx.get("hora_confirmada") is True
+            ):
+
+                ctx["aguardando_confirmacao_servico_sugerido"] = False
+                ctx["estado_fluxo"] = "agendando"
+
             ctx["estado_fluxo"] = "agendando"
             ctx["aguardando_confirmacao_servico_sugerido"] = False
             ctx["servico_sugerido_humano"] = None
