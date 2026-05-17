@@ -2853,9 +2853,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔥 PRIORIDADE MÁXIMA — AJUSTE DE DRAFT
     # =========================================================
   
+    bloquear_ajuste_por_fluxo_operacional = (
+        ctx.get("preferencia_rapidez")
+        and (
+            ctx.get("servico")
+            or ctx.get("servico_sugerido_humano")
+        )
+        and ctx.get("data_hora")
+    )
+
     if (
         interpretacao_conv.get("intencao") == "ajuste_incremental"
         and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
+        and not bloquear_ajuste_por_fluxo_operacional
     ):
 
         print("🔁 [PRIORIDADE] ajuste incremental antes da confirmação", flush=True)
