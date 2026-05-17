@@ -6431,6 +6431,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             draft_auto["data_hora"] = data_hora_auto
             ctx["draft_agendamento"] = draft_auto
 
+            ctx["estado_fluxo"] = "agendando"
+            ctx["objetivo_conversacional"] = None
+            ctx["tipo_ajuste_incremental"] = None
+            ctx["intencao_conversacional"] = None
+
             await salvar_contexto_temporario(user_id, ctx)
 
             return await _send_and_stop(
