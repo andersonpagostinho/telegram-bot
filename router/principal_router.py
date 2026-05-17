@@ -2428,7 +2428,18 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if ctx.get("aguardando_confirmacao_servico_sugerido"):
         servico_sugerido = ctx.get("servico_sugerido_humano")
 
-        if servico_sugerido and eh_confirmacao(texto_usuario):
+        tem_continuidade_operacional = (
+            interpretar_data_e_hora(texto_usuario) is not None
+            or bool((ctx.get("interpretacao_conversacional") or {}).get("entidades"))
+            or ctx.get("tipo_ajuste_incremental") in ["horario", "data", "periodo"]
+            or ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
+        )
+
+        if servico_sugerido and (
+            eh_confirmacao(texto_usuario)
+            or tem_continuidade_operacional
+        ):
+
             print(
                 f"✅ [SERVICO_SUGERIDO_CONFIRMADO] servico={servico_sugerido}",
                 flush=True
