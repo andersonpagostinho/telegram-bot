@@ -1747,7 +1747,19 @@ async def resolver_alteracao_draft_agendamento(
             # Ex.: cliente tenta trocar para Bruna, mas Bruna está ocupada.
             # Se Carla ainda está livre no horário original, oferece manter Carla.
             # =====================================================
-            profissional_anterior = profissional
+            profissional_anterior = (
+                draft.get("profissional")
+                or ctx.get("profissional_escolhido")
+                or (ctx.get("dados_confirmacao_agendamento") or {}).get("profissional")
+                or profissional
+            )
+
+            print(
+                f"🧪 [TROCA_PROF_CONFLITO] novo={novo_profissional} | "
+                f"anterior={profissional_anterior} | "
+                f"draft={draft} | dados_conf={ctx.get('dados_confirmacao_agendamento')}",
+                flush=True
+            )
 
             if (
                 profissional_anterior
