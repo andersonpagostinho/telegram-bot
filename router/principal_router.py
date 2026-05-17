@@ -5221,15 +5221,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if not servico:
             print("🛑 [AG_SERVICO] saiu por falta de serviço", flush=True)
 
-            ctx["estado_fluxo"] = "aguardando_servico"
-
-            await salvar_contexto_temporario(user_id, ctx)
-
             if ctx.get("preferencia_rapidez"):
                 servico_sugerido = "escova"
 
                 ctx["servico_sugerido_humano"] = servico_sugerido
                 ctx["aguardando_confirmacao_servico_sugerido"] = True
+                ctx["estado_fluxo"] = "aguardando_servico"
 
                 await salvar_contexto_temporario(user_id, ctx)
 
@@ -5243,6 +5240,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         f"Posso verificar um horário {frase_data}?"
                     )
                 )
+
+            ctx["estado_fluxo"] = "aguardando_servico"
+
+            await salvar_contexto_temporario(user_id, ctx)
 
             return await _send_and_stop(
                 context,
