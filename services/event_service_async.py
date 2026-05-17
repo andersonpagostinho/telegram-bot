@@ -855,25 +855,6 @@ def evento_deve_ser_ignorado(ev: dict, event_id: str | None = None) -> bool:
     except Exception:
         return False
 
-def evento_deve_ser_ignorado(ev: dict, event_id: str | None = None) -> bool:
-    try:
-        eid = str(event_id or "")
-
-        if eid.startswith("none_"):
-            return True
-
-        status = (ev.get("status") or "").strip().lower()
-        if status in ["cancelado", "pendente"]:
-            return True
-
-        if ev.get("confirmado") is not True:
-            return True
-
-        return False
-
-    except Exception:
-        return False
-
 async def verificar_conflito_e_sugestoes_profissional(
     user_id: str,
     data: str,
