@@ -1741,6 +1741,66 @@ async def resolver_alteracao_draft_agendamento(
         )
 
         if conflito.get("conflito"):
+
+            # =====================================================
+            # 🔥 PRIORIDADE — manter profissional anterior
+            # Ex.: cliente tenta trocar para Bruna, mas Bruna está ocupada.
+            # Se Carla ainda está livre no horário original, oferece manter Carla.
+            # =====================================================
+            profissional_anterior = profissional
+
+            if (
+                profissional_anterior
+                and normalizar(profissional_anterior) != normalizar(novo_profissional)
+            ):
+                conflito_anterior = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=user_id,
+                    data=data,
+                    hora_inicio=hora,
+                    duracao_min=duracao,
+                    profissional=profissional_anterior,
+                    servico=servico
+                )
+
+                if not conflito_anterior.get("conflito"):
+                    draft["profissional"] = profissional_anterior
+                    draft["servico"] = servico
+                    draft["data_hora"] = data_hora
+                    draft["modo_prechecagem"] = True
+
+                    ctx["draft_agendamento"] = draft
+                    ctx["profissional_escolhido"] = profissional_anterior
+                    ctx["servico"] = servico
+                    ctx["data_hora"] = data_hora
+                    ctx["estado_fluxo"] = "agendando"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+                    ctx["dados_confirmacao_agendamento"] = {
+                        "origem": "confirmacao_pendente",
+                        "profissional": profissional_anterior,
+                        "servico": servico,
+                        "data_hora": data_hora,
+                        "duracao": duracao,
+                        "descricao": f"{servico.capitalize()} com {profissional_anterior}",
+                    }
+
+                    ctx["interpretacao_conversacional"] = None
+                    ctx["intencao_conversacional"] = None
+                    ctx["objetivo_conversacional"] = None
+                    ctx["tipo_ajuste_incremental"] = None
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        (
+                            f"{novo_profissional} já está ocupada às {hora} para {servico}.\n\n"
+                            f"{profissional_anterior} continua disponível nesse horário.\n\n"
+                            "Quer manter com ela?"
+                        ),
+                        parse_mode=None
+                    )
+
             sugestoes = conflito.get("sugestoes") or []
 
             if sugestoes:
@@ -1785,6 +1845,11 @@ async def resolver_alteracao_draft_agendamento(
             "duracao": duracao,
             "descricao": f"{servico.capitalize()} com {novo_profissional}",
         }
+
+        ctx["interpretacao_conversacional"] = None
+        ctx["intencao_conversacional"] = None
+        ctx["objetivo_conversacional"] = None
+        ctx["tipo_ajuste_incremental"] = None
 
         await salvar_contexto_temporario(user_id, ctx)
 
