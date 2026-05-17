@@ -6405,7 +6405,43 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 }
 
             else:
+                dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
+
+                # preserva campos operacionais já conhecidos
+                draft_inc["servico"] = (
+                    ctx.get("servico")
+                    or draft_inc.get("servico")
+                    or dados_conf.get("servico")
+                )
+
+                draft_inc["profissional"] = (
+                    ctx.get("profissional_escolhido")
+                    or draft_inc.get("profissional")
+                    or dados_conf.get("profissional")
+                )
+
+                draft_inc["data_hora"] = (
+                    ctx.get("data_hora")
+                    or draft_inc.get("data_hora")
+                    or dados_conf.get("data_hora")
+                )
+
                 ctx["draft_agendamento"] = draft_inc
+                ctx["servico"] = draft_inc.get("servico")
+                ctx["data_hora"] = draft_inc.get("data_hora")
+                ctx["profissional_escolhido"] = draft_inc.get("profissional")
+
+                ctx["dados_confirmacao_agendamento"] = {
+                    **dados_conf,
+                    "servico": draft_inc.get("servico"),
+                    "profissional": draft_inc.get("profissional"),
+                    "data_hora": draft_inc.get("data_hora"),
+                }
+
+                print(
+                    f"🔁 [AJUSTE_INCREMENTAL] draft recomposto={ctx.get('draft_agendamento')}",
+                    flush=True
+                )
 
     # 🔥 PROTEÇÃO CRÍTICA
     if not isinstance(ctx, dict):
