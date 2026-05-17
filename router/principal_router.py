@@ -2829,6 +2829,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "data_hora": data_hora,
                 "duracao": duracao,
                 "descricao": formatar_descricao_evento(servico, profissional),
+                # 🔒 commit real da agenda: só chega aqui após confirmação do cliente
+                "confirmado": True,
+                "status": "confirmado",
             }
 
             ctx["aguardando_confirmacao_agendamento"] = False

@@ -63,6 +63,18 @@ def evento_deve_entrar_na_agenda(
 async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> bool:
     try:
 
+        # =====================================================
+        # 🔒 EVENTOS só podem ser persistidos quando confirmados
+        # Pré-agendamento deve ficar em MemoriaTemporaria
+        # =====================================================
+        if evento.get("confirmado") is not True:
+            print(
+                "🚫 [SALVAR_EVENTO_BLOQUEADO] tentativa de salvar evento não confirmado. "
+                f"evento={evento}",
+                flush=True
+            )
+            return False
+
         def normalizar_hora_para_grade(hora_str: str) -> str:
             try:
                 h, m = map(int, str(hora_str).split(":"))

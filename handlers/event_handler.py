@@ -367,7 +367,8 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "hora_inicio": start_time.strftime("%H:%M"),
             "hora_fim": end_time.strftime("%H:%M"),
             "duracao": duracao,
-            "confirmado": False,
+            "confirmado": True,
+            "status": "confirmado",
             "link": "",
         }
         if profissional:
@@ -865,7 +866,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "hora_inicio": start_time.strftime("%H:%M"),
             "hora_fim": end_time.strftime("%H:%M"),
             "duracao": duracao_minutos,
-            "confirmado": False,
+            "confirmado": True,
+            "status": "confirmado",
             "link": "",
         }
         if profissional:
