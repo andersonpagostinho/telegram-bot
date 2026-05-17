@@ -6389,7 +6389,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if (
                 servico_sugerido
                 and ctx.get("data_hora")
-                and ctx.get("hora_confirmada") is True
+                and bool(ctx.get("hora_confirmada"))
             ):
                 print(
                     "🔥 [FAST_PATH_SERVICO_SUGERIDO] draft operacional pronto",
