@@ -2737,32 +2737,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
     # =========================================================
-    # 🔥 PRIORIDADE MÁXIMA — AJUSTE DE DRAFT
-    # =========================================================
-  
-    if (
-        interpretacao_conv.get("intencao") == "ajuste_incremental"
-        and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
-    ):
-
-        print("🔁 [PRIORIDADE] ajuste incremental antes da confirmação", flush=True)
-
-        alteracao = await detectar_alteracao_draft_agendamento(
-            texto_usuario=texto_usuario,
-            ctx=ctx,
-            dono_id=dono_id
-        )
-
-        if alteracao:
-            return await resolver_alteracao_draft_agendamento(
-                update=update,
-                context=context,
-                user_id=user_id,
-                ctx=ctx,
-                alteracao=alteracao
-            )
-
-    # =========================================================
     # PRIORIDADE MÁXIMA — CONFIRMAÇÃO FINAL DE AGENDAMENTO
     # =========================================================
     if eh_confirmacao_pendente_ativa(ctx) and (
@@ -2873,7 +2847,33 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             context,
             user_id,
             "Tudo bem 😊 Não vou agendar."
+        )    
+
+    # =========================================================
+    # 🔥 PRIORIDADE MÁXIMA — AJUSTE DE DRAFT
+    # =========================================================
+  
+    if (
+        interpretacao_conv.get("intencao") == "ajuste_incremental"
+        and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
+    ):
+
+        print("🔁 [PRIORIDADE] ajuste incremental antes da confirmação", flush=True)
+
+        alteracao = await detectar_alteracao_draft_agendamento(
+            texto_usuario=texto_usuario,
+            ctx=ctx,
+            dono_id=dono_id
         )
+
+        if alteracao:
+            return await resolver_alteracao_draft_agendamento(
+                update=update,
+                context=context,
+                user_id=user_id,
+                ctx=ctx,
+                alteracao=alteracao
+            )
 
     # =========================================================
     # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
