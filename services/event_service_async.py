@@ -16,6 +16,48 @@ from utils.formatters import gerar_sugestoes_de_horario
 
 FUSO_BR = timezone("America/Sao_Paulo")
 
+# =========================================================
+# 🔥 FILTRO DE EVENTOS VÁLIDOS PARA AGENDA
+# evita lixo legado, cancelados e eventos incompletos
+# =========================================================
+def evento_deve_entrar_na_agenda(
+    evento_id: str,
+    evento: dict,
+    data_consulta: str | None = None
+) -> bool:
+
+    if not isinstance(evento, dict):
+        return False
+
+    evento_id = str(evento_id or "").strip().lower()
+
+    # 🔥 lixo legado
+    if evento_id.startswith("none_"):
+        return False
+
+    # 🔥 sem profissional
+    if not evento.get("profissional"):
+        return False
+
+    # 🔥 cancelado
+    status = str(evento.get("status") or "").strip().lower()
+    if status == "cancelado":
+        return False
+
+    # 🔥 sem estrutura mínima
+    if (
+        not evento.get("data")
+        or not evento.get("hora_inicio")
+        or not evento.get("hora_fim")
+    ):
+        return False
+
+    # 🔥 outra data
+    if data_consulta and evento.get("data") != data_consulta:
+        return False
+
+    return True
+
 
 # 🔁 Salvar ou atualizar um evento
 async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> bool:
@@ -838,11 +880,19 @@ async def verificar_conflito_e_sugestoes_profissional(
     # 4) Ocupados do profissional (do dia todo)
     ocupados = []
     for eid, ev in eventos.items():
-        if event_id and eid == event_id:
+
+        if not evento_deve_entrar_na_agenda(
+            evento_id=eid,
+            evento=ev,
+            data_consulta=data
+        ):
+            print(
+                f"🧹 [EVENTO_IGNORADO_CONFLITO] id={eid}",
+                flush=True
+            )
             continue
 
-        status = (ev.get("status") or "").strip().lower()
-        if status == "cancelado":
+        if event_id and eid == event_id:
             continue
 
         ev_prof = unidecode(str(ev.get("profissional", "")).strip().lower())
@@ -912,11 +962,19 @@ async def verificar_conflito_e_sugestoes_profissional(
             conflitos_alt = False
 
             for eid, ev in eventos.items():
-                if event_id and eid == event_id:
+
+                if not evento_deve_entrar_na_agenda(
+                    evento_id=eid,
+                    evento=ev,
+                    data_consulta=data
+                ):
+                    print(
+                        f"🧹 [EVENTO_IGNORADO_ALT] id={eid}",
+                        flush=True
+                    )
                     continue
 
-                status = (ev.get("status") or "").strip().lower()
-                if status == "cancelado":
+                if event_id and eid == event_id:
                     continue
 
                 ev_prof = unidecode(str(ev.get("profissional", "")).strip().lower())

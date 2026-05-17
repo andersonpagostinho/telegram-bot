@@ -2,6 +2,7 @@
 
 from services.firebase_service_async import buscar_subcolecao, obter_id_dono
 from datetime import datetime, timedelta
+from services.event_service_async import evento_deve_entrar_na_agenda
 import difflib
 import unidecode
 import re
@@ -61,8 +62,17 @@ async def buscar_profissionais_disponiveis_no_horario(
     print(f"\n📅 Verificando disponibilidade em {data.strftime('%d/%m/%Y')} às {hora}")
     print(f"📋 Eventos encontrados: {len(eventos)}")
 
-    for evento in eventos.values():
-        if evento.get("data") != data_str:
+    for evento_id, evento in eventos.items():
+
+        if not evento_deve_entrar_na_agenda(
+            evento_id=evento_id,
+            evento=evento,
+            data_consulta=data_str
+        ):
+            print(
+                f"🧹 [EVENTO_IGNORADO_DISPONIBILIDADE] id={evento_id}",
+                flush=True
+            )
             continue
 
         print(f"  ⏰ Evento: {evento.get('descricao')} com {evento.get('profissional')}")
