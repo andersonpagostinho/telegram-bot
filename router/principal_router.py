@@ -1695,6 +1695,54 @@ async def resolver_alteracao_draft_agendamento(
         hora = data_hora.split("T")[1][:5]
         duracao = estimar_duracao(servico)
 
+        # =====================================================
+        # GPT HUMANO — dúvida/confiança sobre profissional
+        # Ex.: "não conheço a Gloria, ela é tão boa quanto a Carla?"
+        # Não troca profissional, não agenda, não recalcula conflito.
+        # Apenas responde a objeção e mantém o trilho atual.
+        # =====================================================
+        if (
+            ctx.get("intencao_conversacional") == "duvida_confianca_profissional"
+            and ctx.get("aguardando_confirmacao_agendamento") is True
+        ):
+
+            profissional_atual = (
+                draft.get("profissional")
+                or ctx.get("profissional_escolhido")
+                or (ctx.get("dados_confirmacao_agendamento") or {}).get("profissional")
+            )
+
+            servico_atual = (
+                draft.get("servico")
+                or ctx.get("servico")
+                or (ctx.get("dados_confirmacao_agendamento") or {}).get("servico")
+            )
+
+            hora_atual = ""
+            data_hora_atual = (
+                draft.get("data_hora")
+                or ctx.get("data_hora")
+                or (ctx.get("dados_confirmacao_agendamento") or {}).get("data_hora")
+            )
+
+            if data_hora_atual and "T" in data_hora_atual:
+                hora_atual = data_hora_atual.split("T")[1][:5]
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Entendo 😊\n\n"
+                    f"*{profissional_atual}* também atende *{servico_atual}* "
+                    f"e está disponível às *{hora_atual}*.\n\n"
+                    f"Para manter esse horário, a melhor opção agora é seguir com "
+                    f"*{profissional_atual}*.\n\n"
+                    f"Quer que eu mantenha com ela?"
+                )
+            )
+
         valido = await validar_profissional_para_servico(
             dono_id=user_id,
             profissional=novo_profissional,
@@ -1742,6 +1790,7 @@ async def resolver_alteracao_draft_agendamento(
 
         if conflito.get("conflito"):
 
+            
             # =====================================================
             # 🔥 PRIORIDADE — manter profissional anterior
             # Ex.: cliente tenta trocar para Bruna, mas Bruna está ocupada.
