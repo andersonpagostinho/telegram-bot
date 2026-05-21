@@ -1124,6 +1124,36 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                 hora = int(m_hora_ctx.group(1))
                 minuto = int(m_hora_ctx.group(2)) if len(m_hora_ctx.groups()) > 1 and m_hora_ctx.group(2) else 0
 
+                hora_explicita = f"{hora:02d}:{minuto:02d}"
+
+                periodo_detectado = (
+                    (ctx.get("interpretacao_conversacional") or {})
+                    .get("entidades", {})
+                    .get("periodo")
+                )
+
+                periodo_legivel = {
+                    "cedo": "manhã",
+                    "manha": "manhã",
+                    "manhã": "manhã",
+                    "tarde": "tarde",
+                    "noite": "noite",
+                }.get(normalizar(periodo_detectado or ""), periodo_detectado)
+
+                if (
+                    periodo_detectado
+                    and not periodo_compativel_com_hora(periodo_detectado, hora_explicita)
+                ):
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        (
+                            f"Só para confirmar 😊\n\n"
+                            f"Você mencionou *{periodo_legivel}*, mas também falou *{hora_explicita}*.\n\n"
+                            "Qual dos dois você prefere considerar?"
+                        )
+                    )
+
                 try:
                     dt_detectado = datetime.fromisoformat(
                         f"{data_ctx}T{hora:02d}:{minuto:02d}:00"
@@ -7976,23 +8006,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     minuto = m_hora.group(2) or "00"
                     if 0 <= h <= 23:
                         hora_explicita = f"{h:02d}:{minuto}"
-
-                periodo_legivel = {
-                    "cedo": "manhã",
-                    "tarde": "tarde",
-                    "noite": "noite",
-                }.get(periodo_ref, periodo_ref)
-
-                if hora_explicita and not periodo_compativel_com_hora(periodo_ref, hora_explicita):
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        (
-                            f"Só para confirmar: você mencionou *{periodo_ref}*, "
-                            f"mas também falou *{hora_explicita}*.\n\n"
-                            "Qual dos dois você prefere considerar?"
-                        )
-                    )
 
                 id_dono = await obter_id_dono(user_id)
 
