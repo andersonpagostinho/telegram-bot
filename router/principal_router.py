@@ -7895,6 +7895,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     contexto = contexto or {}
 
+    # =========================================================
+    # 🧠 P1 — coerência semântica entre período e hora
+    # =========================================================
+    def periodo_compativel_com_hora(periodo: str, hora_str: str) -> bool:
+        try:
+            hora = int(str(hora_str).split(":")[0])
+
+            periodo = normalizar(periodo or "")
+
+            if periodo in ["manha", "manhã", "cedo"]:
+                return hora <= 11
+
+            if periodo in ["tarde", "fim_tarde"]:
+                return 12 <= hora <= 17
+
+            if periodo == "noite":
+                return hora >= 18
+
+            return True
+
+        except Exception:
+            return True
+
     if not acao and proximo_passo_real:
 
         if proximo_passo_real == "perguntar_servico":
@@ -7942,6 +7965,34 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     periodo_ref = "noite"
                 elif "manha" in texto_norm_periodo or "manhã" in texto_norm_periodo or "cedo" in texto_norm_periodo:
                     periodo_ref = "cedo"
+
+                hora_explicita = None
+
+                import re
+                m_hora = re.search(r"\b(\d{1,2})(?::(\d{2}))?\b", texto_norm_periodo)
+
+                if m_hora:
+                    h = int(m_hora.group(1))
+                    minuto = m_hora.group(2) or "00"
+                    if 0 <= h <= 23:
+                        hora_explicita = f"{h:02d}:{minuto}"
+
+                periodo_legivel = {
+                    "cedo": "manhã",
+                    "tarde": "tarde",
+                    "noite": "noite",
+                }.get(periodo_ref, periodo_ref)
+
+                if hora_explicita and not periodo_compativel_com_hora(periodo_ref, hora_explicita):
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        (
+                            f"Só para confirmar: você mencionou *{periodo_ref}*, "
+                            f"mas também falou *{hora_explicita}*.\n\n"
+                            "Qual dos dois você prefere considerar?"
+                        )
+                    )
 
                 id_dono = await obter_id_dono(user_id)
 
