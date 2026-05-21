@@ -1186,7 +1186,12 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                         flush=True
                     )
 
-                    return None
+                    return {
+                        "data_hora": None,
+                        "data": data_ctx,
+                        "hora_confirmada": False,
+                        "data_sem_hora": True,
+                    }
 
                 try:
                     dt_detectado = datetime.fromisoformat(
@@ -3391,6 +3396,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 txt += "\n\nQual serviço vai ser?"
 
         return await _send_and_stop(context, user_id, txt)
+
+    # =========================================================
+    # 🧠 P1 — CLAREZA ENTRE PERÍODO E HORA
+    # Ex.: "manhã às 14"
+    # =========================================================
+    if ctx.get("estado_fluxo") == "aguardando_clareza_periodo_hora":
+        inc = ctx.get("inconsistencia_periodo_hora") or {}
+
+        periodo = inc.get("periodo") or "manhã"
+        hora = inc.get("hora") or ""
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Só para confirmar 😊\n\n"
+                f"Você mencionou *{periodo}*, mas também falou *{hora}*.\n\n"
+                "Qual dos dois você prefere considerar?"
+            )
+        )
 
     # =========================================================
     # ✅ (B) SEMPRE-ON: extrair e mesclar slots (prof/serv/dt)
