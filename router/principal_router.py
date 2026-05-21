@@ -7406,11 +7406,23 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
     )
 
+    # =========================================================
+    # 🧠 P1 HUMANO — impede entrada prematura no motor
+    # =========================================================
+    tem_bloqueio_humano_p1 = (
+        ctx.get("intencao_conversacional") in [
+            "duvida_confianca_profissional",
+            "consulta_disponibilidade_aberta",
+        ]
+    )
+
     if (
         data_hora_ctx
         and tem_hora_real(data_hora_ctx)
         and tem_servico_profissional
+        and not tem_bloqueio_humano_p1
     ):
+
         print("🚫 [BLOCK GPT] já tenho dados completos — fluxo determinístico", flush=True)
 
         return await executar_acao_gpt(
@@ -7456,8 +7468,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # =========================================================
     # OVERRIDE FORÇADO — caso complexo guiado pelo sistema
+    # P1: se ainda é conversa humana/consultiva, preserva resposta GPT.
     # =========================================================
-    if not acao:
+    p1_preservar_resposta_gpt = (
+        not acao
+        and resposta_texto
+        and ctx.get("intencao_conversacional") in [
+            "duvida_confianca_profissional",
+            "consulta_disponibilidade_aberta",
+            "consulta_disponibilidade_servico",
+            "consulta_servico",
+            "pedido_aberto_temporal",
+        ]
+    )
+
+    if not acao and not p1_preservar_resposta_gpt:
         resposta_texto = montar_resposta_fallback(proximo_passo_real, frase_data_legivel, ctx)
 
     print("🧪 [OVERRIDE] acao=", acao, "proximo_passo=", proximo_passo, "proximo_passo_real=", proximo_passo_real, flush=True)
