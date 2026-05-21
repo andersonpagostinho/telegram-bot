@@ -228,6 +228,30 @@ def tem_hora_real(dt_iso: str | None) -> bool:
     except Exception:
         return False
 
+# =========================================================
+# 🧠 P1 — coerência semântica entre período e hora
+# =========================================================
+def periodo_compativel_com_hora(periodo: str, hora_str: str) -> bool:
+    try:
+        hora = int(str(hora_str).split(":")[0])
+
+        periodo = normalizar(periodo or "")
+
+        if periodo in ["manha", "manhã", "cedo"]:
+            return hora <= 11
+
+        if periodo in ["tarde", "fim_tarde"]:
+            return 12 <= hora <= 17
+
+        if periodo == "noite":
+            return hora >= 18
+
+        return True
+
+    except Exception:
+        return True
+
+
 def montar_resposta_fallback(
     proximo_passo_real: str | None,
     frase_data_legivel: str,
@@ -7924,29 +7948,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
 
     contexto = contexto or {}
-
-    # =========================================================
-    # 🧠 P1 — coerência semântica entre período e hora
-    # =========================================================
-    def periodo_compativel_com_hora(periodo: str, hora_str: str) -> bool:
-        try:
-            hora = int(str(hora_str).split(":")[0])
-
-            periodo = normalizar(periodo or "")
-
-            if periodo in ["manha", "manhã", "cedo"]:
-                return hora <= 11
-
-            if periodo in ["tarde", "fim_tarde"]:
-                return 12 <= hora <= 17
-
-            if periodo == "noite":
-                return hora >= 18
-
-            return True
-
-        except Exception:
-            return True
 
     if not acao and proximo_passo_real:
 
