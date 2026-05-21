@@ -1178,6 +1178,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                     }
 
                     ctx["estado_fluxo"] = "aguardando_clareza_periodo_hora"
+
                     ctx["hora_confirmada"] = False
                     ctx["data_sem_hora"] = True
 
@@ -1191,6 +1192,11 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                         "data": data_ctx,
                         "hora_confirmada": False,
                         "data_sem_hora": True,
+                        "estado_fluxo": "aguardando_clareza_periodo_hora",
+                        "inconsistencia_periodo_hora": {
+                            "periodo": periodo_legivel,
+                            "hora": hora_explicita,
+                        },
                     }
 
                 try:
