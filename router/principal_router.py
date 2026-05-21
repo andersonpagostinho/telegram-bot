@@ -1150,10 +1150,14 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
                 hora_explicita = f"{hora:02d}:{minuto:02d}"
 
-                periodo_detectado = (
+                entidades_conv = (
                     (ctx.get("interpretacao_conversacional") or {})
                     .get("entidades", {})
-                    .get("periodo")
+                )
+
+                periodo_detectado = (
+                    entidades_conv.get("periodo")
+                    or entidades_conv.get("periodo_desejado")
                 )
 
                 periodo_legivel = {
