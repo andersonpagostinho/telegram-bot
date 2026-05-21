@@ -7968,7 +7968,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 hora_explicita = None
 
-                import re
+               
                 m_hora = re.search(r"\b(\d{1,2})(?::(\d{2}))?\b", texto_norm_periodo)
 
                 if m_hora:
