@@ -1172,15 +1172,21 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
                     periodo_detectado
                     and not periodo_compativel_com_hora(periodo_detectado, hora_explicita)
                 ):
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        (
-                            f"Só para confirmar 😊\n\n"
-                            f"Você mencionou *{periodo_legivel}*, mas também falou *{hora_explicita}*.\n\n"
-                            "Qual dos dois você prefere considerar?"
-                        )
+                    ctx["inconsistencia_periodo_hora"] = {
+                        "periodo": periodo_legivel,
+                        "hora": hora_explicita,
+                    }
+
+                    ctx["estado_fluxo"] = "aguardando_clareza_periodo_hora"
+                    ctx["hora_confirmada"] = False
+                    ctx["data_sem_hora"] = True
+
+                    print(
+                        f"🧠 [P1 INCONSISTENCIA PERIODO/HORA] periodo={periodo_legivel} | hora={hora_explicita}",
+                        flush=True
                     )
+
+                    return None
 
                 try:
                     dt_detectado = datetime.fromisoformat(
