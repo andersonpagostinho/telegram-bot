@@ -6489,6 +6489,30 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         print("🔥 [FAST PATH OPERACIONAL] contexto preparado", flush=True)
 
+    # =========================================================
+    # 🧠 P1 — BLOQUEIA REPROCESSAMENTO APÓS INCONSISTÊNCIA
+    # =========================================================
+    if ctx.get("estado_fluxo") == "aguardando_clareza_periodo_hora":
+        print(
+            "🛑 [P1 BLOQUEIO] impedindo reprocessamento após inconsistência período/hora",
+            flush=True
+        )
+
+        inc = ctx.get("inconsistencia_periodo_hora") or {}
+
+        periodo = inc.get("periodo") or "manhã"
+        hora = inc.get("hora") or ""
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Só para confirmar 😊\n\n"
+                f"Você mencionou *{periodo}*, mas também falou *{hora}*.\n\n"
+                "Qual dos dois você prefere considerar?"
+            )
+        )
+
     print("🔥🔥🔥 BLOCO DATA COMPLEXA EXECUTOU 🔥🔥🔥", flush=True)
 
     # =========================================================
