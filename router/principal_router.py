@@ -3404,26 +3404,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         return await _send_and_stop(context, user_id, txt)
 
     # =========================================================
-    # 🧠 P1 — CLAREZA ENTRE PERÍODO E HORA
-    # Ex.: "manhã às 14"
-    # =========================================================
-    if ctx.get("estado_fluxo") == "aguardando_clareza_periodo_hora":
-        inc = ctx.get("inconsistencia_periodo_hora") or {}
-
-        periodo = inc.get("periodo") or "manhã"
-        hora = inc.get("hora") or ""
-
-        return await _send_and_stop(
-            context,
-            user_id,
-            (
-                f"Só para confirmar 😊\n\n"
-                f"Você mencionou *{periodo}*, mas também falou *{hora}*.\n\n"
-                "Qual dos dois você prefere considerar?"
-            )
-        )
-
-    # =========================================================
     # ✅ (B) SEMPRE-ON: extrair e mesclar slots (prof/serv/dt)
     # =========================================================
     try:
@@ -7982,6 +7962,37 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             if acao == "criar_evento":
                 return {"acao": "criar_evento", "handled": True}
+
+    # =========================================================
+    # 🧠 P1 — CLAREZA ENTRE PERÍODO E HORA
+    # Ex.: "manhã às 14"
+    # =========================================================
+    if ctx.get("estado_fluxo") == "aguardando_clareza_periodo_hora":
+        inc = ctx.get("inconsistencia_periodo_hora") or {}
+
+        periodo = inc.get("periodo") or "manhã"
+        hora = inc.get("hora") or ""
+
+        ctx["data_hora"] = None
+        ctx["hora_confirmada"] = False
+        ctx["data_sem_hora"] = True
+        ctx["estado_fluxo"] = "aguardando_clareza_periodo_hora"
+
+        draft = ctx.get("draft_agendamento") or {}
+        draft["data_hora"] = None
+        ctx["draft_agendamento"] = draft
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Só para confirmar 😊\n\n"
+                f"Você mencionou *{periodo}*, mas também falou *{hora}*.\n\n"
+                "Qual dos dois você prefere considerar?"
+            )
+        )
 
     # =========================================================
     # SE GPT SÓ RESPONDEU TEXTO EM CASO COMPLEXO,
