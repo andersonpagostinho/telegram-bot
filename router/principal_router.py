@@ -2971,7 +2971,73 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             context,
             user_id,
             "Tudo bem 😊 Não vou agendar."
-        )    
+        )
+
+    # =========================================================
+    # 🧠 P1 — RESOLVE CLAREZA ENTRE PERÍODO E HORA
+    # Ex.: após "manhã às 14", cliente responde "manhã" ou "às 14"
+    # =========================================================
+    if ctx.get("estado_fluxo") == "aguardando_clareza_periodo_hora":
+        texto_norm = normalizar(texto_usuario or "")
+        inc = ctx.get("inconsistencia_periodo_hora") or {}
+
+        hora_ref = inc.get("hora")
+        periodo_ref = inc.get("periodo")
+        data_ref = (
+            ctx.get("data")
+            or (ctx.get("draft_agendamento") or {}).get("data")
+        )
+
+        # cliente escolheu a hora
+        escolheu_hora = bool(
+            re.search(r"\b([01]?\d|2[0-3])(:[0-5]\d)?\b", texto_norm)
+        )
+
+        # cliente escolheu o período
+        escolheu_periodo = any(x in texto_norm for x in [
+            "manha", "manhã", "cedo", "tarde", "noite"
+        ])
+
+        if escolheu_hora and hora_ref and data_ref:
+            nova_data_hora = f"{data_ref}T{hora_ref}:00"
+
+            ctx["data_hora"] = nova_data_hora
+            ctx["hora_confirmada"] = True
+            ctx["data_sem_hora"] = False
+            ctx["estado_fluxo"] = "agendando"
+
+            draft = ctx.get("draft_agendamento") or {}
+            draft["data_hora"] = nova_data_hora
+            ctx["draft_agendamento"] = draft
+
+            ctx.pop("inconsistencia_periodo_hora", None)
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            print(f"✅ [P1 CLAREZA RESOLVIDA] cliente escolheu hora={hora_ref}", flush=True)
+
+        if escolheu_periodo and periodo_ref and data_ref:
+            ctx["data_hora"] = None
+            ctx["hora_confirmada"] = False
+            ctx["data_sem_hora"] = True
+            ctx["estado_fluxo"] = "aguardando_horario"
+            ctx["periodo_preferido"] = periodo_ref
+
+            draft = ctx.get("draft_agendamento") or {}
+            draft["data"] = data_ref
+            draft["periodo"] = periodo_ref
+            draft.pop("data_hora", None)
+            ctx["draft_agendamento"] = draft
+
+            ctx.pop("inconsistencia_periodo_hora", None)
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                f"Perfeito — vamos considerar *{periodo_ref}*.\n\nQual horário da manhã você prefere?"
+            )    
 
     # =========================================================
     # 🔥 PRIORIDADE MÁXIMA — AJUSTE DE DRAFT
@@ -2990,6 +3056,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         interpretacao_conv.get("intencao") == "ajuste_incremental"
         and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
         and not bloquear_ajuste_por_fluxo_operacional
+        and not ctx.get("clareza_periodo_hora_resolvida")
     ):
 
         print("🔁 [PRIORIDADE] ajuste incremental antes da confirmação", flush=True)
