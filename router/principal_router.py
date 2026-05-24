@@ -1803,18 +1803,74 @@ async def resolver_alteracao_draft_agendamento(
             if data_hora_atual and "T" in data_hora_atual:
                 hora_atual = data_hora_atual.split("T")[1][:5]
 
+            # tenta identificar a profissional comparada pelo texto do cliente
+            profissional_comparado = None
+
+            try:
+                profissionais = await buscar_subcolecao(
+                    f"Clientes/{user_id}/Profissionais"
+                )
+
+                nomes_profissionais = []
+                for p in profissionais:
+                    if isinstance(p, dict):
+                        nome = p.get("nome") or p.get("id")
+                        if nome:
+                            nomes_profissionais.append(str(nome))
+
+                texto_norm_comp = normalizar(texto_usuario or "")
+
+                for nome in nomes_profissionais:
+                    if (
+                        normalizar(nome) in texto_norm_comp
+                        and normalizar(nome) != normalizar(profissional_atual)
+                    ):
+                        profissional_comparado = nome
+                        break
+
+            except Exception as e:
+                print(
+                    f"⚠️ [P1 PROF COMPARADO] erro ao detectar profissional comparado: {e}",
+                    flush=True
+                )
+
+            from services.gpt_service import gerar_resposta_humana_agendamento
+
+            resposta_humana = await gerar_resposta_humana_agendamento({
+                "tipo": "duvida_confianca_profissional",
+                "mensagem_cliente": texto_usuario,
+                "profissional_disponivel": profissional_atual,
+                "profissional_indisponivel": profissional_comparado,
+                "servico": servico_atual,
+                "horario": hora_atual,
+                "motivo_operacional": "disponibilidade_de_agenda",
+                "regra": (
+                    "Explique que a sugestão aconteceu por disponibilidade de agenda. "
+                    "Reforce que a profissional disponível também atende muito bem. "
+                    "Não invente avaliações, reputação ou experiência. "
+                    "Não confirme o agendamento."
+                ),
+            })
+
             await salvar_contexto_temporario(user_id, ctx)
 
             return await _send_and_stop(
                 context,
                 user_id,
-                (
-                    f"Entendo 😊\n\n"
-                    f"*{profissional_atual}* também atende *{servico_atual}* "
-                    f"e está disponível às *{hora_atual}*.\n\n"
-                    f"Para manter esse horário, a melhor opção agora é seguir com "
-                    f"*{profissional_atual}*.\n\n"
-                    f"Quer que eu mantenha com ela?"
+                resposta_humana or (
+                    (
+                        f"Entendo 😊 A diferença aqui foi a disponibilidade do horário: "
+                        f"{profissional_comparado} não apareceu disponível às {hora_atual}, "
+                        f"e {profissional_atual} está livre. "
+                        f"{profissional_atual} também consegue te atender muito bem para {servico_atual}. "
+                        f"Posso manter com ela?"
+                    )
+                    if profissional_comparado
+                    else (
+                        f"Entendo 😊 A diferença aqui foi a disponibilidade do horário. "
+                        f"{profissional_atual} também consegue te atender muito bem para {servico_atual} às {hora_atual}. "
+                        f"Posso manter com ela?"
+                    )
                 )
             )
 
