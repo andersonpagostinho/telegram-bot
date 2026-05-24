@@ -1642,7 +1642,8 @@ async def resolver_alteracao_draft_agendamento(
     context,
     user_id: str,
     ctx: dict,
-    alteracao: dict
+    alteracao: dict,
+    texto_usuario: str = ""
 ):
     draft = (ctx or {}).get("draft_agendamento") or {}
 
@@ -3129,7 +3130,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 context=context,
                 user_id=user_id,
                 ctx=ctx,
-                alteracao=alteracao
+                alteracao=alteracao,
+                texto_usuario=texto_usuario
             )
 
     # =========================================================
@@ -3148,7 +3150,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 context=context,
                 user_id=user_id,
                 ctx=ctx,
-                alteracao=alteracao_draft
+                alteracao=alteracao_draft,
+                texto_usuario=texto_usuario
             )
 
     # =========================================================
@@ -3303,7 +3306,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 context=context,
                 user_id=user_id,
                 ctx=ctx,
-                alteracao=alteracao
+                alteracao=alteracao,
+                texto_usuario=texto_usuario
             )
 
     # =========================================================
