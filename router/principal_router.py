@@ -4827,6 +4827,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     flush=True
                 )
 
+            # =========================================================
+            # 🔥 NORMALIZAÇÃO DE ESTADO OPERACIONAL
+            # Evita estados inválidos após FAST PATH
+            # =========================================================
+            if (
+                ctx.get("servico")
+                and ctx.get("data_hora")
+                and ctx.get("hora_confirmada") is True
+            ):
+                ctx["estado_fluxo"] = "agendando"
+
+                print(
+                    "🔥 [NORMALIZACAO_ESTADO] migrado para agendando",
+                    flush=True
+                )
+
             # confirmação simples sem horário
             if eh_confirmacao(texto_usuario) and not tem_continuidade_operacional:
 
