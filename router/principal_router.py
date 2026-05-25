@@ -6847,6 +6847,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if profissionais_compativeis:
 
+            print(
+                f"🧪 [P0 MULTI-PROF] compativeis={profissionais_compativeis} | total={len(profissionais_compativeis)}",
+                flush=True
+            )
+
             # =========================================================
             # 🔥 REGRA P0 — se há mais de uma profissional disponível,
             # NÃO escolher automaticamente. Cliente precisa escolher.
