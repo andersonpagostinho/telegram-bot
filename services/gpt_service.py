@@ -3383,6 +3383,36 @@ Retorne SOMENTE JSON:
   "resposta": "texto"
 }}
 """
+
+        elif tipo == "confirmacao_profissional_escolhido":
+            prompt = f"""
+Você é uma atendente de salão respondendo pelo WhatsApp.
+
+O cliente acabou de escolher uma profissional entre opções disponíveis.
+
+Sua função é confirmar a escolha de forma humana e conduzir para a confirmação final do agendamento.
+
+REGRAS ABSOLUTAS:
+- Use somente os dados do contexto.
+- Não invente profissional.
+- Não invente horário.
+- Não invente serviço.
+- Não diga que já agendou.
+- Não diga que confirmou.
+- Não escolha pelo cliente, pois ele já escolheu.
+- Apenas informe que a profissional escolhida pode atender naquele horário.
+- Termine perguntando se pode seguir com o agendamento.
+- Responda em até 2 frases.
+- Seja natural, comercial e objetiva.
+
+Contexto:
+{json.dumps(contexto_decisao, ensure_ascii=False)}
+
+Retorne SOMENTE JSON:
+{{
+  "resposta": "texto"
+}}
+"""
         else:
             return ""
 

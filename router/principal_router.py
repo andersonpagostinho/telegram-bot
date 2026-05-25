@@ -3615,7 +3615,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 from services.gpt_service import gerar_resposta_humana_agendamento
 
                 resposta_humana = await gerar_resposta_humana_agendamento({
-                    "tipo": "opcoes_profissionais_disponiveis",
+                    "tipo": "confirmacao_profissional_escolhido",
                     "servico": servico_ref,
                     "horario": hora_ref,
                     "profissionais_disponiveis": [profissional_escolhido],
