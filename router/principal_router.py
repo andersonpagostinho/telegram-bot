@@ -6845,6 +6845,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             flush=True
         )
 
+        from services.gpt_service import gerar_resposta_humana_agendamento
+
         if profissionais_compativeis:
 
             print(
