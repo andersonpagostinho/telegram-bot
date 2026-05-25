@@ -3552,6 +3552,90 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
         # =========================================================
+        # 🔥 P0 — ESCOLHA DIRETA DE PROFISSIONAL
+        # Cliente já escolheu entre opções apresentadas
+        # =========================================================
+        if (
+            ctx.get("estado_fluxo") == "aguardando_profissional"
+            and ctx.get("ultima_opcao_profissionais")
+        ):
+
+            texto_norm = normalizar(texto_usuario or "")
+
+            profissionais_opcao = ctx.get("ultima_opcao_profissionais") or []
+
+            profissional_escolhido = None
+
+            for nome in profissionais_opcao:
+                if normalizar(nome) in texto_norm:
+                    profissional_escolhido = nome
+                    break
+
+            if profissional_escolhido:
+
+                print(
+                    f"✅ [P0 ESCOLHA PROFISSIONAL] escolhido={profissional_escolhido}",
+                    flush=True
+                )
+
+                draft = ctx.get("draft_agendamento") or {}
+
+                data_hora_ref = (
+                    draft.get("data_hora")
+                    or ctx.get("data_hora")
+                )
+
+                servico_ref = (
+                    draft.get("servico")
+                    or ctx.get("servico")
+                )
+
+                ctx["profissional_escolhido"] = profissional_escolhido
+                ctx["estado_fluxo"] = "agendando"
+                ctx["aguardando_confirmacao_agendamento"] = True
+
+                ctx["dados_confirmacao_agendamento"] = {
+                    "profissional": profissional_escolhido,
+                    "servico": servico_ref,
+                    "data_hora": data_hora_ref,
+                }
+
+                draft["profissional"] = profissional_escolhido
+                ctx["draft_agendamento"] = draft
+
+                ctx.pop("ultima_opcao_profissionais", None)
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                hora_ref = ""
+
+                if data_hora_ref and "T" in data_hora_ref:
+                    hora_ref = data_hora_ref.split("T")[1][:5]
+
+                from services.gpt_service import gerar_resposta_humana_agendamento
+
+                resposta_humana = await gerar_resposta_humana_agendamento({
+                    "tipo": "opcoes_profissionais_disponiveis",
+                    "servico": servico_ref,
+                    "horario": hora_ref,
+                    "profissionais_disponiveis": [profissional_escolhido],
+                    "quantidade": 1,
+                    "regra": (
+                        "Informe que a profissional escolhida está disponível "
+                        "e pergunte se pode seguir com o agendamento."
+                    ),
+                })
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    resposta_humana or (
+                        f"Perfeito 😊 {profissional_escolhido} está disponível às "
+                        f"{hora_ref} para {servico_ref}. Posso agendar?"
+                    )
+                )
+
+        # =========================================================
         # 🔥 PRIORIDADE ABSOLUTA — ESCOLHA DE HORÁRIO SUGERIDO
         # PRECISA vir antes do extrair_slots_e_mesclar
         # =========================================================
