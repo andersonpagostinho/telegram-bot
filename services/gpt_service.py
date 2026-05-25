@@ -3400,13 +3400,22 @@ REGRAS ABSOLUTAS:
 - Não diga que já agendou.
 - Não diga que confirmou.
 - Não escolha pelo cliente, pois ele já escolheu.
-- Apenas informe que a profissional escolhida pode atender naquele horário.
+- Não use a frase "está disponível", porque isso já foi informado antes.
+- Use linguagem de continuidade, como "consegue te atender", "deixo com ela" ou "seguimos com ela".
 - Termine perguntando se pode seguir com o agendamento.
 - Responda em até 2 frases.
 - Seja natural, comercial e objetiva.
 
 Contexto:
 {json.dumps(contexto_decisao, ensure_ascii=False)}
+
+Exemplos de estilo:
+
+"Perfeito 😊 A Carla consegue te atender às 14h para escova. Posso confirmar o agendamento?"
+
+"Combinado 😊 Então seguimos com a Carla às 14h para escova. Posso confirmar?"
+
+"Ótimo 😊 Deixo com a Carla às 14h para escova?"
 
 Retorne SOMENTE JSON:
 {{
