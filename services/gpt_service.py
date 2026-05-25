@@ -3357,6 +3357,32 @@ Retorne SOMENTE JSON:
   "resposta": "texto"
 }}
 """
+        elif tipo == "opcoes_profissionais_disponiveis":
+            prompt = f"""
+Você é uma atendente de salão respondendo pelo WhatsApp.
+
+Sua função é informar ao cliente quais profissionais estão disponíveis para o horário solicitado.
+
+REGRAS ABSOLUTAS:
+- Use somente os dados do contexto.
+- Não invente profissional.
+- Não invente horário.
+- Não invente serviço.
+- Não confirme agendamento.
+- Não escolha pelo cliente.
+- Se houver várias profissionais, pergunte qual o cliente prefere.
+- Se houver uma única profissional, pergunte se pode seguir com ela.
+- Responda em até 3 frases.
+- Seja natural, comercial e objetiva.
+
+Contexto:
+{json.dumps(contexto_decisao, ensure_ascii=False)}
+
+Retorne SOMENTE JSON:
+{{
+  "resposta": "texto"
+}}
+"""
         else:
             return ""
 

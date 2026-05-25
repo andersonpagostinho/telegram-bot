@@ -6846,6 +6846,60 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
         if profissionais_compativeis:
+
+            # =========================================================
+            # 🔥 REGRA P0 — se há mais de uma profissional disponível,
+            # NÃO escolher automaticamente. Cliente precisa escolher.
+            # =========================================================
+            if len(profissionais_compativeis) > 1:
+                ctx["ultima_opcao_profissionais"] = profissionais_compativeis
+                ctx["estado_fluxo"] = "aguardando_profissional"
+                ctx["aguardando_confirmacao_agendamento"] = False
+                ctx["dados_confirmacao_agendamento"] = None
+
+                draft_auto["servico"] = servico_auto
+                draft_auto["data_hora"] = data_hora_auto
+                draft_auto.pop("profissional", None)
+                ctx["draft_agendamento"] = draft_auto
+
+                ctx["servico"] = servico_auto
+                ctx["data_hora"] = data_hora_auto
+                ctx["profissional_escolhido"] = None
+                ctx["profissional_indiferente"] = False
+
+                ctx["objetivo_conversacional"] = None
+                ctx["tipo_ajuste_incremental"] = None
+                ctx["intencao_conversacional"] = None
+                ctx["interpretacao_conversacional"] = None
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                nomes_txt = ", ".join(profissionais_compativeis)
+
+                resposta_humana = await gerar_resposta_humana_agendamento({
+                    "tipo": "opcoes_profissionais_disponiveis",
+                    "servico": servico_auto,
+                    "horario": hora_ref,
+                    "profissionais_disponiveis": profissionais_compativeis,
+                    "quantidade": len(profissionais_compativeis),
+                    "regra": (
+                        "Informe que essas profissionais estão disponíveis no horário solicitado. "
+                        "Não escolha pelo cliente. Pergunte se ele tem preferência por alguma."
+                    ),
+                })
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    resposta_humana or (
+                        f"Tenho {', '.join(profissionais_compativeis)} disponíveis às {hora_ref} "
+                        f"para {servico_auto}. Você tem preferência por alguma?"
+                    )
+                )
+
+            # =========================================================
+            # ✅ Só escolhe automaticamente se houver UMA única opção
+            # =========================================================
             profissional_escolhido = profissionais_compativeis[0]
 
             print(
@@ -6874,25 +6928,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             await salvar_contexto_temporario(user_id, ctx)
 
+            resposta_humana = await gerar_resposta_humana_agendamento({
+                "tipo": "opcoes_profissionais_disponiveis",
+                "servico": servico_auto,
+                "horario": hora_ref,
+                "profissionais_disponiveis": [profissional_escolhido],
+                "quantidade": 1,
+                "regra": (
+                    "Informe que há uma profissional disponível nesse horário. "
+                    "Não confirme agendamento. Pergunte se pode seguir com ela."
+                ),
+            })
+
             return await _send_and_stop(
                 context,
                 user_id,
-                (
-                    f"Tenho *{profissional_escolhido}* disponível às "
-                    f"*{hora_ref}* para *{servico_auto}*.\n\n"
-                    "Posso agendar?"
+                resposta_humana or (
+                    f"Tenho {profissional_escolhido} disponível às {hora_ref} "
+                    f"para {servico_auto}. Posso agendar?"
                 )
             )
-
-        return await _send_and_stop(
-            context,
-            user_id,
-            (
-                f"Não encontrei ninguém disponível às *{hora_ref}* "
-                f"para *{servico_auto}*.\n\n"
-                "Quer que eu te sugira os horários mais próximos?"
-            )
-        )
 
     # =========================================================
     # AJUSTE INCREMENTAL — pós-extração
