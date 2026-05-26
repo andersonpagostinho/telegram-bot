@@ -3164,7 +3164,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if ctx.get("estado_fluxo") == "aguardando_data":
 
         ctx.pop("ultima_acao", None)  # 🔥 LIMPEZA CRÍTICA
-            
+
         print("🔥 [GUARD_AGUARDANDO_DATA] EXECUTOU ANTES DA EXTRAÇÃO PRINCIPAL", flush=True)
 
         dt = interpretar_data_e_hora(texto_usuario)
@@ -3184,33 +3184,73 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 or ctx.get("data_hora")
             )
 
+            hora_preferida = None
+
+            if data_hora_antiga and "T" in data_hora_antiga:
+                hora_preferida = data_hora_antiga.split("T")[1][:5]
+
+            nova_data_hora = None
+
+            if hora_preferida:
+                nova_data_hora = f"{data_iso}T{hora_preferida}:00"
+
+            # =====================================================
+            # 🔥 AINDA FALTAM DADOS → NÃO CALCULA DISPONIBILIDADE
+            # =====================================================
             if not servico_ctx or not prof_ctx:
-                ctx["estado_fluxo"] = "aguardando_servico" if not servico_ctx else "aguardando_profissional"
+
+                ctx["estado_fluxo"] = (
+                    "aguardando_servico"
+                    if not servico_ctx
+                    else "aguardando_profissional"
+                )
+
+                if nova_data_hora:
+                    ctx["data_hora"] = nova_data_hora
+                    ctx["data_hora_pendente"] = nova_data_hora
+
+                    draft["data_hora"] = nova_data_hora
+                    ctx["draft_agendamento"] = draft
+
                 await salvar_contexto_temporario(user_id, ctx)
 
                 if not servico_ctx:
+
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "pedir_servico",
                         "profissional": prof_ctx,
-                        "data_hora": data_hora_antiga,
-                        "data_hora_legivel": formatar_data_hora_br(data_hora_antiga),
+                        "data_hora": nova_data_hora,
+                        "data_hora_legivel": (
+                            formatar_data_hora_br(nova_data_hora)
+                            if nova_data_hora else None
+                        ),
                         "profissionais_permitidos": [],
                         "origem": "guard_aguardando_data",
                     })
 
-                    mensagem = msg_p1 or "Perfeito. Qual serviço você deseja?"
+                    mensagem = (
+                        msg_p1
+                        or "Perfeito. Qual serviço você deseja?"
+                    )
 
                 else:
+
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "pedir_profissional",
                         "servico": servico_ctx,
-                        "data_hora": data_hora_antiga,
-                        "data_hora_legivel": formatar_data_hora_br(data_hora_antiga),
+                        "data_hora": nova_data_hora,
+                        "data_hora_legivel": (
+                            formatar_data_hora_br(nova_data_hora)
+                            if nova_data_hora else None
+                        ),
                         "profissionais_permitidos": [],
                         "origem": "guard_aguardando_data",
                     })
 
-                    mensagem = msg_p1 or "Perfeito. Qual profissional você prefere?"
+                    mensagem = (
+                        msg_p1
+                        or "Perfeito. Qual profissional você prefere?"
+                    )
 
                 return await _send_and_stop(
                     context,
@@ -3218,25 +3258,42 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     mensagem
                 )
 
+            # =====================================================
+            # ✅ AGORA SIM → PODE CALCULAR DISPONIBILIDADE
+            # =====================================================
             dono_id = await obter_id_dono(user_id)
+
             duracao_ctx = estimar_duracao(servico_ctx)
 
-            hora_preferida = "09:00"
+            if not hora_preferida:
 
-            data_hora_antiga = (
-                draft.get("data_hora")
-                or ctx.get("data_hora_pendente")
-                or ctx.get("data_hora")
-            )
+                hora_preferida = await proximo_horario_valido_no_dia(
+                    user_id=dono_id,
+                    data_iso=data_iso,
+                    duracao_min=duracao_ctx,
+                )
 
-            if data_hora_antiga and "T" in data_hora_antiga:
-                hora_preferida = data_hora_antiga.split("T")[1][:5]
+                if not hora_preferida:
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        "Não encontrei horários disponíveis nesse dia. Quer tentar outro?"
+                    )
+
+            nova_data_hora = f"{data_iso}T{hora_preferida}:00"
+
+            ctx["data_hora"] = nova_data_hora
+            ctx["data_hora_pendente"] = nova_data_hora
+
+            draft["data_hora"] = nova_data_hora
+            ctx["draft_agendamento"] = draft
 
             resultado_disp = await verificar_conflito_e_sugestoes_profissional(
                 user_id=dono_id,
                 data=data_iso,
                 hora_inicio=hora_preferida,
-                duracao_min=estimar_duracao(servico_ctx),
+                duracao_min=duracao_ctx,
                 profissional=prof_ctx,
                 servico=servico_ctx
             )
