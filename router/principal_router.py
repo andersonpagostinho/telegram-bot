@@ -3178,6 +3178,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             servico_ctx = draft.get("servico") or ctx.get("servico")
             prof_ctx = draft.get("profissional") or ctx.get("profissional_escolhido")
 
+            data_hora_antiga = (
+                draft.get("data_hora")
+                or ctx.get("data_hora_pendente")
+                or ctx.get("data_hora")
+            )
+
             if not servico_ctx or not prof_ctx:
                 ctx["estado_fluxo"] = "aguardando_servico" if not servico_ctx else "aguardando_profissional"
                 await salvar_contexto_temporario(user_id, ctx)
@@ -3186,8 +3192,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "pedir_servico",
                         "profissional": prof_ctx,
-                        "data_hora": dt.isoformat(),
-                        "data_hora_legivel": formatar_data_hora_br(dt.isoformat()),
+                        "data_hora": data_hora_antiga,
+                        "data_hora_legivel": formatar_data_hora_br(data_hora_antiga),
+                        "profissionais_permitidos": [],
                         "origem": "guard_aguardando_data",
                     })
 
@@ -3197,8 +3204,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "pedir_profissional",
                         "servico": servico_ctx,
-                        "data_hora": dt.isoformat(),
-                        "data_hora_legivel": formatar_data_hora_br(dt.isoformat()),
+                        "data_hora": data_hora_antiga,
+                        "data_hora_legivel": formatar_data_hora_br(data_hora_antiga),
+                        "profissionais_permitidos": [],
                         "origem": "guard_aguardando_data",
                     })
 
@@ -3217,6 +3225,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             data_hora_antiga = (
                 draft.get("data_hora")
+                or ctx.get("data_hora_pendente")
                 or ctx.get("data_hora")
             )
 

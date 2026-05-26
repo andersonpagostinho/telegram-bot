@@ -3333,6 +3333,8 @@ REGRAS ABSOLUTAS:
 - Responda em até 3 frases.
 - Seja natural, acolhedora e objetiva.
 - Não use linguagem genérica de suporte.
+- Nunca diga que existem profissionais disponíveis
+  se profissionais_permitidos não vier preenchido.
 
 ESTRUTURA IDEAL:
 
