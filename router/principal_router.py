@@ -2700,7 +2700,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         from services.gpt_service import interpretar_linguagem_operacional_gpt
 
-        interpretacao_gpt = await interpretar_linguagem_operacional_gpt(
+        # =========================================================
+        # 🔥 SLOT FALTANTE — profissional ANTES DO GPT
+        # Se já estamos aguardando profissional, não deixa o GPT
+        # transformar escolha simples em ajuste_incremental.
+        # =========================================================
+        if (
+            ctx.get("estado_fluxo") == "aguardando_profissional"
+            and not ctx.get("profissional_escolhido")
+        ):
+            alteracao_slot = await detectar_alteracao_draft_agendamento(
+                texto_usuario=texto_usuario,
+                ctx=ctx,
+                dono_id=dono_id
+            )
+
+            if alteracao_slot and alteracao_slot.get("tipo") == "profissional":
+                ctx["intencao_conversacional"] = "preenchimento_slot"
+                ctx["tipo_ajuste_incremental"] = None
+                ctx["objetivo_conversacional"] = "preencher_profissional"
+
+                # força o fluxo a cair no bloco determinístico já criado
+                interpretacao_conv = {
+                    "intencao": "ajuste_incremental",
+                    "tipo_ajuste": "profissional",
+                    "entidades": {
+                        "profissional": alteracao_slot.get("valor")
+                    },
+                    "confianca": 100,
+                }
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+        else:
+            interpretacao_gpt = await interpretar_linguagem_operacional_gpt(
             texto_usuario,
             ctx
         )
