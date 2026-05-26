@@ -3465,6 +3465,7 @@ async def gerar_resposta_p1(contexto_decisao: dict) -> str:
             "listar_opcoes_profissionais",
             "listar_opcoes_servicos",
             "fallback_clareza",
+            "confirmar_agendamento",
         ]:
             return ""
 
@@ -3486,6 +3487,9 @@ REGRAS ABSOLUTAS:
 - Nunca diga que existem profissionais disponíveis se profissionais_permitidos estiver vazio.
 - Nunca diga "todos os profissionais", "temos profissionais disponíveis" ou similar sem lista explícita no contexto.
 - Se profissionais_permitidos vier vazio, apenas pergunte qual profissional o cliente prefere.
+- Se tipo for confirmar_agendamento, a resposta deve deixar claro que é uma confirmação pendente.
+- Se tipo for confirmar_agendamento, nunca diga que já está agendado.
+- Se tipo for confirmar_agendamento, sempre peça uma confirmação final do cliente.
 - Não explique regra interna.
 - Responda em até 3 frases.
 - Seja natural, objetiva e comercial.
@@ -3498,6 +3502,7 @@ TIPOS POSSÍVEIS:
 - listar_opcoes_profissionais
 - listar_opcoes_servicos
 - fallback_clareza
+- confirmar_agendamento
 
 Contexto:
 {json.dumps(contexto_decisao, ensure_ascii=False)}

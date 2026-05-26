@@ -4681,14 +4681,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx["estado_fluxo"] = "aguardando_data"
             ctx["pergunta_amanha_mesmo_horario"] = False
             await salvar_contexto_temporario(user_id, ctx)
-            return await _send_and_stop(context, user_id, "Certo — qual dia e horário você prefere?")
+            msg_p1 = await gerar_resposta_p1({
+                "tipo": "pedir_data",
+                "servico": ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico"),
+                "profissional": ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional"),
+                "origem": "sem_base_amanha_mesmo_horario",
+            })
+
+            mensagem = msg_p1 or "Certo — qual dia e horário você prefere?"
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                mensagem
+            )
 
         base_dt = _dt_from_iso_naive(base_iso)
         if not base_dt:
             ctx["estado_fluxo"] = "aguardando_data"
             ctx["pergunta_amanha_mesmo_horario"] = False
             await salvar_contexto_temporario(user_id, ctx)
-            return await _send_and_stop(context, user_id, "Me manda o dia e horário de novo, por favor.")
+            msg_p1 = await gerar_resposta_p1({
+                "tipo": "pedir_data",
+                "servico": ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico"),
+                "profissional": ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional"),
+                "origem": "base_invalida_amanha_mesmo_horario",
+            })
+
+            mensagem = msg_p1 or "Me manda o dia e horário de novo, por favor."
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                mensagem
+            )
 
         nova_dt = base_dt + timedelta(days=1)
         nova_iso = nova_dt.replace(second=0, microsecond=0).isoformat()
@@ -4819,13 +4845,28 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             flush=True,
         )
 
-        return await _send_and_stop(
-            context,
-            user_id,
-            (
+        msg_p1 = await gerar_resposta_p1({
+            "tipo": "confirmar_agendamento",
+            "servico": servico,
+            "profissional": prof,
+            "data_hora": nova_iso,
+            "data_hora_legivel": formatar_data_hora_br(nova_iso),
+            "duracao": estimar_duracao(servico),
+            "origem": "confirmacao_amanha_mesmo_horario",
+        })
+
+        mensagem = (
+            msg_p1
+            or (
                 f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(nova_iso)}*.\n"
                 f"Responda *sim* para confirmar."
             )
+        )
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            mensagem
         )
 
     # =========================================================
@@ -6526,10 +6567,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                         await salvar_contexto_temporario(user_id, ctx)
 
+                        msg_p1 = await gerar_resposta_p1({
+                            "tipo": "pedir_horario",
+                            "servico": servico,
+                            "profissional": profissional,
+                            "data_hora": data_final,
+                            "data_hora_legivel": formatar_data_hora_br(data_final),
+                            "origem": "hora_nao_definida_raw_00",
+                        })
+
+                        mensagem = (
+                            msg_p1
+                            or f"Perfeito — para *{servico}* com *{profissional}* nesse dia 😊 Qual horário você prefere?"
+                        )
+
                         return await _send_and_stop(
                             context,
                             user_id,
-                            f"Perfeito — para *{servico}* com *{profissional}* nesse dia 😊 Qual horário você prefere?"
+                            mensagem
                         )
                     hora_ref = normalizar_hora_para_grade(hora_ref_raw)
 
@@ -6541,10 +6596,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                         await salvar_contexto_temporario(user_id, ctx)
 
+                        msg_p1 = await gerar_resposta_p1({
+                            "tipo": "pedir_horario",
+                            "servico": servico,
+                            "profissional": profissional,
+                            "data_hora": data_final,
+                            "data_hora_legivel": formatar_data_hora_br(data_final),
+                            "origem": "hora_nao_definida_normalizada_00",
+                        })
+
+                        mensagem = (
+                            msg_p1
+                            or f"Perfeito 😊 Para *{servico}* com *{profissional}*, qual horário você prefere nesse dia?"
+                        )
+
                         return await _send_and_stop(
                             context,
                             user_id,
-                            f"Perfeito 😊 Para *{servico}* com *{profissional}*, qual horário você prefere nesse dia?"
+                            mensagem
                         )
 
                     id_dono = await obter_id_dono(user_id)
