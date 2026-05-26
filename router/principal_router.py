@@ -2705,6 +2705,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # Se já estamos aguardando profissional, não deixa o GPT
         # transformar escolha simples em ajuste_incremental.
         # =========================================================
+
+        dono_id = await obter_id_dono(user_id)
         if (
             ctx.get("estado_fluxo") == "aguardando_profissional"
             and not ctx.get("profissional_escolhido")
