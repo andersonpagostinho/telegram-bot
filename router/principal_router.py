@@ -2664,23 +2664,48 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     )
 
     # =========================================================
-    # 🧠 CAMADA CONVERSACIONAL OFICIAL — NeoEve
-    # Interpreta linguagem; não executa agenda.
+    # 🔒 NÃO RECLASSIFICAR FLUXO OPERACIONAL ATIVO
+    # Mantém a intenção já definida quando o fluxo está em andamento.
     # =========================================================
-    interpretacao_conv = interpretar_conversa_operacional(
-        texto=texto_usuario,
-        ctx=ctx,
-        servicos_catalogo=[],
-        profissionais_catalogo=[],
-    )
+    if (
+        ctx.get("estado_fluxo") in [
+            "aguardando_profissional",
+            "aguardando_servico",
+            "aguardando_data",
+            "aguardando_horario",
+            "agendando",
+        ]
+        and ctx.get("objetivo_conversacional")
+    ):
+        interpretacao_conv = ctx.get("interpretacao_conversacional") or {
+            "intencao": ctx.get("intencao_conversacional") or "indefinida",
+            "objetivo": ctx.get("objetivo_conversacional"),
+            "tipo_ajuste": ctx.get("tipo_ajuste_incremental"),
+            "entidades": {},
+            "confianca": ctx.get("confianca_intencao_conversacional", 70),
+            "motivo": "fluxo_operacional_preservado",
+        }
 
-    print(
-        f"🧠 [INTERPRETADOR CONVERSACIONAL] {interpretacao_conv}",
-        flush=True
-    )
+        print(
+            f"🔒 [INTERPRETADOR PRESERVADO] {interpretacao_conv}",
+            flush=True
+        )
 
-    if interpretacao_conv.get("intencao") != "indefinida":
-        ctx["interpretacao_conversacional"] = interpretacao_conv
+    else:
+        interpretacao_conv = interpretar_conversa_operacional(
+            texto=texto_usuario,
+            ctx=ctx,
+            servicos_catalogo=[],
+            profissionais_catalogo=[],
+        )
+
+        print(
+            f"🧠 [INTERPRETADOR CONVERSACIONAL] {interpretacao_conv}",
+            flush=True
+        )
+
+        if interpretacao_conv.get("intencao") != "indefinida":
+            ctx["interpretacao_conversacional"] = interpretacao_conv
 
     # =========================================================
     # 🧠 GPT — INTERPRETAÇÃO AVANÇADA DE LINGUAGEM (ANTES DO MOTOR)
