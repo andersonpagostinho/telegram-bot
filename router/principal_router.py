@@ -3206,15 +3206,252 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     mensagem
                 )
 
-        if alteracao:
-            return await resolver_alteracao_draft_agendamento(
-                update=update,
-                context=context,
-                user_id=user_id,
-                ctx=ctx,
-                alteracao=alteracao,
-                texto_usuario=texto_usuario
+        # =====================================================
+        # 🔥 SLOT FALTANTE — serviço
+        # Se o fluxo está aguardando serviço, isso NÃO é ajuste.
+        # É preenchimento operacional do draft.
+        # =====================================================
+        if (
+            alteracao
+            and alteracao.get("tipo") == "servico"
+            and ctx.get("estado_fluxo") == "aguardando_servico"
+        ):
+            servico_escolhido = alteracao.get("valor")
+
+            draft_slot = ctx.get("draft_agendamento") or {}
+
+            profissional_slot = (
+                draft_slot.get("profissional")
+                or ctx.get("profissional_escolhido")
             )
+
+            data_hora_slot = (
+                draft_slot.get("data_hora")
+                or ctx.get("data_hora")
+                or ctx.get("data_hora_pendente")
+            )
+
+            if servico_escolhido:
+                draft_slot["servico"] = servico_escolhido
+
+                if profissional_slot:
+                    draft_slot["profissional"] = profissional_slot
+
+                if data_hora_slot:
+                    draft_slot["data_hora"] = data_hora_slot
+
+                ctx["draft_agendamento"] = draft_slot
+                ctx["servico"] = servico_escolhido
+
+                if data_hora_slot:
+                    ctx["data_hora"] = data_hora_slot
+
+                if profissional_slot and data_hora_slot:
+                    ctx["estado_fluxo"] = "agendando"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+
+                    ctx["dados_confirmacao_agendamento"] = {
+                        "profissional": profissional_slot,
+                        "servico": servico_escolhido,
+                        "data_hora": data_hora_slot,
+                        "duracao": estimar_duracao(servico_escolhido),
+                        "descricao": formatar_descricao_evento(
+                            servico_escolhido,
+                            profissional_slot
+                        ),
+                    }
+
+                    ctx["tipo_ajuste_incremental"] = None
+                    ctx["objetivo_conversacional"] = None
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    msg_p1 = await gerar_resposta_p1({
+                        "tipo": "confirmar_agendamento",
+                        "servico": servico_escolhido,
+                        "profissional": profissional_slot,
+                        "data_hora": data_hora_slot,
+                        "data_hora_legivel": formatar_data_hora_br(data_hora_slot),
+                        "duracao": estimar_duracao(servico_escolhido),
+                        "origem": "slot_servico_aguardando_servico",
+                    })
+
+                    mensagem = (
+                        msg_p1
+                        or (
+                            f"Confirmando: *{servico_escolhido}* com *{profissional_slot}* "
+                            f"em *{formatar_data_hora_br(data_hora_slot)}*.\n"
+                            f"Responda *sim* para confirmar."
+                        )
+                    )
+
+                    return await _send_and_stop(context, user_id, mensagem)
+
+                if not profissional_slot:
+                    ctx["estado_fluxo"] = "aguardando_profissional"
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    msg_p1 = await gerar_resposta_p1({
+                        "tipo": "pedir_profissional",
+                        "servico": servico_escolhido,
+                        "data_hora": data_hora_slot,
+                        "data_hora_legivel": (
+                            formatar_data_hora_br(data_hora_slot)
+                            if data_hora_slot else None
+                        ),
+                        "profissionais_permitidos": [],
+                        "origem": "slot_servico_falta_profissional",
+                    })
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        msg_p1 or "Perfeito. Qual profissional você prefere?"
+                    )
+
+                if not data_hora_slot:
+                    ctx["estado_fluxo"] = "aguardando_data"
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    msg_p1 = await gerar_resposta_p1({
+                        "tipo": "pedir_data",
+                        "servico": servico_escolhido,
+                        "profissional": profissional_slot,
+                        "origem": "slot_servico_falta_data",
+                    })
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        msg_p1 or "Perfeito. Qual dia e horário você prefere?"
+                    )
+
+        # =====================================================
+        # 🔥 SLOT FALTANTE — data
+        # Se o fluxo está aguardando data, isso NÃO é ajuste.
+        # É preenchimento operacional do draft.
+        # =====================================================
+        if (
+            alteracao
+            and alteracao.get("tipo") == "data"
+            and ctx.get("estado_fluxo") == "aguardando_data"
+        ):
+            data_escolhida = alteracao.get("valor")
+
+            draft_slot = ctx.get("draft_agendamento") or {}
+
+            servico_slot = draft_slot.get("servico") or ctx.get("servico")
+            profissional_slot = draft_slot.get("profissional") or ctx.get("profissional_escolhido")
+
+            if data_escolhida:
+                draft_slot["data"] = data_escolhida
+                draft_slot["data_hora"] = None
+
+                ctx["draft_agendamento"] = draft_slot
+                ctx["data_hora"] = None
+                ctx["estado_fluxo"] = "aguardando_horario"
+                ctx["tipo_ajuste_incremental"] = None
+                ctx["objetivo_conversacional"] = None
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                msg_p1 = await gerar_resposta_p1({
+                    "tipo": "pedir_horario",
+                    "servico": servico_slot,
+                    "profissional": profissional_slot,
+                    "origem": "slot_data_aguardando_data",
+                })
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    msg_p1 or "Perfeito. Qual horário você prefere nesse dia?"
+                )
+
+        # =====================================================
+        # 🔥 SLOT FALTANTE — horário
+        # Se o fluxo está aguardando horário, isso NÃO é ajuste.
+        # É preenchimento operacional do draft.
+        # =====================================================
+        if (
+            alteracao
+            and alteracao.get("tipo") == "horario"
+            and ctx.get("estado_fluxo") == "aguardando_horario"
+        ):
+            dt_horario = interpretar_data_e_hora(texto_usuario)
+
+            draft_slot = ctx.get("draft_agendamento") or {}
+
+            servico_slot = draft_slot.get("servico") or ctx.get("servico")
+            profissional_slot = draft_slot.get("profissional") or ctx.get("profissional_escolhido")
+
+            data_base = (
+                draft_slot.get("data")
+                or (
+                    (draft_slot.get("data_hora") or ctx.get("data_hora") or "")
+                    .split("T")[0]
+                )
+            )
+
+            if dt_horario and servico_slot and profissional_slot and data_base:
+                hora_slot = dt_horario.strftime("%H:%M")
+                data_hora_slot = f"{data_base}T{hora_slot}:00"
+
+                draft_slot["servico"] = servico_slot
+                draft_slot["profissional"] = profissional_slot
+                draft_slot["data_hora"] = data_hora_slot
+
+                ctx["draft_agendamento"] = draft_slot
+                ctx["data_hora"] = data_hora_slot
+                ctx["estado_fluxo"] = "agendando"
+                ctx["aguardando_confirmacao_agendamento"] = True
+
+                ctx["dados_confirmacao_agendamento"] = {
+                    "profissional": profissional_slot,
+                    "servico": servico_slot,
+                    "data_hora": data_hora_slot,
+                    "duracao": estimar_duracao(servico_slot),
+                    "descricao": formatar_descricao_evento(
+                        servico_slot,
+                        profissional_slot
+                    ),
+                }
+
+                ctx["tipo_ajuste_incremental"] = None
+                ctx["objetivo_conversacional"] = None
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                msg_p1 = await gerar_resposta_p1({
+                    "tipo": "confirmar_agendamento",
+                    "servico": servico_slot,
+                    "profissional": profissional_slot,
+                    "data_hora": data_hora_slot,
+                    "data_hora_legivel": formatar_data_hora_br(data_hora_slot),
+                    "duracao": estimar_duracao(servico_slot),
+                    "origem": "slot_horario_aguardando_horario",
+                })
+
+                mensagem = (
+                    msg_p1
+                    or (
+                        f"Confirmando: *{servico_slot}* com *{profissional_slot}* "
+                        f"em *{formatar_data_hora_br(data_hora_slot)}*.\n"
+                        f"Responda *sim* para confirmar."
+                    )
+                )
+
+                return await _send_and_stop(context, user_id, mensagem)
+
+        if alteracao:
+                return await resolver_alteracao_draft_agendamento(
+                    update=update,
+                    context=context,
+                    user_id=user_id,
+                    ctx=ctx,
+                    alteracao=alteracao,
+                    texto_usuario=texto_usuario
+                )
 
     # =========================================================
     # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
