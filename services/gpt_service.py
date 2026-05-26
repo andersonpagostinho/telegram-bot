@@ -3441,3 +3441,81 @@ Retorne SOMENTE JSON:
     except Exception as e:
         print(f"❌ erro gerar_resposta_humana_agendamento: {e}")
         return ""
+
+async def gerar_resposta_p1(contexto_decisao: dict) -> str:
+    """
+    Camada P1 oficial:
+    - recebe decisão P0 já pronta
+    - não calcula disponibilidade
+    - não verifica conflito
+    - não cria evento
+    - apenas transforma contexto em resposta humana
+    """
+
+    try:
+        tipo = (contexto_decisao or {}).get("tipo")
+
+        if tipo not in [
+            "pedir_servico",
+            "pedir_profissional",
+            "pedir_data",
+            "pedir_horario",
+            "listar_opcoes_profissionais",
+            "listar_opcoes_servicos",
+            "fallback_clareza",
+        ]:
+            return ""
+
+        prompt = f"""
+Você é uma atendente profissional de salão respondendo pelo WhatsApp.
+
+Sua função é transformar uma decisão operacional já tomada pelo sistema em uma resposta humana, curta e comercial.
+
+REGRAS ABSOLUTAS:
+- Use somente os dados do contexto.
+- Não invente serviço.
+- Não invente horário.
+- Não invente profissional.
+- Não calcule disponibilidade.
+- Não verifique agenda.
+- Não diga que agendou.
+- Não diga que confirmou.
+- Não escolha pelo cliente.
+- Não explique regra interna.
+- Responda em até 3 frases.
+- Seja natural, objetiva e comercial.
+
+TIPOS POSSÍVEIS:
+- pedir_servico
+- pedir_profissional
+- pedir_data
+- pedir_horario
+- listar_opcoes_profissionais
+- listar_opcoes_servicos
+- fallback_clareza
+
+Contexto:
+{json.dumps(contexto_decisao, ensure_ascii=False)}
+
+Retorne SOMENTE JSON:
+{{
+  "resposta": "texto"
+}}
+"""
+
+        resposta = await client.chat.completions.create(
+            model="gpt-4o",
+            temperature=0.5,
+            messages=[
+                {"role": "system", "content": prompt}
+            ]
+        )
+
+        conteudo = resposta.choices[0].message.content.strip()
+        data = json.loads(conteudo)
+
+        return data.get("resposta", "")
+
+    except Exception as e:
+        print(f"❌ erro gerar_resposta_p1: {e}")
+        return ""

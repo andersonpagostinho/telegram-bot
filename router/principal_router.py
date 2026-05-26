@@ -7,7 +7,10 @@ from utils.context_manager import atualizar_contexto, limpar_contexto_agendament
 from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
-from services.gpt_service import processar_com_gpt_com_acao as chamar_gpt_com_contexto
+from services.gpt_service import (
+    processar_com_gpt_com_acao as chamar_gpt_com_contexto,
+    gerar_resposta_p1,
+)
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 
 from datetime import datetime, timedelta
@@ -3179,10 +3182,32 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["estado_fluxo"] = "aguardando_servico" if not servico_ctx else "aguardando_profissional"
                 await salvar_contexto_temporario(user_id, ctx)
 
+                if not servico_ctx:
+                    msg_p1 = await gerar_resposta_p1({
+                        "tipo": "pedir_servico",
+                        "profissional": prof_ctx,
+                        "data_hora": dt.isoformat(),
+                        "data_hora_legivel": formatar_data_hora_br(dt.isoformat()),
+                        "origem": "guard_aguardando_data",
+                    })
+
+                    mensagem = msg_p1 or "Perfeito. Qual serviço você deseja?"
+
+                else:
+                    msg_p1 = await gerar_resposta_p1({
+                        "tipo": "pedir_profissional",
+                        "servico": servico_ctx,
+                        "data_hora": dt.isoformat(),
+                        "data_hora_legivel": formatar_data_hora_br(dt.isoformat()),
+                        "origem": "guard_aguardando_data",
+                    })
+
+                    mensagem = msg_p1 or "Perfeito. Qual profissional você prefere?"
+
                 return await _send_and_stop(
                     context,
                     user_id,
-                    "Perfeito. Só preciso confirmar o serviço e a profissional antes de consultar os horários."
+                    mensagem
                 )
 
             dono_id = await obter_id_dono(user_id)
@@ -4688,7 +4713,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx["estado_fluxo"] = "aguardando_profissional"
             ctx["draft_agendamento"] = {"profissional": None, "data_hora": nova_iso, "servico": servico, "modo_prechecagem": True}
             await salvar_contexto_temporario(user_id, ctx)
-            return await _send_and_stop(context, user_id, "Perfeito. Qual profissional você prefere?")
+            msg_p1 = await gerar_resposta_p1({
+                "tipo": "pedir_profissional",
+                "servico": servico,
+                "data_hora": nova_iso,
+                "data_hora_legivel": formatar_data_hora_br(nova_iso),
+                "origem": "pergunta_amanha_mesmo_horario",
+            })
+
+            mensagem = msg_p1 or "Perfeito. Qual profissional você prefere?"
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                mensagem
+            )
 
         if not servico:
             sugestao = ""

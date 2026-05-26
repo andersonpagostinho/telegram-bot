@@ -965,11 +965,11 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         except Exception as e:
             print(f"❌ Erro ao enviar WhatsApp: {e}")
 
-        mensagem_gpt = f"{descricao.capitalize()} marcada com sucesso para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
-        mensagem_gpt_limpa = re.sub(r"[^\w\s,.:áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ]", "", mensagem_gpt)
+        # mensagem_gpt = f"{descricao.capitalize()} marcada com sucesso para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
+        # mensagem_gpt_limpa = re.sub(r"[^\w\s,.:áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ]", "", mensagem_gpt)
 
-        await responder_em_audio(update, context, mensagem_gpt_limpa)
-        await update.message.reply_text(mensagem_gpt)
+        # await responder_em_audio(update, context, mensagem_gpt_limpa)
+        # await update.message.reply_text(mensagem_gpt)
         await update.message.reply_text("😄 Agendamento concluído! Se precisar de mais alguma coisa, é só me chamar.")
 
         await limpar_contexto_agendamento(user_id)
