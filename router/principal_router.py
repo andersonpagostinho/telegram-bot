@@ -2698,6 +2698,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ]
     ):
 
+        interpretacao_gpt = {}
+
         from services.gpt_service import interpretar_linguagem_operacional_gpt
 
         # =========================================================
@@ -2722,8 +2724,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx["tipo_ajuste_incremental"] = None
                 ctx["objetivo_conversacional"] = "preencher_profissional"
 
-                # força o fluxo a cair no bloco determinístico já criado
-                interpretacao_conv = {
+                interpretacao_gpt = {
                     "intencao": "ajuste_incremental",
                     "tipo_ajuste": "profissional",
                     "entidades": {
@@ -2734,11 +2735,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 await salvar_contexto_temporario(user_id, ctx)
 
+            else:
+                interpretacao_gpt = await interpretar_linguagem_operacional_gpt(
+                    texto_usuario,
+                    ctx
+                )
+
         else:
             interpretacao_gpt = await interpretar_linguagem_operacional_gpt(
-            texto_usuario,
-            ctx
-        )
+                texto_usuario,
+                ctx
+            )
 
         print("🧠 [GPT INTERPRETAÇÃO]", interpretacao_gpt, flush=True)
 
