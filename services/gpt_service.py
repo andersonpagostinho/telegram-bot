@@ -3490,6 +3490,7 @@ REGRAS ABSOLUTAS:
 - Se tipo for confirmar_agendamento, a resposta deve deixar claro que é uma confirmação pendente.
 - Se tipo for confirmar_agendamento, nunca diga que já está agendado.
 - Se tipo for confirmar_agendamento, sempre peça uma confirmação final do cliente.
+- Se tipo for listar_profissionais_aptos, diga apenas que esses profissionais atendem o serviço; não diga que estão disponíveis no horário.
 - Não explique regra interna.
 - Responda em até 3 frases.
 - Seja natural, objetiva e comercial.
@@ -3503,6 +3504,7 @@ TIPOS POSSÍVEIS:
 - listar_opcoes_servicos
 - fallback_clareza
 - confirmar_agendamento
+- listar_profissionais_aptos
 
 Contexto:
 {json.dumps(contexto_decisao, ensure_ascii=False)}

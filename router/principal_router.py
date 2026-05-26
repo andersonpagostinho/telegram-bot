@@ -8065,6 +8065,70 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 payload_bloqueio["dados"]
             )
 
+        # =========================================================
+        # 🔥 CONSULTA OPERACIONAL — profissionais para o serviço
+        # Ex.: "quais você tem?", "quem faz?", "quais profissionais?"
+        # durante aguardando_profissional
+        # =========================================================
+        if (
+            estado_fluxo == "aguardando_profissional"
+            and ctx.get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
+        ):
+            servico_ref = (
+                ctx.get("servico")
+                or (ctx.get("draft_agendamento") or {}).get("servico")
+            )
+
+            data_hora_ref = (
+                ctx.get("data_hora")
+                or (ctx.get("draft_agendamento") or {}).get("data_hora")
+                or ctx.get("data_hora_pendente")
+            )
+
+            profissionais_aptos = []
+
+            for p in profs_dict.values():
+
+                nome = p.get("nome")
+                servicos = p.get("servicos") or []
+
+                if (
+                    nome
+                    and servico_ref
+                    and any(
+                        normalizar(servico_ref) == normalizar(s)
+                        for s in servicos
+                    )
+                ):
+                    profissionais_aptos.append(nome)
+
+            msg_p1 = await gerar_resposta_p1({
+                "tipo": "listar_profissionais_aptos",
+                "servico": servico_ref,
+                "data_hora": data_hora_ref,
+                "data_hora_legivel": (
+                    formatar_data_hora_br(data_hora_ref)
+                    if data_hora_ref else None
+                ),
+                "profissionais_aptos": profissionais_aptos,
+                "origem": "consulta_operacional_aguardando_profissional",
+            })
+
+            mensagem = (
+                msg_p1
+                or (
+                    f"Para *{servico_ref}*, tenho: "
+                    + ", ".join(profissionais_aptos)
+                    + ". Qual você prefere?"
+                )
+            )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                mensagem
+            )
+
         # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
         if ctx.get("estado_fluxo") == "aguardando_horario":
 
