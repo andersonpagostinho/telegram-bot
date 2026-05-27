@@ -2610,9 +2610,24 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and bool(ctx.get("draft_agendamento"))
     )
 
-    if preservar_continuidade_data:
+    preservar_fluxo_operacional = (
+        ctx.get("estado_fluxo") in [
+            "aguardando_profissional",
+            "aguardando_servico",
+            "aguardando_data",
+            "aguardando_horario",
+            "agendando",
+        ]
+        and (
+            ctx.get("aguardando_confirmacao_agendamento")
+            or ctx.get("dados_confirmacao_agendamento")
+            or ctx.get("draft_agendamento")
+        )
+    )
+
+    if preservar_continuidade_data or preservar_fluxo_operacional:
         print(
-            "🔒 [CONTEXTO PRESERVADO] aguardando_data ativo — não sobrescrevendo intenção",
+            "🔒 [CONTEXTO PRESERVADO] fluxo operacional ativo — não sobrescrevendo intenção",
             flush=True
         )
 
