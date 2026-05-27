@@ -3240,7 +3240,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     duracao_ref = estimar_duracao(servico_slot)
 
                     resultado_conflito = await verificar_conflito_e_sugestoes_profissional(
-                        user_id=id_dono,
+                        user_id=dono_id,
                         data=data_ref,
                         hora_inicio=hora_ref,
                         duracao_min=duracao_ref,
