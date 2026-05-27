@@ -1352,53 +1352,62 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             ctx["estado_fluxo"] = "aguardando_escolha_horario"
 
         # =========================================================
-        # 🔥 CASO 3 — sem hora → normal
+        # 🔥 CASO 3 — data sem hora
+        # Se já existe horário anterior válido no fluxo, preserva.
+        # Ex.: "amanhã", "troca para sexta", "joga para amanhã"
         # =========================================================
         else:
-            dt_final = dt_detectado.replace(
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0
+            data_iso = dt_detectado.date().isoformat()
+
+             data_hora_anterior = (
+                ctx.get("data_hora")
+                or draft.get("data_hora")
+                or (ctx.get("ultima_consulta") or {}).get("data_hora")
             )
 
-            data_iso = dt_final.date().isoformat()
-            iso = dt_final.isoformat()
+            hora_anterior = None
 
-            # 🔥 data existe, mas hora NÃO foi informada
+            if data_hora_anterior and "T" in str(data_hora_anterior):
+                hora_ant = str(data_hora_anterior).split("T")[1][:5]
+
+                if hora_ant and hora_ant != "00:00":
+                    hora_anterior = hora_ant
+
             ctx["data"] = data_iso
             draft["data"] = data_iso
 
-            # mantém compatibilidade temporária com o restante do sistema
-            ctx["data_hora"] = iso
-            draft["data_hora"] = iso
+            if hora_anterior:
+                iso = f"{data_iso}T{hora_anterior}:00"
 
-            ctx["hora_confirmada"] = False
-            ctx["data_sem_hora"] = True
+                ctx["data_hora"] = iso
+                draft["data_hora"] = iso
+                ctx["hora_confirmada"] = True
+                ctx["data_sem_hora"] = False
 
-            # 🔥 se já tem serviço + profissional, isso é consulta de disponibilidade
-            if servico_detectado:
-                ctx["servico"] = servico_detectado
-                draft["servico"] = servico_detectado
-
-            if prof_detectado:
-                ctx["profissional_escolhido"] = prof_detectado
-                draft["profissional"] = prof_detectado
-
-            if ctx.get("servico") and ctx.get("profissional_escolhido"):
-                ctx["estado_fluxo"] = "consultando"
-
-            elif ctx.get("objetivo_conversacional") == "descobrir_servico_para_consulta" and not ctx.get("servico"):
-                ctx["estado_fluxo"] = "aguardando_servico"
-
-            elif not ctx.get("servico"):
-                ctx["estado_fluxo"] = "aguardando_servico"
-
-            elif not ctx.get("profissional_escolhido"):
-                ctx["estado_fluxo"] = "aguardando_profissional"
+                print(
+                    f"🧠 [DATA_SEM_HORA] preservando hora anterior={hora_anterior} | iso={iso}",
+                    flush=True
+                )
 
             else:
-                ctx["estado_fluxo"] = "aguardando_horario"
+                dt_final = dt_detectado.replace(
+                    hour=0,
+                    minute=0,
+                    second=0,
+                    microsecond=0
+                )
+
+                iso = dt_final.isoformat()
+
+                ctx["data_hora"] = iso
+                draft["data_hora"] = iso
+                ctx["hora_confirmada"] = False
+                ctx["data_sem_hora"] = True
+
+                print(
+                    f"🧠 [DATA_SEM_HORA] sem hora anterior válida | iso={iso}",
+                    flush=True
+                )
 
         # =========================================================
         # 🔥 salvar ultima consulta
