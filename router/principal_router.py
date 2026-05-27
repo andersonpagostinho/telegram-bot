@@ -3269,21 +3269,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         }
 
                         sugestoes = resultado_conflito.get("sugestoes") or []
-                        alternativas = []
-
-                        if isinstance(resultado_conflito, dict):
-                            alternativas = (
-                                resultado_conflito.get("alternativa_profissional")
-                                or resultado_conflito.get("profissionais_alternativos")
-                                or resultado_conflito.get("alternativas")
-                                or resultado_conflito.get("profissionais_disponiveis")
-                                or resultado_conflito.get("alternativo")
-                                or []
-                            )
-
-                        # fallback para objeto/namespace/dataclass
-                        if not alternativas and hasattr(resultado_conflito, "alternativo"):
-                            alternativas = getattr(resultado_conflito, "alternativo")
+                        alternativas = (
+                            resultado_conflito.get("alternativa_profissional")
+                            or resultado_conflito.get("profissional_alternativo")
+                            or resultado_conflito.get("profissionais_alternativos")
+                            or resultado_conflito.get("alternativas")
+                            or resultado_conflito.get("profissionais_disponiveis")
+                            or resultado_conflito.get("alternativo")
+                            or []
+                        )
 
                         if isinstance(alternativas, str):
                             alternativas = [alternativas]
