@@ -988,10 +988,11 @@ async def verificar_conflito_e_sugestoes_profissional(
     # 6) Sugestões (fallback normal)
     sugestoes = gerar_sugestoes_de_horario(inicio_novo, ocupados, duracao_min)
 
-    # 7) Profissional alternativo (apenas quando servico é string)
-    alternativo = None
+    # 7) Profissionais alternativos (apenas quando servico é string)
+    alternativos = []
+
     if isinstance(servico, str) and servico.strip():
-        servico_norm = (servico or "").strip().lower()
+        servico_norm = unidecode((servico or "").strip().lower())
 
         for p in profissionais.values():
             nome_alt = p.get("nome", "")
@@ -1000,7 +1001,11 @@ async def verificar_conflito_e_sugestoes_profissional(
             if not nome_alt_norm or nome_alt_norm == prof_norm:
                 continue
 
-            servs_alt = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+            servs_alt = [
+                unidecode(str(s).strip().lower())
+                for s in (p.get("servicos") or [])
+            ]
+
             if servico_norm and servico_norm not in servs_alt:
                 continue
 
@@ -1023,10 +1028,12 @@ async def verificar_conflito_e_sugestoes_profissional(
                     continue
 
                 ev_prof = unidecode(str(ev.get("profissional", "")).strip().lower())
+
                 if ev_prof != nome_alt_norm:
                     continue
 
                 ev_ini, ev_fim = _parse_event_interval(ev)
+
                 if not ev_ini or not ev_fim:
                     continue
 
@@ -1038,16 +1045,16 @@ async def verificar_conflito_e_sugestoes_profissional(
                     break
 
             if not conflitos_alt:
-                alternativo = nome_alt
-                break
+                alternativos.append(nome_alt)
 
     print(
-        f"✅ Resultado: conflito={conflito}, sugestões={sugestoes}, alternativo={alternativo}",
+        f"✅ Resultado: conflito={conflito}, sugestões={sugestoes}, alternativos={alternativos}",
         flush=True
     )
 
     return {
         "conflito": bool(conflito),
         "sugestoes": sugestoes,
-        "profissional_alternativo": alternativo
+        "profissional_alternativo": alternativos,
+        "profissionais_alternativos": alternativos,
     }
