@@ -3274,6 +3274,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             or resultado_conflito.get("profissionais_alternativos")
                             or resultado_conflito.get("alternativas")
                             or resultado_conflito.get("profissionais_disponiveis")
+                            or resultado_conflito.get("alternativo")
                             or []
                         )
 
