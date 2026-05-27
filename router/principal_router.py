@@ -3269,7 +3269,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         }
 
                         sugestoes = resultado_conflito.get("sugestoes") or []
-                        alternativas = resultado_conflito.get("alternativa_profissional") or []
+                        alternativas = (
+                            resultado_conflito.get("alternativa_profissional")
+                            or resultado_conflito.get("profissionais_alternativos")
+                            or resultado_conflito.get("alternativas")
+                            or resultado_conflito.get("profissionais_disponiveis")
+                            or []
+                        )
 
                         if isinstance(alternativas, str):
                             alternativas = [alternativas]
