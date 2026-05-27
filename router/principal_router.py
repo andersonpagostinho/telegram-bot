@@ -1279,7 +1279,13 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             ctx.get("estado_fluxo") != "aguardando_escolha_horario"
             and not ctx.get("modo_escolha_horario")
         ):
-            ctx["estado_fluxo"] = "agendando"
+            tem_servico = bool(ctx.get("servico") or draft.get("servico"))
+            tem_profissional = bool(ctx.get("profissional_escolhido") or draft.get("profissional"))
+
+            if tem_servico and tem_profissional:
+                ctx["estado_fluxo"] = "agendando"
+            elif tem_servico and not tem_profissional:
+                ctx["estado_fluxo"] = "aguardando_profissional"
 
         # =========================================================
         # 🔥 HH:MM explícito NÃO pode virar múltiplas opções
@@ -1315,7 +1321,13 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             if ctx.get("modo_escolha_horario") or ctx.get("estado_fluxo") == "aguardando_escolha_horario":
                 pass
             else:
-                ctx["estado_fluxo"] = "agendando"
+                tem_servico = bool(ctx.get("servico") or draft.get("servico"))
+                tem_profissional = bool(ctx.get("profissional_escolhido") or draft.get("profissional"))
+
+                if tem_servico and tem_profissional:
+                    ctx["estado_fluxo"] = "agendando"
+                elif tem_servico and not tem_profissional:
+                    ctx["estado_fluxo"] = "aguardando_profissional"
 
         # =========================================================
         # 🔥 CASO 2 — múltiplos horários → NÃO DECIDE
