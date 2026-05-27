@@ -1359,7 +1359,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
         else:
             data_iso = dt_detectado.date().isoformat()
 
-             data_hora_anterior = (
+            data_hora_anterior = (
                 ctx.get("data_hora")
                 or draft.get("data_hora")
                 or (ctx.get("ultima_consulta") or {}).get("data_hora")
