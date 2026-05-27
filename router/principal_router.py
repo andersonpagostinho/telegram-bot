@@ -3293,15 +3293,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             for s in sugestoes[:3]:
                                 msg += f"🔄 {s}\n"
 
-                            if alternativas:
-                                msg += (
-                                    f"\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem "
-                                    f"*{servico_slot}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
-                                )
+                        if alternativas:
+                            msg += (
+                                f"\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem "
+                                f"*{servico_slot}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
+                            )
 
-                            msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                        msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
 
-                            return await _send_and_stop(context, user_id, msg)
+                        return await _send_and_stop(context, user_id, msg)
 
                 draft_slot["servico"] = servico_slot
                 draft_slot["profissional"] = profissional_escolhido
