@@ -4208,6 +4208,98 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 raise ApplicationHandlerStop
 
+            # =====================================================
+            # 🔥 ESCOLHA DE PROFISSIONAL ALTERNATIVA NO CONFLITO
+            # Ex.: "troque para Bruna", "pode ser a Bruna", "com Joana"
+            # Mantém serviço + data_hora original e troca só profissional.
+            # =====================================================
+            alternativas_ctx = (
+                ctx.get("alternativa_profissional")
+                or ctx.get("ultima_opcao_profissionais")
+                or []
+            )
+
+            if isinstance(alternativas_ctx, str):
+                alternativas_ctx = [alternativas_ctx]
+
+            texto_norm_alt = normalizar(texto_usuario or "")
+
+            profissional_alt_escolhida = None
+
+            for nome_alt in alternativas_ctx:
+                if normalizar(nome_alt) in texto_norm_alt:
+                    profissional_alt_escolhida = nome_alt
+                    break
+
+            if profissional_alt_escolhida:
+                draft_alt = ctx.get("draft_agendamento") or {}
+
+                servico_alt = (
+                    draft_alt.get("servico")
+                    or ctx.get("servico")
+                    or (ctx.get("dados_anteriores") or {}).get("servico")
+                )
+
+                data_hora_alt = (
+                    draft_alt.get("data_hora")
+                    or ctx.get("data_hora")
+                    or (ctx.get("dados_anteriores") or {}).get("data_hora")
+                )
+
+                if servico_alt and data_hora_alt:
+                    draft_alt["servico"] = servico_alt
+                    draft_alt["profissional"] = profissional_alt_escolhida
+                    draft_alt["data_hora"] = data_hora_alt
+
+                    ctx["draft_agendamento"] = draft_alt
+                    ctx["servico"] = servico_alt
+                    ctx["profissional_escolhido"] = profissional_alt_escolhida
+                    ctx["data_hora"] = data_hora_alt
+
+                    ctx["estado_fluxo"] = "agendando"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+                    ctx["tipo_ajuste_incremental"] = None
+                    ctx["objetivo_conversacional"] = None
+                    ctx["ultima_acao"] = None
+
+                    ctx["dados_confirmacao_agendamento"] = {
+                        "profissional": profissional_alt_escolhida,
+                        "servico": servico_alt,
+                        "data_hora": data_hora_alt,
+                        "duracao": estimar_duracao(servico_alt),
+                        "descricao": formatar_descricao_evento(
+                            servico_alt,
+                            profissional_alt_escolhida
+                        ),
+                    }
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    msg_p1 = await gerar_resposta_p1({
+                        "tipo": "confirmar_agendamento",
+                        "servico": servico_alt,
+                        "profissional": profissional_alt_escolhida,
+                        "data_hora": data_hora_alt,
+                        "data_hora_legivel": formatar_data_hora_br(data_hora_alt),
+                        "duracao": estimar_duracao(servico_alt),
+                        "origem": "escolha_profissional_alternativa_conflito",
+                    })
+
+                    mensagem = (
+                        msg_p1
+                        or (
+                            f"Perfeito — seguimos com *{profissional_alt_escolhida}* "
+                            f"para *{servico_alt}* em *{formatar_data_hora_br(data_hora_alt)}*.\n"
+                            f"Posso confirmar?"
+                        )
+                    )
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        mensagem
+                    )
+
             def _extrair_profissional_citado(texto: str, nomes_validos: list[str]) -> str | None:
                 txt = normalizar(texto or "")
                 for nome in nomes_validos:
