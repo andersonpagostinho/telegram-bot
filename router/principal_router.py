@@ -3269,20 +3269,32 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         }
 
                         sugestoes = resultado_conflito.get("sugestoes") or []
-                        alternativas = (
-                            resultado_conflito.get("alternativa_profissional")
-                            or resultado_conflito.get("profissionais_alternativos")
-                            or resultado_conflito.get("alternativas")
-                            or resultado_conflito.get("profissionais_disponiveis")
-                            or resultado_conflito.get("alternativo")
-                            or []
-                        )
+                        alternativas = []
+
+                        if isinstance(resultado_conflito, dict):
+                            alternativas = (
+                                resultado_conflito.get("alternativa_profissional")
+                                or resultado_conflito.get("profissionais_alternativos")
+                                or resultado_conflito.get("alternativas")
+                                or resultado_conflito.get("profissionais_disponiveis")
+                                or resultado_conflito.get("alternativo")
+                                or []
+                            )
+
+                        # fallback para objeto/namespace/dataclass
+                        if not alternativas and hasattr(resultado_conflito, "alternativo"):
+                            alternativas = getattr(resultado_conflito, "alternativo")
 
                         if isinstance(alternativas, str):
                             alternativas = [alternativas]
 
                         if isinstance(alternativas, dict):
                             alternativas = alternativas.get("profissionais") or alternativas.get("nomes") or []
+
+                        if not isinstance(alternativas, list):
+                            alternativas = list(alternativas) if alternativas else []
+
+                        print(f"🧪 [PRECHECK ALTERNATIVAS NORMALIZADAS] {alternativas}", flush=True)
 
                         ctx["sugestoes"] = sugestoes
                         ctx["horarios_sugeridos"] = sugestoes
