@@ -5084,51 +5084,101 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             tnorm_msg = normalizar(texto_usuario)
 
             profs_dict_tmp = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-            nomes_tmp = [str(p.get("nome", "")).strip() for p in profs_dict_tmp.values() if p.get("nome")]
+            nomes_tmp = [
+                str(p.get("nome", "")).strip()
+                for p in profs_dict_tmp.values()
+                if p.get("nome")
+            ]
 
-            tem_profissional_expresso = any(normalizar(nome) in tnorm_msg for nome in nomes_tmp)
+            tem_profissional_expresso = any(
+                normalizar(nome) in tnorm_msg
+                for nome in nomes_tmp
+            )
+
+            # Mantém o nome antigo por compatibilidade, mas isso detecta DATA/HORA.
             tem_data_explicitada = _tem_indicio_de_hora(texto_usuario)
 
             servicos_tmp = []
             for p in profs_dict_tmp.values():
                 servicos_tmp.extend(
-                    [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
+                    [
+                        str(s).strip()
+                        for s in (p.get("servicos") or [])
+                        if str(s).strip()
+                    ]
                 )
 
             servicos_tmp = list(dict.fromkeys(servicos_tmp))
-            tem_servico_explicito = any(normalizar(s) in tnorm_msg for s in servicos_tmp)
 
+            tem_servico_explicito = any(
+                normalizar(s) in tnorm_msg
+                for s in servicos_tmp
+            )
+
+            estado_atual = ctx.get("estado_fluxo")
+
+            fluxo_operacional_ativo = estado_atual in [
+                "aguardando_profissional",
+                "aguardando_servico",
+                "aguardando serviço",
+                "aguardando_serviço",
+                "aguardando_data",
+                "aguardando_horario",
+                "aguardando_escolha_horario",
+                "aguardando_confirmacao_agendamento",
+                "agendando",
+            ]
+
+            # =====================================================
+            # 🔥 Sempre limpa apenas resíduos transitórios de conflito/confirmação
+            # Não apaga slots estruturais aqui.
+            # =====================================================
             ctx.pop("sugestoes", None)
             ctx.pop("alternativa_profissional", None)
             ctx.pop("dados_confirmacao_agendamento", None)
+            ctx.pop("modo_escolha_horario", None)
+            ctx.pop("horarios_sugeridos", None)
+
             ctx["aguardando_confirmacao_agendamento"] = False
             ctx["ultima_opcao_profissionais"] = []
 
-            if tem_profissional_expresso and not tem_servico_explicito:
-                ctx.pop("servico", None)
-                if isinstance(ctx.get("draft_agendamento"), dict):
-                    ctx["draft_agendamento"].pop("servico", None)
+            # =====================================================
+            # 🔒 Em fluxo operacional ativo, NÃO apagar slots válidos.
+            # Ex.: "quais você tem?" durante aguardando_profissional
+            # não pode destruir data_hora/serviço/draft.
+            # =====================================================
+            if not fluxo_operacional_ativo:
 
-            if tem_profissional_expresso and not tem_data_explicitada:
-                ctx.pop("data_hora", None)
-                if isinstance(ctx.get("draft_agendamento"), dict):
-                    ctx["draft_agendamento"].pop("data_hora", None)
+                if tem_profissional_expresso and not tem_servico_explicito:
+                    ctx.pop("servico", None)
 
-            if tem_servico_explicito and not tem_profissional_expresso:
-                ctx.pop("profissional_escolhido", None)
-                if isinstance(ctx.get("draft_agendamento"), dict):
-                    ctx["draft_agendamento"].pop("profissional", None)
+                    if isinstance(ctx.get("draft_agendamento"), dict):
+                        ctx["draft_agendamento"].pop("servico", None)
 
-            if tem_servico_explicito and not tem_data_explicitada:
-                ctx.pop("data_hora", None)
-                if isinstance(ctx.get("draft_agendamento"), dict):
-                    ctx["draft_agendamento"].pop("data_hora", None)
+                if tem_profissional_expresso and not tem_data_explicitada:
+                    ctx.pop("data_hora", None)
 
-            if isinstance(ctx.get("ultima_consulta"), dict):
-                if not tem_data_explicitada:
-                    ctx["ultima_consulta"].pop("data_hora", None)
-                if not tem_profissional_expresso:
-                    ctx["ultima_consulta"].pop("profissional", None)
+                    if isinstance(ctx.get("draft_agendamento"), dict):
+                        ctx["draft_agendamento"].pop("data_hora", None)
+
+                if tem_servico_explicito and not tem_profissional_expresso:
+                    ctx.pop("profissional_escolhido", None)
+
+                    if isinstance(ctx.get("draft_agendamento"), dict):
+                        ctx["draft_agendamento"].pop("profissional", None)
+
+                if tem_servico_explicito and not tem_data_explicitada:
+                    ctx.pop("data_hora", None)
+
+                    if isinstance(ctx.get("draft_agendamento"), dict):
+                        ctx["draft_agendamento"].pop("data_hora", None)
+
+                if isinstance(ctx.get("ultima_consulta"), dict):
+                    if not tem_data_explicitada:
+                        ctx["ultima_consulta"].pop("data_hora", None)
+
+                    if not tem_profissional_expresso:
+                        ctx["ultima_consulta"].pop("profissional", None)
 
         # =========================================================
         # 🔒 BLOQUEIO DE AGENDA DO PROFISSIONAL / SALÃO — PRIMEIRO PONTO REAL
