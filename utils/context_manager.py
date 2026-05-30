@@ -57,6 +57,10 @@ async def limpar_contexto_agendamento(user_id: str):
         "pergunta_amanha_mesmo_horario": False,
         "data_hora_pendente": None,
         "ultima_consulta": None,
+
+        "objetivo_conversacional": None,
+        "intencao_conversacional": None,
+        "modo_conversa": None,
     })
 
     contexto = limpar_sinais_humanos(contexto)

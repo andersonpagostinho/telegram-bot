@@ -59,6 +59,10 @@ async def limpar_contexto_agendamento(user_id: str):
         "pergunta_amanha_mesmo_horario": False,
         "data_hora_pendente": None,
 
+        "objetivo_conversacional": None,
+        "intencao_conversacional": None,
+        "modo_conversa": None,
+
         "estado_fluxo": "idle"
     }
 
