@@ -1,6 +1,6 @@
 from unidecode import unidecode
 from services.profissional_service import buscar_profissionais_por_servico
-from services.firebase_service_async import buscar_subcolecao
+from services.firebase_service_async import buscar_subcolecao, obter_id_dono
 import re
 import string
 
@@ -8,9 +8,14 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
     mensagem_normalizada = unidecode(re.sub(r"[^\w\s]", " ", mensagem.lower())).strip()
     mensagem_normalizada = re.sub(r"\s+", " ", mensagem_normalizada)
 
+    try:
+        dono_id = await obter_id_dono(user_id)
+    except Exception:
+        dono_id = user_id
+
     # 📌 Listar todos os serviços disponíveis
     if "servi" in mensagem_normalizada and ("oferec" in mensagem_normalizada or "tem" in mensagem_normalizada):
-        profissionais = (await buscar_subcolecao(f"Clientes/{user_id}/Profissionais")) or {}
+        profissionais = (await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais")) or {}
         servicos_set = set()
         for p in profissionais.values():
             for serv in p.get("servicos", []):
@@ -52,7 +57,7 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
     ]
 
     if any(p in mensagem_normalizada for p in palavras_chave_preco):
-        profissionais = (await buscar_subcolecao(f"Clientes/{user_id}/Profissionais")) or {}
+        profissionais = (await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais")) or {}
         profissionais = profissionais.values()
 
         # Verifica se o usuário pediu TODOS OS VALORES
