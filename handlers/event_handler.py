@@ -500,7 +500,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             gatilhos = [
                 "sim", "ok", "confirmado", "confirmar", "confirma",
                 "pode", "pode ser", "fechar", "agende", "marque",
-                "pode agendar", "pode marcar"
+                "pode agendar", "pode marcar",
+                "certo", "perfeito", "beleza", "blz",
             ]
             return any(g == txt or g in txt for g in gatilhos)
 
@@ -508,7 +509,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # ✅ CONTROLE DE CONFIRMAÇÃO (modo híbrido)
         origem = (dados or {}).get("origem")
 
-        if origem == "auto":
+        if dados.get("confirmado") is True:
+            print("⚙️ Confirmado pelo chamador (confirmado=True): pulando gate de confirmação", flush=True)
+
+        elif origem == "auto":
             # 🛑 Se já existe confirmação pendente no contexto, não pode pular confirmação
             ctx_tmp = await carregar_contexto_temporario(user_id) or {}
             if ctx_tmp.get("aguardando_confirmacao_agendamento"):
@@ -516,6 +520,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 return {"acao": None, "handled": True}
 
             print("⚙️ Modo automático: pulando confirmação", flush=True)
+
         else:
             if not eh_confirmacao(texto_usuario):
 
