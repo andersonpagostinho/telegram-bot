@@ -1,7 +1,7 @@
 import difflib
 import unidecode
 import re
-from services.firebase_service_async import buscar_subcolecao
+from services.firebase_service_async import buscar_subcolecao, obter_id_dono
 
 async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str) -> str | None:
     # Normaliza o texto do usuário removendo acentos e pontuação
@@ -10,7 +10,12 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str) -> st
     ).strip()
     texto_normalizado = re.sub(r"\s+", " ", texto_normalizado)
 
-    profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+    try:
+        dono_id = await obter_id_dono(user_id)
+    except Exception:
+        dono_id = user_id
+
+    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
     # Extrai e normaliza todos os serviços possíveis
     todos_servicos = set()
