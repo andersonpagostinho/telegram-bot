@@ -2564,6 +2564,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         }
 
     # =========================================================
+    # CAMADA ADMIN — comandos do dono antes do classificador neutro
+    # 100% determinística. Sem GPT. Apenas para dono.
+    # Retorna None se não for comando admin → fluxo continua.
+    # =========================================================
+    try:
+        from services.admin_command_service import processar_comando_administrativo
+        _resultado_admin = await processar_comando_administrativo(
+            texto_usuario, ctx, user_id, update, context
+        )
+        if _resultado_admin is not None:
+            return _resultado_admin
+    except Exception as _e_admin:
+        print(f"⚠️ [CAMADA_ADMIN] erro inesperado — continuando fluxo normal: {_e_admin}", flush=True)
+
+    # =========================================================
     # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
     # =========================================================
     class_ctx = classificar_contexto_mensagem(texto_usuario, ctx)

@@ -126,32 +126,58 @@ async def executar_acao_por_nome(update, context, acao, dados):
             await executar_se_coroutine(concluir_followup_por_gpt, update, context, dados)
 
         elif acao == "cadastrar_profissional":
-            from services.firebase_service_async import salvar_dado_em_path
+            from services.cadastro_inicial_service import salvar_profissional
+            from services.firebase_service_async import obter_id_dono
 
-            nome = dados.get("nome")
-            servicos = dados.get("servicos", [])
+            nome = (dados.get("nome") or "").strip()
 
-            if not nome or not servicos:
-                await update.message.reply_text("⚠️ Dados incompletos para cadastrar profissional.")
+            # Aceita dois formatos:
+            # 1. servicos_dict: {"corte": {"preco": 50, "duracao": 30}, ...}
+            #    → vindo da camada admin (estruturado, com preço e duração)
+            # 2. servicos: ["Corte", "Escova"]
+            #    → vindo do GPT (legado, lista simples sem preço/duração)
+            servicos_dict = dados.get("servicos_dict") or {}
+
+            if not servicos_dict:
+                # Fallback legado: converte lista de nomes para dict vazio por serviço
+                servicos_lista = dados.get("servicos") or []
+                if isinstance(servicos_lista, list):
+                    servicos_dict = {
+                        s.strip().lower(): {} for s in servicos_lista if s.strip()
+                    }
+
+            if not nome or not servicos_dict:
+                await update.message.reply_text(
+                    "⚠️ Dados incompletos para cadastrar profissional.\n"
+                    "Informe nome e ao menos um serviço."
+                )
                 return
 
-            path = f"Clientes/{user_id}/Profissionais/{nome}"
-            dados_profissional = {
-                "nome": nome,
-                "servicos": servicos
-            }
+            # Salva sempre no tenant do dono, nunca no cliente
+            dono_id = await obter_id_dono(user_id)
 
-            print(f"📌 Salvando profissional via GPT:\n- Path: {path}\n- Dados: {dados_profissional}")
-            salvo = await salvar_dado_em_path(path, dados_profissional)
+            print(
+                f"📌 [cadastrar_profissional] tenant={dono_id} | "
+                f"nome={nome} | servicos={servicos_dict}",
+                flush=True,
+            )
 
-            if salvo:
-                servicos_formatados = ", ".join(servicos)
+            try:
+                payload = await salvar_profissional(dono_id, nome, servicos_dict)
+            except Exception as e:
+                print(f"❌ [cadastrar_profissional] erro ao salvar: {e}", flush=True)
                 await update.message.reply_text(
-                    f"✅ Profissional *{nome}* cadastrada com: *{servicos_formatados}*",
-                    parse_mode="Markdown"
+                    "❌ Erro ao salvar a profissional. Tente novamente."
                 )
-            else:
-                await update.message.reply_text("❌ Erro ao salvar a profissional.")
+                return
+
+            servicos_fmt = ", ".join(payload.get("servicos") or [])
+            nome_fmt = payload.get("nome") or nome
+
+            await update.message.reply_text(
+                f"✅ Profissional *{nome_fmt}* cadastrada com: *{servicos_fmt}*",
+                parse_mode="Markdown",
+            )
 
         elif acao == "listar_profissionais":
             from services.firebase_service_async import buscar_subcolecao
