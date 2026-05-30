@@ -713,7 +713,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
             # Se houver profissional, filtra por ele
             if profissional:
-                if ev.get("profissional", "").lower() != profissional.lower():
+                if unidecode.unidecode(ev.get("profissional", "").lower()) != unidecode.unidecode(profissional.lower()):
                     continue
 
             try:

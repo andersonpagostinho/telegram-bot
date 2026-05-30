@@ -377,7 +377,7 @@ async def verificar_conflito(
         conflitos = []
 
         cliente_novo = (str(cliente_id or "")).strip()
-        prof_novo = (profissional or "").strip().lower()
+        prof_novo = unidecode((profissional or "").strip().lower())
 
         for eid, ev in (eventos or {}).items():
 
@@ -401,7 +401,7 @@ async def verificar_conflito(
             if (
                 cliente_novo
                 and str(ev.get("cliente_id") or "").strip() == cliente_novo
-                and (ev.get("profissional") or "").strip().lower() == prof_novo
+                and unidecode((ev.get("profissional") or "").strip().lower()) == prof_novo
                 and ev.get("data") == data
                 and ev.get("hora_inicio") == hora_inicio
             ):
@@ -416,7 +416,7 @@ async def verificar_conflito(
                 continue
             if not ev.get("profissional"):
                 continue
-            if ev.get("profissional", "").lower() != profissional.lower():
+            if unidecode(ev.get("profissional", "").lower()) != unidecode(profissional.lower()):
                 continue
             try:
                 ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
