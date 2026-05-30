@@ -4529,6 +4529,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 flush=True
             )
 
+            # =========================================================
+            # 🔥 CONSULTA INFORMATIVA — responde sem destruir o fluxo
+            # Se a mensagem é claramente uma pergunta fora do agendamento
+            # (endereço, preço, horário de funcionamento etc.),
+            # responde via informacao_service e preserva o contexto intacto.
+            # =========================================================
+            if eh_consulta(texto_usuario):
+                from services.informacao_service import responder_consulta_informativa
+                resposta_info = await responder_consulta_informativa(mensagem, user_id)
+                if resposta_info:
+                    return await _send_and_stop(context, user_id, resposta_info)
+                # informacao_service não soube responder → continua o fluxo normal
+
             texto_norm = (texto_usuario or "").strip().lower().replace("às", "as")
             horarios_sugeridos = ctx.get("horarios_sugeridos") or []
             opcoes_hora_profissional = ctx.get("opcoes_hora_profissional") or []
