@@ -272,7 +272,15 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     )
     eh_config = any(g in mensagem.lower() for g in gatilhos_config)
 
-    if eh_config:
+    # Comando operacional: "cadastrar profissional <nome>" tem nome específico após
+    # → deve ir ao roteador, não ao onboarding (que salvaria o texto inteiro como tipo_negocio)
+    _low = mensagem.lower()
+    eh_cadastro_prof_especifico = (
+        "cadastrar profissional " in _low
+        or "adicionar profissional " in _low
+    )
+
+    if eh_config and not eh_cadastro_prof_especifico:
         try:
             resposta_cfg = await processar_texto_cadastro(user_id, mensagem)
             if resposta_cfg:
