@@ -203,7 +203,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
         "ok", "certo", "perfeito", "entendi", "blz", "beleza"
     ]
 
-    if texto_usuario in mensagens_neutras:
+    if texto_usuario in mensagens_neutras and not ctx_tmp.get("aguardando_confirmacao_agendamento"):
         print(f"🧪 [BOT-MSG-NEUTRA] texto={mensagem!r}", flush=True)
 
         await update.message.reply_text(

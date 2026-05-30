@@ -875,10 +875,11 @@ def eh_confirmacao(txt: str) -> bool:
     if "nao" in t or "não" in t:
         return False
     gatilhos = [
-        "confirmar", "confirma", "confirme", "confirmo",   
+        "confirmar", "confirma", "confirme", "confirmo",
         "pode agendar", "pode marcar", "agende", "marque",
         "fechar", "ok", "confirmado",
-        "sim", "pode", "pode ser", "pode sim", "pode ir", "manda ver"
+        "sim", "pode", "pode ser", "pode sim", "pode ir", "manda ver",
+        "certo", "perfeito", "beleza", "blz",
     ]
     return any(g in t for g in gatilhos)
 
@@ -3003,7 +3004,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         ctx["aguardando_confirmacao_agendamento"] = False
         ctx["dados_confirmacao_agendamento"] = None
-        ctx["estado_fluxo"] = "agendando"
+        ctx["estado_fluxo"] = "idle"
+        ctx["ultima_acao"] = None
         ctx["intencao_conversacional"] = None
         ctx["objetivo_conversacional"] = None
         ctx["tipo_ajuste_incremental"] = None
@@ -3113,7 +3115,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ctx["data_hora"] = draft.get("data_hora")
         ctx["aguardando_confirmacao_agendamento"] = False
         ctx["dados_confirmacao_agendamento"] = None
-        ctx["estado_fluxo"] = "agendando"
+        ctx["estado_fluxo"] = "idle"
+        ctx["ultima_acao"] = None
         ctx["intencao_conversacional"] = None
         ctx["objetivo_conversacional"] = None
         ctx["tipo_ajuste_incremental"] = None
@@ -3160,11 +3163,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx["data_hora"] = nova_data_hora
             ctx["hora_confirmada"] = True
             ctx["data_sem_hora"] = False
-            ctx["estado_fluxo"] = "agendando"
 
             draft = ctx.get("draft_agendamento") or {}
             draft["data_hora"] = nova_data_hora
             ctx["draft_agendamento"] = draft
+
+            servico_ref = ctx.get("servico") or draft.get("servico")
+            prof_ref = ctx.get("profissional_escolhido") or draft.get("profissional")
+
+            if servico_ref and prof_ref:
+                ctx["estado_fluxo"] = "agendando"
+            elif servico_ref and not prof_ref:
+                ctx["estado_fluxo"] = "aguardando_profissional"
+            elif prof_ref and not servico_ref:
+                ctx["estado_fluxo"] = "aguardando_servico"
+            else:
+                ctx["estado_fluxo"] = "idle"
 
             ctx.pop("inconsistencia_periodo_hora", None)
 
@@ -3431,6 +3445,94 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     ctx["data_hora"] = data_hora_slot
 
                 if profissional_slot and data_hora_slot:
+
+                    # =====================================================
+                    # 🔥 PRÉ-CHECK DE CONFLITO ANTES DE CONFIRMAR
+                    # Caminho: serviço preenchido enquanto aguardava serviço
+                    # =====================================================
+                    data_ref = data_hora_slot.split("T")[0]
+                    hora_ref = data_hora_slot.split("T")[1][:5]
+                    duracao_ref = estimar_duracao(servico_escolhido)
+
+                    resultado_conflito = await verificar_conflito_e_sugestoes_profissional(
+                        user_id=dono_id,
+                        data=data_ref,
+                        hora_inicio=hora_ref,
+                        duracao_min=duracao_ref,
+                        profissional=profissional_slot,
+                        servico=servico_escolhido,
+                    )
+
+                    if resultado_conflito and resultado_conflito.get("conflito"):
+                        ctx["profissional_escolhido"] = profissional_slot
+                        ctx["servico"] = servico_escolhido
+                        ctx["data_hora"] = data_hora_slot
+
+                        ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        ctx["dados_confirmacao_agendamento"] = None
+                        ctx["ultima_acao"] = "criar_evento"
+                        ctx["duracao"] = duracao_ref
+
+                        draft_slot["profissional"] = profissional_slot
+                        draft_slot["servico"] = servico_escolhido
+                        draft_slot["data_hora"] = data_hora_slot
+                        ctx["draft_agendamento"] = draft_slot
+
+                        ctx["dados_anteriores"] = {
+                            "profissional": profissional_slot,
+                            "servico": servico_escolhido,
+                            "data_hora": data_hora_slot,
+                            "duracao": duracao_ref,
+                        }
+
+                        sugestoes = resultado_conflito.get("sugestoes") or []
+
+                        alternativas = (
+                            resultado_conflito.get("alternativa_profissional")
+                            or resultado_conflito.get("profissional_alternativo")
+                            or resultado_conflito.get("profissionais_alternativos")
+                            or resultado_conflito.get("alternativas")
+                            or resultado_conflito.get("profissionais_disponiveis")
+                            or resultado_conflito.get("alternativo")
+                            or []
+                        )
+
+                        if isinstance(alternativas, str):
+                            alternativas = [alternativas]
+
+                        if isinstance(alternativas, dict):
+                            alternativas = alternativas.get("profissionais") or alternativas.get("nomes") or []
+
+                        if not isinstance(alternativas, list):
+                            alternativas = list(alternativas) if alternativas else []
+
+                        ctx["sugestoes"] = sugestoes
+                        ctx["horarios_sugeridos"] = sugestoes
+                        ctx["alternativa_profissional"] = alternativas
+                        ctx["ultima_opcao_profissionais"] = alternativas
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        msg = (
+                            f"⛔ A *{profissional_slot}* já tem atendimento às *{hora_ref}* nesse dia.\n\n"
+                        )
+
+                        if sugestoes:
+                            msg += f"✅ Estes horários estão livres com a *{profissional_slot}* no mesmo dia:\n"
+                            for s in sugestoes[:3]:
+                                msg += f"🔄 {s}\n"
+
+                        if alternativas:
+                            msg += (
+                                f"\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem "
+                                f"*{servico_escolhido}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
+                            )
+
+                        msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+
+                        return await _send_and_stop(context, user_id, msg)                    
+
                     ctx["estado_fluxo"] = "agendando"
                     ctx["aguardando_confirmacao_agendamento"] = True
 
@@ -3584,6 +3686,95 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 draft_slot["servico"] = servico_slot
                 draft_slot["profissional"] = profissional_slot
                 draft_slot["data_hora"] = data_hora_slot
+
+                # =====================================================
+                # 🔥 PRÉ-CHECK DE CONFLITO ANTES DE CONFIRMAR
+                # Caminho: horário preenchido enquanto aguardava horário
+                # =====================================================
+                data_ref = data_hora_slot.split("T")[0]
+                hora_ref = data_hora_slot.split("T")[1][:5]
+                duracao_ref = estimar_duracao(servico_slot)
+
+                resultado_conflito = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=dono_id,
+                    data=data_ref,
+                    hora_inicio=hora_ref,
+                    duracao_min=duracao_ref,
+                    profissional=profissional_slot,
+                    servico=servico_slot,
+                )
+
+                if resultado_conflito and resultado_conflito.get("conflito"):
+                    ctx["profissional_escolhido"] = profissional_slot
+                    ctx["servico"] = servico_slot
+                    ctx["data_hora"] = data_hora_slot
+
+                    ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                    ctx["aguardando_confirmacao_agendamento"] = False
+                    ctx["dados_confirmacao_agendamento"] = None
+                    ctx["ultima_acao"] = "criar_evento"
+                    ctx["duracao"] = duracao_ref
+
+                    draft_slot["profissional"] = profissional_slot
+                    draft_slot["servico"] = servico_slot
+                    draft_slot["data_hora"] = data_hora_slot
+
+                    ctx["draft_agendamento"] = draft_slot
+
+                    ctx["dados_anteriores"] = {
+                        "profissional": profissional_slot,
+                        "servico": servico_slot,
+                        "data_hora": data_hora_slot,
+                        "duracao": duracao_ref,
+                    }
+
+                    sugestoes = resultado_conflito.get("sugestoes") or []
+
+                    alternativas = (
+                        resultado_conflito.get("alternativa_profissional")
+                        or resultado_conflito.get("profissional_alternativo")
+                        or resultado_conflito.get("profissionais_alternativos")
+                        or resultado_conflito.get("alternativas")
+                        or resultado_conflito.get("profissionais_disponiveis")
+                        or resultado_conflito.get("alternativo")
+                        or []
+                    )
+
+                    if isinstance(alternativas, str):
+                        alternativas = [alternativas]
+
+                    if isinstance(alternativas, dict):
+                        alternativas = alternativas.get("profissionais") or alternativas.get("nomes") or []
+
+                    if not isinstance(alternativas, list):
+                        alternativas = list(alternativas) if alternativas else []
+
+                    ctx["sugestoes"] = sugestoes
+                    ctx["horarios_sugeridos"] = sugestoes
+                    ctx["alternativa_profissional"] = alternativas
+                    ctx["ultima_opcao_profissionais"] = alternativas
+
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    msg = (
+                        f"⛔ A *{profissional_slot}* já tem atendimento às *{hora_ref}* nesse dia.\n\n"
+                    )
+
+                    if sugestoes:
+                        msg += f"✅ Estes horários estão livres com a *{profissional_slot}* no mesmo dia:\n"
+
+                        for s in sugestoes[:3]:
+                            msg += f"🔄 {s}\n"
+
+                    if alternativas:
+                        msg += (
+                            f"\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem "
+                            f"*{servico_slot}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
+                        )
+
+                    msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+
+                    return await _send_and_stop(context, user_id, msg)
 
                 ctx["draft_agendamento"] = draft_slot
                 ctx["data_hora"] = data_hora_slot
@@ -4181,6 +4372,95 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     or ctx.get("servico")
                 )
 
+                # =====================================================
+                # 🔥 PRÉ-CHECK DE CONFLITO ANTES DE CONFIRMAR
+                # Caminho: escolha direta de profissional
+                # =====================================================
+                if profissional_escolhido and servico_ref and data_hora_ref:
+                    data_ref = data_hora_ref.split("T")[0]
+                    hora_ref = data_hora_ref.split("T")[1][:5]
+                    duracao_ref = estimar_duracao(servico_ref)
+
+                    resultado_conflito = await verificar_conflito_e_sugestoes_profissional(
+                        user_id=dono_id,
+                        data=data_ref,
+                        hora_inicio=hora_ref,
+                        duracao_min=duracao_ref,
+                        profissional=profissional_escolhido,
+                        servico=servico_ref,
+                    )
+
+                    if resultado_conflito and resultado_conflito.get("conflito"):
+                        ctx["profissional_escolhido"] = profissional_escolhido
+                        ctx["servico"] = servico_ref
+                        ctx["data_hora"] = data_hora_ref
+
+                        ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        ctx["dados_confirmacao_agendamento"] = None
+                        ctx["ultima_acao"] = "criar_evento"
+                        ctx["duracao"] = duracao_ref
+
+                        draft["profissional"] = profissional_escolhido
+                        draft["servico"] = servico_ref
+                        draft["data_hora"] = data_hora_ref
+                        ctx["draft_agendamento"] = draft
+
+                        ctx["dados_anteriores"] = {
+                            "profissional": profissional_escolhido,
+                            "servico": servico_ref,
+                            "data_hora": data_hora_ref,
+                            "duracao": duracao_ref,
+                        }
+
+                        sugestoes = resultado_conflito.get("sugestoes") or []
+
+                        alternativas = (
+                            resultado_conflito.get("alternativa_profissional")
+                            or resultado_conflito.get("profissional_alternativo")
+                            or resultado_conflito.get("profissionais_alternativos")
+                            or resultado_conflito.get("alternativas")
+                            or resultado_conflito.get("profissionais_disponiveis")
+                            or resultado_conflito.get("alternativo")
+                            or []
+                        )
+
+                        if isinstance(alternativas, str):
+                            alternativas = [alternativas]
+
+                        if isinstance(alternativas, dict):
+                            alternativas = alternativas.get("profissionais") or alternativas.get("nomes") or []
+
+                        if not isinstance(alternativas, list):
+                            alternativas = list(alternativas) if alternativas else []
+
+                        ctx["sugestoes"] = sugestoes
+                        ctx["horarios_sugeridos"] = sugestoes
+                        ctx["alternativa_profissional"] = alternativas
+                        ctx["ultima_opcao_profissionais"] = alternativas
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        msg = (
+                            f"⛔ A *{profissional_escolhido}* já tem atendimento às *{hora_ref}* nesse dia.\n\n"
+                        )
+
+                        if sugestoes:
+                            msg += f"✅ Estes horários estão livres com a *{profissional_escolhido}* no mesmo dia:\n"
+
+                            for s in sugestoes[:3]:
+                                msg += f"🔄 {s}\n"
+
+                        if alternativas:
+                            msg += (
+                                f"\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem "
+                                f"*{servico_ref}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
+                            )
+
+                        msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+
+                        return await _send_and_stop(context, user_id, msg)
+
                 ctx["profissional_escolhido"] = profissional_escolhido
                 ctx["estado_fluxo"] = "agendando"
                 ctx["aguardando_confirmacao_agendamento"] = True
@@ -4189,6 +4469,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     "profissional": profissional_escolhido,
                     "servico": servico_ref,
                     "data_hora": data_hora_ref,
+                    "duracao": estimar_duracao(servico_ref) if servico_ref else None,
+                    "descricao": (
+                        formatar_descricao_evento(servico_ref, profissional_escolhido)
+                        if servico_ref else None
+                    ),
                 }
 
                 draft["profissional"] = profissional_escolhido
@@ -4273,7 +4558,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 ctx["aguardando_confirmacao_agendamento"] = False
                 ctx["dados_confirmacao_agendamento"] = None
-                ctx["estado_fluxo"] = "agendando"
+                ctx["estado_fluxo"] = "idle"
+                ctx["ultima_acao"] = None
 
                 draft = ctx.get("draft_agendamento") or {}
 
