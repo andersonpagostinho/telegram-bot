@@ -488,6 +488,19 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         # ✅ Carrega contexto UMA vez no início (evita UnboundLocalError)
         contexto = await carregar_contexto_temporario(user_id) or {}
 
+        # 🆔 Buscar cliente cadastrado para usar nome persistido
+        cliente_cadastrado = await buscar_cliente(user_id) or {}
+
+        # 📝 Aplicar ordem de prioridade para cliente_nome
+        cliente_nome = (
+            dados.get("cliente_nome")
+            or cliente_cadastrado.get("nome")
+            or update.message.from_user.full_name
+            or update.message.from_user.first_name
+        )
+
+        cliente_id = user_id
+
         # 🚫 BLOQUEIO: impedir agendamento sem confirmação explícita
         texto_usuario = (
             (getattr(getattr(update, "message", None), "text", None) or dados.get("texto_usuario") or "")
@@ -906,6 +919,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "confirmado": True,
             "status": "confirmado",
             "link": "",
+            "cliente_id": cliente_id,
+            "cliente_nome": cliente_nome,
         }
         if profissional:
             evento_data["profissional"] = profissional
