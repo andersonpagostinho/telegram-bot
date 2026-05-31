@@ -9062,6 +9062,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "consulta_servico",
             "pedido_aberto_temporal",
         ]
+        and not proximo_passo_real
     )
 
     if not acao and not p1_preservar_resposta_gpt:
