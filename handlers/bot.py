@@ -87,6 +87,21 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     2) Fluxo de cadastro inicial (apenas se a mensagem for de configuração)
     3) Roteador inteligente (IA)
     """
+    import time
+
+    user_id = str(update.message.from_user.id)
+    msg_text = (getattr(update.message, "text", "") or "").strip()
+    msg_id = update.message.message_id
+    start_ts = time.time()
+
+    print(
+        f"🔬 [MSG_START] user={user_id} "
+        f"msg_id={msg_id} "
+        f"ts={start_ts:.3f} "
+        f"texto={msg_text[:50]}",
+        flush=True
+    )
+
     print("📥 Entrou no tratar_mensagens_gerais()")
     import os
     print("🧩 DEBUG FILE:", __file__)
@@ -324,6 +339,15 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text("⚠️ Tive um problema para processar sua solicitação agora. Pode repetir?")
 
     finally:
+        import time
+        dur_ms = (time.time() - start_ts) * 1000
+        print(
+            f"🔬 [MSG_END] user={user_id} "
+            f"msg_id={msg_id} "
+            f"ts={time.time():.3f} "
+            f"dur_ms={dur_ms:.1f}",
+            flush=True
+        )
         context.user_data.pop("ja_processado", None)
 
 
