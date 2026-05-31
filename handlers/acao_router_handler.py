@@ -281,6 +281,75 @@ async def executar_acao_por_nome(update, context, acao, dados):
                     parse_mode="Markdown",
                 )
 
+        elif acao == "consultar_agenda_salao":
+            from services.firebase_service_async import buscar_subcolecao, obter_id_dono
+            from datetime import datetime
+
+            data_iso = (dados.get("data") or "").strip()
+            if not data_iso:
+                await update.message.reply_text("⚠️ Data não informada para consulta de agenda.")
+                return
+
+            dono_id = await obter_id_dono(user_id)
+            eventos_raw = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos") or {}
+
+            status_cancelados = {
+                "cancelado", "cancelada", "removido", "removida", "excluido", "excluído"
+            }
+
+            # Filtra por data e status
+            eventos_do_dia = []
+            for ev in eventos_raw.values():
+                if not isinstance(ev, dict):
+                    continue
+                if ev.get("data") != data_iso:
+                    continue
+                status = (ev.get("status") or "").strip().lower()
+                if status in status_cancelados:
+                    continue
+                hora_inicio = ev.get("hora_inicio") or ""
+                if not hora_inicio:
+                    continue
+                eventos_do_dia.append(ev)
+
+            # Ordena por hora_inicio
+            eventos_do_dia.sort(key=lambda e: e.get("hora_inicio", ""))
+
+            # Formata data legível
+            try:
+                data_fmt = datetime.strptime(data_iso, "%Y-%m-%d").strftime("%d/%m/%Y")
+            except Exception:
+                data_fmt = data_iso
+
+            print(
+                f"📅 [consultar_agenda_salao] tenant={dono_id} | "
+                f"data={data_iso} | eventos={len(eventos_do_dia)}",
+                flush=True,
+            )
+
+            if not eventos_do_dia:
+                await update.message.reply_text(
+                    f"📅 *Agenda do salão — {data_fmt}*\n\nNenhum atendimento agendado.",
+                    parse_mode="Markdown",
+                )
+                return
+
+            linhas = [f"📅 *Agenda do salão — {data_fmt}*\n"]
+            for ev in eventos_do_dia:
+                hora    = ev.get("hora_inicio", "??:??")
+                prof    = ev.get("profissional") or "—"
+                desc    = ev.get("descricao") or ev.get("servico") or "Atendimento"
+                cliente = ev.get("cliente_nome") or ev.get("cliente") or ""
+                linha   = f"*{hora}* — {prof} — {desc}"
+                if cliente:
+                    linha += f" _(cliente: {cliente})_"
+                linhas.append(linha)
+
+            await update.message.reply_text(
+                "\n".join(linhas),
+                parse_mode="Markdown",
+            )
+
         elif acao == "listar_profissionais":
             from services.firebase_service_async import buscar_subcolecao
 

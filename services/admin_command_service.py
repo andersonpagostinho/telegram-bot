@@ -118,6 +118,10 @@ async def processar_comando_administrativo(
         return await _handle_excluir_profissional(
             ctx, user_id, update, context, nome_extraido
         )
+    if acao_id == "consultar_agenda_salao":
+        return await _handle_consultar_agenda_salao(
+            texto, ctx, user_id, update, context
+        )
 
     print(f"⚠️ [ADMIN] ação sem handler: {acao_id}", flush=True)
     return None
@@ -152,11 +156,55 @@ def _detectar_intencao_admin(texto: str) -> tuple[Optional[str], str]:
                     nome = bruto
                 return acao_id, nome
 
+    # Intent-based: consulta de agenda do salão
+    if _eh_intencao_agenda_salao(texto):
+        return "consultar_agenda_salao", ""
+
     # Intent-based: adicionar serviço a profissional existente
     if _eh_intencao_adicionar_servico(texto):
         return "adicionar_servico_profissional", ""
 
     return None, ""
+
+
+def _eh_intencao_agenda_salao(texto: str) -> bool:
+    """
+    Detecta intenção de consultar a agenda do salão.
+    Exemplos:
+      "qual a agenda do salão amanhã?"
+      "agenda do salão hoje"
+      "como está a agenda amanhã?"
+      "agenda de amanhã"
+      "agenda do dia"
+    Não detecta se o texto parece ser de agendamento de cliente.
+    """
+    t = _ud(texto.lower().strip())
+
+    # Gatilhos negativos — não é consulta de agenda do salão
+    gatilhos_agendamento = [
+        "quero agendar", "quero marcar", "agendar", "marcar", "marque", "agende",
+        "pode agendar", "pode marcar",
+    ]
+    if any(g in t for g in gatilhos_agendamento):
+        return False
+
+    # Gatilhos positivos com "agenda" ou "como esta"
+    if re.search(r"\bagenda\b", t):
+        # Qualquer "agenda" seguida de indicador temporal ou do salão
+        if re.search(r"\b(?:hoje|amanha|amanhã|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia\s+\d|semana|salao|salaoo)\b", t):
+            return True
+        # "agenda do salão" sem data explícita
+        if re.search(r"\b(?:salao|salon|salaoo)\b", t):
+            return True
+        # "agenda de amanhã" / "agenda do dia" / "agenda de hoje"
+        if re.search(r"\bagenda\s+(?:de|do|da|para)\b", t):
+            return True
+
+    # "como está a agenda" / "como ta a agenda"
+    if re.search(r"\bcomo\s+(?:esta|está|ta|tá)\b.+\bagenda\b", t):
+        return True
+
+    return False
 
 
 def _eh_intencao_adicionar_servico(texto: str) -> bool:
@@ -213,6 +261,11 @@ async def _continuar_fluxo_admin(
     if acao == "excluir_profissional":
         return await _continuar_excluir_profissional(
             texto, ctx, user_id, update, context, slots
+        )
+
+    if acao == "consultar_agenda_salao":
+        return await _continuar_consultar_agenda_salao(
+            texto, ctx, user_id, update, context
         )
 
     # Ação desconhecida no draft — limpa
@@ -607,6 +660,145 @@ async def _executar_excluir_profissional(
         print(f"❌ [ADMIN] falha em excluir_profissional: {e}", flush=True)
         await update.message.reply_text(
             "❌ Erro ao excluir a profissional. Draft preservado — tente novamente."
+        )
+        return {"handled": True, "already_sent": True}
+
+
+# =========================================================
+# ── AÇÃO 4: consultar_agenda_salao ────────────────────────
+# =========================================================
+
+def _extrair_data_iso(texto: str) -> Optional[str]:
+    """
+    Tenta extrair uma data ISO (YYYY-MM-DD) do texto.
+
+    Cobertura confirmada:
+      - "hoje"               → data de hoje no fuso America/Sao_Paulo
+      - "amanhã" / "amanha"  → data de amanhã no fuso America/Sao_Paulo
+      - "segunda"..."domingo" → próxima ocorrência (via interpretar_data_e_hora)
+      - "dia 05"              → próximo dia 5 (via interpretar_data_e_hora)
+      - Outros formatos       → delega a interpretar_data_e_hora; retorna None se falhar
+
+    Timezone: sempre America/Sao_Paulo via agora_br_aware() do projeto.
+    Sem datas hardcoded.
+    """
+    from utils.interpretador_datas import interpretar_data_e_hora, agora_br_aware
+    from datetime import timedelta
+
+    t = texto.strip()
+    t_norm = _ud(t.lower())  # unidecode remove acentos: "amanhã" → "amanha"
+
+    # Obtém "hoje" no fuso correto (America/Sao_Paulo)
+    hoje_br = agora_br_aware().date()
+
+    if "hoje" in t_norm:
+        return hoje_br.isoformat()
+
+    # "amanhã" já vira "amanha" após unidecode — só uma condição necessária
+    if "amanha" in t_norm:
+        return (hoje_br + timedelta(days=1)).isoformat()
+
+    # Fallback: dias da semana ("segunda"…"domingo") e "dia 05"
+    # interpretar_data_e_hora usa agora_br_aware() internamente
+    dt = interpretar_data_e_hora(t)
+    if dt:
+        return dt.date().isoformat()
+
+    return None
+
+
+async def _handle_consultar_agenda_salao(
+    texto: str,
+    ctx: dict,
+    user_id: str,
+    update,
+    context,
+) -> dict:
+    """
+    Etapa 1: detectou intenção de consultar agenda do salão.
+    Tenta extrair data do mesmo texto.
+    Se encontrar → executa.
+    Se não → salva draft e pergunta data.
+    """
+    data_iso = _extrair_data_iso(texto)
+
+    if data_iso:
+        print(f"🔧 [ADMIN] consultar_agenda_salao | data={data_iso}", flush=True)
+        return await _executar_consultar_agenda_salao(ctx, user_id, update, context, data_iso)
+
+    # Não encontrou data → salva draft e pergunta
+    ctx["estado_fluxo"] = "aguardando_slots_admin"
+    ctx["draft"] = {
+        "dominio": "admin",
+        "acao": "consultar_agenda_salao",
+        "slots": {},
+        "slots_faltantes": ["data"],
+    }
+    await salvar_contexto_temporario(user_id, ctx)
+
+    print("🔧 [ADMIN] consultar_agenda_salao aguardando data", flush=True)
+    await update.message.reply_text(
+        "📅 Qual dia você quer consultar?\n"
+        "Exemplos: *hoje*, *amanhã*, *segunda*, *dia 05*",
+        parse_mode="Markdown",
+    )
+    return {"handled": True, "already_sent": True}
+
+
+async def _continuar_consultar_agenda_salao(
+    texto: str,
+    ctx: dict,
+    user_id: str,
+    update,
+    context,
+) -> dict:
+    """
+    Etapa 2: dono respondeu com a data.
+    """
+    data_iso = _extrair_data_iso(texto)
+
+    if not data_iso:
+        await update.message.reply_text(
+            "⚠️ Não entendi a data. Tente: *hoje*, *amanhã*, *segunda*, *dia 05*",
+            parse_mode="Markdown",
+        )
+        return {"handled": True, "already_sent": True}
+
+    print(f"🔧 [ADMIN] consultar_agenda_salao continuação | data={data_iso}", flush=True)
+    return await _executar_consultar_agenda_salao(ctx, user_id, update, context, data_iso)
+
+
+async def _executar_consultar_agenda_salao(
+    ctx: dict,
+    user_id: str,
+    update,
+    context,
+    data_iso: str,
+) -> dict:
+    """
+    Monta payload e delega ao executor único.
+    Limpa draft após sucesso.
+    """
+    from handlers.acao_router_handler import executar_acao_por_nome
+
+    payload = {"data": data_iso}
+    print(f"🔧 [ADMIN] → executar consultar_agenda_salao | payload={payload}", flush=True)
+
+    try:
+        resultado = await executar_acao_por_nome(
+            update, context, "consultar_agenda_salao", payload
+        )
+        # Consulta não tem draft persistente relevante — limpa se havia
+        if (ctx.get("draft") or {}).get("acao") == "consultar_agenda_salao":
+            ctx["draft"] = {}
+            ctx["estado_fluxo"] = "idle"
+            await salvar_contexto_temporario(user_id, ctx)
+        return resultado or {"handled": True, "already_sent": True}
+
+    except Exception as e:
+        print(f"❌ [ADMIN] falha em consultar_agenda_salao: {e}", flush=True)
+        await update.message.reply_text(
+            "❌ Erro ao consultar a agenda. Tente novamente."
         )
         return {"handled": True, "already_sent": True}
 
