@@ -213,14 +213,15 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 detalhe   = dict(prof_atual.get("servicos_detalhe") or {})
 
                 for chave, info in servicos_dict.items():
-                    nome_serv_fmt = chave.strip().title()
-                    if nome_serv_fmt not in servicos_lista:
-                        servicos_lista.append(nome_serv_fmt)
+                    # Padronização: serviços sempre em minúsculas
+                    chave_norm = chave.strip().lower()
+                    if chave_norm not in servicos_lista:
+                        servicos_lista.append(chave_norm)
                     if info.get("preco") is not None:
-                        precos[chave] = float(info["preco"])
+                        precos[chave_norm] = float(info["preco"])
                     if info.get("duracao") is not None:
-                        duracoes[chave] = int(info["duracao"])
-                    detalhe[chave] = info
+                        duracoes[chave_norm] = int(info["duracao"])
+                    detalhe[chave_norm] = info
 
                 servicos_lista = sorted(set(servicos_lista))
 
@@ -334,16 +335,40 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 )
                 return
 
-            linhas = [f"📅 *Agenda do salão — {data_fmt}*\n"]
+            import re as _re
+
+            linhas = [f"📅 *Agenda do salão — {data_fmt}*"]
             for ev in eventos_do_dia:
-                hora    = ev.get("hora_inicio", "??:??")
-                prof    = ev.get("profissional") or "—"
-                desc    = ev.get("descricao") or ev.get("servico") or "Atendimento"
-                cliente = ev.get("cliente_nome") or ev.get("cliente") or ""
-                linha   = f"*{hora}* — {prof} — {desc}"
+                hora = ev.get("hora_inicio", "??:??")
+                prof = (ev.get("profissional") or "—").strip()
+
+                # Prefere campo servico (limpo); se não existir, limpa descricao
+                servico = (ev.get("servico") or "").strip()
+                if not servico:
+                    desc_raw = (ev.get("descricao") or "Atendimento").strip()
+                    # Remove " com {profissional}" do fim, se presente
+                    servico = _re.sub(
+                        rf"\s+com\s+{_re.escape(prof)}\s*$",
+                        "",
+                        desc_raw,
+                        flags=_re.IGNORECASE,
+                    ).strip() or desc_raw
+
+                # Cliente: tenta vários campos possíveis
+                cliente = (
+                    ev.get("cliente_nome")
+                    or ev.get("nome_cliente")
+                    or ev.get("cliente")
+                    or ""
+                ).strip()
+
+                linhas.append("")                                    # linha em branco
+                linhas.append(f"*{hora}* — {prof} — {servico}")
                 if cliente:
-                    linha += f" _(cliente: {cliente})_"
-                linhas.append(linha)
+                    linhas.append(f"Cliente: {cliente}")
+
+            linhas.append("")
+            linhas.append(f"_Total de atendimentos: {len(eventos_do_dia)}_")
 
             await update.message.reply_text(
                 "\n".join(linhas),

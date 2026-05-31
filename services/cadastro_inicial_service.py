@@ -294,11 +294,15 @@ async def salvar_profissional(
       - servicos_detalhe (dict completo)
     """
     nome_fmt = nome.strip().title()
-    servicos_lista = sorted(set(s.strip().title() for s in servicos.keys()))
+
+    # Padronização única: serviços sempre em minúsculas
+    # Antes: "Luzes", "LUZES", "luzes" → todas viram "luzes"
+    servicos_norm = {s.strip().lower(): det for s, det in servicos.items()}
+    servicos_lista = sorted(set(servicos_norm.keys()))
 
     precos = {}
     duracoes = {}
-    for s, det in servicos.items():
+    for s, det in servicos_norm.items():
         if "preco" in det and det["preco"] is not None:
             precos[s] = float(det["preco"])
         if "duracao" in det and det["duracao"] is not None:
@@ -309,12 +313,94 @@ async def salvar_profissional(
         "servicos": servicos_lista,
         "precos": {k: float(v) for k, v in precos.items()} if precos else {},
         "duracoes": {k: int(v) for k, v in duracoes.items()} if duracoes else {},
-        "servicos_detalhe": servicos,
+        "servicos_detalhe": servicos_norm,
     }
     await salvar_dado_em_path(
         f"Clientes/{user_id}/Profissionais/{nome_fmt}", payload
     )
     return payload
+
+
+async def normalizar_servicos_profissionais(user_id: str) -> dict:
+    """
+    Migração corretiva: normaliza serviços existentes para minúsculas.
+
+    Percorre Clientes/{user_id}/Profissionais/* e corrige:
+      servicos      → chaves em lowercase
+      precos        → chaves em lowercase
+      duracoes      → chaves em lowercase
+      servicos_detalhe → chaves em lowercase
+
+    Antes: {"servicos": ["Luzes", "Escova"], "precos": {"Luzes": 120}}
+    Depois: {"servicos": ["escova", "luzes"], "precos": {"luzes": 120}}
+
+    Retorna: {"profissionais_atualizados": [...], "profissionais_sem_alteracao": [...]}
+    """
+    profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+    atualizados = []
+    sem_alteracao = []
+
+    for doc_id, prof in profissionais.items():
+        if not isinstance(prof, dict):
+            continue
+
+        nome_fmt = (prof.get("nome") or doc_id).strip().title()
+        alterou = False
+
+        # ── servicos ──────────────────────────────────────────
+        servicos_orig = prof.get("servicos") or []
+        servicos_norm = sorted(set(s.strip().lower() for s in servicos_orig if isinstance(s, str)))
+        if servicos_norm != sorted(s.strip() for s in servicos_orig if isinstance(s, str)):
+            alterou = True
+
+        # ── precos ────────────────────────────────────────────
+        precos_orig = prof.get("precos") or {}
+        precos_norm = {k.strip().lower(): float(v) for k, v in precos_orig.items()}
+        if precos_norm != {k: v for k, v in precos_orig.items()}:
+            alterou = True
+
+        # ── duracoes ──────────────────────────────────────────
+        duracoes_orig = prof.get("duracoes") or {}
+        duracoes_norm = {k.strip().lower(): int(v) for k, v in duracoes_orig.items()}
+        if duracoes_norm != {k: v for k, v in duracoes_orig.items()}:
+            alterou = True
+
+        # ── servicos_detalhe ──────────────────────────────────
+        detalhe_orig = prof.get("servicos_detalhe") or {}
+        detalhe_norm = {k.strip().lower(): v for k, v in detalhe_orig.items()}
+        if detalhe_norm != {k: v for k, v in detalhe_orig.items()}:
+            alterou = True
+
+        if not alterou:
+            sem_alteracao.append(nome_fmt)
+            print(f"✅ [MIGRAR] {nome_fmt}: já normalizado, sem alteração", flush=True)
+            continue
+
+        payload = {
+            "nome": nome_fmt,
+            "servicos": servicos_norm,
+            "precos": precos_norm,
+            "duracoes": duracoes_norm,
+            "servicos_detalhe": detalhe_norm,
+        }
+
+        try:
+            await salvar_dado_em_path(
+                f"Clientes/{user_id}/Profissionais/{nome_fmt}", payload
+            )
+            atualizados.append(nome_fmt)
+            print(
+                f"🔧 [MIGRAR] {nome_fmt}: normalizado | "
+                f"servicos_antes={servicos_orig} -> depois={servicos_norm}",
+                flush=True,
+            )
+        except Exception as e:
+            print(f"❌ [MIGRAR] erro ao salvar {nome_fmt}: {e}", flush=True)
+
+    return {
+        "profissionais_atualizados": atualizados,
+        "profissionais_sem_alteracao": sem_alteracao,
+    }
 
 
 # =========================================================
