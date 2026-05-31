@@ -140,6 +140,21 @@ def resolver_proximo_passo_real(
 
     contexto = contexto or {}
 
+    # 🛡️ CONSULTA PURA — não forçar agendamento
+    objetivo = contexto.get("objetivo_conversacional")
+    intencao = contexto.get("intencao_conversacional")
+
+    if (
+        objetivo == "consultar_disponibilidade_por_servico"
+        or intencao == "consulta_disponibilidade_servico"
+    ):
+        print(
+            "🛡️ [CONSULTA PURA] resolver_proximo_passo_real bloqueado — "
+            "não perguntar data/hora",
+            flush=True
+        )
+        return None
+
     # 🔥 Se está em escolha de horário, ainda falta o usuário escolher uma opção
     if (
         contexto.get("estado_fluxo") == "aguardando_escolha_horario"
@@ -1119,8 +1134,20 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
         )
 
     if servico_detectado:
-        ctx["servico"] = servico_detectado
-        draft["servico"] = servico_detectado
+        eh_consulta_pura_servico = (
+            ctx.get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
+            or ctx.get("intencao_conversacional") == "consulta_disponibilidade_servico"
+        )
+
+        if eh_consulta_pura_servico:
+            print(
+                f"🛡️ [CONSULTA PURA] serviço detectado='{servico_detectado}', "
+                "mas não entra em ctx['servico'] nem draft_agendamento",
+                flush=True
+            )
+        else:
+            ctx["servico"] = servico_detectado
+            draft["servico"] = servico_detectado
 
     # ---------------- data/hora ----------------
     dt_detectado = interpretar_data_e_hora(texto)
