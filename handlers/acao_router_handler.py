@@ -179,6 +179,108 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 parse_mode="Markdown",
             )
 
+        elif acao == "adicionar_servico_profissional":
+            from services.firebase_service_async import (
+                obter_id_dono, buscar_dado_em_path, salvar_dado_em_path
+            )
+
+            nome = (dados.get("nome") or "").strip()
+            servicos_dict = dados.get("servicos_dict") or {}
+
+            if not nome or not servicos_dict:
+                await update.message.reply_text(
+                    "⚠️ Dados incompletos para adicionar serviço à profissional."
+                )
+                return
+
+            nome_fmt = nome.strip().title()
+            dono_id = await obter_id_dono(user_id)
+            path = f"Clientes/{dono_id}/Profissionais/{nome_fmt}"
+
+            print(
+                f"📌 [adicionar_servico_profissional] tenant={dono_id} | "
+                f"nome={nome_fmt} | novos={servicos_dict}",
+                flush=True,
+            )
+
+            try:
+                prof_atual = await buscar_dado_em_path(path) or {}
+
+                # Merge: preserva serviços existentes e adiciona os novos
+                servicos_lista = list(prof_atual.get("servicos") or [])
+                precos    = dict(prof_atual.get("precos") or {})
+                duracoes  = dict(prof_atual.get("duracoes") or {})
+                detalhe   = dict(prof_atual.get("servicos_detalhe") or {})
+
+                for chave, info in servicos_dict.items():
+                    nome_serv_fmt = chave.strip().title()
+                    if nome_serv_fmt not in servicos_lista:
+                        servicos_lista.append(nome_serv_fmt)
+                    if info.get("preco") is not None:
+                        precos[chave] = float(info["preco"])
+                    if info.get("duracao") is not None:
+                        duracoes[chave] = int(info["duracao"])
+                    detalhe[chave] = info
+
+                servicos_lista = sorted(set(servicos_lista))
+
+                payload_merged = {
+                    "nome": nome_fmt,
+                    "servicos": servicos_lista,
+                    "precos": precos,
+                    "duracoes": duracoes,
+                    "servicos_detalhe": detalhe,
+                }
+                await salvar_dado_em_path(path, payload_merged)
+
+            except Exception as e:
+                print(f"❌ [adicionar_servico_profissional] erro: {e}", flush=True)
+                await update.message.reply_text("❌ Erro ao adicionar o serviço. Tente novamente.")
+                return
+
+            servico_nome = list(servicos_dict.keys())[0].strip().title()
+            await update.message.reply_text(
+                f"✅ *{servico_nome}* adicionado à agenda de *{nome_fmt}* com sucesso.",
+                parse_mode="Markdown",
+            )
+
+        elif acao == "excluir_profissional":
+            from services.firebase_service_async import (
+                obter_id_dono, deletar_dado_em_path
+            )
+
+            nome = (dados.get("nome") or "").strip()
+            if not nome:
+                await update.message.reply_text("⚠️ Nome da profissional não informado.")
+                return
+
+            nome_fmt = nome.strip().title()
+            dono_id = await obter_id_dono(user_id)
+            path = f"Clientes/{dono_id}/Profissionais/{nome_fmt}"
+
+            print(
+                f"🗑️ [excluir_profissional] tenant={dono_id} | nome={nome_fmt}",
+                flush=True,
+            )
+
+            try:
+                ok = await deletar_dado_em_path(path)
+            except Exception as e:
+                print(f"❌ [excluir_profissional] erro: {e}", flush=True)
+                await update.message.reply_text("❌ Erro ao excluir a profissional. Tente novamente.")
+                return
+
+            if ok:
+                await update.message.reply_text(
+                    f"✅ Profissional *{nome_fmt}* removida com sucesso.",
+                    parse_mode="Markdown",
+                )
+            else:
+                await update.message.reply_text(
+                    f"❌ Não encontrei *{nome_fmt}* no cadastro.",
+                    parse_mode="Markdown",
+                )
+
         elif acao == "listar_profissionais":
             from services.firebase_service_async import buscar_subcolecao
 
