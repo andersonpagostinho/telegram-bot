@@ -8049,8 +8049,21 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         flush=True
     )
 
+    # 🛡️ GUARDA CONTRA CONSULTA PURA
+    eh_consulta_pura = (
+        ctx.get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
+        or ctx.get("intencao_conversacional") == "consulta_disponibilidade_servico"
+    )
+
+    if eh_consulta_pura:
+        print(
+            "🛡️ [AUTO-PROF BLOQUEADO] consulta pura não pode virar agendamento",
+            flush=True
+        )
+
     if (
-        data_hora_auto
+        not eh_consulta_pura
+        and data_hora_auto
         and tem_hora_real(data_hora_auto)
         and servico_auto
         and not prof_auto
