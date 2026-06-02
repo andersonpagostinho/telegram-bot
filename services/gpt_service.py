@@ -376,26 +376,37 @@ async def processar_com_gpt_com_acao(
             if uid != "desconhecido":
                 dados_update = {}
 
-                # 1) tentar detectar serviço por aproximação simples (mantém)
-                try:
-                    id_dono = uid
-                    cliente_tmp = await buscar_cliente(uid) or {}
-                    id_dono = str(cliente_tmp.get("id_negocio") or uid)
+                # 🛡️ Verificar se é consulta pura (consultando disponibilidade SEM intenção de agendar)
+                eh_consulta_pura = (
+                    (contexto or {}).get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
+                    or (contexto or {}).get("intencao_conversacional") == "consulta_disponibilidade_servico"
+                    or (contexto_salvo or {}).get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
+                    or (contexto_salvo or {}).get("intencao_conversacional") == "consulta_disponibilidade_servico"
+                )
 
-                    servicos_disponiveis = (
-                        await listar_servicos_cadastrados(id_dono) or []
-                    )
-                    txt = texto_normalizado  # já normalizado no seu fluxo
+                # 1) tentar detectar serviço por aproximação simples (NÃO em consulta pura)
+                if not eh_consulta_pura:
+                    try:
+                        id_dono = uid
+                        cliente_tmp = await buscar_cliente(uid) or {}
+                        id_dono = str(cliente_tmp.get("id_negocio") or uid)
 
-                    for s in servicos_disponiveis:
-                        s_norm = unidecode.unidecode(str(s).lower().strip())
-                        if s_norm and s_norm in txt:
-                            dados_update["servico"] = str(s).strip()
-                            break
-                except Exception as e:
-                    print(
-                        f"⚠️ Falha ao detectar serviço automaticamente: {e}", flush=True
-                    )
+                        servicos_disponiveis = (
+                            await listar_servicos_cadastrados(id_dono) or []
+                        )
+                        txt = texto_normalizado  # já normalizado no seu fluxo
+
+                        for s in servicos_disponiveis:
+                            s_norm = unidecode.unidecode(str(s).lower().strip())
+                            if s_norm and s_norm in txt:
+                                dados_update["servico"] = str(s).strip()
+                                break
+                    except Exception as e:
+                        print(
+                            f"⚠️ Falha ao detectar serviço automaticamente: {e}", flush=True
+                        )
+                else:
+                    print("🛡️ [GPT_SERVICE CONSULTA PURA] não salvando serviço operacional em dados_update", flush=True)
 
                 # 2) interpretar data/hora (corrigido)
                 try:

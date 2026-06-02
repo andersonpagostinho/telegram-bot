@@ -1,0 +1,185 @@
+════════════════════════════════════════════════════════════════════════════════
+EXEMPLO DE SAÍDA ESPERADA - MODO SEGURO
+════════════════════════════════════════════════════════════════════════════════
+
+$ python orquestrador.py "investigue consulta pura virar agendamento"
+
+[MODO SEGURO] Carregando configuracoes...
+
+[OK] Diretorios criados:
+     logs/    → C:\Users\ANDERSON\...\logs
+     patches/ → C:\Users\ANDERSON\...\patches
+
+[OK] Protecoes contra auto-aplicacao ativadas
+
+════════════════════════════════════════════════════════════════════════════════
+ORQUESTRADOR DE AUDITORIA
+════════════════════════════════════════════════════════════════════════════════
+
+Comando: investigue consulta pura virar agendamento
+Timestamp: 20250531_143025
+[AVISO] Patches serão APENAS GERADOS, nunca aplicados automaticamente
+
+[ETAPA 1] Encontrando arquivos relevantes...
+
+[OK] 1 arquivo(s) carregado(s):
+   - principal_router.py
+
+[ETAPA 2] Gerando analise inicial com Claude Haiku...
+
+[HAIKU] Gerando analise inicial...
+
+CAUSA RAIZ DETECTADA:
+1. Bloco AUTO-PROFISSIONAL (linhas 8052-8177) reutiliza draft antigo
+2. Sobrescreve ctx["objetivo_conversacional"] = None (linha 8118)
+3. Sobrescreve ctx["intencao_conversacional"] = None (linha 8120)
+4. Salva com servico_auto mesmo para consultas puras (linha 8123)
+
+CAMINHO DO CÓDIGO:
+- extrair_slots_e_mesclar() → bloqueia servico ✅
+- AUTO-PROFISSIONAL → reutiliza servico_auto ❌
+- salvar_contexto_temporario() → salva com servico
+
+LINHAS CRÍTICAS:
+- Linha 8033-8036: servico_auto = ctx.get("servico") or draft_auto.get("servico")
+- Linha 8052-8058: if (data_hora_auto and ... and servico_auto and ...)
+- Linha 8113: ctx["servico"] = servico_auto
+- Linha 8118: ctx["objetivo_conversacional"] = None
+
+HIPÓTESE DE FIX:
+Adicionar guarda "if not eh_consulta_pura:" na condição do if (linha 8052)
+
+EVIDÊNCIAS NECESSÁRIAS:
+- Log real do bot mostrando objetivo_conversacional deletado
+- Trecho de código mostrando reutilização de draft
+- Teste: "vocês fazem escova?" deveria retornar consulta, não agendamento
+- Stack trace se houver
+
+[ETAPA 3.1] Auditoria com GPT-4o (rodada 1/3)...
+
+[GPT-4O] Enviando para auditoria com GPT-4o...
+
+[GPT-4O] Resposta recebida.
+
+════════════════════════════════════════════════════════════════════════════════
+RESULTADO DA AUDITORIA
+════════════════════════════════════════════════════════════════════════════════
+
+APROVACAO: [AVISO] CONDICIONAL
+DIAGNOSTICO: Patch correto mas faltam evidências de logs reais mostrando o bug
+RISCO: P1
+CAUSA_RAIZ: Reutilização de draft antigo + deletion de sinais de consulta pura
+PADRAO_DETECTADO: Context switching + state mutation sem lock
+PATCH_MINIMO: Adicionar eh_consulta_pura = (...) antes do if e adicionar not eh_consulta_pura na condição
+REGRESSOES_POSSIVEIS: Nenhuma esperada se a guarda for precisa
+JUSTIFICATIVA: Patch e hipótese estão corretos, mas a aprovação depende de:
+   1. Log REAL do bot mostrando o bug (não simulado)
+   2. Trecho REAL do código mostrando a sequência exata
+   3. Teste OBRIGATÓRIO descrito e validado
+
+[AVISO] APROVACAO CONDICIONAL - Refinando analise...
+
+[REFINAMENTO RODADA 1] Analisando feedback do GPT...
+
+ANÁLISE REFINADA:
+O feedback solicita evidências concretas. Baseado em:
+- Log real: "objetivo_conversacional": null quando deveria ser "consultar_..."
+- Código real: Blocos AUTO-PROFISSIONAL que sobrescrevem objetivo
+- Teste real: "vocês fazem escova?" resultando em "Qual dia e horário?"
+
+A guarda proposta é efetiva porque:
+1. eh_consulta_pura detecta corretamente (usa dois sinais)
+2. Bloqueia ANTES de reutilizar servico_auto
+3. Não cria regressão (outros fluxos não afetados)
+
+Com evidências acima, patch é APROVÁVEL.
+
+[ETAPA 3.2] Auditoria com GPT-4o (rodada 2/3)...
+
+[GPT-4O] Enviando para auditoria com GPT-4o...
+
+[GPT-4O] Resposta recebida.
+
+════════════════════════════════════════════════════════════════════════════════
+RESULTADO DA AUDITORIA
+════════════════════════════════════════════════════════════════════════════════
+
+APROVACAO: [OK] APROVADO
+DIAGNOSTICO: Patch é válido e suficiente com as evidências fornecidas
+RISCO: P1
+CAUSA_RAIZ: Confirmada - Reutilização de draft + deletion de sinais
+PADRAO_DETECTADO: RMW pattern sem transação
+PATCH_MINIMO: Exatamente como proposto nas rodadas anteriores
+REGRESSOES_POSSIVEIS: Nenhuma detectada
+JUSTIFICATIVA: Evidências concretas fornecidas, patch é cirúrgico e efetivo
+
+[OK] APROVACAO CONCEDIDA!
+
+[ETAPA 4] GERANDO ARQUIVO .diff
+
+[OK] ARQUIVO PATCH GERADO
+    Arquivo: patch_20250531_143025.diff
+    Caminho: C:\Users\...\patches\patch_20250531_143025.diff
+
+[IMPORTANTE] Para aplicar este patch:
+   1. REVISAR CUIDADOSAMENTE O ARQUIVO .diff
+   2. TESTAR EM AMBIENTE DE DESENVOLVIMENTO
+   3. Somente DEPOIS aplicar: patch -p0 < patch_20250531_143025.diff
+
+[AVISO] Nenhum arquivo sera modificado automaticamente
+
+[OK] Historico salvo: logs/orquestrador_20250531_143025.json
+
+════════════════════════════════════════════════════════════════════════════════
+[MODO SEGURO] ORQUESTRACAO COMPLETADA
+════════════════════════════════════════════════════════════════════════════════
+
+[LEMBRETE] Aplicacao manual obrigatoria apos revisao humana
+
+════════════════════════════════════════════════════════════════════════════════
+PRÓXIMAS ETAPAS:
+════════════════════════════════════════════════════════════════════════════════
+
+1. Revisar o arquivo gerado:
+   cat patches/patch_20250531_143025.diff
+
+2. Verificar no ambiente de desenvolvimento:
+   cd router
+   patch --dry-run -p0 < ../patches/patch_20250531_143025.diff
+
+3. Se tudo OK, aplicar:
+   patch -p0 < ../patches/patch_20250531_143025.diff
+
+4. Testar completamente:
+   python -m pytest tests/
+   python -m pytest tests/test_consulta_pura.py
+
+5. Validar com bot real:
+   python bot.py
+   # Testar: "vocês fazem escova?"
+
+════════════════════════════════════════════════════════════════════════════════
+EXEMPLO DE ARQUIVOS GERADOS:
+════════════════════════════════════════════════════════════════════════════════
+
+logs/orquestrador_20250531_143025.json:
+  ├─ timestamp: "20250531_143025"
+  ├─ comando: "investigue consulta pura virar agendamento"
+  ├─ modo_seguro: true
+  ├─ etapas:
+  │  ├─ 1_arquivos (carregados)
+  │  ├─ 2_analise_haiku (inicial)
+  │  ├─ 3_auditoria_gpt_r1 (CONDITIONAL)
+  │  ├─ 3_refinamento_r1 (refinado)
+  │  ├─ 3_auditoria_gpt_r2 (YES)
+  │  └─ 4_resultado_final (PATCH_GERADO)
+  └─ arquivo_patch: "patches/patch_20250531_143025.diff"
+
+patches/patch_20250531_143025.diff:
+  ├─ Header: # MODO SEGURO: Aplicacao manual OBRIGATORIA
+  ├─ Instruções: Como aplicar
+  └─ Conteúdo: Patch exato (ex: linhas 8052-8071)
+
+════════════════════════════════════════════════════════════════════════════════
+FIM DA DEMONSTRAÇÃO
+════════════════════════════════════════════════════════════════════════════════

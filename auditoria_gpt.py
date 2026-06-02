@@ -244,7 +244,7 @@ FORMATO OBRIGATÓRIO
 
 Retorne SEMPRE JSON válido:
 
-{
+{{
   "diagnostico": "",
   "causa_raiz": "",
   "evidencia": "",
@@ -254,7 +254,7 @@ Retorne SEMPRE JSON válido:
   "regressoes_possiveis": [],
   "testes_obrigatorios": [],
   "aprovacao": "APPROVE|REJECT|NEEDS_MORE_EVIDENCE"
-}
+}}
 
 ==================================================
 CRITÉRIOS

@@ -1,58 +1,76 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-ORQUESTRADOR DE AUDITORIA E PATCHES
+ORQUESTRADOR DE AUDITORIA E GERAÇÃO DE PATCHES (MODO SEGURO)
+
+⚠️  MODO SEGURO - NÃO APLICA PATCHES AUTOMATICAMENTE
 
 Fluxo:
 1. Recebe comando via argumento
-2. Lê arquivos relevantes baseado no comando
-3. Usa Claude Haiku para gerar análise inicial
+2. Le arquivos relevantes baseado no comando
+3. Usa Claude Haiku para analise inicial
 4. Passa para auditoria_gpt (GPT-4o)
-5. Loop de refinamento (máx 3 rodadas) se CONDITIONAL
-6. Aplica patch se YES
-7. Para se NO
-8. Salva histórico em logs/orquestrador_{timestamp}.json
+5. Loop de refinamento (max 3 rodadas) se CONDITIONAL
+6. Se aprovado: GERA ARQUIVO .diff APENAS
+7. Se rejeitado: para e exibe motivo
+8. Se faltam evidências: retorna NEEDS_MORE_EVIDENCE
+9. Salva historico em logs/orquestrador_{timestamp}.json
+
+IMPORTANTE:
+- Patches são APENAS GERADOS em formato .diff
+- Aplicação manual OBRIGATÓRIA após revisão humana
+- Nenhuma modificação automática de arquivos
+- ANTHROPIC_API_KEY deve estar em .env (não é editada)
 
 Uso:
     python orquestrador.py "investigue o bug de consulta pura"
-    python orquestrador.py "revise o código de slots"
+    python orquestrador.py "revise o codigo de slots"
 """
 
 import sys
 import os
 import json
-import re
 from datetime import datetime
 from pathlib import Path
+
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+
 from dotenv import load_dotenv
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SETUP
+# SETUP SEGURO
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Carregar .env
+print("[MODO SEGURO] Carregando configuracoes...\n")
+
 load_dotenv()
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 if not ANTHROPIC_API_KEY:
-    print("❌ ANTHROPIC_API_KEY não encontrada em .env")
+    print("[ERROR] ANTHROPIC_API_KEY nao configurada")
+    print("[INSTRUCAO] Configure em .env:")
+    print("  ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx")
+    print("  Obter em: https://console.anthropic.com/keys")
     sys.exit(1)
 
-# Importar Anthropic SDK
 try:
     from anthropic import Anthropic
 except ImportError:
-    print("❌ Instale: pip install anthropic")
+    print("[ERROR] Instale: pip install anthropic")
+    print("[INFO] Ou: pip install -r requirements_orquestrador.txt")
     sys.exit(1)
 
-# Importar auditoria_gpt
 try:
     from auditoria_gpt import auditar
 except ImportError:
-    print("❌ auditoria_gpt.py não encontrado")
+    print("[ERROR] auditoria_gpt.py nao encontrado")
     sys.exit(1)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# INICIALIZAR CLIENTE ANTHROPIC
+# INICIALIZAR CLIENTE
 # ─────────────────────────────────────────────────────────────────────────────
 
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -63,58 +81,83 @@ client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 PROJECT_ROOT = Path(__file__).parent
 LOGS_DIR = PROJECT_ROOT / "logs"
+PATCHES_DIR = PROJECT_ROOT / "patches"
 ROUTER_FILE = PROJECT_ROOT / "router" / "principal_router.py"
 HANDLER_FILE = PROJECT_ROOT / "handlers" / "event_handler.py"
 CONTEXTO_FILE = PROJECT_ROOT / "utils" / "contexto_temporario.py"
 
 LOGS_DIR.mkdir(exist_ok=True)
+PATCHES_DIR.mkdir(exist_ok=True)
+
+print(f"[OK] Diretorios criados:")
+print(f"     logs/    → {LOGS_DIR}")
+print(f"     patches/ → {PATCHES_DIR}\n")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FUNÇÕES
+# PROTECOES CONTRA AUTO-APLICACAO
 # ─────────────────────────────────────────────────────────────────────────────
 
-def ler_arquivo(caminho: str, limite: int = 3000) -> str:
-    """Lê arquivo com limite de caracteres."""
+BLOQUEADO_FUNCOES = [
+    "aplicar_patch",
+    "auto_apply",
+    "apply_patch",
+    "aplicar_automaticamente",
+    "auto_aplicar"
+]
+
+for funcao in dir():
+    if any(bloqueado in funcao.lower() for bloqueado in BLOQUEADO_FUNCOES):
+        raise RuntimeError(f"[BLOQUEADO] Funcao de auto-aplicacao detectada: {funcao}")
+
+if "--apply" in sys.argv or "-a" in sys.argv:
+    print("[ERRO] Flags --apply e -a estao bloqueadas em modo seguro")
+    sys.exit(1)
+
+print("[OK] Protecoes contra auto-aplicacao ativadas\n")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FUNCOES
+# ─────────────────────────────────────────────────────────────────────────────
+
+def ler_arquivo(caminho, limite=3000):
+    """Le arquivo com limite de caracteres."""
     try:
         with open(caminho, "r", encoding="utf-8") as f:
             conteudo = f.read()
             if len(conteudo) > limite:
-                return conteudo[:limite] + f"\n... [conteúdo truncado, {len(conteudo)} chars total]"
+                return conteudo[:limite] + f"\n... [truncado, {len(conteudo)} chars total]"
             return conteudo
     except FileNotFoundError:
-        return f"[Arquivo não encontrado: {caminho}]"
+        return f"[Arquivo nao encontrado: {caminho}]"
     except Exception as e:
         return f"[Erro ao ler: {e}]"
 
-def encontrar_arquivos_relevantes(comando: str) -> dict:
+def encontrar_arquivos_relevantes(comando):
     """Encontra arquivos relevantes baseado no comando."""
     arquivos = {}
 
-    # Mapear palavras-chave para arquivos
     mapeamento = {
         "router": str(ROUTER_FILE),
         "handler": str(HANDLER_FILE),
         "contexto": str(CONTEXTO_FILE),
-        "consulta": str(ROUTER_FILE),  # Bugs de consulta estão no router
+        "consulta": str(ROUTER_FILE),
         "auto-prof": str(ROUTER_FILE),
         "agendamento": str(ROUTER_FILE),
         "slots": str(ROUTER_FILE),
         "draft": str(ROUTER_FILE),
     }
 
-    # Buscar arquivos por palavra-chave
     for palavra, arquivo in mapeamento.items():
         if palavra.lower() in comando.lower():
             arquivos[Path(arquivo).name] = ler_arquivo(arquivo)
 
-    # Se não encontrou nada, pegar arquivos principais
     if not arquivos:
         arquivos["principal_router.py"] = ler_arquivo(str(ROUTER_FILE), 5000)
 
     return arquivos
 
-def gerar_analise_inicial(comando: str, arquivos: dict) -> str:
-    """Usa Claude Haiku para gerar análise inicial."""
+def gerar_analise_inicial(comando, arquivos):
+    """Usa Claude Haiku para gerar analise inicial."""
 
     contexto_arquivos = "\n".join(
         f"=== {nome} ===\n{conteudo}"
@@ -122,7 +165,7 @@ def gerar_analise_inicial(comando: str, arquivos: dict) -> str:
     )
 
     prompt = f"""
-Você é um auditor técnico da NeoEve.
+Voce e um auditor tecnico da NeoEve.
 
 COMANDO: {comando}
 
@@ -131,19 +174,24 @@ ARQUIVOS RELEVANTES:
 
 ---
 
-Baseado no comando e nos arquivos, gere uma ANÁLISE INICIAL que:
+Baseado no comando e nos arquivos, gere uma ANALISE INICIAL que:
 1. Identifique a causa raiz suspeita
-2. Liste o caminho do código envolvido
-3. Destaque linhas críticas
-4. Proponha uma hipótese de fix
+2. Liste o caminho do codigo envolvido
+3. Destaque linhas criticas
+4. Proponha uma hipotese de fix
+5. Liste EVIDENCIAS NECESSARIAS:
+   - Logs reais
+   - Trechos de codigo
+   - Testes obrigatorios
+   - Stack trace (se houver)
 
-Seja direto e técnico.
+Seja direto e tecnico.
 """
 
-    print("\n[HAIKU] Gerando análise inicial...\n")
+    print("\n[HAIKU] Gerando analise inicial...\n")
 
     response = client.messages.create(
-        model="claude-3-5-haiku-20241022",
+        model="claude-haiku-4-5-20251001",
         max_tokens=2000,
         messages=[
             {"role": "user", "content": prompt}
@@ -156,7 +204,7 @@ Seja direto e técnico.
 
     return analise
 
-def chamar_auditoria_gpt(codigo: str, logs: str, hipotese: str) -> dict:
+def chamar_auditoria_gpt(codigo, logs, hipotese):
     """Chama auditoria_gpt.auditar()."""
     print("[GPT-4O] Enviando para auditoria com GPT-4o...\n")
 
@@ -170,8 +218,8 @@ def chamar_auditoria_gpt(codigo: str, logs: str, hipotese: str) -> dict:
 
     return resultado
 
-def exibir_resultado(resultado: dict):
-    """Exibe resultado de forma legível."""
+def exibir_resultado(resultado):
+    """Exibe resultado de forma legivel."""
     print("="*80)
     print("RESULTADO DA AUDITORIA")
     print("="*80 + "\n")
@@ -179,15 +227,15 @@ def exibir_resultado(resultado: dict):
     for chave, valor in resultado.items():
         if chave == "aprovacao":
             status_map = {
-                "YES": "✅ APROVADO",
-                "NO": "❌ REJEITADO",
-                "CONDITIONAL": "⚠️  CONDICIONAL"
+                "YES": "[OK] APROVADO",
+                "NO": "[ERRO] REJEITADO",
+                "CONDITIONAL": "[AVISO] CONDICIONAL",
+                "NEEDS_MORE_EVIDENCE": "[AVISO] FALTAM EVIDENCIAS"
             }
             print(f"{chave.upper()}: {status_map.get(valor, valor)}")
         else:
             print(f"{chave.upper()}:")
             if isinstance(valor, str):
-                # Truncar linhas muito longas
                 linhas = valor.split("\n")
                 for linha in linhas[:20]:
                     print(f"  {linha}")
@@ -197,33 +245,34 @@ def exibir_resultado(resultado: dict):
                 print(f"  {valor}")
         print()
 
-def refinar_analise(analise_anterior: str, resultado_gpt: dict, rodada: int) -> str:
-    """Refina análise baseado no feedback do GPT."""
+def refinar_analise(analise_anterior, resultado_gpt, rodada):
+    """Refina analise baseado no feedback do GPT."""
 
     print(f"\n[REFINAMENTO RODADA {rodada}] Analisando feedback do GPT...\n")
 
     justificativa = resultado_gpt.get("justificativa", "")
-    problema = resultado_gpt.get("diagnóstico", "")
+    problema = resultado_gpt.get("diagnostico", "")
 
     prompt = f"""
-Você é um auditor técnico refinando uma análise.
+Voce e um auditor tecnico refinando uma analise.
 
-ANÁLISE ANTERIOR:
+ANALISE ANTERIOR:
 {analise_anterior}
 
 FEEDBACK DO GPT-4O:
-Aprovação: {resultado_gpt.get('aprovacao')}
-Diagnóstico: {problema}
+Aprovacao: {resultado_gpt.get('aprovacao')}
+Diagnostico: {problema}
 Justificativa: {justificativa}
 
 ---
 
-Refine a análise para:
+Refine a analise para:
 1. Responder aos pontos levantados
-2. Fortalecer o patch proposto
-3. Abordar as regressões possíveis mencionadas
+2. Fortalecer a evidencia do patch proposto
+3. Abordar as regressoes possiveis mencionadas
+4. EVIDENCIAS CONCRETAS (nao hipoteses)
 
-Seja conciso e técnico.
+Seja conciso e tecnico.
 """
 
     response = client.messages.create(
@@ -240,39 +289,42 @@ Seja conciso e técnico.
 
     return analise_refinada
 
-def salvar_historico(historico: list, timestamp: str):
-    """Salva histórico em JSON."""
+def gerar_arquivo_diff(patch_sugerido, timestamp):
+    """GERA ARQUIVO .diff APENAS (sem aplicar)."""
+
+    arquivo_patch = PATCHES_DIR / f"patch_{timestamp}.diff"
+
+    conteudo_diff = f"""# PATCH SUGERIDO - {timestamp}
+# MODO SEGURO: Aplicacao manual OBRIGATORIA
+#
+# Para aplicar este patch:
+# 1. Revisar cuidadosamente
+# 2. Executar: patch -p0 < {arquivo_patch.name}
+# 3. Testar completamente
+
+{patch_sugerido}
+"""
+
+    with open(arquivo_patch, "w", encoding="utf-8") as f:
+        f.write(conteudo_diff)
+
+    return arquivo_patch
+
+def salvar_historico(historico, timestamp):
+    """Salva historico em JSON."""
     arquivo = LOGS_DIR / f"orquestrador_{timestamp}.json"
 
     with open(arquivo, "w", encoding="utf-8") as f:
         json.dump(historico, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✅ Histórico salvo: {arquivo}")
-
-def aplicar_patch(patch_sugerido: str) -> bool:
-    """Tenta aplicar patch (interativo)."""
-    print("\n" + "="*80)
-    print("PATCH SUGERIDO")
-    print("="*80 + "\n")
-    print(patch_sugerido)
-    print()
-
-    resposta = input("Deseja aplicar este patch? (s/n): ").strip().lower()
-
-    if resposta == "s":
-        print("\n⚠️  Aplicação de patches requer aprovação manual")
-        print("   Copie o patch acima e aplique com ferramentas apropriadas.")
-        return True
-    else:
-        print("\n❌ Patch não aplicado.")
-        return False
+    print(f"\n[OK] Historico salvo: {arquivo}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
-    """Função principal."""
+    """Funcao principal (MODO SEGURO)."""
 
     if len(sys.argv) < 2:
         print("Uso: python orquestrador.py <comando>")
@@ -280,27 +332,28 @@ def main():
         print("Exemplos:")
         print("  python orquestrador.py \"investigue consulta pura\"")
         print("  python orquestrador.py \"revise auto-profissional\"")
-        print("  python orquestrador.py \"audit slots\"")
+        print()
+        print("[MODO SEGURO] Nenhum patch e aplicado automaticamente")
+        print("[MODO SEGURO] Apenas arquivos .diff sao gerados")
         sys.exit(1)
 
     comando = " ".join(sys.argv[1:])
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    print("\n" + "█"*80)
-    print("ORQUESTRADOR DE AUDITORIA")
-    print("█"*80)
+    print("\n" + "="*80)
+    print("[MODO SEGURO] ORQUESTRADOR DE AUDITORIA")
+    print("="*80)
     print(f"\nComando: {comando}")
-    print(f"Timestamp: {timestamp}\n")
+    print(f"Timestamp: {timestamp}")
+    print("[AVISO] Patches serão APENAS GERADOS, nunca aplicados automaticamente\n")
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ETAPA 1: Encontrar arquivos relevantes
-    # ─────────────────────────────────────────────────────────────────────────
+    # ETAPA 1: Encontrar arquivos
 
     print("[ETAPA 1] Encontrando arquivos relevantes...\n")
 
     arquivos = encontrar_arquivos_relevantes(comando)
 
-    print(f"✅ {len(arquivos)} arquivo(s) carregado(s):")
+    print(f"[OK] {len(arquivos)} arquivo(s) carregado(s):")
     for nome in arquivos.keys():
         print(f"   - {nome}")
     print()
@@ -309,16 +362,15 @@ def main():
         {
             "timestamp": timestamp,
             "comando": comando,
+            "modo_seguro": True,
             "etapa": "1_arquivos",
             "arquivos_carregados": list(arquivos.keys())
         }
     ]
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ETAPA 2: Análise inicial com Haiku
-    # ─────────────────────────────────────────────────────────────────────────
+    # ETAPA 2: Analise inicial com Haiku
 
-    print("[ETAPA 2] Gerando análise inicial com Claude Haiku...\n")
+    print("[ETAPA 2] Gerando analise inicial com Claude Haiku...\n")
 
     analise_inicial = gerar_analise_inicial(comando, arquivos)
 
@@ -327,9 +379,7 @@ def main():
         "analise": analise_inicial
     })
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ETAPA 3: Auditoria com GPT-4o (loop até YES ou NO)
-    # ─────────────────────────────────────────────────────────────────────────
+    # ETAPA 3: Auditoria com GPT-4o (loop ate YES, NO ou NEEDS_MORE_EVIDENCE)
 
     rodada_atual = 0
     max_rodadas = 3
@@ -357,11 +407,12 @@ def main():
         aprovacao = resultado_gpt.get("aprovacao", "").upper()
 
         if aprovacao == "YES":
-            print("✅ APROVAÇÃO CONCEDIDA!")
+            print("[OK] APROVACAO CONCEDIDA!")
             break
+
         elif aprovacao == "NO":
-            print("❌ AUDITORIA REJEITOU O PATCH")
-            print(f"Motivo: {resultado_gpt.get('justificativa', 'Não especificado')}")
+            print("[ERRO] AUDITORIA REJEITOU O PATCH")
+            print(f"Motivo: {resultado_gpt.get('justificativa', 'Nao especificado')}")
 
             historico.append({
                 "etapa": "4_resultado_final",
@@ -370,12 +421,26 @@ def main():
             })
 
             salvar_historico(historico, timestamp)
-            print("\n❌ Auditoria completada: REJEITADO")
+            print("\n[RESULTADO] Auditoria completada: REJEITADO")
+            return
+
+        elif aprovacao == "NEEDS_MORE_EVIDENCE":
+            print("[AVISO] FALTAM EVIDENCIAS CONCRETAS")
+            print(f"Solicita: {resultado_gpt.get('justificativa', 'Veja acima')}")
+
+            historico.append({
+                "etapa": "4_resultado_final",
+                "status": "INCOMPLETO",
+                "evidencias_faltantes": resultado_gpt.get('justificativa')
+            })
+
+            salvar_historico(historico, timestamp)
+            print("\n[RESULTADO] Auditoria completada: EVIDENCIAS INSUFICIENTES")
             return
 
         elif aprovacao == "CONDITIONAL":
             if rodada_atual < max_rodadas:
-                print("⚠️  APROVAÇÃO CONDICIONAL - Refinando análise...\n")
+                print("[AVISO] APROVACAO CONDICIONAL - Refinando analise...\n")
 
                 analise = refinar_analise(analise, resultado_gpt, rodada_atual)
 
@@ -384,8 +449,8 @@ def main():
                     "analise_refinada": analise
                 })
             else:
-                print(f"⚠️  Máximo de rodadas ({max_rodadas}) atingido com CONDITIONAL")
-                print("   Considerando como rejeitado por cautela.")
+                print(f"[AVISO] Maximo de rodadas ({max_rodadas}) atingido com CONDITIONAL")
+                print("   Considerando como incompleto.")
 
                 historico.append({
                     "etapa": "4_resultado_final",
@@ -394,38 +459,56 @@ def main():
                 })
 
                 salvar_historico(historico, timestamp)
-                print("\n⚠️  Auditoria completada: CONDICIONAL (máximo de rodadas)")
+                print("\n[RESULTADO] Auditoria completada: INCONCLUSIVO (max rodadas)")
                 return
         else:
-            print(f"❓ Aprovação desconhecida: {aprovacao}")
+            print(f"[?] Aprovacao desconhecida: {aprovacao}")
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ETAPA 4: Aplicação de patch (se aprovado)
-    # ─────────────────────────────────────────────────────────────────────────
+    # ETAPA 4: Gerar arquivo .diff (NUNCA APLICAR)
 
     if resultado_gpt and resultado_gpt.get("aprovacao", "").upper() == "YES":
-        print("\n[ETAPA 4] Patch foi aprovado!\n")
+        print("\n[ETAPA 4] GERANDO ARQUIVO .diff\n")
 
-        patch_sugerido = resultado_gpt.get("patch_mínimo", "Nenhum patch sugerido")
+        patch_sugerido = resultado_gpt.get("patch_minimo", "Nenhum patch sugerido")
 
         if "sem patch" not in patch_sugerido.lower():
-            aplicar_patch(patch_sugerido)
 
-        historico.append({
-            "etapa": "4_resultado_final",
-            "status": "APROVADO",
-            "patch_sugerido": patch_sugerido
-        })
+            arquivo_patch = gerar_arquivo_diff(patch_sugerido, timestamp)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # ETAPA 5: Salvar histórico
-    # ─────────────────────────────────────────────────────────────────────────
+            print("[OK] ARQUIVO PATCH GERADO")
+            print(f"    Arquivo: {arquivo_patch}")
+            print(f"    Caminho: {arquivo_patch.absolute()}\n")
+
+            print("[IMPORTANTE] Para aplicar este patch:")
+            print("   1. REVISAR CUIDADOSAMENTE O ARQUIVO .diff")
+            print("   2. TESTAR EM AMBIENTE DE DESENVOLVIMENTO")
+            print("   3. Somente DEPOIS aplicar: patch -p0 < patch_*.diff")
+            print()
+            print("[AVISO] Nenhum arquivo sera modificado automaticamente")
+
+            historico.append({
+                "etapa": "4_resultado_final",
+                "status": "PATCH_GERADO",
+                "arquivo_patch": str(arquivo_patch),
+                "patch_sugerido": patch_sugerido,
+                "aplicacao": "MANUAL - OBRIGATORIA REVISAO HUMANA"
+            })
+        else:
+            historico.append({
+                "etapa": "4_resultado_final",
+                "status": "APROVADO_SEM_PATCH",
+                "observacao": "Nenhum patch necessario"
+            })
+
+    # ETAPA 5: Salvar historico
 
     salvar_historico(historico, timestamp)
 
-    print("\n" + "█"*80)
-    print("ORQUESTRAÇÃO COMPLETADA")
-    print("█"*80)
+    print("\n" + "="*80)
+    print("[MODO SEGURO] ORQUESTRACAO COMPLETADA")
+    print("="*80)
+    print()
+    print("[LEMBRETE] Aplicacao manual obrigatoria apos revisao humana")
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -433,10 +516,10 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️  Interrompido pelo usuário")
+        print("\n\n[AVISO] Interrompido pelo usuario")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ ERRO: {e}")
+        print(f"\n[ERRO] {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
