@@ -12,6 +12,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from utils.tts_utils import responder_em_audio
 from utils.formatters import formatar_horario_atual, gerar_sugestoes_de_horario, adaptar_genero
+from utils.mensagens_agendamento import montar_mensagem_confirmacao_sucesso
 from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario
@@ -985,12 +986,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         except Exception as e:
             print(f"❌ Erro ao enviar WhatsApp: {e}")
 
-        # mensagem_gpt = f"{descricao.capitalize()} marcada com sucesso para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
-        # mensagem_gpt_limpa = re.sub(r"[^\w\s,.:áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ]", "", mensagem_gpt)
-
-        # await responder_em_audio(update, context, mensagem_gpt_limpa)
-        # await update.message.reply_text(mensagem_gpt)
-        await update.message.reply_text("😄 Agendamento concluído! Se precisar de mais alguma coisa, é só me chamar.")
+        msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
+        await update.message.reply_text(msg_sucesso)
 
         await limpar_contexto_agendamento(user_id)
 

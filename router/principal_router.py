@@ -16,6 +16,7 @@ from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 from datetime import datetime, timedelta
 from utils.interpretador_datas import interpretar_data_e_hora
 from utils.gpt_utils import estimar_duracao, formatar_descricao_evento
+from utils.mensagens_agendamento import montar_mensagem_preconfirmacao
 
 from services.agenda_service import (
     validar_data_funcionamento,
@@ -1740,14 +1741,8 @@ async def precheck_e_confirmacao_agendamento(
 
     await salvar_contexto_temporario(user_id, ctx)
 
-    return await _send_and_stop(
-        context,
-        user_id,
-        (
-            f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(data_hora)}*.\n"
-            f"Responda *sim* para confirmar."
-        )
-    )
+    msg_confirmacao = montar_mensagem_preconfirmacao(servico, prof, data_hora)
+    return await _send_and_stop(context, user_id, msg_confirmacao)
 
 async def detectar_alteracao_draft_agendamento(
     texto_usuario: str,
@@ -2862,13 +2857,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         # Confirmação explícita
         confirmacoes = ["sim", "ok", "pode", "quero", "pode ser", "agendar", "pode agendar", "vamos"]
-        eh_confirmacao = any(c in txt_lower for c in confirmacoes) and len(txt_lower.split()) <= 3
+        confirmacao_resposta = any(c in txt_lower for c in confirmacoes) and len(txt_lower.split()) <= 3
 
         # Negação explícita
         negacoes = ["não", "nao", "não quero", "nao quero", "não desejo", "nao desejo", "deixa", "esquece"]
         eh_negacao = any(n in txt_lower for n in negacoes)
 
-        if eh_confirmacao:
+        if confirmacao_resposta:
             servico_sugerido = ctx.get("servico_sugerido_consulta")
             print(f"🛡️ [CONSULTA->AGENDAMENTO] confirmou: servico_sugerido='{servico_sugerido}'", flush=True)
 
