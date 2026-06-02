@@ -12,6 +12,9 @@ async def processar_comando_voz(update, context, texto):
         # 🔤 normaliza o texto transcrito
         texto = (texto or "").strip()
 
+        # [TESTE_SURI] 1️⃣ TEXTO TRANSCRITO
+        print(f"[TESTE_SURI] 1️⃣ TEXTO_TRANSCRITO: {repr(texto)}", flush=True)
+
         # 🔄 1) Coletar dados do usuário
         dados_usuario = await buscar_cliente(user_id) or {}
         tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
@@ -54,6 +57,16 @@ async def processar_comando_voz(update, context, texto):
         acao = resultado.get("acao")
         dados = resultado.get("dados", {}) or {}
         resposta = resultado.get("resposta", "✅ Comando processado.")
+
+        # [TESTE_SURI] 2️⃣ JSON BRUTO DO GPT
+        print(f"[TESTE_SURI] 2️⃣ JSON_DO_GPT: acao={repr(acao)}", flush=True)
+        print(f"[TESTE_SURI] 2️⃣ JSON_DO_GPT: dados_keys={list((dados or {}).keys())}", flush=True)
+        if "cliente_nome" in (dados or {}):
+            print(f"[TESTE_SURI] 2️⃣ JSON_DO_GPT: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
+        if "profissional" in (dados or {}):
+            print(f"[TESTE_SURI] 2️⃣ JSON_DO_GPT: profissional={repr(dados.get('profissional'))}", flush=True)
+        if "servico" in (dados or {}):
+            print(f"[TESTE_SURI] 2️⃣ JSON_DO_GPT: servico={repr(dados.get('servico'))}", flush=True)
 
         # 🚀 4) Executa ação (se houver)
         if acao:

@@ -453,6 +453,16 @@ async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAU
 # ✅ Criar evento via GPT com verificação de conflito
 async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict):
     print("⚙️ Executando add_evento_por_gpt")
+
+    # [TESTE_SURI] 5️⃣ PAYLOAD PARA ADD_EVENTO_POR_GPT
+    print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: dados_keys={list((dados or {}).keys())}", flush=True)
+    if "cliente_nome" in (dados or {}):
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
+    if "profissional" in (dados or {}):
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: profissional={repr(dados.get('profissional'))}", flush=True)
+    if "servico" in (dados or {}):
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: servico={repr(dados.get('servico'))}", flush=True)
+
     if not await verificar_pagamento(update, context): return False
     if not await verificar_acesso_modulo(update, context, "secretaria"): return False
 
@@ -546,7 +556,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     data_formatada = data_hora_str  # fallback se der erro
 
                 # 🛑 Marca que agora estamos aguardando confirmação do usuário
-                await salvar_contexto_temporario(user_id, {
+                contexto_confirmacao = {
                     "aguardando_confirmacao_agendamento": True,
                     "dados_confirmacao_agendamento": {
                         "servico": servico,
@@ -556,7 +566,14 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                         "descricao": descricao,
                         "origem": "confirmacao_pendente",
                     }
-                })
+                }
+
+                # [TESTE_SURI] 4️⃣ CONTEXTO SALVO
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: servico={repr(servico)}", flush=True)
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
+
+                await salvar_contexto_temporario(user_id, contexto_confirmacao)
 
                 await update.message.reply_text(
                     f"✨ {descricao}\n"
@@ -925,6 +942,11 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         }
         if profissional:
             evento_data["profissional"] = profissional
+
+        # [TESTE_SURI] 6️⃣ EVENTO_DATA ANTES DE SALVAR
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: profissional={repr(evento_data.get('profissional'))}", flush=True)
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
 
         print("📦 Disparando salvar_evento com:", evento_data)
         resultado_salvamento = await salvar_evento(user_id, evento_data)

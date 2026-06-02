@@ -482,6 +482,16 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         elif acao == "criar_evento":
             # ✅ GATE: valida profissional vs serviço antes de agendar
             user_id = _obter_user_id(update, context)
+
+            # [TESTE_SURI] 3️⃣ DADOS PARA EXECUTAR_ACAO_GPT
+            print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: user_id={repr(user_id)}", flush=True)
+            print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: acao={repr(acao)}", flush=True)
+            print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: dados_keys={list((dados or {}).keys())}", flush=True)
+            if "cliente_nome" in (dados or {}):
+                print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
+            if "profissional" in (dados or {}):
+                print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: profissional={repr(dados.get('profissional'))}", flush=True)
+
             if not user_id:
                 await update.message.reply_text("⚠️ Não consegui identificar o usuário para criar o evento.")
                 return True

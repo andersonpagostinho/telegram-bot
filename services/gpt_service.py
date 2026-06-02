@@ -1063,6 +1063,9 @@ async def processar_com_gpt_com_acao(
 
             resultado = json.loads(conteudo)
 
+            # [TESTE_SURI] JSON BRUTO DO GPT (antes de processamento)
+            print(f"[TESTE_SURI] JSON_BRUTO: {conteudo[:500]}", flush=True)
+
             if not isinstance(resultado, dict):
                 raise ValueError("Resposta não é um objeto JSON.")
 
