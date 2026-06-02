@@ -5632,10 +5632,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         ctx["draft_agendamento"].pop("profissional", None)
 
                 if tem_servico_explicito and not tem_data_explicitada:
-                    ctx.pop("data_hora", None)
+                    if ctx.get("estado_fluxo") == "aguardando_profissional":
+                        print("🛡️ [PRESERVAR DATA_HORA] aguardando_profissional — não apagar data_hora", flush=True)
+                    else:
+                        ctx.pop("data_hora", None)
 
-                    if isinstance(ctx.get("draft_agendamento"), dict):
-                        ctx["draft_agendamento"].pop("data_hora", None)
+                        if isinstance(ctx.get("draft_agendamento"), dict):
+                            ctx["draft_agendamento"].pop("data_hora", None)
 
                 if isinstance(ctx.get("ultima_consulta"), dict):
                     if not tem_data_explicitada:
