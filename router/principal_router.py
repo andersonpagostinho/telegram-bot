@@ -4040,14 +4040,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 or ctx.get("data_hora")
             )
 
-            hora_preferida = None
-
-            if data_hora_antiga and "T" in data_hora_antiga:
-                hora_preferida = data_hora_antiga.split("T")[1][:5]
+            hora_do_texto = None
+            try:
+                hora_do_texto = dt.strftime("%H:%M")
+            except Exception:
+                hora_do_texto = None
 
             nova_data_hora = None
 
-            if hora_preferida:
+            # Prioridade 1: hora extraída do texto
+            if hora_do_texto:
+                nova_data_hora = f"{data_iso}T{hora_do_texto}:00"
+            # Prioridade 2: hora_preferida antiga
+            elif data_hora_antiga and "T" in data_hora_antiga:
+                hora_preferida = data_hora_antiga.split("T")[1][:5]
                 nova_data_hora = f"{data_iso}T{hora_preferida}:00"
 
             # =====================================================
