@@ -1025,6 +1025,18 @@ async def processar_com_gpt_com_acao(
                 flush=True,
             )
 
+            import json
+            payload_size = len(json.dumps(messages, ensure_ascii=False))
+            tokens_estimados = payload_size / 4
+            print(
+                f"🧪 [PROMPT_SIZE] chars={payload_size} msgs={len(messages)}",
+                flush=True
+            )
+            print(
+                f"🧪 [PROMPT_TOKENS_EST] {int(tokens_estimados)}",
+                flush=True
+            )
+
             resposta = await client.chat.completions.create(
                 model="gpt-4o",
                 temperature=0.4,
@@ -2476,6 +2488,18 @@ async def processar_com_gpt_com_acao(
             print(
                 f"🤖 [GPT CALL] linha=1314 uid={user_id} texto={texto_usuario!r}",
                 flush=True,
+            )
+
+            import json
+            payload_size = len(json.dumps(messages, ensure_ascii=False))
+            tokens_estimados = payload_size / 4
+            print(
+                f"🧪 [PROMPT_SIZE] chars={payload_size} msgs={len(messages)}",
+                flush=True
+            )
+            print(
+                f"🧪 [PROMPT_TOKENS_EST] {int(tokens_estimados)}",
+                flush=True
             )
 
             resposta = await client.chat.completions.create(
