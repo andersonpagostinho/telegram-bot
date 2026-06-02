@@ -1019,6 +1019,7 @@ async def processar_com_gpt_com_acao(
         # --- 6) Chamada única ao GPT + registrar custo ---
         resposta = None
         try:
+            print("🧪 [GPT_ROUTE] CALL_1_START linha=1027", flush=True)
             print(
                 f"🤖 [GPT CALL] linha=1354 uid={uid} texto={texto_usuario!r}",
                 flush=True,
@@ -1029,6 +1030,8 @@ async def processar_com_gpt_com_acao(
                 temperature=0.4,
                 messages=messages,
             )
+
+            print("🧪 [GPT_ROUTE] CALL_1_END", flush=True)
 
             # custo (somente se resposta existe)
             try:
@@ -1169,6 +1172,7 @@ async def processar_com_gpt_com_acao(
                 "dados": {},
             }
 
+        print("🧪 [GPT_ROUTE] CALL_1_RETURN linha=1172", flush=True)
         return resultado
 
     except Exception as e:
@@ -2468,6 +2472,7 @@ async def processar_com_gpt_com_acao(
             )
 
             # ✅ (4) Marca a chamada (pra detectar duplicação)
+            print("🧪 [GPT_ROUTE] CALL_2_START linha=2476", flush=True)
             print(
                 f"🤖 [GPT CALL] linha=1314 uid={user_id} texto={texto_usuario!r}",
                 flush=True,
@@ -2476,6 +2481,8 @@ async def processar_com_gpt_com_acao(
             resposta = await client.chat.completions.create(
                 model="gpt-4o", temperature=0.4, messages=messages
             )
+
+            print("🧪 [GPT_ROUTE] CALL_2_END", flush=True)
 
             firestore_client = firestore.client()
             await registrar_custo_gpt(resposta, "gpt-4o", user_id, firestore_client)
@@ -2569,6 +2576,7 @@ async def processar_com_gpt_com_acao(
                 and not contexto_salvo.get("sugestoes")
                 and not contexto_salvo.get("alternativa_profissional")
             ):
+                print("🧪 [GPT_ROUTE] CALL_2_RETURN", flush=True)
                 return {
                     "resposta": None,
                     "acao": "pre_confirmar_agendamento",
@@ -2864,6 +2872,7 @@ async def processar_com_gpt_com_acao(
                         },
                     )
 
+                    print("🧪 [GPT_ROUTE] CALL_2_RETURN", flush=True)
                     resultado = {
                         "resposta": (
                             f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} às {hora}."
@@ -2897,6 +2906,7 @@ async def processar_com_gpt_com_acao(
                     )
 
                     if not prof_doc:
+                        print("🧪 [GPT_ROUTE] CALL_2_RETURN", flush=True)
                         resultado = {
                             "resposta": "Não encontrei esse profissional. Pode escolher outro?",
                             "acao": None,
@@ -2949,6 +2959,7 @@ async def processar_com_gpt_com_acao(
                             },
                         )
 
+                        print("🧪 [GPT_ROUTE] CALL_2_RETURN", flush=True)
                         return resultado
 
             # ✅ Salvar tudo junto
@@ -3067,12 +3078,14 @@ async def processar_com_gpt_com_acao(
                 contexto_salvo.get(k)
                 for k in ["servico", "data_hora", "profissional_escolhido"]
             ):
+                print("🧪 [GPT_ROUTE] CALL_2_RETURN", flush=True)
                 return {
                     "resposta": "😊 Podemos continuar de onde paramos. Deseja confirmar o profissional ou horário?",
                     "acao": None,
                     "dados": {},
                 }
 
+            print("🧪 [GPT_ROUTE] CALL_2_RETURN", flush=True)
             return resultado
 
     except json.JSONDecodeError:
