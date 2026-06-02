@@ -2612,8 +2612,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if ctx.get("estado_fluxo") == "aguardando_profissional":
         print("🛡️ [SLOT PROFISSIONAL EARLY RETURN] detectando profissional", flush=True)
 
+        # Obter dono_id (estratégia padrão do router)
+        dono_id_slot = await obter_id_dono(user_id)
+
         # Buscar profissionais
-        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id_slot}/Profissionais") or {}
         tnorm = normalizar(texto_usuario)
 
         profissional_detectado = None
