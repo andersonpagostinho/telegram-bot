@@ -9128,17 +9128,32 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print("🛡️ [CONSULTA PURA RESPONDIDA SEM GPT] pulando GPT", flush=True)
 
         # Tentar identificar o serviço apenas para resposta informativa (sem salvar)
+        # Reutiliza exatamente a lógica de extrair_slots_e_mesclar()
         servico_para_resposta = None
         try:
-            # Detectar serviço no texto para resposta mais personalizada
-            servicos_disponiveis = await listar_servicos_cadastrados(dono_id) or []
-            txt_norm = unidecode((texto_usuario or "").lower().strip())
+            # 1) Buscar profissionais e extrair serviços
+            profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
-            for s in servicos_disponiveis:
-                s_norm = unidecode(str(s).lower().strip())
-                if s_norm and s_norm in txt_norm:
+            todos_servicos = []
+            for p in profs_dict.values():
+                todos_servicos.extend(p.get("servicos") or [])
+
+            # Remover duplicatas
+            servicos_unicos = list(dict.fromkeys(todos_servicos))
+
+            # Detectar no texto usando normalizar()
+            tnorm = normalizar(texto_usuario)
+
+            for s in servicos_unicos:
+                s_norm = normalizar(str(s))
+                if s_norm and s_norm in tnorm:
                     servico_para_resposta = str(s).strip()
                     break
+
+            # 2) Fallback: usar encontrar_servico_mais_proximo() se não encontrou
+            if not servico_para_resposta:
+                servico_para_resposta = await encontrar_servico_mais_proximo(texto_usuario, dono_id)
+
         except Exception as e:
             print(f"⚠️ Falha ao detectar serviço para resposta informativa: {e}", flush=True)
 
