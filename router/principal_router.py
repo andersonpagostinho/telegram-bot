@@ -9058,6 +9058,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             }
         )
 
+    # 🛡️ RESPOSTA DETERMINÍSTICA PARA CONSULTA PURA (sem GPT)
+    eh_consulta_pura = (
+        ctx.get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
+        or ctx.get("intencao_conversacional") == "consulta_disponibilidade_servico"
+    )
+
+    if eh_consulta_pura:
+        print("🛡️ [CONSULTA PURA RESPONDIDA SEM GPT] pulando GPT", flush=True)
+
+        # Tentar identificar o serviço apenas para resposta informativa (sem salvar)
+        servico_para_resposta = None
+        try:
+            # Detectar serviço no texto para resposta mais personalizada
+            servicos_disponiveis = await listar_servicos_cadastrados(dono_id) or []
+            txt_norm = unidecode((texto_usuario or "").lower().strip())
+
+            for s in servicos_disponiveis:
+                s_norm = unidecode(str(s).lower().strip())
+                if s_norm and s_norm in txt_norm:
+                    servico_para_resposta = str(s).strip()
+                    break
+        except Exception as e:
+            print(f"⚠️ Falha ao detectar serviço para resposta informativa: {e}", flush=True)
+
+        # Montar resposta informativa
+        if servico_para_resposta:
+            resposta_texto = f"Sim, fazemos {servico_para_resposta}! 😊\n\nGostaria de agendar?"
+        else:
+            resposta_texto = "Sim, fazemos esse serviço! 😊\n\nGostaria de agendar?"
+
+        print(f"🛡️ [CONSULTA PURA] resposta_texto='{resposta_texto}'", flush=True)
+
+        return await _send_and_stop(context, user_id, resposta_texto)
+
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
 
     # 🔥 BLOQUEIO: se GPT respondeu algo direto, NÃO entra no fluxo
