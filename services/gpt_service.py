@@ -453,32 +453,44 @@ async def processar_com_gpt_com_acao(
                         dt = interpretar_data_e_hora(texto_usuario)
 
                         if dt:
-                            # 🔥 NÃO sobrescrever se já existe data_hora válida no contexto
+                            # 🔥 Regra P0: Dado explícito novo > contexto salvo antigo
                             data_hora_existente = (contexto_salvo or {}).get("data_hora")
 
-                            if data_hora_existente and tem_hora_explicita:
-                                # mantém o valor existente (mais confiável)
+                            if dt and tem_hora_explicita:
+                                # Usuário foi explícito: usar resultado do parser SEMPRE
+                                nova_data_hora = dt.isoformat()
+                                dados_update["data_hora"] = nova_data_hora
+
+                                # Sincronizar draft_agendamento
+                                draft = (contexto_salvo or {}).get("draft_agendamento") or {}
+                                draft["data_hora"] = nova_data_hora
+                                dados_update["draft_agendamento"] = draft
+
+                                # Sincronizar ultima_consulta
+                                ultima_consulta = (contexto_salvo or {}).get("ultima_consulta") or {}
+                                ultima_consulta["data_hora"] = nova_data_hora
+                                dados_update["ultima_consulta"] = ultima_consulta
+
+                                dados_update["hora_confirmada"] = True
+
+                                print(f"🛡️ [MERGE_DATA_HORA] explícita={tem_hora_explicita} | dt_parser={dt} | antigo={data_hora_existente} | final={nova_data_hora}", flush=True)
+
+                            elif data_hora_existente:
+                                # Sem hora explícita: usar contexto anterior
                                 dados_update["data_hora"] = data_hora_existente
 
                             else:
-                                if tem_hora_explicita:
-                                    dados_update["data_hora"] = dt.replace(
-                                        second=0,
-                                        microsecond=0
-                                    ).isoformat()
+                                # Sem contexto, sem hora explícita: usar parser sem hora
+                                dt_sem_hora = dt.replace(
+                                    hour=0,
+                                    minute=0,
+                                    second=0,
+                                    microsecond=0
+                                )
 
-                                    dados_update["hora_confirmada"] = True
-                                else:
-                                    dt_sem_hora = dt.replace(
-                                        hour=0,
-                                        minute=0,
-                                        second=0,
-                                        microsecond=0
-                                    )
-
-                                    dados_update["data_hora"] = dt_sem_hora.isoformat()
-                                    dados_update["estado_fluxo"] = "aguardando_horario"
-                                    dados_update["hora_confirmada"] = False
+                                dados_update["data_hora"] = dt_sem_hora.isoformat()
+                                dados_update["estado_fluxo"] = "aguardando_horario"
+                                dados_update["hora_confirmada"] = False
 
                 except Exception as e:
                     print(f"⚠️ Falha ao interpretar data/hora: {e}", flush=True)
