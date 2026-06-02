@@ -2606,6 +2606,67 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print(f"⚠️ [CAMADA_ADMIN] erro inesperado — continuando fluxo normal: {_e_admin}", flush=True)
 
     # =========================================================
+    # 🛡️ CONTINUIDADE EARLY RETURN: resposta a consulta pura anterior
+    # Executado ANTES de classificador, intenção, GPT
+    # =========================================================
+    aguardando_confirmar_consulta = ctx.get("aguardando_confirmacao_agendamento_por_consulta")
+
+    if aguardando_confirmar_consulta:
+        print("🛡️ [CONSULTA PURA CONTINUIDADE EARLY RETURN] verificando resposta do usuário", flush=True)
+
+        txt_lower = (texto_usuario or "").strip().lower()
+
+        # Confirmação explícita
+        confirmacoes = ["sim", "ok", "pode", "quero", "pode ser", "agendar", "pode agendar", "vamos"]
+        eh_confirmacao = any(c in txt_lower for c in confirmacoes) and len(txt_lower.split()) <= 3
+
+        # Negação explícita
+        negacoes = ["não", "nao", "não quero", "nao quero", "não desejo", "nao desejo", "deixa", "esquece"]
+        eh_negacao = any(n in txt_lower for n in negacoes)
+
+        if eh_confirmacao:
+            servico_sugerido = ctx.get("servico_sugerido_consulta")
+            print(f"🛡️ [CONSULTA->AGENDAMENTO] confirmou: servico_sugerido='{servico_sugerido}'", flush=True)
+
+            # Verificação crítica: se não tem serviço, não pode entrar em agendamento
+            if not servico_sugerido:
+                print("⚠️ [CONSULTA->AGENDAMENTO] servico_sugerido é None, retornando pergunta", flush=True)
+                resposta_texto = "Perfeito. Qual serviço você quer agendar?"
+                return await _send_and_stop(context, user_id, resposta_texto)
+
+            # Mover para fluxo de agendamento
+            ctx_update = {
+                "servico": servico_sugerido,
+                "draft_agendamento": {"servico": servico_sugerido},
+                "estado_fluxo": "aguardando_data",
+                "aguardando_confirmacao_agendamento_por_consulta": False,
+                "servico_sugerido_consulta": None,
+                "objetivo_conversacional": None,
+                "intencao_conversacional": None,
+            }
+            await salvar_contexto_temporario(user_id, ctx_update)
+
+            resposta_texto = f"Perfeito — {servico_sugerido}. Qual dia e horário você prefere?"
+            print(f"🛡️ [CONSULTA->AGENDAMENTO] resposta='{resposta_texto}'", flush=True)
+
+            return await _send_and_stop(context, user_id, resposta_texto)
+
+        elif eh_negacao:
+            print("🛡️ [CONSULTA CANCELADA] usuário negou agendamento", flush=True)
+
+            ctx_update = {
+                "aguardando_confirmacao_agendamento_por_consulta": False,
+                "servico_sugerido_consulta": None,
+                "estado_fluxo": "idle",
+                "objetivo_conversacional": None,
+                "intencao_conversacional": None,
+            }
+            await salvar_contexto_temporario(user_id, ctx_update)
+
+            resposta_texto = "Tudo bem. Se precisar, estou por aqui! 😊"
+            return await _send_and_stop(context, user_id, resposta_texto)
+
+    # =========================================================
     # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
     # =========================================================
     class_ctx = classificar_contexto_mensagem(texto_usuario, ctx)
@@ -9057,59 +9118,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 "profissional": ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional"),
             }
         )
-
-    # 🛡️ CONTINUIDADE: resposta do usuário a consulta pura anterior
-    aguardando_confirmar_consulta = ctx.get("aguardando_confirmacao_agendamento_por_consulta")
-
-    if aguardando_confirmar_consulta:
-        print("🛡️ [CONSULTA PURA CONTINUIDADE] verificando resposta do usuário", flush=True)
-
-        txt_lower = (texto_usuario or "").strip().lower()
-
-        # Confirmação explícita
-        confirmacoes = ["sim", "ok", "pode", "quero", "pode ser", "agendar", "pode agendar", "vamos"]
-        eh_confirmacao = any(c in txt_lower for c in confirmacoes) and len(txt_lower.split()) <= 3
-
-        # Negação explícita
-        negacoes = ["não", "nao", "não quero", "nao quero", "não desejo", "nao desejo", "deixa", "esquece"]
-        eh_negacao = any(n in txt_lower for n in negacoes)
-
-        if eh_confirmacao:
-            servico_sugerido = ctx.get("servico_sugerido_consulta")
-            print(f"🛡️ [CONSULTA->AGENDAMENTO] confirmou: servico_sugerido='{servico_sugerido}'", flush=True)
-
-            # Mover para fluxo de agendamento
-            ctx_update = {
-                "servico": servico_sugerido,
-                "draft_agendamento": {"servico": servico_sugerido},
-                "estado_fluxo": "aguardando_data",
-                "aguardando_confirmacao_agendamento_por_consulta": False,
-                "servico_sugerido_consulta": None,
-                "objetivo_conversacional": None,
-                "intencao_conversacional": None,
-            }
-            await salvar_contexto_temporario(user_id, ctx_update)
-
-            resposta_texto = f"Perfeito — {servico_sugerido}. Qual dia e horário você prefere?"
-            print(f"🛡️ [CONSULTA->AGENDAMENTO] resposta='{resposta_texto}'", flush=True)
-
-            return await _send_and_stop(context, user_id, resposta_texto)
-
-        elif eh_negacao:
-            print("🛡️ [CONSULTA CANCELADA] usuário negou agendamento", flush=True)
-
-            ctx_update = {
-                "aguardando_confirmacao_agendamento_por_consulta": False,
-                "servico_sugerido_consulta": None,
-                "estado_fluxo": "idle",
-                "objetivo_conversacional": None,
-                "intencao_conversacional": None,
-            }
-            await salvar_contexto_temporario(user_id, ctx_update)
-
-            resposta_texto = "Tudo bem. Se precisar, estou por aqui! 😊"
-            return await _send_and_stop(context, user_id, resposta_texto)
-
     # 🛡️ RESPOSTA DETERMINÍSTICA PARA CONSULTA PURA (sem GPT)
     eh_consulta_pura = (
         ctx.get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
