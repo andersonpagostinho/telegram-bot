@@ -1055,6 +1055,22 @@ async def processar_com_gpt_com_acao(
 
         except Exception as e:
             print(f"❌ Erro ao chamar OpenAI: {type(e).__name__}: {e}", flush=True)
+            print(f"🧪 [OPENAI_ERROR_TYPE] {type(e).__name__}", flush=True)
+            print(f"🧪 [OPENAI_ERROR_REPR] {repr(e)}", flush=True)
+
+            if hasattr(e, "response"):
+                print(f"🧪 [OPENAI_ERROR_STATUS] {getattr(e.response, 'status_code', None)}", flush=True)
+                try:
+                    print(f"🧪 [OPENAI_ERROR_BODY] {e.response.text}", flush=True)
+                except Exception:
+                    pass
+
+            if hasattr(e, "code"):
+                print(f"🧪 [OPENAI_ERROR_CODE] {e.code}", flush=True)
+
+            if hasattr(e, "message"):
+                print(f"🧪 [OPENAI_ERROR_MESSAGE] {e.message}", flush=True)
+
             return {
                 "resposta": "⚠️ Tive um problema para processar sua solicitação agora.",
                 "acao": None,
@@ -3120,6 +3136,22 @@ async def processar_com_gpt_com_acao(
         }
     except Exception as e:
         print(f"❌ Erro em processar_com_gpt_com_acao: {e}")
+        print(f"🧪 [OPENAI_ERROR_TYPE] {type(e).__name__}", flush=True)
+        print(f"🧪 [OPENAI_ERROR_REPR] {repr(e)}", flush=True)
+
+        if hasattr(e, "response"):
+            print(f"🧪 [OPENAI_ERROR_STATUS] {getattr(e.response, 'status_code', None)}", flush=True)
+            try:
+                print(f"🧪 [OPENAI_ERROR_BODY] {e.response.text}", flush=True)
+            except Exception:
+                pass
+
+        if hasattr(e, "code"):
+            print(f"🧪 [OPENAI_ERROR_CODE] {e.code}", flush=True)
+
+        if hasattr(e, "message"):
+            print(f"🧪 [OPENAI_ERROR_MESSAGE] {e.message}", flush=True)
+
         traceback.print_exc()
         return {
             "resposta": "❌ Ocorreu um erro ao tentar entender seu pedido.",
