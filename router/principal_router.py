@@ -2606,6 +2606,65 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print(f"⚠️ [CAMADA_ADMIN] erro inesperado — continuando fluxo normal: {_e_admin}", flush=True)
 
     # =========================================================
+    # 🛡️ PRIORIDADE: preenchimento de SLOT AGUARDANDO_PROFISSIONAL
+    # Executa ANTES de classificadores para impedir confusão com ajuste incremental
+    # =========================================================
+    if ctx.get("estado_fluxo") == "aguardando_profissional":
+        print("🛡️ [SLOT PROFISSIONAL EARLY RETURN] detectando profissional", flush=True)
+
+        # Buscar profissionais
+        profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        tnorm = normalizar(texto_usuario)
+
+        profissional_detectado = None
+        for p in profs_dict.values():
+            nome_prof = (p.get("nome") or "").strip()
+            if nome_prof and normalizar(nome_prof) in tnorm:
+                profissional_detectado = nome_prof
+                break
+
+        # Validar e preencher
+        if profissional_detectado:
+            servico_ctx = ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico")
+
+            if servico_ctx:
+                prof_doc = None
+                for p in profs_dict.values():
+                    if normalizar(p.get("nome", "")) == normalizar(profissional_detectado):
+                        prof_doc = p
+                        break
+
+                if prof_doc:
+                    servicos_prof = {normalizar(str(s)) for s in (prof_doc.get("servicos") or [])}
+                    if normalizar(servico_ctx) in servicos_prof:
+                        # ✅ Válido! Preencher e retornar imediatamente
+                        print(f"🛡️ [PROFISSIONAL PREENCHIDO] {profissional_detectado}", flush=True)
+
+                        ctx["profissional_escolhido"] = profissional_detectado
+
+                        draft = ctx.get("draft_agendamento") or {}
+                        draft["profissional"] = profissional_detectado
+                        draft["servico"] = servico_ctx
+
+                        data_hora_ctx = ctx.get("data_hora")
+                        if data_hora_ctx:
+                            draft["data_hora"] = data_hora_ctx
+
+                        ctx["draft_agendamento"] = draft
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        # Early return com resposta apropriada
+                        if data_hora_ctx:
+                            resposta = f"Perfeito — {servico_ctx} com {profissional_detectado}. Vou conferir esse horário."
+                        else:
+                            ctx["estado_fluxo"] = "aguardando_data"
+                            await salvar_contexto_temporario(user_id, ctx)
+                            resposta = f"Perfeito — {servico_ctx} com {profissional_detectado}. Qual dia e horário você prefere?"
+
+                        return await _send_and_stop(context, user_id, resposta)
+
+    # =========================================================
     # 🛡️ CONTINUIDADE EARLY RETURN: resposta a consulta pura anterior
     # Executado ANTES de classificador, intenção, GPT
     # =========================================================
