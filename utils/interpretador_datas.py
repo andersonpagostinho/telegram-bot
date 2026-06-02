@@ -226,12 +226,10 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
 
     try:
         texto_original = texto
-        texto_reduzido = extrair_trecho_temporal(texto_original)
 
-        print("🧪 [PARSER] texto_original=", texto_original, flush=True)
-        print("🧪 [PARSER] texto_reduzido=", texto_reduzido, flush=True)
-
-        texto_norm = (texto_reduzido or "").strip().lower().replace("às", "as")
+        # 🧪 PATCH MÍNIMO: preservar texto completo para GPT
+        # Heurísticas usam texto_norm, fallback usa dateparser
+        texto_norm = texto_original.strip().lower().replace("às", "as")
         texto_norm = _normalizar_texto_hora(texto_norm)
 
         # ✅ Se não houver qualquer pista temporal explícita, não interpreta nada
@@ -249,7 +247,9 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
             minuto = int(m.group(2) or 0)
 
             dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
-            return dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            print(f"🧪 [PARSER] fonte_parse=manual_hoje_amanha | resultado={result}", flush=True)
+            return result
 
         # ✅ Detecta dia da semana isolado ou com hora, ex:
         # "quinta", "quinta feira", "na quinta", "quinta às 10"
@@ -287,7 +287,9 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
             dt_aware = FUSO_BR.localize(
                 datetime(alvo.year, alvo.month, alvo.day, hora, minuto, 0, 0)
             )
-            return dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            print(f"🧪 [PARSER] fonte_parse=manual_dia_semana | resultado={result}", flush=True)
+            return result
 
         # ✅ Se for só hora, não decide data aqui (isso é do fluxo/sessão)
         if _so_hora(texto_norm):
@@ -324,20 +326,51 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
                     ano += 1
 
             dt_aware = FUSO_BR.localize(datetime(ano, mes, dia, hora, minuto, 0, 0))
-            return dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            print(f"🧪 [PARSER] fonte_parse=manual_dia_mes | resultado={result}", flush=True)
+            return result
 
         # ✅ Caso geral: dateparser com base BR
-        parsed = dateparser.parse(
-            texto_reduzido,
+        # 🧪 PATCH MÍNIMO: tentar texto completo primeiro
+
+        settings_parse = {
+            "PREFER_DATES_FROM": "future",
+            "RELATIVE_BASE": base_aware,  # ponto crítico (evita UTC)
+            "TIMEZONE": "America/Sao_Paulo",
+            "RETURN_AS_TIMEZONE_AWARE": False,
+            "DATE_ORDER": "DMY",
+        }
+
+        # Tentar com texto_original primeiro (preserva slots para GPT)
+        parsed_original = dateparser.parse(
+            texto_original,
             languages=["pt"],
-            settings={
-                "PREFER_DATES_FROM": "future",
-                "RELATIVE_BASE": base_aware,  # ponto crítico (evita UTC)
-                "TIMEZONE": "America/Sao_Paulo",
-                "RETURN_AS_TIMEZONE_AWARE": False,
-                "DATE_ORDER": "DMY",
-            },
+            settings=settings_parse,
         )
+
+        parsed = parsed_original
+        fonte_parse = "original"
+
+        # Fallback: se falhar, tentar com texto_reduzido
+        if parsed is None:
+            texto_reduzido = extrair_trecho_temporal(texto_original)
+            parsed_reduzido = dateparser.parse(
+                texto_reduzido,
+                languages=["pt"],
+                settings=settings_parse,
+            )
+            parsed = parsed_reduzido
+            fonte_parse = "reduzido" if parsed_reduzido else None
+        else:
+            texto_reduzido = extrair_trecho_temporal(texto_original)
+            parsed_reduzido = None
+
+        # 🧪 Logs comparativos
+        print(f"🧪 [PARSER] texto_original={texto_original!r}", flush=True)
+        print(f"🧪 [PARSER] texto_reduzido={texto_reduzido!r}", flush=True)
+        print(f"🧪 [PARSER] parsed_original={parsed_original}", flush=True)
+        print(f"🧪 [PARSER] parsed_reduzido={parsed_reduzido}", flush=True)
+        print(f"🧪 [PARSER] fonte_parse={fonte_parse}", flush=True)
 
         if isinstance(parsed, datetime):
             return parsed
