@@ -94,6 +94,24 @@ def montar_frase_data_legivel(data_hora_iso: str | None) -> str:
     except Exception:
         return ""
 
+def montar_frase_data_com_hora(data_hora_iso: str | None) -> str:
+    if not data_hora_iso:
+        return ""
+
+    try:
+        dt = datetime.fromisoformat(data_hora_iso)
+        hoje = datetime.now().date()
+        hora_str = dt.strftime("%H:%M")
+
+        if dt.date() == hoje:
+            return f"para hoje às {hora_str}"
+        elif dt.date() == (hoje + timedelta(days=1)):
+            return f"para amanhã às {hora_str}"
+        else:
+            return f"para {dt.strftime('%d/%m')} às {hora_str}"
+    except Exception:
+        return ""
+
 def quer_falar_com_humano(texto: str, ctx: dict | None = None) -> bool:
     ctx = ctx or {}
     t = normalizar(texto or "")
@@ -8511,7 +8529,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ctx
     )
 
-    frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
+    # 🔥 P0: Se hora foi confirmada, incluir na frase
+    if ctx.get("hora_confirmada") and not ctx.get("data_sem_hora"):
+        frase_data_legivel = montar_frase_data_com_hora(slots_extraidos.get("data_hora"))
+    else:
+        frase_data_legivel = montar_frase_data_legivel(slots_extraidos.get("data_hora"))
 
     payload_resposta = { 
         "slots_extraidos": slots_extraidos, 
