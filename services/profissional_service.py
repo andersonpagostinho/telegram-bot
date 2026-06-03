@@ -213,12 +213,17 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None
     servicos_disponiveis = set()
 
     if user_id:
-        dono_id = await obter_id_dono(user_id)
-        profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-        for p in profissionais.values():
-            for s in p.get("servicos", []):
-                servicos_disponiveis.add(unidecode.unidecode(s.lower().strip()))
-    else:
+        try:
+            dono_id = await obter_id_dono(user_id)
+            profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+            for p in profissionais.values():
+                for s in p.get("servicos", []):
+                    servicos_disponiveis.add(unidecode.unidecode(s.lower().strip()))
+        except Exception:
+            pass
+
+    # Fallback se não encontrar serviços reais
+    if not servicos_disponiveis:
         servicos_disponiveis = {"corte", "escova", "manicure", "pedicure", "luzes", "botox capilar"}
 
     for servico in servicos_disponiveis:
