@@ -10,6 +10,50 @@ from datetime import datetime, date, timedelta
 import re
 import string
 
+def formatar_resposta_disponibilidade(
+    servico: str,
+    data_str: str,
+    periodo_str: str,
+    profissionais_disponiveis: list[str],
+    com_horario: bool = False,
+    horario: str = None
+) -> str:
+    """
+    Formatador padrão para respostas de disponibilidade.
+    Garante cliente e dono recebem o mesmo formato.
+
+    Args:
+        servico: Nome do serviço (ex: "corte", "escova")
+        data_str: Data formatada (ex: "03/06", "amanhã")
+        periodo_str: Período (ex: "de manhã", "à tarde", ou "" se com horário)
+        profissionais_disponiveis: Lista de nomes de profissionais (max 3)
+        com_horario: Se True, usa o horário específico no formato
+        horario: Horário específico (ex: "8h", "09:00")
+
+    Returns:
+        Mensagem formatada padronizada
+    """
+    if not profissionais_disponiveis:
+        return f"😕 Desculpe, nenhum profissional de {servico} está disponível {periodo_str} em {data_str}."
+
+    # Limitar a máximo 3 profissionais
+    profs = profissionais_disponiveis[:3]
+    nomes = ", ".join(profs)
+
+    # Formatar conforme o número de opções
+    if len(profs) == 1:
+        # 1 profissional: pergunta direta
+        if com_horario:
+            return f"Tenho sim. Para {servico} em {data_str} às {horario}, posso te atender com {profs[0]}.\n\nPosso deixar com ela?"
+        else:
+            return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {profs[0]}.\n\nPosso deixar com ela?"
+    else:
+        # 2+ profissionais: oferece opções
+        if com_horario:
+            return f"Tenho sim. Para {servico} em {data_str} às {horario}, posso te atender com {nomes}.\n\nPrefere alguma delas?"
+        else:
+            return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {nomes}.\n\nPrefere alguma delas?"
+
 async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | None:
     mensagem_normalizada = unidecode(re.sub(r"[^\w\s]", " ", mensagem.lower())).strip()
     mensagem_normalizada = re.sub(r"\s+", " ", mensagem_normalizada)
@@ -204,21 +248,29 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
                 if disponiveis_servico:
                     horarios_disponiveis[hora_str] = disponiveis_servico
 
-        # Formatar resposta (máximo 3 opções)
+        # Usar formatador único padronizado
         if horarios_disponiveis:
             data_str = data_obj.strftime("%d/%m")
-            linhas = []
+            # Extrair profissionais da primeira opção de horário
+            primeira_hora, primeira_profs = next(iter(horarios_disponiveis.items()))
+            profs_disponiveis = list(primeira_profs.keys())
 
-            for i, (hora, profs) in enumerate(list(horarios_disponiveis.items())[:3]):
-                nomes = ", ".join(profs.keys())
-                linhas.append(f"• {hora} — {nomes}")
-
-            resposta = f"✅ Para *{servico}* em *{data_str}* {periodo_str}:\n\n"
-            resposta += "\n".join(linhas)
-            if len(horarios_disponiveis) > 3:
-                resposta += f"\n\n(e mais {len(horarios_disponiveis) - 3} opção(ões))"
-            return resposta
+            # Usar formatador padronizado
+            return formatar_resposta_disponibilidade(
+                servico=servico,
+                data_str=data_str,
+                periodo_str=periodo_str,
+                profissionais_disponiveis=profs_disponiveis,
+                com_horario=True,
+                horario=primeira_hora
+            )
         else:
-            return f"😕 Desculpe, nenhum profissional de {servico} está disponível {periodo_str} em {data_obj.strftime('%d/%m')}."
+            data_str = data_obj.strftime("%d/%m")
+            return formatar_resposta_disponibilidade(
+                servico=servico,
+                data_str=data_str,
+                periodo_str=periodo_str,
+                profissionais_disponiveis=[]
+            )
 
     return None  # Se não for uma intenção informativa
