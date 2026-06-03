@@ -9807,6 +9807,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 and ctx.get("profissional_escolhido")
                 and ctx.get("data_hora")
                 and ctx.get("hora_confirmada") is not True
+                and ctx.get("data_sem_hora") is not True
             ):
 
                 print("🔥 [CONSULTA PERÍODO] buscando horários por período", flush=True)
