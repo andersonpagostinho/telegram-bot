@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timedelta
-from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path, buscar_cliente
+from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path, buscar_cliente, obter_id_dono
 from services.session_service import criar_ou_atualizar_sessao, pegar_sessao, resetar_sessao, sincronizar_contexto
 from services.profissional_service import (
     buscar_profissionais_por_servico,
@@ -130,6 +130,10 @@ async def verificar_disponibilidade_profissional(data, user_id):
 async def tratar_mensagem_usuario(user_id, mensagem):
     print("⚠️ [acao_handler] tratador direto foi chamado!")
 
+    # 🧵 Resolver tenant_id no início da função (disponível em todos os estados)
+    tenant_id = await obter_id_dono(user_id)
+    print(f"[TENANT_FIX] actor_id={user_id} | tenant_id={tenant_id} | função=tratar_mensagem_usuario", flush=True)
+
     # 🧠 Verifica se a mensagem é uma consulta informativa
     resposta_info = await responder_consulta_informativa(mensagem, user_id)
     if resposta_info:
@@ -144,7 +148,8 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
     elif sessao["estado"] == "aguardando_servico":
         # 1) Monta catálogo de serviços (união de todos os profissionais)
-        profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+        print(f"[TENANT_FIX] path_profissionais=Clientes/{tenant_id}/Profissionais", flush=True)
+        profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
         servicos_set = set()
         for p in profissionais.values():
             for serv in (p.get("servicos") or []):
@@ -263,7 +268,8 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             if not data_obj:
                 return "📅 Não entendi a data. Pode informar no formato 20/02/2026 ou dizer 'amanhã'?"
 
-            print("📋 Todos os profissionais:", await buscar_subcolecao(f"Clientes/{user_id}/Profissionais"))
+            print(f"[TENANT_FIX] path_profissionais=Clientes/{tenant_id}/Profissionais", flush=True)
+            print("📋 Todos os profissionais:", await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais"))
             servicos_busca = servico if isinstance(servico, list) else [servico]
 
             profissionais_filtrados = await buscar_profissionais_por_servico(servicos_busca, user_id)
@@ -294,12 +300,13 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             })
             await sincronizar_contexto(user_id, pegar_sessao(user_id))
 
+            print(f"[TENANT_FIX] path_profissionais=Clientes/{tenant_id}/Profissionais", flush=True)
             mensagem = gerar_mensagem_profissionais_disponiveis(
                 servico=servico,
                 data=data_obj,
                 hora=hora,
                 disponiveis=disponiveis,
-                todos=await buscar_subcolecao(f"Clientes/{user_id}/Profissionais")
+                todos=await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais")
             )
             print(f"\n📤 MENSAGEM FINAL PARA USUÁRIO:\n{mensagem}")
             return mensagem

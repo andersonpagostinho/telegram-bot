@@ -19,6 +19,7 @@ from services.firebase_service_async import (
     buscar_cliente,
     salvar_cliente,
     verificar_firebase,
+    obter_id_dono,
 )
 from services.event_service_async import cancelar_evento
 from services.cadastro_inicial_service import (
@@ -145,12 +146,17 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     from handlers.acao_router_handler import executar_acao_por_nome
     from services.firebase_service_async import buscar_subcolecao
 
+    # 🧵 Resolver tenant_id (dono do negócio)
+    tenant_id = await obter_id_dono(user_id)
+    print(f"[TENANT_FIX] actor_id={user_id} | tenant_id={tenant_id} | função=tratar_mensagens_gerais", flush=True)
+
     # 🔥 🚨 NOVO: NÃO intercepta se for intenção de agendamento
     if eh_gatilho_agendar(mensagem):
         payload_bloqueio = None
     else:
         # 🔍 busca profissionais
-        profissionais_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+        print(f"[TENANT_FIX] path_profissionais=Clientes/{tenant_id}/Profissionais", flush=True)
+        profissionais_dict = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
         nomes_profissionais = [p.get("nome") for p in profissionais_dict.values() if p.get("nome")]
 
         # 🔥 tenta profissional primeiro
