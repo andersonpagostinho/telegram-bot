@@ -26,6 +26,8 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
     tem_pergunta = (
         "?" in t
         or _tem(r"^(tem|da|dá|consegue|pode|sera|será|existe|consigo)\b", t)
+        or _tem(r"\b(quem|qual|quais|quando|onde|como)\b", t)
+        or _tem(r"\bquem\s+(voce|você)?\s*tem\b", t)
     )
 
     # Referência temporal ampla
