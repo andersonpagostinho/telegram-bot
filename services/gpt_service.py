@@ -164,6 +164,39 @@ async def processar_com_gpt_com_acao(
         texto_normalizado = unidecode.unidecode(texto_usuario.lower().strip())
         # (opção 2 seria: from unidecode import unidecode; e então texto_normalizado = unidecode(...))
 
+        # =========================================================
+        # 🛡️ BLOQUEIO DETERMINÍSTICO — CONSULTA DE DISPONIBILIDADE
+        # =========================================================
+        print("[DISPONIBILIDADE_INTERCEPT] Verificando classificador...", flush=True)
+
+        try:
+            from services.classificador_conversa import classificar_intencao_conversacional
+
+            intencao_class = classificar_intencao_conversacional(texto_usuario, contexto)
+            intencao_conv = intencao_class.get("intencao_conversacional")
+
+            print(f"[DISPONIBILIDADE_INTERCEPT] intencao_conversacional={intencao_conv}", flush=True)
+
+            if intencao_conv == "consulta_disponibilidade_servico":
+                print("[DISPONIBILIDADE_INTERCEPT] Detectada consulta de disponibilidade. Bloqueando GPT.", flush=True)
+
+                from services.informacao_service import responder_consulta_informativa
+
+                resposta_det = await responder_consulta_informativa(texto_usuario, user_id)
+
+                if resposta_det:
+                    print(f"[DISPONIBILIDADE_DETERMINISTICA] Resposta gerada: {resposta_det[:80]}...", flush=True)
+                    return {
+                        "resposta": resposta_det,
+                        "acao": None,
+                        "dados": {}
+                    }
+                else:
+                    print("[DISPONIBILIDADE_INTERCEPT] responder_consulta_informativa retornou None. Continuando para GPT.", flush=True)
+
+        except Exception as e:
+            print(f"⚠️ [DISPONIBILIDADE_INTERCEPT] Erro ao classificar/responder: {type(e).__name__}: {e}", flush=True)
+
         # --- 2) Contexto temporário salvo (sempre por UID correto) ---
         def eh_confirmacao_local(txt: str) -> bool:
             txt = (txt or "").lower().strip()
