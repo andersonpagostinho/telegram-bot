@@ -537,6 +537,7 @@ async def processar_com_gpt_com_acao(
                                 dados_update["ultima_consulta"] = ultima_consulta
 
                                 dados_update["hora_confirmada"] = True
+                                dados_update["data_sem_hora"] = False
 
                                 print(f"🛡️ [MERGE_DATA_HORA] explícita={tem_hora_explicita} | dt_parser={dt} | antigo={data_hora_existente} | final={nova_data_hora}", flush=True)
 
@@ -556,6 +557,7 @@ async def processar_com_gpt_com_acao(
                                 dados_update["data_hora"] = dt_sem_hora.isoformat()
                                 dados_update["estado_fluxo"] = "aguardando_horario"
                                 dados_update["hora_confirmada"] = False
+                                dados_update["data_sem_hora"] = True
 
                 except Exception as e:
                     print(f"⚠️ Falha ao interpretar data/hora: {e}", flush=True)
