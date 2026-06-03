@@ -10,6 +10,20 @@ from datetime import datetime, date, timedelta
 import re
 import string
 
+def formatar_nomes_humanos(profs: list[str]) -> str:
+    """Formata lista de profissionais com linguagem natural.
+    ["Bruna"] → "Bruna"
+    ["Bruna", "Gloria"] → "Bruna ou Gloria"
+    ["Bruna", "Gloria", "Joana"] → "Bruna, Gloria ou Joana"
+    """
+    if not profs:
+        return ""
+    if len(profs) == 1:
+        return profs[0]
+    if len(profs) == 2:
+        return f"{profs[0]} ou {profs[1]}"
+    return ", ".join(profs[:-1]) + f" ou {profs[-1]}"
+
 def formatar_resposta_disponibilidade(
     servico: str,
     data_str: str,
@@ -38,21 +52,21 @@ def formatar_resposta_disponibilidade(
 
     # Limitar a máximo 3 profissionais
     profs = profissionais_disponiveis[:3]
-    nomes = ", ".join(profs)
+    nomes_formatados = formatar_nomes_humanos(profs)
 
-    # Formatar conforme o número de opções
+    # Formatar conforme o número de opções (NÃO assume horário quando apenas período foi informado)
     if len(profs) == 1:
         # 1 profissional: pergunta direta
-        if com_horario:
-            return f"Tenho sim. Para {servico} em {data_str} às {horario}, posso te atender com {profs[0]}.\n\nPosso deixar com ela?"
+        if com_horario and horario:
+            return f"Tenho sim. Para {servico} {data_str} às {horario}, posso te atender com {nomes_formatados}.\n\nPosso deixar com ela?"
         else:
-            return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {profs[0]}.\n\nPosso deixar com ela?"
+            return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {nomes_formatados}.\n\nPosso deixar com ela?"
     else:
         # 2+ profissionais: oferece opções
-        if com_horario:
-            return f"Tenho sim. Para {servico} em {data_str} às {horario}, posso te atender com {nomes}.\n\nPrefere alguma delas?"
+        if com_horario and horario:
+            return f"Tenho sim. Para {servico} {data_str} às {horario}, posso te atender com {nomes_formatados}.\n\nPrefere alguma delas?"
         else:
-            return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {nomes}.\n\nPrefere alguma delas?"
+            return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {nomes_formatados}.\n\nPrefere alguma delas?"
 
 async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | None:
     mensagem_normalizada = unidecode(re.sub(r"[^\w\s]", " ", mensagem.lower())).strip()
