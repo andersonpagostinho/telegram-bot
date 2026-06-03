@@ -176,6 +176,12 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
         score_operacional += 30
         motivos.append("pergunta_sobre_servico")
 
+    # Consulta de disponibilidade: pergunta + temporal + serviço
+    if f["tem_pergunta"] and f["tem_tempo"] and f["tem_contexto_servico"]:
+        score_operacional += 45
+        motivos.append("consulta_disponibilidade")
+        print("[CLASSIFICADOR_FIX] consulta_disponibilidade=True", flush=True)
+
     if f["tem_ajuste"] and (f["tem_fluxo_ativo"] or f["tem_draft"]):
         score_operacional += 45
         motivos.append("ajuste_de_fluxo")

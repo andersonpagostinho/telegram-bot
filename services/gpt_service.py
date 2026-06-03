@@ -71,10 +71,34 @@ async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
         )
 
         # ⚠️ Ajuste obrigatório: sua assinatura exige contexto e instrucao
-        # Se aqui você não tiver "contexto" disponível, passe {} e deixe o fluxo único carregar/ajustar.
+        # Buscar tenant_id (dono) e profissionais para passar ao contexto
+        contexto = {}
+        try:
+            from services.firebase_service_async import obter_id_dono, buscar_subcolecao
+
+            tenant_id = await obter_id_dono(user_id)
+            print(f"[DISPONIBILIDADE_ROUTE] actor_id={user_id}", flush=True)
+            print(f"[DISPONIBILIDADE_ROUTE] tenant_id={tenant_id}", flush=True)
+
+            # Buscar profissionais do tenant para passar ao GPT
+            profs_dict = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+            profissionais = [
+                {
+                    "nome": p.get("nome"),
+                    "servicos": p.get("servicos", [])
+                }
+                for p in profs_dict.values()
+                if p.get("nome")
+            ]
+            contexto["profissionais"] = profissionais
+            print(f"[DISPONIBILIDADE_ROUTE] profissionais_count={len(profissionais)}", flush=True)
+        except Exception as e:
+            print(f"⚠️ Erro ao carregar profissionais para contexto: {type(e).__name__}: {e}", flush=True)
+            contexto["profissionais"] = []
+
         resultado = await processar_com_gpt_com_acao(
             texto_usuario=texto_usuario,
-            contexto={},
+            contexto=contexto,
             instrucao=INSTRUCAO_SECRETARIA,
             user_id=user_id,
         )
