@@ -3412,6 +3412,29 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if not duracao and servico:
             duracao = estimar_duracao(servico)
 
+        # 🔥 P0: Bloquear placeholder sem hora confirmada
+        eh_placeholder = (
+            str(data_hora or "").endswith("T00:00:00")
+            and (
+                ctx.get("data_sem_hora") is True
+                or ctx.get("hora_confirmada") is not True
+            )
+        )
+
+        if eh_placeholder:
+            ctx["estado_fluxo"] = "aguardando_horario"
+            ctx["aguardando_confirmacao_agendamento"] = False
+            ctx.pop("dados_confirmacao_agendamento", None)
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return await _send_and_stop_ctx(
+                context,
+                user_id,
+                f"Perfeito — {servico} com {profissional} para amanhã.\n\nQual horário você prefere?",
+                ctx,
+                texto_usuario,
+            )
+
         if profissional and servico and data_hora:
             dados_exec = {
                 "profissional": profissional,
