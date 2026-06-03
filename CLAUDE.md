@@ -2174,3 +2174,44 @@ Se não usada: Por que não foi consultada?
 **O documento retornará do congelamento apenas com evidência forte de que:**
 - Regra Zero + 13 não conseguem evitar uma classe de erro recorrente
 - E uma nova regra 14 resolveria esse padrão genuinamente
+
+---
+
+## 🎓 Princípios Permanentes
+
+Evidências, incidentes e investigações estão em: `docs/auditorias/`
+
+### 1. Dados Explícitos > Contexto Antigo
+
+Quando usuário fornece dado explícito, usar SEMPRE o novo. Nunca preservar antigo do contexto.
+
+Ordem: `mensagem_atual > draft_agendamento > ultima_consulta > contexto_antigo`
+
+---
+
+### 2. Disponibilidade: Motor Determinístico, Não GPT
+
+Consultas sobre disponibilidade ("quem tem disponível?") são respondidas pelo motor, nunca delegadas ao GPT. Motor é confiável e economiza tokens.
+
+---
+
+### 3. Verificar Semântica Antes de Alterar Código
+
+Valor errado pode ser: interpretação (GPT/prompt) ou código (persistência). Sempre verificar origem antes de corrigir.
+
+---
+
+### 4. Multi-tenant: Sempre obter_id_dono(user_id)
+
+`user_id` pode ser cliente, não dono. Resolver tenant corretamente para evitar misturar dados.
+
+---
+
+### 5. Fallback em 3 Níveis para Dados Opcionais
+
+Ao buscar lista dinâmica: 1) Firestore (real), 2) Fallback padrão (corte, escova...), 3) Perguntar ao usuário. Nunca deixar vazio.
+
+---
+
+**Última atualização:** 2026-06-02  
+**Status:** Documento congelado até descongelamento comprovado
