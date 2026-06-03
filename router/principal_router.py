@@ -8562,31 +8562,69 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and servico_validacao
         and not profissional_validacao
     ):
-        data_ref = data_hora_validacao.split("T")[0]
-        hora_ref = data_hora_validacao.split("T")[1][:5]
+        # 🔴 [FIX] Pular validação de expediente se data_sem_hora=True ou hora não confirmada
+        if ctx.get("data_sem_hora") is True or ctx.get("hora_confirmada") is not True:
+            print(f"[DATA_SEM_HORA_SKIP_EXPEDIENTE] bloco=perguntar_profissional | data_hora={data_hora_validacao} | data_sem_hora={ctx.get('data_sem_hora')} | hora_confirmada={ctx.get('hora_confirmada')}", flush=True)
+        else:
+            data_ref = data_hora_validacao.split("T")[0]
+            hora_ref = data_hora_validacao.split("T")[1][:5]
 
-        id_dono = await obter_id_dono(user_id)
+            id_dono = await obter_id_dono(user_id)
 
-        validacao = await validar_horario_funcionamento(
-            user_id=id_dono,
-            data_iso=data_ref,
-            hora_inicio=hora_ref,
-            duracao_min=estimar_duracao(servico_validacao),
-            profissional=profissional_validacao,
-        )
+            validacao = await validar_horario_funcionamento(
+                user_id=id_dono,
+                data_iso=data_ref,
+                hora_inicio=hora_ref,
+                duracao_min=estimar_duracao(servico_validacao),
+                profissional=profissional_validacao,
+            )
 
-        if not validacao.get("permitido"):
-            motivo = validacao.get("motivo")
+            if not validacao.get("permitido"):
+                motivo = validacao.get("motivo")
 
-            if motivo == "fechado_na_data":
-                regra = validacao.get("regra") or {}
-                origem = regra.get("origem")
+                if motivo == "fechado_na_data":
+                    regra = validacao.get("regra") or {}
+                    origem = regra.get("origem")
 
-                if origem == "excecao_profissional" and profissional_validacao:
+                    if origem == "excecao_profissional" and profissional_validacao:
+                        return await _send_and_stop_ctx(
+                            context,
+                            user_id,
+                            f"Nesse dia a agenda da {profissional_validacao} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você.",
+                            ctx,
+                            texto_usuario,
+                        )
+
                     return await _send_and_stop_ctx(
                         context,
                         user_id,
-                        f"Nesse dia a agenda da {profissional_validacao} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você.",
+                        "Nesse dia não teremos expediente.\n\nPor favor, me informe outro dia que eu verifico para você 😊",
+                        ctx,
+                        texto_usuario,
+                        )
+
+                if motivo == "fora_do_expediente":
+
+                    tentativa = await resolver_fora_do_expediente(
+                        user_id=id_dono,
+                        data_iso=data_ref,
+                        hora_inicio=hora_ref,
+                        duracao_min=estimar_duracao(servico_validacao),
+                        servico=servico_validacao,
+                        profissional=None,  # aqui ainda não tem profissional
+                    )
+
+                    regra = validacao.get("regra") or {}
+                    fim_janela = regra.get("fim") if regra.get("aberto") else None
+                    limite = fim_janela or "o horário configurado"
+
+                    return await _send_and_stop_ctx(
+                        context,
+                        user_id,
+                        (
+                            f"Esse horário não está disponível nesse dia, porque o salão atende só até {limite}.\n\n"
+                            f"Me diga qual profissional você prefere para *{servico_validacao}* que eu verifico um horário possível para você 😊"
+                        ),
                         ctx,
                         texto_usuario,
                     )
@@ -8594,44 +8632,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 return await _send_and_stop_ctx(
                     context,
                     user_id,
-                    "Nesse dia não teremos expediente.\n\nPor favor, me informe outro dia que eu verifico para você 😊",
-                    ctx,
-                    texto_usuario,
-                    )
-
-            if motivo == "fora_do_expediente":
-
-                tentativa = await resolver_fora_do_expediente(
-                    user_id=id_dono,
-                    data_iso=data_ref,
-                    hora_inicio=hora_ref,
-                    duracao_min=estimar_duracao(servico_validacao),
-                    servico=servico_validacao,
-                    profissional=None,  # aqui ainda não tem profissional
-                )
-
-                regra = validacao.get("regra") or {}
-                fim_janela = regra.get("fim") if regra.get("aberto") else None
-                limite = fim_janela or "o horário configurado"
-
-                return await _send_and_stop_ctx(
-                    context,
-                    user_id,
-                    (
-                        f"Esse horário não está disponível nesse dia, porque o salão atende só até {limite}.\n\n"
-                        f"Me diga qual profissional você prefere para *{servico_validacao}* que eu verifico um horário possível para você 😊"
-                    ),
+                    "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico para você.",
                     ctx,
                     texto_usuario,
                 )
-
-            return await _send_and_stop_ctx(
-                context,
-                user_id,
-                "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico para você.",
-                ctx,
-                texto_usuario,
-            )
 
     print("🧪 [ANTES GPT] proximo_passo=", proximo_passo, flush=True)
     print("🧪 [ANTES GPT] proximo_passo_real=", proximo_passo_real, flush=True)
