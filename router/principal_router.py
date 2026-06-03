@@ -9382,78 +9382,82 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if exigir_confirmacao:
             if prof and servico and data_hora:
-                data_ref = data_hora.split("T")[0]
-                hora_ref = data_hora.split("T")[1][:5]
+                # 🔴 [FIX] Pular validação de expediente se data_sem_hora=True ou hora não confirmada
+                if ctx.get("data_sem_hora") is True or ctx.get("hora_confirmada") is not True:
+                    print(f"[DATA_SEM_HORA_SKIP_EXPEDIENTE] data_hora={data_hora} | data_sem_hora={ctx.get('data_sem_hora')} | hora_confirmada={ctx.get('hora_confirmada')}", flush=True)
+                else:
+                    data_ref = data_hora.split("T")[0]
+                    hora_ref = data_hora.split("T")[1][:5]
 
-                id_dono = await obter_id_dono(user_id)
+                    id_dono = await obter_id_dono(user_id)
 
-                validacao = await validar_horario_funcionamento(
-                    user_id=id_dono,
-                    data_iso=data_ref,
-                    hora_inicio=hora_ref,
-                    duracao_min=dados.get("duracao") or estimar_duracao(servico),
-                )
-
-                if not validacao.get("permitido"):
-                    tentativa = await resolver_fora_do_expediente(
+                    validacao = await validar_horario_funcionamento(
                         user_id=id_dono,
                         data_iso=data_ref,
                         hora_inicio=hora_ref,
                         duracao_min=dados.get("duracao") or estimar_duracao(servico),
-                        servico=servico,
-                        profissional=prof,
                     )
 
-                    if tentativa.get("ok"):
-                        horario = tentativa.get("horario")
-                        nova_data_hora = tentativa.get("data_hora")
-
-                        if nova_data_hora:
-                            ctx["data_hora"] = nova_data_hora
-
-                            draft = ctx.get("draft_agendamento") or {}
-                            draft["profissional"] = prof
-                            draft["servico"] = servico
-                            draft["data_hora"] = nova_data_hora
-                            draft["modo_prechecagem"] = True
-                            ctx["draft_agendamento"] = draft
-
-                            await salvar_contexto_temporario(user_id, ctx)
-
-                        janela = await obter_janela_funcionamento(
+                    if not validacao.get("permitido"):
+                        tentativa = await resolver_fora_do_expediente(
                             user_id=id_dono,
-                            data_str=data_ref if 'data_ref' in locals() else data,
-                            profissional=profissional if 'profissional' in locals() else (prof if 'prof' in locals() else None),
+                            data_iso=data_ref,
+                            hora_inicio=hora_ref,
+                            duracao_min=dados.get("duracao") or estimar_duracao(servico),
+                            servico=servico,
+                            profissional=prof,
                         )
 
-                        origem_janela = (janela.get("origem") or "").strip().lower()
-                        tipo_janela = (janela.get("tipo") or "").strip().lower()
-                        fim_janela = janela.get("fim") if janela.get("aberto") else None
+                        if tentativa.get("ok"):
+                            horario = tentativa.get("horario")
+                            nova_data_hora = tentativa.get("data_hora")
 
-                        if (origem_janela == "excecao_salao" or tipo_janela == "janela_especial") and fim_janela:
-                            texto_base = (
-                                f"Esse horário não está disponível nesse dia, porque o salão atende só até {fim_janela}.\n\n"
-                            )
-                        else:
-                            texto_base = (
-                                "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                            if nova_data_hora:
+                                ctx["data_hora"] = nova_data_hora
+
+                                draft = ctx.get("draft_agendamento") or {}
+                                draft["profissional"] = prof
+                                draft["servico"] = servico
+                                draft["data_hora"] = nova_data_hora
+                                draft["modo_prechecagem"] = True
+                                ctx["draft_agendamento"] = draft
+
+                                await salvar_contexto_temporario(user_id, ctx)
+
+                            janela = await obter_janela_funcionamento(
+                                user_id=id_dono,
+                                data_str=data_ref if 'data_ref' in locals() else data,
+                                profissional=profissional if 'profissional' in locals() else (prof if 'prof' in locals() else None),
                             )
 
-                        return await _send_and_stop_ctx(
+                            origem_janela = (janela.get("origem") or "").strip().lower()
+                            tipo_janela = (janela.get("tipo") or "").strip().lower()
+                            fim_janela = janela.get("fim") if janela.get("aberto") else None
+
+                            if (origem_janela == "excecao_salao" or tipo_janela == "janela_especial") and fim_janela:
+                                texto_base = (
+                                    f"Esse horário não está disponível nesse dia, porque o salão atende só até {fim_janela}.\n\n"
+                                )
+                            else:
+                                texto_base = (
+                                    "Infelizmente esse horário fica fora do nosso expediente 😕\n\n"
+                                )
+
+                            return await _send_and_stop_ctx(
+                                context,
+                                user_id,
+                                texto_base
+                                + f"O horário mais próximo que tenho disponível é às *{horario}*.\n"
+                                + "Posso agendar pra você? 😊",
+                                ctx,
+                                texto_usuario,
+                            )
+
+                        return await _send_and_stop(
                             context,
                             user_id,
-                            texto_base
-                            + f"O horário mais próximo que tenho disponível é às *{horario}*.\n"
-                            + "Posso agendar pra você? 😊",
-                            ctx,
-                            texto_usuario,
+                            "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico pra você."
                         )
-
-                    return await _send_and_stop(
-                        context,
-                        user_id,
-                        "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico pra você."
-                    )
 
                 ctx["estado_fluxo"] = "agendando"
                 ctx["draft_agendamento"] = {
