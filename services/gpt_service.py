@@ -71,34 +71,10 @@ async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
         )
 
         # ⚠️ Ajuste obrigatório: sua assinatura exige contexto e instrucao
-        # Buscar tenant_id (dono) e profissionais para passar ao contexto
-        contexto = {}
-        try:
-            from services.firebase_service_async import obter_id_dono, buscar_subcolecao
-
-            tenant_id = await obter_id_dono(user_id)
-            print(f"[DISPONIBILIDADE_ROUTE] actor_id={user_id}", flush=True)
-            print(f"[DISPONIBILIDADE_ROUTE] tenant_id={tenant_id}", flush=True)
-
-            # Buscar profissionais do tenant para passar ao GPT
-            profs_dict = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
-            profissionais = [
-                {
-                    "nome": p.get("nome"),
-                    "servicos": p.get("servicos", [])
-                }
-                for p in profs_dict.values()
-                if p.get("nome")
-            ]
-            contexto["profissionais"] = profissionais
-            print(f"[DISPONIBILIDADE_ROUTE] profissionais_count={len(profissionais)}", flush=True)
-        except Exception as e:
-            print(f"⚠️ Erro ao carregar profissionais para contexto: {type(e).__name__}: {e}", flush=True)
-            contexto["profissionais"] = []
-
+        # Se aqui você não tiver "contexto" disponível, passe {} e deixe o fluxo único carregar/ajustar.
         resultado = await processar_com_gpt_com_acao(
             texto_usuario=texto_usuario,
-            contexto=contexto,
+            contexto={},
             instrucao=INSTRUCAO_SECRETARIA,
             user_id=user_id,
         )
@@ -150,6 +126,38 @@ async def processar_com_gpt_com_acao(
         ).strip() or "desconhecido"
 
         user_id = uid
+
+        # --- GARANTIR CONTEXTO COM PROFISSIONAIS ---
+        contexto = contexto or {}
+
+        # Se contexto não tem profissionais, carregar do Firestore
+        if not (contexto.get("profissionais") and len(contexto.get("profissionais", [])) > 0):
+            try:
+                from services.firebase_service_async import obter_id_dono, buscar_subcolecao
+
+                tenant_id = await obter_id_dono(user_id)
+                print(f"[GPT_CONTEXT_PROF_FIX] actor_id={user_id}", flush=True)
+                print(f"[GPT_CONTEXT_PROF_FIX] tenant_id={tenant_id}", flush=True)
+
+                # Buscar profissionais do tenant
+                profs_dict = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+                profissionais = [
+                    {
+                        "nome": p.get("nome"),
+                        "servicos": p.get("servicos", [])
+                    }
+                    for p in profs_dict.values()
+                    if p.get("nome")
+                ]
+                contexto["profissionais"] = profissionais
+
+                # Extrair nomes para log
+                nomes_profs = [p.get("nome") for p in profissionais if p.get("nome")]
+                print(f"[GPT_CONTEXT_PROF_FIX] profissionais_count={len(profissionais)}", flush=True)
+                print(f"[GPT_CONTEXT_PROF_FIX] nomes={nomes_profs}", flush=True)
+            except Exception as e:
+                print(f"⚠️ [GPT_CONTEXT_PROF_FIX] Erro ao carregar profissionais: {type(e).__name__}: {e}", flush=True)
+                contexto["profissionais"] = []
 
         texto_usuario = (texto_usuario or "").strip()
         # 👇 ajuste do unidecode (opção 1: usando o módulo)
