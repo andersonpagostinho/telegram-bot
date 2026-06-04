@@ -1646,6 +1646,47 @@ async def precheck_e_confirmacao_agendamento(
         )
 
     # =========================================================
+    # 🔥 P0: Bloquear placeholder antes do pré-check
+    # =========================================================
+    eh_placeholder = (
+        str(data_hora or "").endswith("T00:00:00")
+        and (
+            ctx.get("data_sem_hora") is True
+            or ctx.get("hora_confirmada") is not True
+        )
+    )
+
+    if eh_placeholder:
+        print("🔥 [P0_PRECHECK] Bloqueando placeholder sem hora confirmada", flush=True)
+
+        ctx["estado_fluxo"] = "aguardando_horario"
+        ctx["aguardando_confirmacao_agendamento"] = False
+        ctx.pop("dados_confirmacao_agendamento", None)
+
+        # Preservar draft e dados
+        draft = ctx.get("draft_agendamento") or {}
+        draft["servico"] = servico
+        draft["profissional"] = prof
+        draft["data_hora"] = data_hora
+        ctx["draft_agendamento"] = draft
+
+        # Preservar dados já coletados
+        ctx["servico"] = servico
+        ctx["profissional_escolhido"] = prof
+        ctx["data_hora"] = data_hora
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        frase_data = montar_frase_data_legivel(data_hora)
+        return await _send_and_stop_ctx(
+            context,
+            user_id,
+            f"Perfeito — {servico} com {prof} {frase_data}.\n\nQual horário você prefere?",
+            ctx,
+            "",
+        )
+
+    # =========================================================
     # 🔥 PRE-CHECAGEM DE CONFLITO
     # =========================================================
     print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
@@ -3427,10 +3468,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx.pop("dados_confirmacao_agendamento", None)
             await salvar_contexto_temporario(user_id, ctx)
 
+            frase_data = montar_frase_data_legivel(data_hora)
             return await _send_and_stop_ctx(
                 context,
                 user_id,
-                f"Perfeito — {servico} com {profissional} para amanhã.\n\nQual horário você prefere?",
+                f"Perfeito — {servico} com {profissional} {frase_data}.\n\nQual horário você prefere?",
                 ctx,
                 texto_usuario,
             )
