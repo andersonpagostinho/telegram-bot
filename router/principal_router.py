@@ -9117,6 +9117,75 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         "data_hora": nova_data_hora
                     }
 
+                    # 🔥 P0: Validar expediente + conflito antes de confirmar
+                    if servico and profissional:
+                        dt_obj = datetime.fromisoformat(nova_data_hora)
+                        data_str = dt_obj.strftime("%Y-%m-%d")
+                        hora_str = dt_obj.strftime("%H:%M")
+                        duracao_minutos = estimar_duracao(servico)
+
+                        # 1️⃣ Validar expediente do salão/profissional
+                        validacao_exp = await validar_horario_funcionamento(
+                            user_id=user_id,
+                            data_iso=data_str,
+                            hora_inicio=hora_str,
+                            duracao_min=duracao_minutos,
+                            profissional=profissional
+                        )
+
+                        if not validacao_exp.get("permitido"):
+                            print(f"🚫 [AGUARDANDO_HORARIO] Fora do expediente | motivo={validacao_exp.get('motivo')}", flush=True)
+
+                            regra = validacao_exp.get("regra") or {}
+                            inicio = regra.get("inicio") or "08:00"
+                            fim = regra.get("fim") or "18:00"
+
+                            ctx["estado_fluxo"] = "aguardando_horario"
+                            ctx["aguardando_confirmacao_agendamento"] = False
+                            await salvar_contexto_temporario(user_id, ctx)
+
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"Esse horário não está disponível. O salão atende das {inicio} às {fim}. Me diga outro horário."
+                            )
+
+                        # 2️⃣ Validar conflito de agenda do profissional
+                        conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                            user_id=user_id,
+                            data=data_str,
+                            hora_inicio=hora_str,
+                            duracao_min=duracao_minutos,
+                            profissional=profissional,
+                            servico=servico
+                        )
+
+                        if conflito_info.get("conflito"):
+                            print(f"⚠️ [AGUARDANDO_HORARIO] Conflito detectado | sugestões={conflito_info.get('sugestoes')}", flush=True)
+
+                            sugestoes = conflito_info.get("sugestoes") or []
+                            sugestoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes)
+                            sugestao_formatada = (
+                                f"\n\n📌 *Horários disponíveis com {profissional}:*\n{sugestoes_txt}"
+                                if sugestoes_txt
+                                else ""
+                            )
+
+                            ctx["estado_fluxo"] = "aguardando_horario"
+                            ctx["aguardando_confirmacao_agendamento"] = False
+                            ctx["sugestoes"] = sugestoes
+                            await salvar_contexto_temporario(user_id, ctx)
+
+                            return await _send_and_stop(
+                                context,
+                                user_id,
+                                f"⚠️ {profissional} está ocupad nesse horário.{sugestao_formatada}\n\nMe diga outro horário."
+                            )
+
+                        # ✅ Validações passaram: confirmar hora
+                        ctx["hora_confirmada"] = True
+                        ctx["data_sem_hora"] = False
+
                     if servico and profissional:
                         ctx["estado_fluxo"] = "agendando"
                         ctx["aguardando_confirmacao_agendamento"] = True
