@@ -354,13 +354,20 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
         # Fallback: se falhar, tentar com texto_reduzido
         if parsed is None:
             texto_reduzido = extrair_trecho_temporal(texto_original)
-            parsed_reduzido = dateparser.parse(
-                texto_reduzido,
-                languages=["pt"],
-                settings=settings_parse,
-            )
+
+            # 🔒 P0: Se é só hora (ex: "às 10"), não tentar dateparser (evita interpretar como dia)
+            if _so_hora(texto_reduzido):
+                parsed_reduzido = None
+                fonte_parse = "reduzido_so_hora_bloqueado"
+            else:
+                parsed_reduzido = dateparser.parse(
+                    texto_reduzido,
+                    languages=["pt"],
+                    settings=settings_parse,
+                )
+                fonte_parse = "reduzido" if parsed_reduzido else None
+
             parsed = parsed_reduzido
-            fonte_parse = "reduzido" if parsed_reduzido else None
         else:
             texto_reduzido = extrair_trecho_temporal(texto_original)
             parsed_reduzido = None
