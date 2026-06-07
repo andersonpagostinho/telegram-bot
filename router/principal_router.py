@@ -968,6 +968,35 @@ def _tem_indicio_de_hora(txt: str) -> bool:
     )
 
 
+def _extrair_hora_simples(texto: str) -> tuple[int, int] | None:
+    """
+    Extrai HH:MM de padrões simples, sem inferir data.
+    - "às 8" ou "as 8" → (8, 0)
+    - "8h" → (8, 0)
+    - "08:30" ou "8:30" → (8, 30)
+
+    Retorna (hora, minuto) ou None se não encontrar.
+    """
+    t = (texto or "").lower()
+
+    # Padrão: HH:MM ou H:MM
+    m = re.search(r'\b(\d{1,2}):(\d{2})\b', t)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+
+    # Padrão: "às 8" ou "as 8"
+    m = re.search(r'(?:às|as)\s+(\d{1,2})\b', t)
+    if m:
+        return (int(m.group(1)), 0)
+
+    # Padrão: "8h"
+    m = re.search(r'\b(\d{1,2})\s*h\b', t)
+    if m:
+        return (int(m.group(1)), 0)
+
+    return None
+
+
 def extrair_servico_do_texto(texto_usuario: str, servicos_disponiveis: list) -> str | None:
     """
     Tenta mapear o texto do usuário para um serviço existente (lista).
@@ -1838,6 +1867,27 @@ async def detectar_alteracao_draft_agendamento(
         }
 
     # =====================================================
+    # 🔥 troca de profissional
+    # =====================================================
+    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+    for _, p in profissionais.items():
+        nome = p.get("nome")
+
+        if not nome:
+            continue
+
+        nome_norm = normalizar(nome)
+
+        if nome_norm in t:
+
+            if normalizar(nome) != normalizar(profissional_atual or ""):
+                return {
+                    "tipo": "profissional",
+                    "valor": nome
+                }
+
+    # =====================================================
     # 🔥 horário relativo
     # =====================================================
     if any(x in t for x in [
@@ -1858,27 +1908,6 @@ async def detectar_alteracao_draft_agendamento(
                 "tipo": "horario",
                 "direcao": "mais_tarde"
             }
-
-    # =====================================================
-    # 🔥 troca de profissional
-    # =====================================================
-    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-
-    for _, p in profissionais.items():
-        nome = p.get("nome")
-
-        if not nome:
-            continue
-
-        nome_norm = normalizar(nome)
-
-        if nome_norm in t:
-
-            if normalizar(nome) != normalizar(profissional_atual or ""):
-                return {
-                    "tipo": "profissional",
-                    "valor": nome
-                }
 
     # =====================================================
     # 🔥 troca de serviço
@@ -1925,10 +1954,23 @@ async def resolver_alteracao_draft_agendamento(
     texto_usuario: str = ""
 ):
     draft = (ctx or {}).get("draft_agendamento") or {}
+    dados_conf = (ctx or {}).get("dados_confirmacao_agendamento") or {}
 
-    servico = draft.get("servico") or ctx.get("servico")
-    profissional = draft.get("profissional") or ctx.get("profissional_escolhido")
-    data_hora = draft.get("data_hora") or ctx.get("data_hora")
+    servico = (
+        dados_conf.get("servico")
+        or draft.get("servico")
+        or ctx.get("servico")
+    )
+    profissional = (
+        dados_conf.get("profissional")
+        or draft.get("profissional")
+        or ctx.get("profissional_escolhido")
+    )
+    data_hora = (
+        dados_conf.get("data_hora")
+        or draft.get("data_hora")
+        or ctx.get("data_hora")
+    )
 
     # =====================================================
     # 🔥 AJUSTE DE DATA — mantém serviço/profissional,
@@ -2046,6 +2088,19 @@ async def resolver_alteracao_draft_agendamento(
     if alteracao.get("tipo") == "profissional":
         novo_profissional = alteracao.get("valor")
 
+        dt_novo = interpretar_data_e_hora(texto_usuario)
+        if dt_novo is not None:
+            data_atual = data_hora.split("T")[0]
+            data_hora = f"{data_atual}T{dt_novo.strftime('%H:%M:%S')}"
+        else:
+            hora_match = re.search(r'\b(?:às|as)?\s*(\d{1,2})(?::(\d{2}))?\s*h?\b', texto_usuario or "", re.IGNORECASE)
+            if hora_match:
+                h = int(hora_match.group(1))
+                m = int(hora_match.group(2) or 0)
+                if 0 <= h <= 23 and 0 <= m <= 59:
+                    data_atual = data_hora.split("T")[0]
+                    data_hora = f"{data_atual}T{h:02d}:{m:02d}:00"
+
         data = data_hora.split("T")[0]
         hora = data_hora.split("T")[1][:5]
         duracao = estimar_duracao(servico)
@@ -2160,6 +2215,7 @@ async def resolver_alteracao_draft_agendamento(
             servico=servico
         )
 
+        print(f"[TYPE_AUDIT_2163] valido={type(valido)} value={repr(valido)}", flush=True)
         if not valido.get("ok"):
             return await _send_and_stop(
                 context,
@@ -2199,9 +2255,10 @@ async def resolver_alteracao_draft_agendamento(
             servico=servico
         )
 
+        print(f"[TYPE_AUDIT_2203] conflito={type(conflito)} value={repr(conflito)}", flush=True)
         if conflito.get("conflito"):
 
-            
+
             # =====================================================
             # 🔥 PRIORIDADE — manter profissional anterior
             # Ex.: cliente tenta trocar para Bruna, mas Bruna está ocupada.
@@ -2461,6 +2518,93 @@ async def resolver_alteracao_draft_agendamento(
             ),
             parse_mode=None
         )
+
+    # =========================================================
+    # 🛡️ P0 — BLOQUEIO DE SERVIÇO ESPÚRIO DURANTE CONFIRMAÇÃO
+    # =========================================================
+    # Se já existe confirmação pendente, o serviço oficial é o de
+    # dados_confirmacao_agendamento/draft. Uma alteração de serviço
+    # só pode ser aceita se o texto do usuário mencionar explicitamente
+    # esse novo serviço.
+    #
+    # Corrige bug:
+    # contexto = corte com Bruna aguardando confirmação
+    # usuário = "Bruna"
+    # detector errado = {"tipo": "servico", "valor": "unha gel"}
+    # resposta errada = "Bruna não atende unha gel."
+    # =========================================================
+
+    if (
+        ctx.get("aguardando_confirmacao_agendamento") is True
+        and ctx.get("dados_confirmacao_agendamento")
+        and alteracao.get("tipo") == "servico"
+    ):
+        texto_norm_guard = normalizar(texto_usuario or "")
+        novo_servico_guard = alteracao.get("valor")
+        novo_servico_norm_guard = normalizar(novo_servico_guard or "")
+
+        dados_conf_guard = ctx.get("dados_confirmacao_agendamento") or {}
+        draft_guard = ctx.get("draft_agendamento") or {}
+
+        servico_oficial_guard = (
+            dados_conf_guard.get("servico")
+            or draft_guard.get("servico")
+            or ctx.get("servico")
+        )
+
+        profissional_oficial_guard = (
+            dados_conf_guard.get("profissional")
+            or draft_guard.get("profissional")
+            or ctx.get("profissional_escolhido")
+        )
+
+        data_hora_oficial_guard = (
+            dados_conf_guard.get("data_hora")
+            or draft_guard.get("data_hora")
+            or ctx.get("data_hora")
+        )
+
+        servico_oficial_norm_guard = normalizar(servico_oficial_guard or "")
+
+        alteracao_servico_explicita = (
+            novo_servico_norm_guard
+            and novo_servico_norm_guard in texto_norm_guard
+        )
+
+        # Se o novo serviço não foi escrito explicitamente pelo usuário,
+        # é inferência espúria. Não validar catálogo, não trocar serviço.
+        if not alteracao_servico_explicita:
+            print(
+                "🛡️ [P0 BLOQUEIO SERVICO ESPURIO CONFIRMACAO] "
+                f"texto={texto_usuario!r} | "
+                f"alteracao={alteracao} | "
+                f"servico_oficial={servico_oficial_guard} | "
+                f"profissional_oficial={profissional_oficial_guard}",
+                flush=True,
+            )
+
+            ctx["servico"] = servico_oficial_guard
+            ctx["profissional_escolhido"] = profissional_oficial_guard
+            ctx["data_hora"] = data_hora_oficial_guard
+            ctx["aguardando_confirmacao_agendamento"] = True
+            ctx["dados_confirmacao_agendamento"] = dados_conf_guard
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            descricao_guard = dados_conf_guard.get("descricao") or (
+                f"{str(servico_oficial_guard).capitalize()} com {profissional_oficial_guard}"
+            )
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"✨ *{descricao_guard}*\n"
+                    f"📆 {formatar_data_hora_br(data_hora_oficial_guard)}\n\n"
+                    "Posso confirmar?"
+                ),
+                parse_mode="Markdown",
+            )
 
     # =====================================================
     # 🔥 ALTERAÇÃO DE SERVIÇO
@@ -3055,6 +3199,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ctx["modo_conversa"] = modo_conversa
         ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
 
+    # 🔒 P0: negação de confirmação pendente vence preservação de contexto
+    if class_intencao.get("intencao_conversacional") == "negacao_confirmacao_agendamento":
+        ctx["intencao_conversacional"] = "negacao_confirmacao_agendamento"
+        ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca", 90)
+        ctx["interpretacao_conversacional"] = {
+            "intencao": "negacao_confirmacao_agendamento",
+            "objetivo": "encerrar_fluxo_agendamento",
+            "tipo_ajuste": None,
+            "entidades": {},
+            "confianca": class_intencao.get("confianca", 90),
+            "motivo": "negacao_durante_confirmacao",
+        }
+        ctx["objetivo_conversacional"] = "encerrar_fluxo_agendamento"
+
     # =========================================================
     # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
     # Transforma intenção em direção de fluxo, sem executar agenda
@@ -3080,6 +3238,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     elif intencao_conv == "cancelamento":
         objetivo_conversacional = "avaliar_cancelamento"
+
+    elif intencao_conv == "negacao_confirmacao_agendamento":
+        objetivo_conversacional = "encerrar_fluxo_agendamento"
 
     if not preservar_continuidade_data:
         ctx["objetivo_conversacional"] = objetivo_conversacional
@@ -3108,6 +3269,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         ]
         and ctx.get("objetivo_conversacional")
     ):
+        # [TRACE] Verificar o que vai ser preservado
+        print(
+            f"[TRACE_PRESERVACAO] ctx.intencao_conversacional={ctx.get('intencao_conversacional')} | "
+            f"ctx.interpretacao_conversacional.intencao={ctx.get('interpretacao_conversacional', {}).get('intencao', 'N/A')} | "
+            f"objetivo={ctx.get('objetivo_conversacional')}",
+            flush=True
+        )
+
         interpretacao_conv = ctx.get("interpretacao_conversacional") or {
             "intencao": ctx.get("intencao_conversacional") or "indefinida",
             "objetivo": ctx.get("objetivo_conversacional"),
@@ -3208,8 +3377,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if interpretacao_gpt and interpretacao_gpt.get("intencao") != "indefinida":
             ctx["interpretacao_conversacional"] = interpretacao_gpt
 
-            ctx["intencao_conversacional"] = interpretacao_gpt.get("intencao")
-            ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+            # 🔒 Não sobrescrever negação de confirmação pendente
+            if ctx.get("intencao_conversacional") != "negacao_confirmacao_agendamento":
+                ctx["intencao_conversacional"] = interpretacao_gpt.get("intencao")
+                ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+            else:
+                print("[GUARDA] Preservando negacao_confirmacao_agendamento contra sobrescrita", flush=True)
 
             if interpretacao_gpt.get("tipo_ajuste"):
                 ctx["tipo_ajuste_incremental"] = interpretacao_gpt.get("tipo_ajuste")
@@ -3254,6 +3427,30 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "modo_conversa": ctx.get("modo_conversa"),
         "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
     })
+
+    # =========================================================
+    # 🔒 P0 — EARLY RETURN NEGAÇÃO CONFIRMAÇÃO PENDENTE
+    # ANTES de qualquer lógica de processamento
+    # =========================================================
+    if (
+        eh_confirmacao_pendente_ativa(ctx)
+        and ctx.get("intencao_conversacional") == "negacao_confirmacao_agendamento"
+    ):
+
+        ctx["aguardando_confirmacao_agendamento"] = False
+        ctx["dados_confirmacao_agendamento"] = {}
+        ctx["estado_fluxo"] = "idle"
+        ctx["objetivo_conversacional"] = None
+        ctx["tipo_ajuste_incremental"] = None
+        ctx["intencao_conversacional"] = None
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            "Beleza, então não vou agendar 😊"
+        )
 
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     draft = ctx.get("draft_agendamento") or {}
@@ -3313,6 +3510,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
           primeiro coletar 1 dos dois (serviço OU profissional), com texto humano.
         - Só depois oferecer 'amanhã mesmo horário'.
         """
+        print(f"[TRACE_HORARIO_PASSADO_CALL] texto={texto_usuario} | intencao={ctx.get('intencao_conversacional')} | aguardando={ctx.get('aguardando_confirmacao_agendamento')}", flush=True)
+
         draft_local = ctx.get("draft_agendamento") or {}
         prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         servico = draft_local.get("servico") or ctx.get("servico")
@@ -3477,6 +3676,41 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 texto_usuario,
             )
 
+        # 🔒 P0: Se confirmação contém hora NOVA, ajustar antes de criar evento
+        if profissional and servico and data_hora and _tem_indicio_de_hora(texto_usuario):
+            hora_minuto = _extrair_hora_simples(texto_usuario)
+            if hora_minuto:
+                try:
+                    dt_base = _dt_from_iso_naive(data_hora) if isinstance(data_hora, str) else data_hora
+                    if dt_base:
+                        dt_ajustada = dt_base.replace(hour=hora_minuto[0], minute=hora_minuto[1], second=0, microsecond=0)
+                        data_hora_ajustada = dt_ajustada.isoformat()
+
+                        # Atualizar contexto com nova data_hora
+                        draft["data_hora"] = data_hora_ajustada
+                        ctx["draft_agendamento"] = draft
+                        ctx["dados_confirmacao_agendamento"] = {
+                            "profissional": profissional,
+                            "servico": servico,
+                            "data_hora": data_hora_ajustada,
+                        }
+                        ctx["estado_fluxo"] = "agendando"
+                        ctx["aguardando_confirmacao_agendamento"] = True
+
+                        await salvar_contexto_temporario(user_id, ctx)
+
+                        frase_data = montar_frase_data_legivel(data_hora_ajustada)
+                        print("🧪 [AUDIT-CONF:BLOCO_PENDENTE_HORA_NOVA] AJUSTE INCREMENTAL ATIVADO", flush=True)
+                        return await _send_and_stop_ctx(
+                            context,
+                            user_id,
+                            f"Perfeito — {servico} com {profissional} {frase_data}.\n\nTá bom assim?",
+                            ctx,
+                            texto_usuario,
+                        )
+                except Exception as e:
+                    print(f"⚠️ [AUDIT-CONF] Erro ao ajustar hora: {e}", flush=True)
+
         if profissional and servico and data_hora:
             dados_exec = {
                 "profissional": profissional,
@@ -3507,7 +3741,6 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if (
         eh_confirmacao_pendente_ativa(ctx)
         and ctx.get("intencao_conversacional") == "negacao_confirmacao_agendamento"
-        and eh_desistencia_fluxo(texto_usuario)
     ):
         dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
         draft = ctx.get("draft_agendamento") or {}
@@ -3708,6 +3941,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         servico=servico_slot,
                     )
 
+                    print(f"[TYPE_AUDIT_3800] resultado_conflito={type(resultado_conflito)} value={repr(resultado_conflito)}", flush=True)
                     if resultado_conflito and resultado_conflito.get("conflito"):
                         ctx["profissional_escolhido"] = profissional_escolhido
                         ctx["estado_fluxo"] = "aguardando_escolha_horario"
@@ -3888,6 +4122,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         servico=servico_escolhido,
                     )
 
+                    print(f"[TYPE_AUDIT_3981] resultado_conflito={type(resultado_conflito)} value={repr(resultado_conflito)}", flush=True)
                     if resultado_conflito and resultado_conflito.get("conflito"):
                         ctx["profissional_escolhido"] = profissional_slot
                         ctx["servico"] = servico_escolhido
