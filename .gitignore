@@ -8,3 +8,6 @@ RESUMO_*.md
 TESTES_*.md
 tests/resultado_*.json
 tests/resultado_stress_*.json
+
+__pycache__/
+*.pyc
