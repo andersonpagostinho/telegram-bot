@@ -6,8 +6,19 @@ MAPA_*.md
 PONTO_*.md
 RESUMO_*.md
 TESTES_*.md
+
 tests/resultado_*.json
 tests/resultado_stress_*.json
 
 __pycache__/
 *.pyc
+
+# Credenciais locais
+.env
+credentials.json
+firebase_credentials.json
+google_calendar.json
+webclient.json
+BotTelegramOAuth.json
+agendabot-*.json
+client_secret*.json
