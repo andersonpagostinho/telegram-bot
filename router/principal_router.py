@@ -1920,9 +1920,33 @@ async def detectar_alteracao_draft_agendamento(
     if servico_detectado:
 
         if normalizar(servico_detectado) != normalizar(servico_atual or ""):
+            hora_match = re.search(
+                r'\b(?:às|as)?\s*(\d{1,2})(?::(\d{2}))?\s*h?\b',
+                texto_usuario or "",
+                re.IGNORECASE
+            )
+
+            hora_explicita = None
+
+            if hora_match:
+                h = int(hora_match.group(1))
+                m = int(hora_match.group(2) or 0)
+
+                if 0 <= h <= 23 and 0 <= m <= 59:
+                    hora_explicita = f"{h:02d}:{m:02d}:00"
+
+            print(
+                f"🧪 [ALTERACAO_DRAFT_SERVICO_FINAL] "
+                f"servico_detectado={servico_detectado} "
+                f"| hora_explicita={hora_explicita} "
+                f"| texto={texto_usuario}",
+                flush=True
+            )
+
             return {
                 "tipo": "servico",
-                "valor": servico_detectado
+                "valor": servico_detectado,
+                "hora_explicita": hora_explicita,
             }
 
     # =====================================================
@@ -2620,6 +2644,12 @@ async def resolver_alteracao_draft_agendamento(
                 parse_mode=None
             )
 
+        hora_explicita = alteracao.get("hora_explicita")
+
+        if hora_explicita:
+            data_atual = data_hora.split("T")[0]
+            data_hora = f"{data_atual}T{hora_explicita}"
+
         duracao = estimar_duracao(novo_servico)
 
         data = data_hora.split("T")[0]
@@ -2655,6 +2685,17 @@ async def resolver_alteracao_draft_agendamento(
             sugestoes = conflito.get("sugestoes") or []
 
             if sugestoes:
+                ctx["melhor_sugestao"] = {
+                    "hora": sugestoes[0],
+                    "profissional": profissional,
+                    "servico": novo_servico,
+                    "data": data,
+                    "duracao": duracao,
+                    "origem": "alteracao_servico_conflito",
+                }
+
+                await salvar_contexto_temporario(user_id, ctx)
+
                 return await _send_and_stop(
                     context,
                     user_id,
@@ -2677,10 +2718,14 @@ async def resolver_alteracao_draft_agendamento(
             )
 
         draft["servico"] = novo_servico
+        draft["profissional"] = profissional
+        draft["data_hora"] = data_hora
         draft["modo_prechecagem"] = True
 
         ctx["draft_agendamento"] = draft
         ctx["servico"] = novo_servico
+        ctx["profissional_escolhido"] = profissional
+        ctx["data_hora"] = data_hora
         ctx["estado_fluxo"] = "agendando"
         ctx["aguardando_confirmacao_agendamento"] = True
         ctx["dados_confirmacao_agendamento"] = {
@@ -3626,6 +3671,63 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ):
 
         _audit_confirmacao("BLOCO_PENDENTE_ENTRADA", ctx, texto_usuario)
+
+        melhor_sugestao = ctx.get("melhor_sugestao") or {}
+
+        if melhor_sugestao and eh_confirmacao(texto_usuario):
+            hora = melhor_sugestao.get("hora")
+            data = melhor_sugestao.get("data")
+            servico = melhor_sugestao.get("servico")
+            profissional = melhor_sugestao.get("profissional")
+            duracao = melhor_sugestao.get("duracao") or estimar_duracao(servico)
+
+            if hora and data and servico and profissional:
+                nova_data_hora = (
+                    f"{data}T{hora}:00"
+                    if len(str(hora)) == 5
+                    else f"{data}T{hora}"
+                )
+
+                ctx["servico"] = servico
+                ctx["profissional_escolhido"] = profissional
+                ctx["data_hora"] = nova_data_hora
+                ctx["estado_fluxo"] = "agendando"
+                ctx["aguardando_confirmacao_agendamento"] = True
+
+                ctx["draft_agendamento"] = {
+                    "profissional": profissional,
+                    "servico": servico,
+                    "data_hora": nova_data_hora,
+                    "modo_prechecagem": True,
+                }
+
+                ctx["dados_confirmacao_agendamento"] = {
+                    "origem": "aceite_melhor_sugestao",
+                    "profissional": profissional,
+                    "servico": servico,
+                    "data_hora": nova_data_hora,
+                    "duracao": duracao,
+                    "descricao": f"{servico.capitalize()} com {profissional}",
+                }
+
+                ctx.pop("melhor_sugestao", None)
+                ctx.pop("horarios_sugeridos", None)
+                ctx.pop("modo_escolha_horario", None)
+                ctx.pop("aguardando_escolha_horario", None)
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"Perfeito 😊\n\n"
+                        f"{servico.capitalize()} com {profissional}\n"
+                        f"📆 {formatar_data_hora_br(nova_data_hora)}\n\n"
+                        "Posso confirmar?"
+                    ),
+                    parse_mode=None,
+                )
 
         dados_confirmacao = ctx.get("dados_confirmacao_agendamento") or {}
         draft = ctx.get("draft_agendamento") or {}
