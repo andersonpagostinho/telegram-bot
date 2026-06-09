@@ -2129,6 +2129,7 @@ async def resolver_alteracao_draft_agendamento(
         nova_data_hora = alteracao.get("valor")
 
         if not (servico and profissional and nova_data_hora):
+            await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2181,6 +2182,7 @@ async def resolver_alteracao_draft_agendamento(
         data_nova = alteracao.get("valor")
 
         if not (servico and profissional and data_nova):
+            await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2209,13 +2211,6 @@ async def resolver_alteracao_draft_agendamento(
             f"Perfeito 😊 Para *{servico}* com *{profissional}*, qual horário você prefere nesse dia?"
         )
 
-    if not (servico and profissional and data_hora):
-        return await _send_and_stop(
-            context,
-            user_id,
-            "Consigo ajustar, mas preciso manter o serviço, profissional e horário do agendamento. Me diga como prefere seguir.",
-            parse_mode=None
-        )
 
     # =====================================================
     # 🔥 ALTERAÇÃO DE HORÁRIO
@@ -2857,6 +2852,24 @@ async def resolver_alteracao_draft_agendamento(
         data = data_hora.split("T")[0]
         hora = data_hora.split("T")[1][:5]
 
+        if not profissional:
+            draft["servico"] = novo_servico
+            ctx["draft_agendamento"] = draft
+            ctx["servico"] = novo_servico
+            ctx["data_hora"] = data_hora
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                (
+                    f"Ótimo, vou agendar {novo_servico} para você.\n\n"
+                    "Qual profissional você prefere?"
+                ),
+                parse_mode=None
+            )
+
         valido = await validar_profissional_para_servico(
             dono_id=user_id,
             profissional=profissional,
@@ -2864,6 +2877,7 @@ async def resolver_alteracao_draft_agendamento(
         )
 
         if not valido.get("ok"):
+            await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2909,6 +2923,7 @@ async def resolver_alteracao_draft_agendamento(
                     parse_mode=None
                 )
 
+            await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
