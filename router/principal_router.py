@@ -7,6 +7,7 @@ from utils.context_manager import atualizar_contexto, limpar_contexto_agendament
 from services.gpt_executor import executar_acao_gpt
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+from services.onboarding_service import processar_onboarding_endereco_dono
 from services.gpt_service import (
     processar_com_gpt_com_acao as chamar_gpt_com_contexto,
     gerar_resposta_p1,
@@ -3160,6 +3161,31 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         print(f"️ [CAMADA_ADMIN] erro inesperado — continuando fluxo normal: {_e_admin}", flush=True)
 
     # =========================================================
+    # 🚀 ONBOARDING: Coleta obrigatória de endereço no primeiro acesso
+    # Executa APENAS para dono (user_id == dono_id), ANTES de fluxos normais
+    # =========================================================
+    try:
+        dono_id_onboarding = await obter_id_dono(user_id)
+
+        # Garantia multi-tenant: SOMENTE dono dispara onboarding
+        if str(user_id) == str(dono_id_onboarding):
+            resultado_onboarding = await processar_onboarding_endereco_dono(
+                user_id=user_id,
+                dono_id=dono_id_onboarding,
+                texto_usuario=texto_usuario,
+                ctx=ctx,
+                context=context,
+            )
+
+            if resultado_onboarding is not None:
+                if resultado_onboarding.get("acao") == "send_stop":
+                    resposta = resultado_onboarding.get("resposta", "")
+                    return await _send_and_stop(context, user_id, resposta)
+                return resultado_onboarding
+    except Exception as _e_onboarding:
+        print(f"️ [ONBOARDING] erro inesperado — continuando fluxo normal: {_e_onboarding}", flush=True)
+
+    # =========================================================
     # 🛡️ PRIORIDADE: preenchimento de SLOT AGUARDANDO_PROFISSIONAL
     # Executa ANTES de classificadores para impedir confusão com ajuste incremental
     # =========================================================
@@ -3368,7 +3394,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
     )
 
-    if preservar_continuidade_data or preservar_confirmacao_pendente:
+    # 🔥 P0: NÃO preservar intenção se nova classificação é lateral (consulta_disponibilidade_servico)
+    # Consultas sobre preço/disponibilidade de OUTRO serviço não devem preservar contexto de agendamento
+    nova_intencao = class_intencao.get("intencao_conversacional")
+    eh_lateral = nova_intencao in ("consulta_disponibilidade_servico", "consulta_disponibilidade_aberta")
+
+    if (preservar_continuidade_data or preservar_confirmacao_pendente) and not eh_lateral:
         print(
             "🔒 [CONTEXTO PRESERVADO] fluxo crítico ativo — não sobrescrevendo intenção",
             flush=True
@@ -3932,14 +3963,20 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         dt_ajustada = dt_base.replace(hour=hora_minuto[0], minute=hora_minuto[1], second=0, microsecond=0)
                         data_hora_ajustada = dt_ajustada.isoformat()
 
-                        # Atualizar contexto com nova data_hora
+                        # Atualizar contexto com nova data_hora — sincronizar todas as 3 estruturas
                         draft["data_hora"] = data_hora_ajustada
                         ctx["draft_agendamento"] = draft
+                        ctx["data_hora"] = data_hora_ajustada
+
                         ctx["dados_confirmacao_agendamento"] = {
+                            "origem": "confirmacao_pendente",
                             "profissional": profissional,
                             "servico": servico,
                             "data_hora": data_hora_ajustada,
+                            "duracao": duracao,
+                            "descricao": f"{servico.capitalize()} com {profissional}",
                         }
+
                         ctx["estado_fluxo"] = "agendando"
                         ctx["aguardando_confirmacao_agendamento"] = True
 
@@ -8241,6 +8278,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         texto_norm = normalizar(texto_usuario or "")
         so_hora = bool(re.match(r"^(?:as\s*)?\d{1,2}(?::\d{2})?$", texto_norm))
+
+        # Detectar dia da semana e número do dia — usado em linha 8297
+        eh_dia_semana = any(d in texto_norm for d in [
+            "segunda", "terca", "terça", "quarta", "quinta", "sexta", "sabado", "sábado", "domingo"
+        ])
+        eh_dia_numero = bool(re.search(r"\b(?:dia\s*)?\d{1,2}\b", texto_norm))
 
         if so_hora and not data_hora_ctx:
             ctx["hora_pendente"] = texto_usuario
