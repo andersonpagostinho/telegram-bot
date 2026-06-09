@@ -4319,6 +4319,30 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             if servico_slot and profissional_escolhido and data_hora_slot:
 
                 # =====================================================
+                # 🔥 VALIDAR COMPATIBILIDADE DO PROFISSIONAL
+                # Antes de qualquer coisa, verificar se o profissional
+                # atende o serviço solicitado.
+                # =====================================================
+                valido = await validar_profissional_para_servico(
+                    dono_id=dono_id,
+                    profissional=profissional_escolhido,
+                    servico=servico_slot
+                )
+
+                print(f"[TYPE_AUDIT_4319] validar_prof_servico={type(valido)} value={repr(valido)}", flush=True)
+                if not valido.get("ok"):
+                    await salvar_contexto_temporario(user_id, ctx)
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        (
+                            f"❌ {profissional_escolhido} não atende {servico_slot}.\n\n"
+                            "Quer escolher outra profissional?"
+                        ),
+                        parse_mode=None
+                    )
+
+                # =====================================================
                 # 🔥 PRÉ-CHECK DE CONFLITO ANTES DE CONFIRMAR
                 # Profissional escolhida + serviço + data_hora já existem.
                 # Nunca pedir confirmação antes de validar agenda.
