@@ -3,9 +3,6 @@ import os
 import json
 import re
 import traceback
-
-print("⚠️ Falha no filtro/auditoria CTX->GPT:", flush=True)
-print(traceback.format_exc(), flush=True)
 import importlib
 import inspect
 import unidecode  # se preferir, troque por: from unidecode import unidecode
