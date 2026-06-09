@@ -3500,6 +3500,40 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         }
 
     # ---------------------------------------------------------
+    # ✅ P0 COMPLEMENTAR: Consultas informativas em contexto idle
+    # (antes de ignorar como "contexto_neutro")
+    # ---------------------------------------------------------
+    estado_fluxo = ctx.get("estado_fluxo")
+    if not estado_fluxo or estado_fluxo == "idle":
+        from services.informacao_service import responder_consulta_informativa
+        resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
+
+        if resposta_informativa:
+            # Detectar se há intenção simultânea de agendamento + consulta
+            tem_agendar = any(x in normalizar(mensagem) for x in [
+                "agendar", "marcar", "horario", "horário", "dá para", "da para",
+                "pode ser", "posso", "consigo", "faço", "faz", "reserva"
+            ])
+
+            tem_temporal = any(x in normalizar(mensagem) for x in [
+                "amanhã", "hoje", "segunda", "terça", "quarta", "quinta", "sexta",
+                "sábado", "domingo", "às", "as ", "10h", "11h", "12h", "13h",
+                "14h", "15h", "16h", "17h", "18h", "19h", "20h"
+            ])
+
+            print(f"✅ [CONSULTA_INFORMATIVA_IDLE] tem_agendar={tem_agendar} | tem_temporal={tem_temporal}", flush=True)
+
+            if tem_agendar and tem_temporal:
+                # Híbrido: consulta + agendamento — responder mas deixar prosseguir
+                print(" [CONSULTA_INFORMATIVA_IDLE] Consultando + agendando — salvando resposta pendente")
+                ctx["resposta_informativa_pendente"] = resposta_informativa
+                # Continuar para extração de slots
+            else:
+                # Pura consulta informativa — responder e parar
+                print(" [CONSULTA_INFORMATIVA_IDLE] Consulta pura — respondendo")
+                return await _send_and_stop(context, user_id, resposta_informativa)
+
+    # ---------------------------------------------------------
     # neutro fora de fluxo não deve abrir atendimento,
     # exceto quando houver sinal humano operacional
     # ---------------------------------------------------------

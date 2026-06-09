@@ -77,6 +77,29 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
     except Exception:
         dono_id = user_id
 
+    # 📍 Endereço/Localização do negócio
+    palavras_chave_endereco = [
+        "qual o endereco", "qual o endereço", "qual seu endereco", "qual seu endereço",
+        "qual é o endereco", "qual é o endereço", "onde fica", "onde você fica",
+        "onde vocês ficam", "onde ficamos", "como chegar", "qual a localizacao",
+        "qual a localização", "endereco do salao", "endereco do salão",
+        "endereco da loja", "endereco do negocio", "endereco do estabelecimento",
+        "endereço do salão", "endereço da loja", "endereço do negócio", "endereço do estabelecimento",
+        "localizacao do salao", "localização do salão", "localizacao da loja"
+    ]
+
+    if any(p in mensagem_normalizada for p in palavras_chave_endereco):
+        from services.onboarding_service import buscar_endereco_negocio
+
+        endereco = await buscar_endereco_negocio(dono_id)
+        if endereco:
+            if endereco.get("completo"):
+                return f"📍 *Nosso endereço:*\n{endereco['completo']}"
+            elif endereco.get("rua") and endereco.get("numero"):
+                endereco_str = f"{endereco['rua']}, {endereco['numero']}"
+                return f"📍 *Nosso endereço:*\n{endereco_str}"
+        return "❌ Desculpe, não tenho o endereço configurado no sistema ainda."
+
     # 📌 Listar todos os serviços disponíveis
     if "servi" in mensagem_normalizada and ("oferec" in mensagem_normalizada or "tem" in mensagem_normalizada):
         profissionais = (await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais")) or {}
