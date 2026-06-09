@@ -164,9 +164,17 @@ def resolver_proximo_passo_real(
     objetivo = contexto.get("objetivo_conversacional")
     intencao = contexto.get("intencao_conversacional")
 
+    # =========================================================
+    # 🔥 PATCH 2: CONSULTA + AGENDAMENTO
+    # Se há resposta_informativa_pendente, é fluxo MISTO
+    # permitir processar slots mesmo em "consulta pura"
+    # =========================================================
+    tem_resposta_informativa = contexto.get("resposta_informativa_pendente") is not None
+
     if (
-        objetivo == "consultar_disponibilidade_por_servico"
-        or intencao == "consulta_disponibilidade_servico"
+        (objetivo == "consultar_disponibilidade_por_servico"
+        or intencao == "consulta_disponibilidade_servico")
+        and not tem_resposta_informativa
     ):
         print(
             "🛡 [CONSULTA PURA] resolver_proximo_passo_real bloqueado — "
@@ -1265,15 +1273,53 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
             or ctx.get("intencao_conversacional") == "consulta_disponibilidade_servico"
         )
 
-        if eh_consulta_pura_servico:
+        # =========================================================
+        # 🔥 PATCH 2: CONSULTA + AGENDAMENTO
+        # Se há resposta_informativa_pendente, é fluxo MISTO
+        # permitir salvar slots mesmo em "consulta pura"
+        # =========================================================
+        tem_resposta_informativa = ctx.get("resposta_informativa_pendente") is not None
+
+        if eh_consulta_pura_servico and not tem_resposta_informativa:
             print(
                 f"🛡 [CONSULTA PURA] serviço detectado='{servico_detectado}', "
                 "mas não entra em ctx['servico'] nem draft_agendamento",
                 flush=True
             )
         else:
-            ctx["servico"] = servico_detectado
-            draft["servico"] = servico_detectado
+            # =========================================================
+            # 🔥 PATCH: DETECTAR MÚLTIPLOS SERVIÇOS
+            # "quero corte e escova" deve perguntar, não escolher um
+            # =========================================================
+            profs_multiplos = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+            servicos_catalogo_multiplos = set()
+
+            for _, prof_data in profs_multiplos.items():
+                for s in (prof_data.get("servicos") or []):
+                    servicos_catalogo_multiplos.add(normalizar(str(s)))
+
+            texto_norm_multiplos = normalizar(texto)
+            servicos_mencionados = []
+
+            for serv_cat in servicos_catalogo_multiplos:
+                if serv_cat in texto_norm_multiplos:
+                    servicos_mencionados.append(serv_cat)
+
+            print(f"🧪 [MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
+
+            if len(servicos_mencionados) > 1:
+                ctx["servicos_opcao"] = servicos_mencionados
+                ctx["estado_fluxo"] = "aguardando_servico"
+
+                if ctx.get("data_hora"):
+                    draft["data_hora"] = ctx.get("data_hora")
+                    draft["servico"] = None
+                    ctx["draft_agendamento"] = draft
+
+                print(f"🧪 [MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
+            else:
+                ctx["servico"] = servico_detectado
+                draft["servico"] = servico_detectado
 
     # ---------------- data/hora ----------------
     dt_detectado = interpretar_data_e_hora(texto)
@@ -1792,6 +1838,32 @@ async def precheck_e_confirmacao_agendamento(
             f"Perfeito — {servico} com {prof} {frase_data}.\n\nQual horário você prefere?",
             ctx,
             "",
+        )
+
+    # =========================================================
+    # 🔥 VALIDAR COMPATIBILIDADE ANTES DE CONFLITO
+    # =========================================================
+    valido = await validar_profissional_para_servico(
+        dono_id=dono_id,
+        profissional=prof,
+        servico=servico
+    )
+
+    print(f"[PRE-CHECK COMPATIBILIDADE] prof={prof} | servico={servico} | ok={valido.get('ok')}", flush=True)
+    if not valido.get("ok"):
+        draft = ctx.get("draft_agendamento") or {}
+        ctx["draft_agendamento"] = draft
+        ctx["servico"] = servico
+        ctx["data_hora"] = data_hora
+        await salvar_contexto_temporario(user_id, ctx)
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"❌ {prof} não atende {servico}.\n\n"
+                "Quer escolher outra profissional?"
+            ),
+            parse_mode=None
         )
 
     # =========================================================
@@ -3769,8 +3841,32 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         from services.informacao_service import responder_consulta_informativa
         resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
         if resposta_informativa:
-            print(" Consulta informativa detectada (idle). Respondendo diretamente.")
-            return await _send_and_stop(context, user_id, resposta_informativa)
+            # =========================================================
+            # 🔥 PATCH: CONSULTA + AGENDAMENTO
+            # "quanto custa corte e dá para agendar amanhã às 10?"
+            # Detectar se há intenção de agendamento + sinal temporal
+            # Se sim, permitir continuar para extração de slots
+            # =========================================================
+            tem_agendar = any(x in normalizar(mensagem) for x in [
+                "agendar", "marcar", "horario", "horário", "dá para", "da para",
+                "pode ser", "posso", "consigo", "faço", "faz"
+            ])
+
+            tem_temporal = any(x in normalizar(mensagem) for x in [
+                "amanhã", "hoje", "segunda", "terça", "quarta", "quinta", "sexta",
+                "sábado", "domingo", "às", "as ", "10h", "11h", "12h", "13h",
+                "14h", "15h", "16h", "17h", "18h", "19h", "20h"
+            ])
+
+            print(f"🧪 [CONSULTA_AGENDAMENTO] tem_agendar={tem_agendar} | tem_temporal={tem_temporal}", flush=True)
+
+            if tem_agendar and tem_temporal:
+                print(" [CONSULTA_AGENDAMENTO] Respondendo consulta mas permitindo agendamento")
+                ctx["resposta_informativa_pendente"] = resposta_informativa
+                # Continuar para extração de slots sem retornar
+            else:
+                print(" Consulta informativa detectada (idle). Respondendo diretamente.")
+                return await _send_and_stop(context, user_id, resposta_informativa)
 
     # 🔐 dono do negócio
     dono_id = await obter_id_dono(user_id)
@@ -9136,6 +9232,27 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         f"prof_indiferente={ctx.get('profissional_indiferente')}",
         flush=True
     )
+
+    # =========================================================
+    # 🔥 VALIDAR COMPATIBILIDADE — PRÉ-EXTRAÇÃO
+    # Se prof_auto foi detectado, validar se atende servico_auto
+    # =========================================================
+    if prof_auto and servico_auto:
+        valido_auto = await validar_profissional_para_servico(
+            dono_id=dono_id,
+            profissional=prof_auto,
+            servico=servico_auto
+        )
+
+        print(f"🧪 [VALIDAR_PROF_AUTO] prof={prof_auto} | servico={servico_auto} | ok={valido_auto.get('ok')}", flush=True)
+        if not valido_auto.get("ok"):
+            # Profissional incompatível — limpar profissional, manter serviço/horário
+            ctx["profissional_escolhido"] = None
+            draft_auto["profissional"] = None
+            ctx["draft_agendamento"] = draft_auto
+            prof_auto = None
+            await salvar_contexto_temporario(user_id, ctx)
+            print(f"🧪 [PROF REJEITADO] {prof_auto} não atende {servico_auto}", flush=True)
 
     # 🛡 GUARDA CONTRA CONSULTA PURA
     eh_consulta_pura = (
