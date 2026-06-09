@@ -1994,6 +1994,10 @@ async def detectar_alteracao_draft_agendamento(
         if nome_norm in t:
 
             if normalizar(nome) != normalizar(profissional_atual or ""):
+                print(
+                    f"🧪 [DETECTAR_ALTERACAO] tipo=profissional | novo={nome} | atual={profissional_atual}",
+                    flush=True
+                )
                 return {
                     "tipo": "profissional",
                     "valor": nome
@@ -2438,6 +2442,7 @@ async def resolver_alteracao_draft_agendamento(
 
         print(f"[TYPE_AUDIT_2163] valido={type(valido)} value={repr(valido)}", flush=True)
         if not valido.get("ok"):
+            await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2457,6 +2462,7 @@ async def resolver_alteracao_draft_agendamento(
         )
 
         if not validacao.get("permitido"):
+            await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2555,6 +2561,7 @@ async def resolver_alteracao_draft_agendamento(
 
             if sugestoes:
                 primeira = sugestoes[0]
+                await salvar_contexto_temporario(user_id, ctx)
                 return await _send_and_stop(
                     context,
                     user_id,
@@ -2566,6 +2573,7 @@ async def resolver_alteracao_draft_agendamento(
                     parse_mode=None
                 )
 
+            await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -4272,7 +4280,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and not ctx.get("clareza_periodo_hora_resolvida")
     ):
 
-        print(" [PRIORIDADE] ajuste incremental antes da confirmação", flush=True)
+        print(
+            f" [PRIORIDADE] ajuste incremental antes da confirmação | intencao={ctx.get('intencao_conversacional')} | objetivo={ctx.get('objetivo_conversacional')}",
+            flush=True
+        )
 
         alteracao = await detectar_alteracao_draft_agendamento(
             texto_usuario=texto_usuario,
@@ -4874,16 +4885,81 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
 
     # =========================================================
+    # 🔥 MUDANÇA DE PROFISSIONAL DURANTE FLUXO AGENDANDO
+    # Detecta quando usuário quer trocar profissional após agendamento completo
+    # Sem confirmação pendente, sem interrupção de fluxo
+    # =========================================================
+    if (
+        ctx.get("estado_fluxo") == "agendando"
+        and not eh_confirmacao_pendente_ativa(ctx)
+    ):
+        draft = ctx.get("draft_agendamento") or {}
+        servico_atual = draft.get("servico") or ctx.get("servico")
+        data_hora_atual = draft.get("data_hora") or ctx.get("data_hora")
+        profissional_atual = draft.get("profissional") or ctx.get("profissional_escolhido")
+
+        if servico_atual and data_hora_atual and profissional_atual:
+            texto_norm = normalizar(texto_usuario or "")
+
+            eh_rejeicao = any(
+                x in texto_norm
+                for x in ["não quero", "nao quero", "não com", "nao com", "sem"]
+            )
+
+            if not eh_rejeicao:
+                print(
+                    f" [AGENDANDO_PROFISSIONAL] detectando mudança | estado=agendando | confirmacao={eh_confirmacao_pendente_ativa(ctx)}",
+                    flush=True
+                )
+
+                alteracao_prof = await detectar_alteracao_draft_agendamento(
+                    texto_usuario=texto_usuario,
+                    ctx=ctx,
+                    dono_id=dono_id
+                )
+
+                if alteracao_prof and alteracao_prof.get("tipo") == "profissional":
+                    novo_profissional = alteracao_prof.get("valor")
+
+                    if normalizar(novo_profissional or "") != normalizar(profissional_atual or ""):
+                        print(
+                            f" [AGENDANDO_PROFISSIONAL_RESOLVER] chamando resolver | de={profissional_atual} | para={novo_profissional}",
+                            flush=True
+                        )
+
+                        return await resolver_alteracao_draft_agendamento(
+                            update=update,
+                            context=context,
+                            user_id=user_id,
+                            ctx=ctx,
+                            alteracao=alteracao_prof,
+                            texto_usuario=texto_usuario
+                        )
+
+    # =========================================================
     # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
     # =========================================================
     if eh_confirmacao_pendente_ativa(ctx):
+        print(
+            f" [CONFIRMACAO_PENDENTE] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
+            flush=True
+        )
         alteracao_draft = await detectar_alteracao_draft_agendamento(
             texto_usuario=texto_usuario,
             ctx=ctx,
             dono_id=dono_id
         )
 
+        print(
+            f" [CONFIRMACAO_PENDENTE_DETECTADO] tipo={alteracao_draft.get('tipo') if alteracao_draft else None}",
+            flush=True
+        )
+
         if alteracao_draft:
+            print(
+            f" [CONFIRMACAO_PENDENTE_RESOLVER] chamando resolver para tipo={alteracao_draft.get('tipo')}",
+            flush=True
+        )
             return await resolver_alteracao_draft_agendamento(
                 update=update,
                 context=context,
@@ -4892,6 +4968,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 alteracao=alteracao_draft,
                 texto_usuario=texto_usuario
             )
+    else:
+        print(
+            f" [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
+            flush=True
+        )
 
     # =========================================================
     # 🔥 CONTINUIDADE FORÇADA — aguardando_data

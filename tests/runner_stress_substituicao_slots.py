@@ -109,6 +109,11 @@ def resumo_ctx(ctx):
         "draft_servico": draft.get("servico"),
         "draft_data_hora": draft.get("data_hora"),
         "draft_prof": draft.get("profissional"),
+        "intencao": ctx.get("intencao_conversacional"),
+        "tipo_ajuste": ctx.get("tipo_ajuste_incremental"),
+        "objetivo": ctx.get("objetivo_conversacional"),
+        "estado_fluxo": ctx.get("estado_fluxo"),
+        "aguardando_confirmacao": ctx.get("aguardando_confirmacao_agendamento"),
     }
 
 
@@ -212,14 +217,95 @@ async def main():
     if contextos[1].get("draft_servico") != "hidratacao":
         falhas.append(f"MSG2: draft_servico != 'hidratacao' (obtido {contextos[1].get('draft_servico')})")
 
+    status_cenario_1 = "FALHA" if falhas else "SUCESSO"
     if falhas:
         print("  Status: FALHA")
         for f in falhas:
             print(f"    - {f}")
-        return 1
     else:
         print("  Status: SUCESSO")
-        return 0
+
+    # CENARIO 2: Profissional muda
+    print("\n" + "="*100)
+    print("CENARIO 2: Profissional muda (Bruna -> Carla)")
+    print("-" * 100)
+
+    user_id_2 = "user_cenario_2"
+    contexto_mock.set_contexto(user_id_2, {})
+
+    mensagens_2 = [
+        ("quero agendar corte amanha as 10 com Bruna", "MSG1: Agendamento com Bruna"),
+        ("na verdade quero Carla", "MSG2: Muda para Carla"),
+    ]
+
+    contextos_2 = []
+
+    for i, (texto, desc) in enumerate(mensagens_2, 1):
+        print(f"\n[MSG {i}] {desc}")
+        print(f"  Entrada: {repr(texto)}")
+
+        try:
+            await pr.roteador_principal(
+                user_id=user_id_2,
+                mensagem=texto,
+                update=None,
+                context=None
+            )
+        except Exception as e:
+            print(f"  Erro: {type(e).__name__}")
+
+        ctx = contexto_mock.get_contexto_final(user_id_2)
+        resumo = resumo_ctx(ctx)
+        contextos_2.append(resumo)
+
+        print(f"  Contexto:")
+        for k, v in resumo.items():
+            print(f"    {k:20} = {v}")
+
+    # Validacoes Cenario 2
+    print("\n[VALIDACOES]")
+    falhas_2 = []
+
+    if contextos_2[0].get("servico") != "corte":
+        falhas_2.append(f"MSG1: servico != 'corte' (obtido {contextos_2[0].get('servico')})")
+
+    if contextos_2[0].get("profissional") != "Bruna":
+        falhas_2.append(f"MSG1: profissional != 'Bruna' (obtido {contextos_2[0].get('profissional')})")
+
+    if contextos_2[1].get("servico") != "corte":
+        falhas_2.append(f"MSG2: servico != 'corte' (obtido {contextos_2[1].get('servico')})")
+
+    if contextos_2[1].get("profissional") != "Carla":
+        falhas_2.append(f"MSG2: profissional != 'Carla' (obtido {contextos_2[1].get('profissional')})")
+
+    if contextos_2[0].get("data_hora") is None:
+        falhas_2.append("MSG1: data_hora nao foi preenchida")
+
+    if contextos_2[1].get("data_hora") != contextos_2[0].get("data_hora"):
+        falhas_2.append(f"MSG2: data_hora foi alterada")
+
+    if contextos_2[1].get("draft_servico") != "corte":
+        falhas_2.append(f"MSG2: draft_servico != 'corte' (obtido {contextos_2[1].get('draft_servico')})")
+
+    if contextos_2[1].get("draft_prof") != "Carla":
+        falhas_2.append(f"MSG2: draft_prof != 'Carla' (obtido {contextos_2[1].get('draft_prof')})")
+
+    status_cenario_2 = "FALHA" if falhas_2 else "SUCESSO"
+    if falhas_2:
+        print("  Status: FALHA")
+        for f in falhas_2:
+            print(f"    - {f}")
+    else:
+        print("  Status: SUCESSO")
+
+    # Resumo final
+    print("\n" + "="*100)
+    print("RESUMO FINAL")
+    print("="*100)
+    print(f"Cenario 1 (Servico muda):     {status_cenario_1}")
+    print(f"Cenario 2 (Profissional muda): {status_cenario_2}")
+
+    return 1 if (falhas or falhas_2) else 0
 
 
 if __name__ == "__main__":
