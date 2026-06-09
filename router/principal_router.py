@@ -57,7 +57,7 @@ async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario):
     try:
         await salvar_contexto_temporario(user_id, ctx)
     except Exception as e:
-        print(f"⚠️ erro ao salvar contexto: {e}", flush=True)
+        print(f"️ erro ao salvar contexto: {e}", flush=True)
 
     return await _send_and_stop(context, user_id, mensagem)
 
@@ -904,18 +904,63 @@ def detectar_bloqueio_agenda_profissional(texto: str, nomes_profissionais: list[
 def eh_confirmacao(txt: str) -> bool:
     """
     Confirmação genérica (sem depender de comando).
+    Evita falso positivo em perguntas como "pode ver?".
     """
-    t = (txt or "").strip().lower()
+    t = normalizar(txt or "")
+
+    if not t:
+        return False
+
     if "nao" in t or "não" in t:
         return False
-    gatilhos = [
-        "confirmar", "confirma", "confirme", "confirmo",
-        "pode agendar", "pode marcar", "agende", "marque",
-        "fechar", "ok", "confirmado",
-        "sim", "pode", "pode ser", "pode sim", "pode ir", "manda ver",
-        "certo", "perfeito", "beleza", "blz",
+
+    perguntas_operacionais = [
+        "pode ver",
+        "pode verificar",
+        "pode olhar",
+        "pode consultar",
+        "pode checar",
+        "pode conferir",
+        "tem como",
+        "consegue ver",
+        "consegue verificar",
     ]
-    return any(g in t for g in gatilhos)
+
+    if any(p in t for p in perguntas_operacionais):
+        return False
+
+    gatilhos_exatos = {
+        "sim",
+        "ok",
+        "certo",
+        "perfeito",
+        "beleza",
+        "blz",
+        "confirmo",
+        "confirmado",
+        "pode",
+        "pode ser",
+        "pode sim",
+        "pode ir",
+        "manda ver",
+        "fechar",
+    }
+
+    if t in gatilhos_exatos:
+        return True
+
+    gatilhos_frase = [
+        "pode agendar",
+        "pode marcar",
+        "pode confirmar",
+        "confirmar",
+        "confirma",
+        "confirme",
+        "agende",
+        "marque",
+    ]
+
+    return any(g in t for g in gatilhos_frase)
 
 def eh_desistencia_fluxo(txt: str) -> bool:
     t = normalizar(txt or "")
@@ -1096,7 +1141,7 @@ def _audit_confirmacao(tag: str, ctx: dict, texto_usuario: str = ""):
         )
 
     except Exception as e:
-        print(f"⚠️ Falha em _audit_confirmacao({tag}): {e}", flush=True)
+        print(f"️ Falha em _audit_confirmacao({tag}): {e}", flush=True)
 
 
 # ----------------------------
@@ -1116,10 +1161,10 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     """
     # 🔥 blindagem obrigatória
     if not isinstance(ctx, dict):
-        print(f"⚠️ [extrair_slots_e_mesclar] ctx inválido recebido: {ctx}", flush=True)
+        print(f"️ [extrair_slots_e_mesclar] ctx inválido recebido: {ctx}", flush=True)
 
         if not isinstance(ctx, dict):
-            print(f"⚠️ ctx inválido — mantendo anterior", flush=True)
+            print(f"️ ctx inválido — mantendo anterior", flush=True)
             return ctx if isinstance(ctx, dict) else {}
     
     texto = (texto_usuario or "").strip()
@@ -1200,8 +1245,8 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
     # ---------------- data/hora ----------------
     dt_detectado = interpretar_data_e_hora(texto)
 
-    print("🧪 [MESCLAR] texto=", texto, flush=True)
-    print("🧪 [MESCLAR] dt_detectado=", dt_detectado, flush=True)
+    print(" [MESCLAR] texto=", texto, flush=True)
+    print(" [MESCLAR] dt_detectado=", dt_detectado, flush=True)
 
     # =========================================================
     # 🔥 HORA INCREMENTAL
@@ -1686,7 +1731,7 @@ async def precheck_e_confirmacao_agendamento(
     )
 
     if eh_placeholder:
-        print("🔥 [P0_PRECHECK] Bloqueando placeholder sem hora confirmada", flush=True)
+        print(" [P0_PRECHECK] Bloqueando placeholder sem hora confirmada", flush=True)
 
         ctx["estado_fluxo"] = "aguardando_horario"
         ctx["aguardando_confirmacao_agendamento"] = False
@@ -1718,7 +1763,7 @@ async def precheck_e_confirmacao_agendamento(
     # =========================================================
     # 🔥 PRE-CHECAGEM DE CONFLITO
     # =========================================================
-    print("🔥 [PRE-CHECK] Executando verificação de conflito...", flush=True)
+    print(" [PRE-CHECK] Executando verificação de conflito...", flush=True)
     dt_obj = datetime.fromisoformat(data_hora)
 
     conflito_info = await verificar_conflito_e_sugestoes_profissional(
@@ -1729,7 +1774,7 @@ async def precheck_e_confirmacao_agendamento(
         profissional=prof,
         servico=servico
     )
-    print("🔥 [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
+    print(" [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
 
     # =========================================================
     # ❌ TEM CONFLITO → SUGERE ALTERNATIVAS
@@ -1910,6 +1955,20 @@ async def detectar_alteracao_draft_agendamento(
             }
 
     # =====================================================
+    # 🔥 data_hora completa (data E hora)
+    # =====================================================
+    dt_novo = interpretar_data_e_hora(texto_usuario)
+    if dt_novo:
+        data_hora_atual = draft.get("data_hora") or ctx.get("data_hora")
+        data_base = data_hora_atual.split("T")[0] if data_hora_atual else dt_novo.strftime("%Y-%m-%d")
+
+        if _tem_indicio_de_hora(texto_usuario):
+            return {
+                "tipo": "data_hora",
+                "valor": dt_novo.strftime("%Y-%m-%dT%H:%M:%S")
+            }
+
+    # =====================================================
     # 🔥 troca de serviço
     # =====================================================
     servico_detectado = await encontrar_servico_mais_proximo(
@@ -1995,6 +2054,57 @@ async def resolver_alteracao_draft_agendamento(
         or draft.get("data_hora")
         or ctx.get("data_hora")
     )
+
+    # =====================================================
+    # 🔥 DATA_HORA COMPLETA (data E hora)
+    # =====================================================
+    if alteracao.get("tipo") == "data_hora":
+        nova_data_hora = alteracao.get("valor")
+
+        if not (servico and profissional and nova_data_hora):
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Consigo ajustar o horário, mas preciso manter o serviço e a profissional. Me diga como prefere seguir.",
+                parse_mode=None
+            )
+
+        duracao = estimar_duracao(servico)
+
+        draft["servico"] = servico
+        draft["profissional"] = profissional
+        draft["data_hora"] = nova_data_hora
+        draft["modo_prechecagem"] = True
+
+        ctx["draft_agendamento"] = draft
+        ctx["servico"] = servico
+        ctx["profissional_escolhido"] = profissional
+        ctx["data_hora"] = nova_data_hora
+        ctx["estado_fluxo"] = "agendando"
+        ctx["aguardando_confirmacao_agendamento"] = True
+
+        ctx["dados_confirmacao_agendamento"] = {
+            "origem": "alteracao_data_hora",
+            "profissional": profissional,
+            "servico": servico,
+            "data_hora": nova_data_hora,
+            "duracao": duracao,
+            "descricao": f"{servico.capitalize()} com {profissional}",
+        }
+
+        await salvar_contexto_temporario(user_id, ctx)
+
+        return await _send_and_stop(
+            context,
+            user_id,
+            (
+                f"Perfeito 😊\n\n"
+                f"{servico.capitalize()} com {profissional}\n"
+                f"📆 {formatar_data_hora_br(nova_data_hora)}\n\n"
+                "Posso confirmar?"
+            ),
+            parse_mode=None
+        )
 
     # =====================================================
     # 🔥 AJUSTE DE DATA — mantém serviço/profissional,
@@ -2124,6 +2234,31 @@ async def resolver_alteracao_draft_agendamento(
                 if 0 <= h <= 23 and 0 <= m <= 59:
                     data_atual = data_hora.split("T")[0]
                     data_hora = f"{data_atual}T{h:02d}:{m:02d}:00"
+
+        # =====================================================
+        # 🔥 DETECTAR NOVO SERVIÇO NA MESMA MENSAGEM
+        # Ex.: "quero escova com Gloria" — mudou profissional E serviço
+        # Só tenta se houver gatilho explícito de serviço no texto
+        # =====================================================
+        texto_norm = normalizar(texto_usuario or "")
+
+        tem_pedido_servico_explicito = any(x in texto_norm for x in [
+            "quero ",
+            "queria ",
+            "gostaria ",
+            "fazer ",
+            "trocar para ",
+            "mudar para ",
+        ])
+
+        if tem_pedido_servico_explicito:
+            servico_detectado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
+
+            if (
+                servico_detectado
+                and normalizar(servico_detectado) != normalizar(servico or "")
+            ):
+                servico = servico_detectado
 
         data = data_hora.split("T")[0]
         hora = data_hora.split("T")[1][:5]
@@ -2952,9 +3087,12 @@ def eh_continuacao_de_agendamento(txt: str, ctx: dict) -> bool:
 # ----------------------------
 
 async def roteador_principal(user_id: str, mensagem: str, update=None, context=None):
-    print("🚨 [principal_router] Arquivo carregado")
+    print(" [principal_router] Arquivo carregado")
 
+    # 🧹 Limpeza multilinha: remover quebras de linha e normalizar espaços
     texto_usuario = (mensagem or "").strip()
+    texto_usuario = " ".join(texto_usuario.split())  # Remove \n, \t, múltiplos espaços
+
     texto_lower = texto_usuario.lower().strip()
     tnorm = normalizar(texto_usuario)
 
@@ -2979,7 +3117,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🧑‍💼 BLOQUEIO GLOBAL — atendimento assumido pelo humano
     # =========================================================
     if ctx.get("controle_atendimento") == "humano":
-        print("🧑‍💼 [HANDOFF HUMANO] NeoEve em silêncio", flush=True)
+        print("‍ [HANDOFF HUMANO] NeoEve em silêncio", flush=True)
 
         return {
             "handled": True,
@@ -2998,7 +3136,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         await salvar_contexto_temporario(user_id, ctx)
 
-        print("🧑‍💼 [HANDOFF ATIVADO] cliente pediu humano", flush=True)
+        print("‍ [HANDOFF ATIVADO] cliente pediu humano", flush=True)
 
         return {
             "handled": True,
@@ -3019,14 +3157,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         if _resultado_admin is not None:
             return _resultado_admin
     except Exception as _e_admin:
-        print(f"⚠️ [CAMADA_ADMIN] erro inesperado — continuando fluxo normal: {_e_admin}", flush=True)
+        print(f"️ [CAMADA_ADMIN] erro inesperado — continuando fluxo normal: {_e_admin}", flush=True)
 
     # =========================================================
     # 🛡️ PRIORIDADE: preenchimento de SLOT AGUARDANDO_PROFISSIONAL
     # Executa ANTES de classificadores para impedir confusão com ajuste incremental
     # =========================================================
     if ctx.get("estado_fluxo") == "aguardando_profissional":
-        print("🛡️ [SLOT PROFISSIONAL EARLY RETURN] detectando profissional", flush=True)
+        print("️ [SLOT PROFISSIONAL EARLY RETURN] detectando profissional", flush=True)
 
         # Obter dono_id (estratégia padrão do router)
         dono_id_slot = await obter_id_dono(user_id)
@@ -3057,7 +3195,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     servicos_prof = {normalizar(str(s)) for s in (prof_doc.get("servicos") or [])}
                     if normalizar(servico_ctx) in servicos_prof:
                         # ✅ Válido! Preencher e retornar imediatamente
-                        print(f"🛡️ [PROFISSIONAL PREENCHIDO] {profissional_detectado}", flush=True)
+                        print(f"️ [PROFISSIONAL PREENCHIDO] {profissional_detectado}", flush=True)
 
                         ctx["profissional_escolhido"] = profissional_detectado
 
@@ -3099,7 +3237,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     aguardando_confirmar_consulta = ctx.get("aguardando_confirmacao_agendamento_por_consulta")
 
     if aguardando_confirmar_consulta:
-        print("🛡️ [CONSULTA PURA CONTINUIDADE EARLY RETURN] verificando resposta do usuário", flush=True)
+        print("️ [CONSULTA PURA CONTINUIDADE EARLY RETURN] verificando resposta do usuário", flush=True)
 
         txt_lower = (texto_usuario or "").strip().lower()
 
@@ -3113,11 +3251,11 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         if confirmacao_resposta:
             servico_sugerido = ctx.get("servico_sugerido_consulta")
-            print(f"🛡️ [CONSULTA->AGENDAMENTO] confirmou: servico_sugerido='{servico_sugerido}'", flush=True)
+            print(f"️ [CONSULTA->AGENDAMENTO] confirmou: servico_sugerido='{servico_sugerido}'", flush=True)
 
             # Verificação crítica: se não tem serviço, não pode entrar em agendamento
             if not servico_sugerido:
-                print("⚠️ [CONSULTA->AGENDAMENTO] servico_sugerido é None, retornando pergunta", flush=True)
+                print("️ [CONSULTA->AGENDAMENTO] servico_sugerido é None, retornando pergunta", flush=True)
                 resposta_texto = "Perfeito. Qual serviço você quer agendar?"
                 return await _send_and_stop(context, user_id, resposta_texto)
 
@@ -3134,12 +3272,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             await salvar_contexto_temporario(user_id, ctx_update)
 
             resposta_texto = f"Perfeito — {servico_sugerido}. Qual dia e horário você prefere?"
-            print(f"🛡️ [CONSULTA->AGENDAMENTO] resposta='{resposta_texto}'", flush=True)
+            print(f"️ [CONSULTA->AGENDAMENTO] resposta='{resposta_texto}'", flush=True)
 
             return await _send_and_stop(context, user_id, resposta_texto)
 
         elif eh_negacao:
-            print("🛡️ [CONSULTA CANCELADA] usuário negou agendamento", flush=True)
+            print("️ [CONSULTA CANCELADA] usuário negou agendamento", flush=True)
 
             ctx_update = {
                 "aguardando_confirmacao_agendamento_por_consulta": False,
@@ -3158,7 +3296,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     class_ctx = classificar_contexto_mensagem(texto_usuario, ctx)
 
-    print(f"🧭 [CLASSIFICADOR CONTEXTO] {class_ctx}", flush=True)
+    print(f" [CLASSIFICADOR CONTEXTO] {class_ctx}", flush=True)
 
     modo_conversa = class_ctx.get("modo_conversa")
 
@@ -3166,7 +3304,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # BLOQUEIA NeoEve para conversa pessoal
     # ---------------------------------------------------------
     if modo_conversa == "pessoal":
-        print("🛑 [NEOEVE SILENCIADA] conversa pessoal", flush=True)
+        print(" [NEOEVE SILENCIADA] conversa pessoal", flush=True)
 
         return {
             "handled": True,
@@ -3190,7 +3328,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         estado_fluxo = ctx.get("estado_fluxo")
 
         if not estado_fluxo or estado_fluxo == "idle":
-            print("⚪ [NEOEVE NEUTRA] sem fluxo ativo", flush=True)
+            print(" [NEOEVE NEUTRA] sem fluxo ativo", flush=True)
 
             saudacoes_usuario = [
                 "oi", "ola", "olá", "bom dia", "boa tarde", "boa noite",
@@ -3215,7 +3353,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     class_intencao = classificar_intencao_conversacional(texto_usuario, ctx)
 
-    print(f"🧠 [INTENÇÃO CONVERSACIONAL] {class_intencao}", flush=True)
+    print(f" [INTENÇÃO CONVERSACIONAL] {class_intencao}", flush=True)
 
     preservar_continuidade_data = (
         ctx.get("estado_fluxo") == "aguardando_data"
@@ -3257,6 +3395,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "motivo": "negacao_durante_confirmacao",
         }
         ctx["objetivo_conversacional"] = "encerrar_fluxo_agendamento"
+
+    # 🔒 P0: ajuste incremental vence preservação de contexto confirmacao_pendente
+    if preservar_confirmacao_pendente and class_intencao.get("intencao_conversacional") == "ajuste_incremental":
+        ctx["intencao_conversacional"] = "ajuste_incremental"
+        ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca", 90)
+        ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
 
     # =========================================================
     # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
@@ -3417,7 +3561,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ctx
             )
 
-        print("🧠 [GPT INTERPRETAÇÃO]", interpretacao_gpt, flush=True)
+        print(" [GPT INTERPRETAÇÃO]", interpretacao_gpt, flush=True)
 
         if interpretacao_gpt and interpretacao_gpt.get("intencao") != "indefinida":
             ctx["interpretacao_conversacional"] = interpretacao_gpt
@@ -3505,7 +3649,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         from services.informacao_service import responder_consulta_informativa
         resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
         if resposta_informativa:
-            print("🔍 Consulta informativa detectada (idle). Respondendo diretamente.")
+            print(" Consulta informativa detectada (idle). Respondendo diretamente.")
             return await _send_and_stop(context, user_id, resposta_informativa)
 
     # 🔐 dono do negócio
@@ -3532,7 +3676,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # ✅ Só deixa a sessão legada assumir quando NÃO estamos no fluxo novo de agendamento
     if (not intencao_catalogo) and sessao and sessao.get("estado") and estado_fluxo != "agendando":
-        print(f"🔁 Sessão ativa: {sessao['estado']}")
+        print(f" Sessão ativa: {sessao['estado']}")
         resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem)
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
         return resposta_fluxo
@@ -3802,7 +3946,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         await salvar_contexto_temporario(user_id, ctx)
 
                         frase_data = montar_frase_data_legivel(data_hora_ajustada)
-                        print("🧪 [AUDIT-CONF:BLOCO_PENDENTE_HORA_NOVA] AJUSTE INCREMENTAL ATIVADO", flush=True)
+                        print(" [AUDIT-CONF:BLOCO_PENDENTE_HORA_NOVA] AJUSTE INCREMENTAL ATIVADO", flush=True)
                         return await _send_and_stop_ctx(
                             context,
                             user_id,
@@ -3811,7 +3955,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                             texto_usuario,
                         )
                 except Exception as e:
-                    print(f"⚠️ [AUDIT-CONF] Erro ao ajustar hora: {e}", flush=True)
+                    print(f"️ [AUDIT-CONF] Erro ao ajustar hora: {e}", flush=True)
 
         if profissional and servico and data_hora:
             dados_exec = {
@@ -3830,10 +3974,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx.pop("ultima_opcao_profissionais", None)
             await salvar_contexto_temporario(user_id, ctx)
 
-            print("🧪 [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto", flush=True)
+            print(" [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto", flush=True)
             return await executar_acao_gpt(update, context, "criar_evento", dados_exec)
 
-        print("🧪 [AUDIT-CONF:BLOCO_PENDENTE] DADOS_INSUFICIENTES -> REABRINDO FLUXO", flush=True)
+        print(" [AUDIT-CONF:BLOCO_PENDENTE] DADOS_INSUFICIENTES -> REABRINDO FLUXO", flush=True)
         return await _send_and_stop(
             context,
             user_id,
@@ -3944,7 +4088,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             await salvar_contexto_temporario(user_id, ctx)
 
-            print(f"✅ [P1 CLAREZA RESOLVIDA] cliente escolheu hora={hora_ref}", flush=True)
+            print(f" [P1 CLAREZA RESOLVIDA] cliente escolheu hora={hora_ref}", flush=True)
 
         if escolheu_periodo and periodo_ref and data_ref:
             ctx["data_hora"] = None
@@ -3983,13 +4127,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     )
 
     if (
-        interpretacao_conv.get("intencao") == "ajuste_incremental"
+        (
+            interpretacao_conv.get("intencao") == "ajuste_incremental"
+            or ctx.get("intencao_conversacional") == "ajuste_incremental"
+        )
         and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
-        and not bloquear_ajuste_por_fluxo_operacional
+        and (
+            not bloquear_ajuste_por_fluxo_operacional
+            or ctx.get("tipo_ajuste_incremental") == "horario"
+        )
         and not ctx.get("clareza_periodo_hora_resolvida")
     ):
 
-        print("🔁 [PRIORIDADE] ajuste incremental antes da confirmação", flush=True)
+        print(" [PRIORIDADE] ajuste incremental antes da confirmação", flush=True)
 
         alteracao = await detectar_alteracao_draft_agendamento(
             texto_usuario=texto_usuario,
@@ -4084,7 +4234,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         if not isinstance(alternativas, list):
                             alternativas = list(alternativas) if alternativas else []
 
-                        print(f"🧪 [PRECHECK ALTERNATIVAS NORMALIZADAS] {alternativas}", flush=True)
+                        print(f" [PRECHECK ALTERNATIVAS NORMALIZADAS] {alternativas}", flush=True)
 
                         ctx["sugestoes"] = sugestoes
                         ctx["horarios_sugeridos"] = sugestoes
@@ -4618,7 +4768,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         ctx.pop("ultima_acao", None)  # 🔥 LIMPEZA CRÍTICA
 
-        print("🔥 [GUARD_AGUARDANDO_DATA] EXECUTOU ANTES DA EXTRAÇÃO PRINCIPAL", flush=True)
+        print(" [GUARD_AGUARDANDO_DATA] EXECUTOU ANTES DA EXTRAÇÃO PRINCIPAL", flush=True)
 
         dt = interpretar_data_e_hora(texto_usuario)
 
@@ -5326,14 +5476,14 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 for h in re.findall(r"\b(?:as\s*)?([01]?\d|2[0-3])h?\b", texto_norm):
                     matches.append((h, "00"))
 
-            print(f"🧪 [TESTE-DESISTENCIA] texto_usuario={texto_usuario}", flush=True)
-            print(f"🧪 [TESTE-DESISTENCIA] texto_normalizado={normalizar(texto_usuario)}", flush=True)
-            print(f"🧪 [TESTE-DESISTENCIA] retorno={eh_desistencia_fluxo(texto_usuario)}", flush=True)
+            print(f" [TESTE-DESISTENCIA] texto_usuario={texto_usuario}", flush=True)
+            print(f" [TESTE-DESISTENCIA] texto_normalizado={normalizar(texto_usuario)}", flush=True)
+            print(f" [TESTE-DESISTENCIA] retorno={eh_desistencia_fluxo(texto_usuario)}", flush=True)
 
             # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DENTRO DA ESCOLHA
             if eh_desistencia_fluxo(texto_usuario):
-                print("🧪 [DESISTENCIA DETECTADA] Encerrando fluxo...", flush=True)
-                print("🛑 [DESISTENCIA_PARCIAL] mantendo draft operacional", flush=True)
+                print(" [DESISTENCIA DETECTADA] Encerrando fluxo...", flush=True)
+                print(" [DESISTENCIA_PARCIAL] mantendo draft operacional", flush=True)
 
                 dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
 
@@ -6021,7 +6171,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     "pode ser outro dia",
                 ]):
 
-                    print("📆 [OUTRO DIA] cliente pediu nova data", flush=True)
+                    print(" [OUTRO DIA] cliente pediu nova data", flush=True)
 
                     draft = ctx.get("draft_agendamento") or {}
 
@@ -6236,7 +6386,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 if tem_servico_explicito and not tem_data_explicitada:
                     if ctx.get("estado_fluxo") == "aguardando_profissional":
-                        print("🛡️ [PRESERVAR DATA_HORA] aguardando_profissional — não apagar data_hora", flush=True)
+                        print("️ [PRESERVAR DATA_HORA] aguardando_profissional — não apagar data_hora", flush=True)
                     else:
                         ctx.pop("data_hora", None)
 
@@ -6270,7 +6420,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
         if payload_prof:
-            print(f"🔒 [BLOQUEIO PROFISSIONAL - PRIMEIRO PONTO REAL] {payload_prof}", flush=True)
+            print(f" [BLOQUEIO PROFISSIONAL - PRIMEIRO PONTO REAL] {payload_prof}", flush=True)
             return await executar_acao_por_nome(
                 update,
                 context,
@@ -6282,7 +6432,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         payload_salao = detectar_bloqueio_agenda_salao(texto_usuario)
 
         if payload_salao:
-            print(f"🔒 [BLOQUEIO SALÃO - PRIMEIRO PONTO REAL] {payload_salao}", flush=True)
+            print(f" [BLOQUEIO SALÃO - PRIMEIRO PONTO REAL] {payload_salao}", flush=True)
             return await executar_acao_por_nome(
                 update,
                 context,
@@ -6362,7 +6512,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx.get("tipo_ajuste_incremental") == "servico"
             and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
         ):
-            print("🔁 [AJUSTE_INCREMENTAL] tentando sobrescrever serviço", flush=True)
+            print(" [AJUSTE_INCREMENTAL] tentando sobrescrever serviço", flush=True)
 
             profissionais_dict = await buscar_subcolecao(
                 f"Clientes/{dono_id}/Profissionais"
@@ -6378,7 +6528,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             for serv in servicos_validos:
                 if serv in texto_norm:
-                    print(f"🔁 [AJUSTE_INCREMENTAL] serviço detectado={serv}", flush=True)
+                    print(f" [AJUSTE_INCREMENTAL] serviço detectado={serv}", flush=True)
 
                     ctx["servico"] = serv
 
@@ -6429,7 +6579,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         raise
 
     except Exception as e:
-        print("⚠️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)
+        print("️ [slots] Falha ao extrair/mesclar slots:", e, flush=True)
 
     # =========================================================
     # ✅ (C) Bloqueio de data no passado -> pergunta amanhã mesmo horário
@@ -6810,7 +6960,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     if estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
         draft_local = ctx.get("draft_agendamento") or {}
-        print(f"🔥 [AG_SERVICO] entrou no bloco | texto={texto_usuario} | estado={estado_fluxo}", flush=True)
+        print(f" [AG_SERVICO] entrou no bloco | texto={texto_usuario} | estado={estado_fluxo}", flush=True)
 
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
         nomes_profs = [str(p.get("nome", "")).strip() for p in profs_dict.values() if p.get("nome")]
@@ -6864,7 +7014,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or  {}).get("profissional")
         data_hora = draft_local.get("data_hora") or ctx.get("data_hora") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         servico = draft_local.get("servico") or ctx.get("servico")
-        print(f"🔥 [AG_SERVICO] prof={prof} | data_hora={data_hora} | servico={servico}", flush=True)
+        print(f" [AG_SERVICO] prof={prof} | data_hora={data_hora} | servico={servico}", flush=True)
 
         # 🔥 múltiplos serviços candidatos
         if len(servicos_candidatos) > 1:
@@ -6897,7 +7047,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             texto = normalizar(texto_completo)
             candidatos = list(dict.fromkeys(servicos_candidatos or []))  # dedupe
 
-            print(f"🧪 [TEXTO_SCORE_SERVICOS] {texto}", flush=True)
+            print(f" [TEXTO_SCORE_SERVICOS] {texto}", flush=True)
 
             def score_servico(servico: str, texto: str) -> int:
                 s = normalizar(servico)
@@ -6940,7 +7090,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             scores = {s: score_servico(s, texto) for s in candidatos}
             servico_escolhido = max(scores, key=scores.get) if scores else None
 
-            print(f"🧪 [SCORE_SERVICOS] {scores} | escolhido={servico_escolhido}", flush=True)
+            print(f" [SCORE_SERVICOS] {scores} | escolhido={servico_escolhido}", flush=True)
 
             # threshold leve: só decide automático se houver sinal suficiente
             if servico_escolhido and scores.get(servico_escolhido, 0) >= 2:
@@ -6954,7 +7104,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
                 await salvar_contexto_temporario(user_id, ctx)
 
-                print(f"🔥 [SERVICO_DECIDIDO_AUTOMATICO] servico={servico_escolhido}", flush=True)
+                print(f" [SERVICO_DECIDIDO_AUTOMATICO] servico={servico_escolhido}", flush=True)
 
                 # segue fluxo normal (pré-check vai assumir daqui)
 
@@ -6974,7 +7124,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             draft_local["servico"] = servico_detectado
             ctx["servico"] = servico_detectado
             ctx.pop("servicos_candidatos", None)
-            print(f"🔥 [AG_SERVICO] servico_detectado={servico_detectado}", flush=True)
+            print(f" [AG_SERVICO] servico_detectado={servico_detectado}", flush=True)
             ctx["draft_agendamento"] = draft_local
 
         # 🔥 recarrega variáveis depois de possível atualização
@@ -6983,7 +7133,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         servico = draft_local.get("servico") or ctx.get("servico")
 
         if not data_hora:
-            print("🛑 [AG_SERVICO] saiu por falta de data_hora", flush=True)
+            print(" [AG_SERVICO] saiu por falta de data_hora", flush=True)
             ctx["estado_fluxo"] = "aguardando_data"
             await salvar_contexto_temporario(user_id, ctx)
             return await _send_and_stop(context, user_id, "Qual dia e horário você prefere?")
@@ -7101,7 +7251,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         horarios = ctx.get("horarios_sugeridos") or []
 
         if horarios and data_hora and servico and not prof:
-            print("🔥 [PRE-CHECK ANTECIPADO] serviço + horários candidatos, sem profissional", flush=True)
+            print(" [PRE-CHECK ANTECIPADO] serviço + horários candidatos, sem profissional", flush=True)
 
             # =========================================================
             # 🔒 FILTRO DE EXPEDIENTE (AQUI)
@@ -7181,7 +7331,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         disponibilidade_por_horario[h] = profissionais_livres
 
                 except Exception as e:
-                    print(f"⚠️ [PRE-CHECK ANTECIPADO] erro ao testar {h}: {e}", flush=True)
+                    print(f"️ [PRE-CHECK ANTECIPADO] erro ao testar {h}: {e}", flush=True)
 
             # profissionais livres no geral
             ctx["ultima_opcao_profissionais"] = sorted(
@@ -7413,7 +7563,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         objetivo_conv = ctx.get("objetivo_conversacional")
 
         if objetivo_conv == "descobrir_servico_para_consulta" and not servico:
-            print("🎯 [AG_SERVICO] objetivo prioriza descoberta de serviço", flush=True)
+            print(" [AG_SERVICO] objetivo prioriza descoberta de serviço", flush=True)
 
             ctx["estado_fluxo"] = "aguardando_servico"
 
@@ -7438,7 +7588,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # fluxo padrão
         # =========================================================
         if not servico:
-            print("🛑 [AG_SERVICO] saiu por falta de serviço", flush=True)
+            print(" [AG_SERVICO] saiu por falta de serviço", flush=True)
 
             if ctx.get("preferencia_rapidez"):
                 servico_sugerido = "escova"
@@ -7471,7 +7621,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
 
         if not prof:
-            print("🛑 [AG_SERVICO] saiu por falta de profissional", flush=True)
+            print(" [AG_SERVICO] saiu por falta de profissional", flush=True)
 
             ctx["estado_fluxo"] = "aguardando_profissional"
 
@@ -7489,7 +7639,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         horarios = ctx.get("horarios_sugeridos") or []
 
         if horarios and data_hora and servico and prof:
-            print("🔥 [CHECK HORARIOS_CANDIDATOS COM SERVIÇO]", flush=True)
+            print(" [CHECK HORARIOS_CANDIDATOS COM SERVIÇO]", flush=True)
 
             # =========================================================
             # 🔒 FILTRO DE EXPEDIENTE (AQUI)
@@ -7549,7 +7699,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         disponiveis.append(h)
 
                 except Exception as e:
-                    print(f"⚠️ erro ao testar horário {h}: {e}", flush=True)
+                    print(f"️ erro ao testar horário {h}: {e}", flush=True)
 
             if len(disponiveis) == 2:
                 return await _send_and_stop(
@@ -7988,7 +8138,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             ctx["ultima_opcao_profissionais"] = [escolha_prof]
             await salvar_contexto_temporario(user_id, ctx)
 
-            print("🧪 [AUDIT-CONF:ESCOLHA_DIRETA_PROFISSIONAL] MONTANDO CONFIRMACAO", flush=True)
+            print(" [AUDIT-CONF:ESCOLHA_DIRETA_PROFISSIONAL] MONTANDO CONFIRMACAO", flush=True)
 
             return await _send_and_stop(
                 context,
@@ -8188,7 +8338,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     data_ref = data_final.split("T")[0]
                     hora_ref_raw = data_final.split("T")[1][:5]
                     if hora_ref_raw == "00:00":
-                        print("🧠 [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
+                        print(" [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
 
                         ctx["estado_fluxo"] = "aguardando_horario"
                         ctx["hora_confirmada"] = False
@@ -8217,7 +8367,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     hora_ref = normalizar_hora_para_grade(hora_ref_raw)
 
                     if hora_ref == "00:00":
-                        print("🧠 [HORA_NAO_DEFINIDA] não confirmar com hora fictícia", flush=True)
+                        print(" [HORA_NAO_DEFINIDA] não confirmar com hora fictícia", flush=True)
 
                         ctx["estado_fluxo"] = "aguardando_horario"
                         ctx["hora_confirmada"] = False
@@ -8254,7 +8404,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     )
 
                     if not validacao.get("permitido"):
-                        print("🚫 [BLOQUEIO] confirmação impedida por horário inválido", flush=True)
+                        print(" [BLOQUEIO] confirmação impedida por horário inválido", flush=True)
                     else:
                         ctx["aguardando_confirmacao_agendamento"] = True
                         ctx["dados_confirmacao_agendamento"] = {
@@ -8285,7 +8435,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 data_ref = data_final.split("T")[0]
                 hora_ref_raw = data_final.split("T")[1][:5]
                 if hora_ref_raw == "00:00":
-                    print("🧠 [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
+                    print(" [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
 
                     ctx["estado_fluxo"] = "aguardando_horario"
                     ctx["hora_confirmada"] = False
@@ -8300,7 +8450,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 hora_ref = normalizar_hora_para_grade(hora_ref_raw)
 
                 if hora_ref == "00:00":
-                    print("🧠 [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
+                    print(" [HORA_NAO_DEFINIDA] pulando validação de expediente", flush=True)
 
                     ctx["estado_fluxo"] = "aguardando_horario"
                     ctx["hora_confirmada"] = False
@@ -8322,7 +8472,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     duracao_min=estimar_duracao(servico),
                 )
 
-                print(f"🧪 [EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
+                print(f" [EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
 
                 if not validacao.get("permitido"):
 
@@ -8446,7 +8596,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and tem_hora_real(data_hora_fast)
         and ctx.get("profissional_indiferente")
     ):
-        print("🔥 [FAST PATH OPERACIONAL] pulando DATA_COMPLEXA", flush=True)
+        print(" [FAST PATH OPERACIONAL] pulando DATA_COMPLEXA", flush=True)
 
         ctx["data_hora"] = data_hora_fast
         ctx["servico"] = servico_fast
@@ -8459,7 +8609,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         await salvar_contexto_temporario(user_id, ctx)
 
-        print("🔥 [FAST PATH OPERACIONAL] contexto preparado", flush=True)
+        print(" [FAST PATH OPERACIONAL] contexto preparado", flush=True)
 
     # =========================================================
     # 🧠 P1 — BLOQUEIA REPROCESSAMENTO APÓS INCONSISTÊNCIA
@@ -8485,7 +8635,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             )
         )
 
-    print("🔥🔥🔥 BLOCO DATA COMPLEXA EXECUTOU 🔥🔥🔥", flush=True)
+    print(" BLOCO DATA COMPLEXA EXECUTOU ", flush=True)
 
     # =========================================================
     # 🔥 SKIP — fluxo operacional já completo
@@ -8521,7 +8671,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     if not skip_data_complexa and objetivo_conv == "ajustar_draft_existente":
 
-        print("🔁 [AJUSTE_INCREMENTAL] continuidade detectada", flush=True)
+        print(" [AJUSTE_INCREMENTAL] continuidade detectada", flush=True)
 
         draft_existente = ctx.get("draft_agendamento") or {}
 
@@ -8657,7 +8807,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and not prof_auto
         and ctx.get("profissional_indiferente")
     ):
-        print("🔥 [PROFISSIONAL_INDIFERENTE POS-EXTRACAO] buscando automático", flush=True)
+        print(" [PROFISSIONAL_INDIFERENTE POS-EXTRACAO] buscando automático", flush=True)
 
         data_ref = datetime.fromisoformat(data_hora_auto).date()
         hora_ref = data_hora_auto.split("T")[1][:5]
@@ -8802,7 +8952,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # AJUSTE INCREMENTAL — pós-extração
     # =========================================================
     if ctx.get("objetivo_conversacional") == "ajustar_draft_existente":
-        print("🔁 [AJUSTE_INCREMENTAL] pós-extração", flush=True)
+        print(" [AJUSTE_INCREMENTAL] pós-extração", flush=True)
 
         draft_inc = ctx.get("draft_agendamento") or {}
         tipo_ajuste = ctx.get("tipo_ajuste_incremental")
@@ -8815,7 +8965,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # Aplica somente o eixo alterado
             # =====================================================
             if tipo_ajuste == "servico" and ctx.get("servico"):
-                print("🔁 [AJUSTE_INCREMENTAL] aplicando ajuste de serviço", flush=True)
+                print(" [AJUSTE_INCREMENTAL] aplicando ajuste de serviço", flush=True)
 
                 draft_inc["servico"] = ctx.get("servico")
 
@@ -8868,10 +9018,10 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # 🔥 PROTEÇÃO CRÍTICA
     if not isinstance(ctx, dict):
-        print(f"🚨 ctx inválido — abortando sobrescrita", flush=True)
+        print(f" ctx inválido — abortando sobrescrita", flush=True)
         ctx = await carregar_contexto_temporario(user_id) or {}
 
-    print("🧪 [SLOTS CENTRALIZADOS] ctx=", ctx, flush=True)
+    print(" [SLOTS CENTRALIZADOS] ctx=", ctx, flush=True)
 
     draft_tmp = ctx.get("draft_agendamento") or {}
 
@@ -9061,9 +9211,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     texto_usuario,
                 )
 
-    print("🧪 [ANTES GPT] proximo_passo=", proximo_passo, flush=True)
-    print("🧪 [ANTES GPT] proximo_passo_real=", proximo_passo_real, flush=True)
-    print("🧪 [ANTES GPT] slots_extraidos=", slots_extraidos, flush=True)
+    print(" [ANTES GPT] proximo_passo=", proximo_passo, flush=True)
+    print(" [ANTES GPT] proximo_passo_real=", proximo_passo_real, flush=True)
+    print(" [ANTES GPT] slots_extraidos=", slots_extraidos, flush=True)
 
     # =========================================================
     # 🔒 PRÉ-CHECAGEM LEVE DE JANELA-BASE
@@ -9090,7 +9240,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 profissional=prof_ref
             )
 
-            print(f"🧪 [PRECHECK JANELA-BASE] janela={janela}", flush=True)
+            print(f" [PRECHECK JANELA-BASE] janela={janela}", flush=True)
 
             inicio_janela = janela.get("inicio") if janela.get("aberto") else None
             fim_janela = janela.get("fim") if janela.get("aberto") else None
@@ -9117,7 +9267,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 )
 
         except Exception as e:
-            print(f"⚠️ [PRECHECK JANELA-BASE] erro: {e}", flush=True)
+            print(f"️ [PRECHECK JANELA-BASE] erro: {e}", flush=True)
 
     # =========================================================
     # 🔥 P0 — PRÉ-CHECAGEM (SEM GPT)
@@ -9232,7 +9382,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             or ctx.get("data_sem_hora") is True
             or str(data_hora_check or "").endswith("T00:00:00")
         ):
-            print("🧠 [P0 IGNORADO] sem horário confirmado", flush=True)
+            print(" [P0 IGNORADO] sem horário confirmado", flush=True)
 
         else:
             validacao_p0 = await validar_horario_funcionamento(
@@ -9254,7 +9404,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         pode_executar_p0
         and tem_hora_real(data_hora_check)
     ):
-        print("🔥 [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
+        print(" [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
 
         return await executar_acao_gpt(
             update,
@@ -9273,7 +9423,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             flush=True
         )
 
-    print("🔥🔥🔥 ANTES DO CHAMAR_GPT_COM_CONTEXTO 🔥🔥🔥", flush=True)
+    print(" ANTES DO CHAMAR_GPT_COM_CONTEXTO ", flush=True)
 
     # =========================================================
     # 🔒 GARANTE QUE FLUXO SEMPRE RESPONDE ANTES DO GPT
@@ -9299,7 +9449,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             interceptar_flow_guard = False
 
     if interceptar_flow_guard:
-        print("🧪 [FLOW GUARD] interceptando mensagem no fluxo:", texto_usuario, flush=True)
+        print(" [FLOW GUARD] interceptando mensagem no fluxo:", texto_usuario, flush=True)
 
         # =========================================================
         # 🔒 BLOQUEIO DE AGENDA DO PROFISSIONAL / SALÃO
@@ -9321,7 +9471,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
         if payload_bloqueio_prof:
-            print(f"🔒 [BLOQUEIO_AGENDA_PROFISSIONAL/FLOW_GUARD] payload={payload_bloqueio_prof}", flush=True)
+            print(f" [BLOQUEIO_AGENDA_PROFISSIONAL/FLOW_GUARD] payload={payload_bloqueio_prof}", flush=True)
             return await executar_acao_por_nome(
                 update,
                 context,
@@ -9333,7 +9483,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
 
         if payload_bloqueio:
-            print(f"🔒 [BLOQUEIO_AGENDA_SALAO/FLOW_GUARD] payload={payload_bloqueio}", flush=True)
+            print(f" [BLOQUEIO_AGENDA_SALAO/FLOW_GUARD] payload={payload_bloqueio}", flush=True)
             return await executar_acao_por_nome(
                 update,
                 context,
@@ -9471,7 +9621,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         )
 
                         if not validacao_exp.get("permitido"):
-                            print(f"🚫 [AGUARDANDO_HORARIO] Fora do expediente | motivo={validacao_exp.get('motivo')}", flush=True)
+                            print(f" [AGUARDANDO_HORARIO] Fora do expediente | motivo={validacao_exp.get('motivo')}", flush=True)
 
                             regra = validacao_exp.get("regra") or {}
                             inicio = regra.get("inicio") or "08:00"
@@ -9498,7 +9648,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                         )
 
                         if conflito_info.get("conflito"):
-                            print(f"⚠️ [AGUARDANDO_HORARIO] Conflito detectado | sugestões={conflito_info.get('sugestoes')}", flush=True)
+                            print(f"️ [AGUARDANDO_HORARIO] Conflito detectado | sugestões={conflito_info.get('sugestoes')}", flush=True)
 
                             sugestoes = conflito_info.get("sugestoes") or []
                             sugestoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes)
@@ -9625,7 +9775,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and ctx.get("horarios_sugeridos")
         and not ctx.get("servico")
     ):
-        print("🛑 [BLOQUEIO GPT] já tenho data + horários (sem serviço)", flush=True)
+        print(" [BLOQUEIO GPT] já tenho data + horários (sem serviço)", flush=True)
 
         ctx["estado_fluxo"] = "aguardando_servico"
         await salvar_contexto_temporario(user_id, ctx)
@@ -9659,7 +9809,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     )
 
     if payload_bloqueio_prof:
-        print(f"🔒 [BLOQUEIO_AGENDA_PROFISSIONAL/ANTES_GPT] payload={payload_bloqueio_prof}", flush=True)
+        print(f" [BLOQUEIO_AGENDA_PROFISSIONAL/ANTES_GPT] payload={payload_bloqueio_prof}", flush=True)
         return await executar_acao_por_nome(
             update,
             context,
@@ -9671,7 +9821,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     payload_bloqueio = detectar_bloqueio_agenda_salao(texto_usuario)
 
     if payload_bloqueio:
-        print(f"🔒 [BLOQUEIO_AGENDA_SALAO/ANTES_GPT] payload={payload_bloqueio}", flush=True)
+        print(f" [BLOQUEIO_AGENDA_SALAO/ANTES_GPT] payload={payload_bloqueio}", flush=True)
         return await executar_acao_por_nome(
             update,
             context,
@@ -9710,7 +9860,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and not tem_bloqueio_humano_p1
     ):
 
-        print("🚫 [BLOCK GPT] já tenho dados completos — fluxo determinístico", flush=True)
+        print(" [BLOCK GPT] já tenho dados completos — fluxo determinístico", flush=True)
 
         return await executar_acao_gpt(
             update,
@@ -9729,7 +9879,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     )
 
     if eh_consulta_pura:
-        print("🛡️ [CONSULTA PURA RESPONDIDA SEM GPT] pulando GPT", flush=True)
+        print("️ [CONSULTA PURA RESPONDIDA SEM GPT] pulando GPT", flush=True)
 
         # Tentar identificar o serviço apenas para resposta informativa (sem salvar)
         # Reutiliza exatamente a lógica de extrair_slots_e_mesclar()
@@ -9759,7 +9909,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 servico_para_resposta = await encontrar_servico_mais_proximo(texto_usuario, dono_id)
 
         except Exception as e:
-            print(f"⚠️ Falha ao detectar serviço para resposta informativa: {e}", flush=True)
+            print(f"️ Falha ao detectar serviço para resposta informativa: {e}", flush=True)
 
         # Montar resposta informativa
         if servico_para_resposta:
@@ -9767,7 +9917,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         else:
             resposta_texto = "Sim, fazemos esse serviço! 😊\n\nGostaria de agendar?"
 
-        print(f"🛡️ [CONSULTA PURA] resposta_texto='{resposta_texto}'", flush=True)
+        print(f"️ [CONSULTA PURA] resposta_texto='{resposta_texto}'", flush=True)
 
         # Salvar estado para continuidade
         ctx_consulta = {
@@ -9778,7 +9928,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         }
         await salvar_contexto_temporario(user_id, ctx_consulta)
 
-        print(f"🛡️ [CONSULTA PURA ESTADO SALVO] aguardando_confirmacao_agendamento_por_consulta=True | servico='{servico_para_resposta}'", flush=True)
+        print(f"️ [CONSULTA PURA ESTADO SALVO] aguardando_confirmacao_agendamento_por_consulta=True | servico='{servico_para_resposta}'", flush=True)
 
         return await _send_and_stop(context, user_id, resposta_texto)
 
@@ -9810,7 +9960,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     acao = resposta_gpt.get("acao")
     dados = resposta_gpt.get("dados", {}) or {}
 
-    print("🧪 [OVERRIDE] acao=", acao, "proximo_passo=", proximo_passo, flush=True)
+    print(" [OVERRIDE] acao=", acao, "proximo_passo=", proximo_passo, flush=True)
 
     # =========================================================
     # OVERRIDE FORÇADO — caso complexo guiado pelo sistema
@@ -9832,7 +9982,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if not acao and not p1_preservar_resposta_gpt:
         resposta_texto = montar_resposta_fallback(proximo_passo_real, frase_data_legivel, ctx)
 
-    print("🧪 [OVERRIDE] acao=", acao, "proximo_passo=", proximo_passo, "proximo_passo_real=", proximo_passo_real, flush=True)
+    print(" [OVERRIDE] acao=", acao, "proximo_passo=", proximo_passo, "proximo_passo_real=", proximo_passo_real, flush=True)
 
     # =========================================================
     # PATCH — escrita ruidosa / interpretação incerta
@@ -9998,7 +10148,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         and slots_extraidos.get("servico")
         and slots_extraidos.get("profissional")
     ):
-        print("🔥 [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
+        print(" [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
 
         return await executar_acao_gpt(
             update,
@@ -10077,7 +10227,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             bloquear_acao_mutavel = True
 
     if bloquear_acao_mutavel:
-        print(f"🛑 [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta/desvio: '{texto_lower}'", flush=True)
+        print(f" [estado_fluxo] Bloqueado '{acao}' pois mensagem é consulta/desvio: '{texto_lower}'", flush=True)
 
         faltando = []
         if not profissional_no_texto and not contexto.get("profissional_escolhido"):
@@ -10126,7 +10276,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     if acao:
         if acao not in ACOES_SUPORTADAS:
-            print(f"⚠️ Ação '{acao}' não suportada. Ignorando...", flush=True)
+            print(f"️ Ação '{acao}' não suportada. Ignorando...", flush=True)
             acao = None
             dados = {}
         else:
@@ -10135,7 +10285,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 tem_hora_no_texto = _tem_indicio_de_hora(mensagem)
 
                 if not tem_hora_no_texto:
-                    print("🛑 Bloqueado criar_evento: sem hora explícita no texto", flush=True)
+                    print(" Bloqueado criar_evento: sem hora explícita no texto", flush=True)
 
                     servico_ctx = (
                         (dados or {}).get("servico")
@@ -10311,7 +10461,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 and ctx.get("data_sem_hora") is not True
             ):
 
-                print("🔥 [CONSULTA PERÍODO] buscando horários por período", flush=True)
+                print(" [CONSULTA PERÍODO] buscando horários por período", flush=True)
 
                 data_ref = ctx.get("data") or ctx["data_hora"].split("T")[0]
                 servico_ref = ctx["servico"]
@@ -10455,7 +10605,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         ctx["draft_agendamento"] = draft
 
-        print("🧪 [SALVANDO ESTADO COMPLEXO] ctx=", ctx, flush=True)
+        print(" [SALVANDO ESTADO COMPLEXO] ctx=", ctx, flush=True)
         await salvar_contexto_temporario(user_id, ctx)
 
 

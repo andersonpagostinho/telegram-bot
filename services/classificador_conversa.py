@@ -326,6 +326,20 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     if f["tem_pergunta"] and f["tem_tempo"] and f["tem_indefinido"]:
         return {"intencao_conversacional": "consulta_disponibilidade_aberta", "confianca": 88, "features": f}
 
+    # 🔒 EXCEÇÃO: fluxo operacional ativo + serviço + tempo = ajuste de horário (não consulta)
+    # Regra: em contexto de confirmação pendente, "pode ver?" + "às 10" é ajuste, não consulta
+    if (
+        f["tem_fluxo_ativo"]
+        and f["tem_contexto_servico"]
+        and f["tem_tempo"]
+    ):
+        return {
+            "intencao_conversacional": "ajuste_incremental",
+            "tipo_ajuste_incremental": "horario",
+            "confianca": 90,
+            "features": f,
+        }
+
     if f["tem_pergunta"] and f["tem_contexto_servico"]:
         return {"intencao_conversacional": "consulta_disponibilidade_servico", "confianca": 85, "features": f}
 
