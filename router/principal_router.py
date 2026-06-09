@@ -1331,6 +1331,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -
 
                     ctx["hora_confirmada"] = True
                     ctx["data_sem_hora"] = False
+                    ctx["tipo_ajuste_incremental"] = "horario"
 
                     print(
                         f"🧠 [HORA_INCREMENTAL] reutilizando data_ctx={data_ctx} hora={hora:02d}:{minuto:02d}",
@@ -3919,10 +3920,25 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             or ctx.get("servico")
         )
 
+        # 🔥 P0: Durante ajuste incremental, ctx["data_hora"] tem precedência
+        # pois foi já ajustado por extrair_slots_e_mesclar
+        eh_ajuste_incremental = (
+            ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
+            or ctx.get("tipo_ajuste_incremental") in ("horario", "data", "periodo")
+        )
+
         data_hora = (
-            dados_confirmacao.get("data_hora")
-            or draft.get("data_hora")
-            or ctx.get("data_hora")
+            (
+                ctx.get("data_hora")
+                or draft.get("data_hora")
+                or dados_confirmacao.get("data_hora")
+            )
+            if eh_ajuste_incremental
+            else (
+                dados_confirmacao.get("data_hora")
+                or draft.get("data_hora")
+                or ctx.get("data_hora")
+            )
         )
 
         duracao = dados_confirmacao.get("duracao")
@@ -6541,6 +6557,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # =========================================================
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+
+        # 🔥 P0: em confirmação pendente, sincronizar dados_confirmacao após extração
+        if ctx.get("aguardando_confirmacao_agendamento") and ctx.get("data_hora"):
+            dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
+            dados_conf = {
+                **dados_conf,
+                "data_hora": ctx.get("data_hora"),
+            }
+            ctx["dados_confirmacao_agendamento"] = dados_conf
 
         # =====================================================
         # FORÇA EXTRAÇÃO DE SERVIÇO EM AJUSTE INCREMENTAL
