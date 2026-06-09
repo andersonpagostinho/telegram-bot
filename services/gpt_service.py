@@ -2800,10 +2800,63 @@ async def processar_com_gpt_com_acao(
             if "data_hora" in resultado.get("dados", {}):
                 memoria_nova["data_hora"] = resultado["dados"]["data_hora"]
 
+            # 🛡️ BLOQUEIO P0: Detectar rejeição de profissional alternativo
+            texto_usuario_norm = unidecode.unidecode((texto_usuario or "").lower().strip())
+            palavras_rejeicao = [
+                "não quero", "nao quero",
+                "não desejo", "nao desejo",
+                "não com", "nao com",
+                "não essa", "nao essa",
+                "outra não", "outra nao",
+                "prefiro não", "prefiro nao"
+            ]
+
+            eh_rejeicao_profissional = any(p in texto_usuario_norm for p in palavras_rejeicao)
+
+            # Se é rejeição, identifica qual profissional foi rejeitado
+            nome_rejeitado = None
+            if eh_rejeicao_profissional:
+                ultima_opcao = (
+                    contexto_salvo.get("ultima_opcao_profissionais") or
+                    contexto.get("ultima_opcao_profissionais") or
+                    []
+                )
+                alternativa_prof = (
+                    contexto_salvo.get("alternativa_profissional") or
+                    contexto.get("alternativa_profissional")
+                )
+
+                # Procura pelo nome rejeitado na mensagem
+                for nome in ultima_opcao:
+                    if unidecode.unidecode(nome.lower()) in texto_usuario_norm:
+                        nome_rejeitado = nome
+                        eh_rejeicao_profissional = True
+                        break
+
+                # Se não achou nas opções, tenta pela alternativa explícita
+                if not nome_rejeitado and alternativa_prof:
+                    if unidecode.unidecode(alternativa_prof.lower()) in texto_usuario_norm:
+                        nome_rejeitado = alternativa_prof
+                        eh_rejeicao_profissional = True
+
+                # 🛡️ Log de auditoria
+                if eh_rejeicao_profissional:
+                    profissional_antes = contexto_salvo.get("profissional_escolhido")
+                    servico_antes = contexto_salvo.get("servico")
+                    print(
+                        f"🛡️ [REJEICAO_PROFISSIONAL_BLOQUEIO] preservando draft "
+                        f"| antes_profissional={profissional_antes!r} "
+                        f"| antes_servico={servico_antes!r} "
+                        f"| nome_rejeitado={nome_rejeitado!r}",
+                        flush=True
+                    )
+
             # Verificar se a resposta contém algum nome de profissional
             nomes_validos = [p["nome"] for p in contexto.get("profissionais", [])]
             nomes_mencionados = []
-            if "resposta" in resultado:
+
+            # 🛡️ BLOQUEIO P0: NÃO extrair nomes se for rejeição
+            if not eh_rejeicao_profissional and "resposta" in resultado:
                 nomes_mencionados = [
                     nome
                     for nome in nomes_validos
@@ -2879,7 +2932,8 @@ async def processar_com_gpt_com_acao(
                     memoria_nova["profissional_escolhido"] = nome_candidato
 
             # 🟡 Salve também o serviço e a data_hora se existirem, mesmo que estejam fora de 'dados'
-            if "descricao" in resultado.get("dados", {}):
+            # 🛡️ BLOQUEIO P0: NÃO alterar servico se estiver rejeitando profissional alternativo
+            if "descricao" in resultado.get("dados", {}) and not eh_rejeicao_profissional:
                 descricao = resultado["dados"]["descricao"]
                 memoria_nova["servico"] = descricao.split(" com ")[0].strip().lower()
 
