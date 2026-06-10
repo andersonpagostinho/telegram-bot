@@ -3503,10 +3503,19 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # ✅ P0 COMPLEMENTAR: Consultas informativas em contexto idle
     # (antes de ignorar como "contexto_neutro")
     # ---------------------------------------------------------
+    print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa", flush=True)
+
     estado_fluxo = ctx.get("estado_fluxo")
+    print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo={estado_fluxo}", flush=True)
+
     if not estado_fluxo or estado_fluxo == "idle":
+        print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)", flush=True)
+
         from services.informacao_service import responder_consulta_informativa
+        print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)
+
         resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
+        print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: {resposta_informativa is not None} | tipo={type(resposta_informativa)}", flush=True)
 
         if resposta_informativa:
             # Detectar se há intenção simultânea de agendamento + consulta

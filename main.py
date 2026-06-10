@@ -68,7 +68,8 @@ logger.info("✅ Handlers registrados!")
 
 # ⏰ Agendadores que você já tinha
 #start_followup_scheduler()
-start_daily_summary(application)
+# PATCH: daily_summary movido para dentro de run_bot() após event loop ser criado
+#start_daily_summary(application)
 start_notificacao_scheduler()
 
 # ⏰ Inicia verificação automática de e-mails a cada X minutos
@@ -155,6 +156,9 @@ def run_bot():
     try:
         bot_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(bot_loop)
+
+        # ✅ PATCH: daily_summary inicializado após event loop existir
+        start_daily_summary(application)
 
         bot_loop.run_until_complete(application.initialize())
         bot_loop.run_until_complete(setup_webhook())
