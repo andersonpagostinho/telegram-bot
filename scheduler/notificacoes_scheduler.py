@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 FUSO_BR = timezone("America/Sao_Paulo")
 
+# 🕐 Atraso máximo permitido antes de marcar notificação como expirada
+ATRASO_MAXIMO_NOTIFICACAO_MINUTOS = 15
+
 
 def _parse_iso_br(dt_str: str):
     """
@@ -56,6 +59,35 @@ async def _get_bot():
     return Bot(token=token)
 
 
+async def _verificar_expiracao_notificacao(notif_id: str, path: str, dt: datetime, agora: datetime):
+    """
+    Verifica se notificação expirou (muito antiga).
+    Se expirada, marca como tal e retorna True.
+    Caso contrário, retorna False (pode processar).
+    """
+    if dt is None or agora is None:
+        return False
+
+    atraso = agora - dt
+    atraso_minutos = int(atraso.total_seconds() // 60)
+
+    if atraso_minutos > ATRASO_MAXIMO_NOTIFICACAO_MINUTOS:
+        # Notificação expirou (muito antiga)
+        await atualizar_dado_em_path(f"{path}/{notif_id}", {
+            "avisado": True,
+            "processada": True,
+            "status": "expirada",
+            "expirada_em": agora.isoformat(),
+            "motivo_expiracao": "notificacao_atrasada",
+            "atraso_minutos": atraso_minutos,
+            "atualizado_em": agora.isoformat(),
+        })
+        logger.info(f"⏰ Notificação expirada: notif_id={notif_id} atraso={atraso_minutos}min")
+        return True
+
+    return False
+
+
 async def processar_notificacoes_agendadas():
     logger.info("⏰ processar_notificacoes_agendadas() iniciado...")
 
@@ -69,6 +101,18 @@ async def processar_notificacoes_agendadas():
         agora = datetime.now(FUSO_BR)
 
         for user_id in clientes.keys():
+            # 🔐 VALIDAÇÃO DE TENANT: processar apenas donos
+            try:
+                doc_cli = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+                tipo_usuario = (doc_cli.get("tipo_usuario") or "").strip().lower()
+
+                if tipo_usuario != "dono":
+                    logger.info(f"[NOTIF] pulando user_id não-dono: {user_id} tipo_usuario={tipo_usuario}")
+                    continue
+            except Exception as e:
+                logger.warning(f"[NOTIF] erro ao validar tenant {user_id}: {e}")
+                continue
+
             path = f"Clientes/{user_id}/NotificacoesAgendadas"
             notificacoes = await buscar_notificacoes_pendentes(user_id)
 
@@ -90,6 +134,10 @@ async def processar_notificacoes_agendadas():
                     })
                     continue
                 if dt > agora:
+                    continue
+
+                # 🕐 Verificar se notificação expirou (muito antiga)
+                if await _verificar_expiracao_notificacao(notif_id, path, dt, agora):
                     continue
 
                 canal = (notif.get("canal") or "telegram").lower()

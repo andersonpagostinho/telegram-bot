@@ -960,8 +960,58 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         print("✅ Evento salvo")
 
+        # 🔔 Criar notificações para cliente e profissional
+        from services.notificacao_service import criar_notificacao_agendada, criar_notificacoes_evento_cliente_e_profissional
+
+        try:
+            # Calcular event_id (mesmo lógica de salvar_evento)
+            id_dono_notif = await obter_id_dono(user_id)
+            event_id = f"{cliente_id}_{profissional or 'pessoal'}_{evento_data.get('data')}_{evento_data.get('hora_inicio')}".replace(" ", "_").lower()
+
+            # Buscar profissional_user_id se profissional existe
+            profissional_user_id = None
+            if profissional:
+                try:
+                    profs_dict = await buscar_subcolecao(f"Clientes/{id_dono_notif}/Profissionais") or {}
+                    # Buscar por nome do profissional
+                    for prof_nome, prof_dados in profs_dict.items():
+                        if prof_nome.lower().strip() == profissional.lower().strip():
+                            profissional_user_id = prof_dados.get("user_id") or prof_dados.get("chat_id") or prof_dados.get("telegram_id")
+                            break
+                except Exception as e:
+                    print(f"⚠️ Falha ao buscar profissional_user_id: {e}")
+
+            # Criar notificações (cliente + profissional se houver)
+            resultado_notif = await criar_notificacoes_evento_cliente_e_profissional(
+                tenant_id=id_dono_notif,
+                evento_id=event_id,
+                cliente_id=cliente_id,
+                cliente_nome=cliente_nome,
+                profissional_nome=profissional or "Sem profissional",
+                profissional_user_id=profissional_user_id,
+                data=evento_data.get("data"),
+                hora_inicio=evento_data.get("hora_inicio"),
+                canal_cliente="telegram",
+                canal_profissional="telegram",
+                minutos_antes=30,
+            )
+
+            if resultado_notif["cliente"]["sucesso"]:
+                print(f"✅ Notificação cliente criada: {resultado_notif['cliente']['notif_id']}")
+            else:
+                print(f"⚠️ Falha ao criar notificação cliente: {resultado_notif['cliente'].get('motivo')}")
+
+            if resultado_notif["profissional"]["sucesso"]:
+                print(f"✅ Notificação profissional criada: {resultado_notif['profissional']['notif_id']}")
+            elif resultado_notif["profissional"]["motivo"] != "profissional_sem_id":
+                print(f"⚠️ Falha ao criar notificação profissional: {resultado_notif['profissional'].get('motivo')}")
+
+        except Exception as e:
+            print(f"⚠️ Falha ao criar notificações cliente+profissional: {e}")
+            # Continua mesmo se falhar
+
         # 🔔 Lembretes (60 e 10 min antes)
-        from services.notificacao_service import criar_notificacao_agendada
+        # NOTA: criar_notificacao_agendada será descontinuado após migração para criar_notificacoes_evento_cliente_e_profissional
         try:
             # Decide quem recebe o lembrete:
             # - se veio cliente_user_id (atendimento ao cliente) -> notifica o cliente

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, date
 from typing import Any
-from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+from services.event_service_async import verificar_conflito_e_sugestoes_profissional, _parse_event_interval
 
-from services.firebase_service_async import buscar_dado_em_path, atualizar_dado_em_path, salvar_dado_em_path
+from services.firebase_service_async import buscar_dado_em_path, atualizar_dado_em_path, salvar_dado_em_path, buscar_subcolecao
 
 def _normalizar_data_iso(data_iso: str) -> str:
     """
@@ -720,8 +720,54 @@ async def resolver_fora_do_expediente(
                 flush=True
             )
 
-            # sem profissional ainda → retorna direto o mais próximo
+            # sem profissional → verificar conflito geral contra eventos do dia
             if not (profissional or "").strip():
+                try:
+                    eventos_dia = await buscar_subcolecao(f"Clientes/{user_id}/Eventos") or {}
+                    ocupados_geral = []
+
+                    candidato_dt = datetime.fromisoformat(f"{data_iso}T{hora_candidata}")
+                    candidato_fim = candidato_dt + timedelta(minutes=duracao_min)
+
+                    for eid, ev in eventos_dia.items():
+                        if not isinstance(ev, dict):
+                            continue
+
+                        ev_data = ev.get("data")
+                        if ev_data != data_iso:
+                            continue
+
+                        ev_ini, ev_fim = _parse_event_interval(ev)
+                        if not ev_ini or not ev_fim:
+                            continue
+
+                        ocupados_geral.append((ev_ini, ev_fim))
+
+                    tem_conflito = any(
+                        not (candidato_fim <= oi or candidato_dt >= of)
+                        for oi, of in ocupados_geral
+                    )
+
+                    if tem_conflito:
+                        print(f"🧪 [FORA_EXP] candidato {hora_candidata} tem conflito geral, pulando", flush=True)
+                        continue
+
+                except Exception as e:
+                    print(f"⚠️ [FORA_EXP] erro ao verificar conflito geral: {e}", flush=True)
+                    continue
+
+                revalidacao = await validar_horario_funcionamento(
+                    user_id=user_id,
+                    data_iso=data_iso,
+                    hora_inicio=hora_candidata,
+                    duracao_min=duracao_min,
+                    profissional=None,
+                )
+
+                if not revalidacao.get("permitido"):
+                    print(f"🧪 [FORA_EXP] candidato {hora_candidata} falhou revalidacao, pulando", flush=True)
+                    continue
+
                 print(
                     f"✅ [FORA_EXP] sugerindo (sem profissional) {hora_candidata}",
                     flush=True
@@ -746,41 +792,64 @@ async def resolver_fora_do_expediente(
                     "mensagem": motivo_texto,
                 }
 
-            resultado = await verificar_conflito_e_sugestoes_profissional(
-                user_id=user_id,
-                data=data_iso,
-                hora_inicio=hora_candidata,
-                duracao_min=duracao_min,
-                profissional=profissional,
-                servico=servico,
-            )
+            try:
+                resultado = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=user_id,
+                    data=data_iso,
+                    hora_inicio=hora_candidata,
+                    duracao_min=duracao_min,
+                    profissional=profissional,
+                    servico=servico,
+                )
+            except Exception as e:
+                print(f"⚠️ [FORA_EXP] erro ao verificar conflito: {e}", flush=True)
+                continue
 
             print(f"🧪 [FORA_EXP] resultado_conflito={resultado}", flush=True)
 
-            if not resultado.get("conflito"):
-                print(
-                    f"✅ [FORA_EXP] sugerindo (livre) {hora_candidata}",
-                    flush=True
+            if resultado is None or not isinstance(resultado, dict):
+                print(f"🧪 [FORA_EXP] resultado invalido, pulando {hora_candidata}", flush=True)
+                continue
+
+            if resultado.get("conflito", True) is not False:
+                print(f"🧪 [FORA_EXP] candidato {hora_candidata} tem conflito, pulando", flush=True)
+                continue
+
+            revalidacao = await validar_horario_funcionamento(
+                user_id=user_id,
+                data_iso=data_iso,
+                hora_inicio=hora_candidata,
+                duracao_min=duracao_min,
+                profissional=profissional,
+            )
+
+            if not revalidacao.get("permitido"):
+                print(f"🧪 [FORA_EXP] candidato {hora_candidata} falhou revalidacao, pulando", flush=True)
+                continue
+
+            print(
+                f"✅ [FORA_EXP] sugerindo (livre) {hora_candidata}",
+                flush=True
+            )
+            motivo_texto = ""
+
+            if fim:
+                motivo_texto = (
+                    f"Esse horário não está disponível nesse dia, "
+                    f"porque o salão atende só até {fim}.\n\n"
                 )
-                motivo_texto = ""
+            else:
+                motivo_texto = (
+                    "Esse horário não está disponível nesse dia.\n\n"
+                )
 
-                if fim:
-                    motivo_texto = (
-                        f"Esse horário não está disponível nesse dia, "
-                        f"porque o salão atende só até {fim}.\n\n"
-                    )
-                else:
-                    motivo_texto = (
-                        "Esse horário não está disponível nesse dia.\n\n"
-                    )
-
-                return {
-                    "ok": True,
-                    "tipo": "horario_sugerido",
-                    "horario": hora_candidata,
-                    "data_hora": f"{data_iso}T{hora_candidata}:00",
-                    "mensagem": motivo_texto,
-                }
+            return {
+                "ok": True,
+                "tipo": "horario_sugerido",
+                "horario": hora_candidata,
+                "data_hora": f"{data_iso}T{hora_candidata}:00",
+                "mensagem": motivo_texto,
+            }
 
         print("⚠️ [FORA_EXP] nenhum horário passou na validação final", flush=True)
 
