@@ -160,6 +160,70 @@ async def precheck_e_confirmacao_agendamento(
 
     ctx["ultima_opcao_profissionais"] = [prof]
 
+    # =========================================================
+    # 📖 P1.2A: CARREGAMENTO DE CLIENTEPROFILE (LEITURA APENAS)
+    # Ponto seguro: APÓS draft montado, ANTES de salvar contexto
+    # Profile NÃO altera: extração, draft, resposta, confirmação
+    # =========================================================
+    try:
+        from services.clienteprofile_service import obter_profile
+
+        profile = await obter_profile(dono_id, user_id)
+
+        if profile:
+            ctx["clienteprofile"] = profile
+            ctx["clienteprofile_carregado_em"] = datetime.now().isoformat()
+            ctx["clienteprofile_tenant_cliente"] = f"{dono_id}#{user_id}"
+
+            print(
+                f"[P1.2A] ✅ ClienteProfile carregado "
+                f"tenant={dono_id} cliente={user_id} "
+                f"agendamentos={profile.get('historico', {}).get('total_eventos', 0)}",
+                flush=True
+            )
+        else:
+            ctx["clienteprofile"] = None
+            print(f"[P1.2A] ⚠️ ClienteProfile vazio para {user_id}", flush=True)
+
+    except Exception as e:
+        ctx["clienteprofile"] = None
+        print(
+            f"[P1.2A] ⚠️ Erro ao carregar ClienteProfile: {e}",
+            flush=True
+        )
+
+    # =========================================================
+    # 📊 P1.2B: EXTRAÇÃO DE CONTEXTO NEUTRO (MOTOR ENTENDE)
+    # Ponto seguro: APÓS P1.2A, ANTES de salvar contexto
+    # Motor lê contexto mas NÃO altera resposta/draft/confirmação
+    # =========================================================
+    try:
+        from services.clienteprofile_contexto_service import extrair_contexto_motor
+
+        contexto_motor = extrair_contexto_motor(ctx.get("clienteprofile"))
+
+        if contexto_motor:
+            ctx["clienteprofile_contexto_motor"] = contexto_motor
+            ctx["clienteprofile_contexto_motor_criado_em"] = datetime.now().isoformat()
+
+            print(
+                f"[P1.2B] ✅ Contexto motor criado "
+                f"eventos={contexto_motor.get('total_eventos')} "
+                f"veterano={contexto_motor.get('cliente_veterano')} "
+                f"inativo={contexto_motor.get('cliente_inativo')}",
+                flush=True
+            )
+        else:
+            ctx["clienteprofile_contexto_motor"] = None
+            print(f"[P1.2B] ⚠️ Contexto motor não criado (profile vazio ou erro)", flush=True)
+
+    except Exception as e:
+        ctx["clienteprofile_contexto_motor"] = None
+        print(
+            f"[P1.2B] ⚠️ Erro ao extrair contexto motor: {e}",
+            flush=True
+        )
+
     await salvar_contexto_temporario(user_id, ctx)
 
     return await _send_and_stop(

@@ -12,7 +12,7 @@ async def testar_avisos(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     sucesso = atualizar_dado_em_path(path, dados)
     if sucesso:
-        await update.message.reply_text("✅ Horários salvos com sucesso no Firebase!")
+        await update.message.reply_text("Pronto, os horários foram atualizados.")
     else:
         await update.message.reply_text("❌ Falha ao salvar horários no Firebase.")
 

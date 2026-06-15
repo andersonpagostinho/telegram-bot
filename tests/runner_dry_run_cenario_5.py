@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python3
 """
 DRY_RUN RUNNER CENÁRIO 5 — conflito com profissional alternativo.
@@ -10,6 +11,12 @@ import sys
 import types
 from datetime import datetime
 from pathlib import Path
+
+
+# Configurar UTF-8 para Windows
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

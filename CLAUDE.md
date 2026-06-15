@@ -2213,5 +2213,62 @@ Ao buscar lista dinâmica: 1) Firestore (real), 2) Fallback padrão (corte, esco
 
 ---
 
-**Última atualização:** 2026-06-02  
+## 🔐 REGRA PERMANENTE: ClienteProfile Influencia, Não Decide
+
+**Status:** OBRIGATÓRIA E PERMANENTE  
+**Effective:** 2026-06-14  
+**Escopo:** P1.1, P1.2, P1.3, P1.4 e todas as fases futuras envolvendo ClienteProfile  
+
+### Hierarquia Inviolável
+
+```
+Mensagem atual > Histórico/Perfil > Defaults
+
+ClienteProfile INFLUENCIA sugestões.
+ClienteProfile NUNCA DECIDE criação de evento.
+```
+
+### Regra Central
+
+**Nenhuma funcionalidade baseada em ClienteProfile pode:**
+
+- ❌ Criar evento automaticamente
+- ❌ Confirmar evento automaticamente
+- ❌ Sobrescrever pedido explícito do cliente
+- ❌ Ignorar conflito baseado em histórico
+- ❌ Ignorar disponibilidade baseado em histórico
+- ❌ Pular passo obrigatório do fluxo
+- ❌ Sugerir sem exigir confirmação
+- ❌ Auto-agendar recorrência sem autorização
+
+### O que ClienteProfile PODE Fazer
+
+- ✅ Sugerir profissional baseado em histórico (com confirmação)
+- ✅ Preencher draft com valores do perfil (cliente pode alterar)
+- ✅ Personalizar experiência ("Bem-vindo de volta, João")
+- ✅ Informar contexto ao motor determinístico
+- ✅ Reduzir perguntas se dados já disponíveis
+
+### Code Review Obrigatório
+
+**TODO PR que envolva ClienteProfile DEVE:**
+
+1. ✅ Referenciar `SPEC_SEGURANCA_CLIENTEPROFILE_NAO_DECIDE.md`
+2. ✅ Incluir checklist de validação (10 itens)
+3. ✅ Ser aprovado por revisor especializado
+4. ✅ Incluir testes que validam segurança
+
+**PRs são REJEITADAS se:**
+
+- ❌ Checklist está incompleto
+- ❌ Não cita SPEC_SEGURANCA
+- ❌ Evento pode ser criado sem confirmação
+- ❌ Histórico sobrescreve pedido explícito
+- ❌ Qualquer passo obrigatório é pulado
+
+**Referência:** `docs/policies/POLITICA_CODE_REVIEW_CLIENTEPROFILE.md`
+
+---
+
+**Última atualização:** 2026-06-14  
 **Status:** Documento congelado até descongelamento comprovado

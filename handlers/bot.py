@@ -122,14 +122,14 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 eid_escolhido = cands[idx]
                 ok = await cancelar_evento(user_id_cancel, eid_escolhido)
                 if ok:
-                    await update.message.reply_text("✅ Cancelamento concluído. Horário liberado.")
+                    await update.message.reply_text("Pronto, o agendamento foi cancelado e o horário voltou a ficar disponível.")
                 else:
                     await update.message.reply_text("❌ Não consegui cancelar. Pode tentar novamente?")
             finally:
                 context.user_data.pop("cancelamento_pendente", None)
             raise ApplicationHandlerStop
         else:
-            await update.message.reply_text("⚠️ Número inválido. Envie apenas o número da opção listada.")
+            await update.message.reply_text("Não reconheci essa opção.\n\nEnvie apenas o número de uma das opções que aparecem acima.")
             raise ApplicationHandlerStop
     # --- fim do atalho ---
 
@@ -269,7 +269,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 "dados_confirmacao_agendamento": None
             })
 
-            await update.message.reply_text("Tudo bem — não confirmei esse horário.")
+            await update.message.reply_text("Tudo bem, esse horário não foi confirmado.\n\nQual horário você prefere?")
             raise ApplicationHandlerStop
 
     # --- 2) fluxo de configuração inicial (mas agora COM GATILHO) ---

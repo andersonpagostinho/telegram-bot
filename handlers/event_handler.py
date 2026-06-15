@@ -35,12 +35,13 @@ from services.firebase_service_async import (
     obter_id_dono,
 )
 from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo, cancelar_evento_por_texto
-from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento 
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento
 from services.agenda_service import (
     validar_horario_funcionamento,
     resolver_fora_do_expediente,
 )
 from services.event_service_async import evento_deve_entrar_na_agenda
+from services.clienteprofile_service import criar_ou_atualizar_profile_apos_evento
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +260,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         texto = texto.lower().replace("marcar reunião", "").replace("agendar reunião", "").replace("às", "as").strip()
         data_hora = dateparser.parse(texto, languages=["pt"])
         if not data_hora:
-            await update.message.reply_text("❌ Não entendi a data e hora. Pode tentar de outra forma?")
+            await update.message.reply_text("Não captei direito a data. Tenta assim: '14 de junho às 14h'")
             return
 
         user_id = str(update.message.from_user.id)
@@ -952,13 +953,52 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         resultado_salvamento = await salvar_evento(user_id, evento_data)
 
         if resultado_salvamento == "duplicado":
-            await update.message.reply_text("Esse horário já foi confirmado. Está tudo certo 😊")
+            await update.message.reply_text("Esse horário já está confirmado.\n\nSe precisar alterar ou cancelar, é só me avisar.")
             return True
 
         if not resultado_salvamento:
             return True
 
         print("✅ Evento salvo")
+
+        # P1.1: Atualizar ClienteProfile (background, não-bloqueante)
+        # PATCH P1: Adicionar evento_id e dados completos
+        # PATCH P3: Adicionar callback para capturar exceções da task
+        try:
+            tenant_id = await obter_id_dono(user_id)
+            import asyncio
+
+            # PATCH P1: Gerar evento_id mesmo do usado em notificações
+            evento_id = f"{cliente_id}_{profissional or 'pessoal'}_{evento_data.get('data')}_{evento_data.get('hora_inicio')}".replace(" ", "_").lower()
+
+            # PATCH P3: Criar task com callback de erro
+            async def profile_callback(task):
+                try:
+                    await task
+                except Exception as e:
+                    logger.error(f"PATCH P3: Profile falhou após retry: {e}", exc_info=True)
+
+            task = asyncio.create_task(
+                criar_ou_atualizar_profile_apos_evento(
+                    tenant_id=tenant_id,
+                    cliente_id=cliente_id,
+                    evento_id=evento_id,  # PATCH P1
+                    evento_data={
+                        "profissional": profissional,
+                        "servico": servico,
+                        "cliente_nome": cliente_nome,
+                        "data": evento_data.get("data"),  # PATCH P1
+                        "hora": evento_data.get("hora_inicio"),  # PATCH P1
+                    }
+                )
+            )
+
+            # PATCH P3: Adicionar callback para erros
+            task.add_done_callback(lambda t: profile_callback(t) if t.exception() else None)
+
+        except Exception as e:
+            # NÃO bloqueia agendamento se profile falhar
+            logger.warning(f"Falha ao atualizar profile (não bloqueante): {e}")
 
         # 🔔 Criar notificações para cliente e profissional
         from services.notificacao_service import criar_notificacao_agendada, criar_notificacoes_evento_cliente_e_profissional

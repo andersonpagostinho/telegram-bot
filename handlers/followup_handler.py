@@ -134,7 +134,7 @@ async def criar_followup_por_gpt(update: Update, context: ContextTypes.DEFAULT_T
     hora = dados.get("hora")  # formato esperado: HH:MM
 
     if not nome_cliente:
-        await update.message.reply_text("❌ Não entendi o nome do cliente para o follow-up.")
+        await update.message.reply_text("Qual é o nome do cliente que você quer acompanhar?")
         return
 
     followup_id = str(uuid4())
@@ -192,7 +192,7 @@ async def concluir_followup_por_gpt(update: Update, context: ContextTypes.DEFAUL
 
     nome_cliente = dados.get("nome_cliente") or dados.get("nome") or dados.get("cliente")
     if not nome_cliente:
-        await update.message.reply_text("❌ Não entendi o nome do cliente para concluir o follow-up.")
+        await update.message.reply_text("Qual cliente você quer marcar como concluído?")
         return
 
     nome_cliente = nome_cliente.lower()

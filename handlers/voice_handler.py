@@ -19,7 +19,7 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         texto = transcrever_audio(wav_path)
         if not texto:
-            await update.message.reply_text("❌ Não entendi o áudio. Pode repetir?")
+            await update.message.reply_text("Ficou abafado. Pode tentar falar de novo ou é mais fácil digitar?")
             return
 
         await update.message.reply_text(f"🎤 Você disse: {texto}")

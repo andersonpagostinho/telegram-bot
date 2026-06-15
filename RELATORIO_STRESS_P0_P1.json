@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-06-14T17:25:21.019641-03:00",
+  "total": 8,
+  "passou": 7,
+  "falhou": 1,
+  "taxa_sucesso": 87,
+  "resultados": [
+    {
+      "grupo": "A",
+      "arquivo": "test_confirmacao_reserva_patch.py",
+      "descricao": "Rajadas + Confirmacao",
+      "status": "PASSOU",
+      "sucesso": true,
+      "output": "\n================================================================================\n[TEST] TESTES: Confirmacao Automatica de Reserva (CONFIRMAR_RESERVA)\n================================================="
+    },
+    {
+      "grupo": "B",
+      "arquivo": "test_isolamento_multitenant.py",
+      "descricao": "Multi-Tenant (Isolamento)",
+      "status": "PASSOU",
+      "sucesso": true,
+      "output": "\n======================================================================\nTESTES: Isolamento Multi-Tenant em processar_notificacoes_agendadas()\n=========================================================="
+    },
+    {
+      "grupo": "C",
+      "arquivo": "test_notificacoes_expirado.py",
+      "descricao": "Notificacoes (Expiracao)",
+      "status": "PASSOU",
+      "sucesso": true,
+      "output": "======================================================================\nTESTES: Expiracao de Notificacoes\n======================================================================\n\n[TEST 1] Notificacao Ex"
+    },
+    {
+      "grupo": "D",
+      "arquivo": "test_agenda_service_p0.py",
+      "descricao": "Agenda Service P0",
+      "status": "PASSOU",
+      "sucesso": true,
+      "output": "\n======================================================================\nTESTES P0: services/agenda_service.py\n======================================================================\n\n\n=> => => => => =>"
+    },
+    {
+      "grupo": "E",
+      "arquivo": "test_ponta_a_ponta.py",
+      "descricao": "Ponta a Ponta (E2E)",
+      "status": "PASSOU",
+      "sucesso": true,
+      "output": "\n======================================================================\nTESTE PONTA A PONTA\nCliente agenda escova com Bruna -> Mensagens enviadas\n======================================================"
+    },
+    {
+      "grupo": "F",
+      "arquivo": "test_integracao_notificacao_profissional.py",
+      "descricao": "Integracao Notificacao",
+      "status": "FALHOU",
+      "sucesso": false,
+      "output": "\n======================================================================\nTESTES DE INTEGRACAO: Notificacao Profissional\n======================================================================\n\n========="
+    },
+    {
+      "grupo": "G",
+      "arquivo": "test_e2e_patch.py",
+      "descricao": "E2E Patch",
+      "status": "PASSOU",
+      "sucesso": true,
+      "output": "================================================================================\nTESTE E2E: Rastreamento de Patch Minimo\n==============================================================================="
+    },
+    {
+      "grupo": "H",
+      "arquivo": "test_fluxo_real.py",
+      "descricao": "Fluxo Real",
+      "status": "PASSOU",
+      "sucesso": true,
+      "output": "================================================================================\nTESTE DO FLUXO REAL - NeoEve\n================================================================================\n\n========"
+    }
+  ]
+}

@@ -1,0 +1,3241 @@
+{
+  "metadata": {
+    "data": "2026-06-14T17:44:39.045726",
+    "total_mensagens": 359,
+    "arquivos_analisados": 56,
+    "linhas_analisadas": 29909
+  },
+  "mensagens": [
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 54,
+      "funcao": "_send_and_stop",
+      "trecho": "await context.bot.send_message(chat_id=user_id, text=text, parse_mode=parse_mode)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 1985,
+      "funcao": "precheck_e_confirmacao_agendamento",
+      "trecho": "\\nVocê prefere outro horário ou manter o horário com outro profissional?",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 3462,
+      "funcao": "roteador_principal",
+      "trecho": "{resposta_texto}",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 3515,
+      "funcao": "roteador_principal",
+      "trecho": "{mensagem}",
+      "chamada": "mensagem =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 4568,
+      "funcao": "_perguntar_amanha_mesmo_horario_e_bloquear",
+      "trecho": "\\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 4751,
+      "funcao": "_perguntar_amanha_mesmo_horario_e_bloquear",
+      "trecho": "\\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 4994,
+      "funcao": "_perguntar_amanha_mesmo_horario_e_bloquear",
+      "trecho": "\\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 5755,
+      "funcao": "filtrar_por_periodo",
+      "trecho": "\\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router.py",
+      "linha": 7946,
+      "funcao": "_formatar_profissionais",
+      "trecho": "\\nQual opção você prefere?",
+      "chamada": "msg =",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "router\\principal_router_precheck_func.py",
+      "linha": 134,
+      "funcao": "precheck_e_confirmacao_agendamento",
+      "trecho": "\\nVocê prefere outro horário ou manter o horário com outro profissional?",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_handler.py",
+      "linha": 428,
+      "funcao": "tratar_mensagem_usuario",
+      "trecho": "🕒 Horários alternativos disponíveis:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 53,
+      "funcao": "executar_se_coroutine",
+      "trecho": "{resposta}\\n\\n{texto}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 113,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 150,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 169,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 177,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 191,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 239,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao adicionar o serviço. Tente novamente.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 243,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 255,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(\"⚠️ Nome da profissional não informado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 271,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao excluir a profissional. Tente novamente.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 275,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 280,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 291,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(\"⚠️ Data não informada para consulta de agenda.\")",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 332,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 373,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 384,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(\"📬 Nenhum profissional cadastrado ainda.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 387,
+      "funcao": "executar_se_coroutine",
+      "trecho": "👥 *Profissionais cadastrados:*\\n\\n",
+      "chamada": "mensagem =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 392,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(mensagem, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 408,
+      "funcao": "executar_se_coroutine",
+      "trecho": "⚠️ Não consegui identificar as datas para bloquear a agenda.",
+      "chamada": "msg =",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 409,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 423,
+      "funcao": "executar_se_coroutine",
+      "trecho": "❌ Não consegui salvar o bloqueio da agenda.",
+      "chamada": "msg =",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 424,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 457,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 479,
+      "funcao": "executar_se_coroutine",
+      "trecho": "⚠️ Não consegui identificar corretamente o período de atendimento.",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 480,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 492,
+      "funcao": "executar_se_coroutine",
+      "trecho": "❌ Não consegui salvar o horário especial.",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 493,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 511,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 531,
+      "funcao": "executar_se_coroutine",
+      "trecho": "⚠️ Não consegui identificar corretamente o profissional ou as datas do bloqueio.",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 532,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 548,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 568,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 593,
+      "funcao": "executar_se_coroutine",
+      "trecho": "⚠️ Não consegui identificar corretamente o profissional ou o período especial.",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 594,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 612,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 633,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 654,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(\"😕 Nenhum profissional oferece todos esses serviços.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 663,
+      "funcao": "executar_se_coroutine",
+      "trecho": "await update.message.reply_text(resultado[\"resposta\"], parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 674,
+      "funcao": "executar_se_coroutine",
+      "trecho": "⚠️ Ação desconhecida: {acao}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 677,
+      "funcao": "executar_se_coroutine",
+      "trecho": "❌ Erro ao executar ação ",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 686,
+      "funcao": "consultar_preco_servico",
+      "trecho": "❌ Não consegui identificar o serviço.",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 687,
+      "funcao": "consultar_preco_servico",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 708,
+      "funcao": "consultar_preco_servico",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 728,
+      "funcao": "consultar_preco_servico",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 738,
+      "funcao": "consultar_tabela_geral_de_precos",
+      "trecho": "await update.message.reply_text(\"Ainda não temos uma tabela de preços cadastrada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 741,
+      "funcao": "consultar_tabela_geral_de_precos",
+      "trecho": "*Tabela de Preços:*\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\acao_router_handler.py",
+      "linha": 747,
+      "funcao": "consultar_tabela_geral_de_precos",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot 2.py",
+      "linha": 28,
+      "funcao": "start",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot 2.py",
+      "linha": 36,
+      "funcao": "help_command",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot 2.py",
+      "linha": 85,
+      "funcao": "meus_dados",
+      "trecho": "📂 Seus dados:\\n{dados_cliente}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot 2.py",
+      "linha": 87,
+      "funcao": "meus_dados",
+      "trecho": "await update.message.reply_text(\"⚠️ Nenhum dado encontrado para sua conta.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 125,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(\"✅ Cancelamento concluído. Horário liberado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 127,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(\"❌ Não consegui cancelar. Pode tentar novamente?\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 132,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(\"⚠️ Número inválido. Envie apenas o número da opção listada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 216,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 230,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 261,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(resposta[\"resposta\"], parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 272,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(\"Tudo bem — não confirmei esse horário.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 308,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(resposta_cfg, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 337,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(resposta[\"resposta\"], parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 345,
+      "funcao": "tratar_mensagens_gerais",
+      "trecho": "await update.message.reply_text(\"⚠️ Tive um problema para processar sua solicitação agora. Pode repe",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 420,
+      "funcao": "start",
+      "trecho": "await update.message.reply_text(mensagem_onboarding(), parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 424,
+      "funcao": "start",
+      "trecho": "await update.message.reply_text(mensagem, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 429,
+      "funcao": "help_command",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 474,
+      "funcao": "meus_dados",
+      "trecho": "📂 Seus dados:\\n{dados_cliente}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 476,
+      "funcao": "meus_dados",
+      "trecho": "await update.message.reply_text(\"⚠️ Nenhum dado encontrado para sua conta.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 486,
+      "funcao": "custos_api_handler",
+      "trecho": "await update.message.reply_text(\"⚠️ Este comando está disponível apenas para o administrador do sist",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 508,
+      "funcao": "custos_api_handler",
+      "trecho": "await update.message.reply_text(\"🔍 Nenhum uso registrado da API ainda.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 519,
+      "funcao": "custos_api_handler",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\bot.py",
+      "linha": 522,
+      "funcao": "custos_api_handler",
+      "trecho": "await update.message.reply_text(\"❌ Ocorreu um erro ao consultar os dados.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 51,
+      "funcao": "start",
+      "trecho": "await update.message.reply_text(\"✅ Você já está conectado! Pronto para ler e enviar e-mails. 😊\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 54,
+      "funcao": "start",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 88,
+      "funcao": "configurar_email_manual",
+      "trecho": "await update.message.reply_text(\"❌ E-mail e senha de app são obrigatórios.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 103,
+      "funcao": "configurar_email_manual",
+      "trecho": "await update.message.reply_text(\"✅ E-mail conectado com sucesso! Agora posso ler e enviar seus e-mai",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 106,
+      "funcao": "configurar_email_manual",
+      "trecho": "await update.message.reply_text(\"❌ Ocorreu um erro ao salvar os dados. Verifique o formato e tente n",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 111,
+      "funcao": "help_command",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 134,
+      "funcao": "conectar_email",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 204,
+      "funcao": "listar_emails_prioritarios",
+      "trecho": "📧 Emails prioritários:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 209,
+      "funcao": "listar_emails_prioritarios",
+      "trecho": "📭 Nenhum email prioritário encontrado.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 211,
+      "funcao": "listar_emails_prioritarios",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 227,
+      "funcao": "ler_email_por_gpt",
+      "trecho": "📨 Emails encontrados:\\n\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 231,
+      "funcao": "ler_email_por_gpt",
+      "trecho": "📭 Nenhum e-mail encontrado com essas condições.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 233,
+      "funcao": "ler_email_por_gpt",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 250,
+      "funcao": "ler_emails_command",
+      "trecho": "📧 Emails:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 255,
+      "funcao": "ler_emails_command",
+      "trecho": "📭 Nenhum email encontrado.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 257,
+      "funcao": "ler_emails_command",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 267,
+      "funcao": "ler_emails_command",
+      "trecho": "await update.message.reply_text(resumo)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 311,
+      "funcao": "enviar_email_natural",
+      "trecho": "await update.message.reply_text(resposta_bot)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 339,
+      "funcao": "enviar_email_natural",
+      "trecho": "await update.message.reply_text(resposta_bot)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 345,
+      "funcao": "enviar_email_natural",
+      "trecho": "await update.message.reply_text(resposta_bot)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 355,
+      "funcao": "enviar_email_natural",
+      "trecho": "await update.message.reply_text(resposta_bot)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\email_handler.py",
+      "linha": 393,
+      "funcao": "enviar_email_natural",
+      "trecho": "await update.message.reply_text(resposta_bot)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\encaixe_handler.py",
+      "linha": 57,
+      "funcao": "handle_pedido_encaixe",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\encaixe_handler.py",
+      "linha": 70,
+      "funcao": "handle_pedido_encaixe",
+      "trecho": "await update.message.reply_text(\"🔎 Vou checar e tentar encaixar…\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\encaixe_handler.py",
+      "linha": 88,
+      "funcao": "handle_pedido_encaixe",
+      "trecho": "✅ Encaixe confirmado{prof_txt}: *{quando}*.",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\encaixe_handler.py",
+      "linha": 90,
+      "funcao": "handle_pedido_encaixe",
+      "trecho": "await update.message.reply_text(\"📨 Enviei pedido(s) de reagendamento para clientes com perfil flexív",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\encaixe_handler.py",
+      "linha": 92,
+      "funcao": "handle_pedido_encaixe",
+      "trecho": "❌ Não consegui encaixar agora. {msg}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 66,
+      "funcao": "add_agenda",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 84,
+      "funcao": "add_agenda",
+      "trecho": "await update.message.reply_text(\"⚠️ Data ou hora em formato inválido. Use o formato 2025-03-25 14:00",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 116,
+      "funcao": "add_agenda",
+      "trecho": "⚠️ Já existe um evento nesse horário.\\n",
+      "chamada": "resposta =",
+      "categoria": "conflito",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 117,
+      "funcao": "add_agenda",
+      "trecho": "🔄 Alternativa: {s}",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 118,
+      "funcao": "add_agenda",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 135,
+      "funcao": "add_agenda",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 153,
+      "funcao": "add_agenda",
+      "trecho": "await update.message.reply_text(\"❌ Ocorreu um erro ao tentar salvar o evento.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 165,
+      "funcao": "list_events",
+      "trecho": "await update.message.reply_text(\"📭 Nenhum evento encontrado para hoje.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 168,
+      "funcao": "list_events",
+      "trecho": "📅 Eventos de hoje:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 169,
+      "funcao": "list_events",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 177,
+      "funcao": "confirmar_reuniao",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe a descrição do evento para confirmar.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 193,
+      "funcao": "confirmar_reuniao",
+      "trecho": "await update.message.reply_text(\"❌ Evento não encontrado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 201,
+      "funcao": "confirmar_presenca",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o nome do evento para confirmar presença.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 216,
+      "funcao": "confirmar_presenca",
+      "trecho": "await update.message.reply_text(\"❌ Evento não encontrado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 238,
+      "funcao": "debug_eventos",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar evento de teste.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 242,
+      "funcao": "debug_eventos",
+      "trecho": "await update.message.reply_text(\"📭 Nenhum evento encontrado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 245,
+      "funcao": "debug_eventos",
+      "trecho": "📂 Eventos salvos:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 262,
+      "funcao": "add_evento_por_voz",
+      "trecho": "await update.message.reply_text(\"❌ Não entendi a data e hora. Pode tentar de outra forma?\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 278,
+      "funcao": "add_evento_por_voz",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 362,
+      "funcao": "add_evento_por_voz",
+      "trecho": "await update.message.reply_text(mensagem_sugestao, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 403,
+      "funcao": "add_evento_por_voz",
+      "trecho": "await update.message.reply_text(\"❌ Não foi possível salvar o evento.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 407,
+      "funcao": "add_evento_por_voz",
+      "trecho": "await update.message.reply_text(\"❌ Ocorreu um erro ao tentar agendar a reunião.\")",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 416,
+      "funcao": "cancelar_evento_cmd",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 429,
+      "funcao": "cancelar_evento_cmd",
+      "trecho": "await update.message.reply_text(msg)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 444,
+      "funcao": "detectar_e_definir_duracao",
+      "trecho": "✅ Duração dos eventos ajustada para {minutos} minutos.",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 448,
+      "funcao": "detectar_e_definir_duracao",
+      "trecho": "await update.message.reply_text(\"⚠️ Por favor, escolha uma duração entre 15 e 180 minutos.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 578,
+      "funcao": "eh_confirmacao",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 630,
+      "funcao": "eh_confirmacao",
+      "trecho": "await update.message.reply_text(\"❌ Não consegui identificar a profissional para esse agendamento. Po",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 636,
+      "funcao": "eh_confirmacao",
+      "trecho": "await update.message.reply_text(\"❌ Dados insuficientes para criar o evento.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 642,
+      "funcao": "eh_confirmacao",
+      "trecho": "await update.message.reply_text(\"❌ Formato de data/hora inválido.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 699,
+      "funcao": "eh_confirmacao",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 707,
+      "funcao": "eh_confirmacao",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 712,
+      "funcao": "eh_confirmacao",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 928,
+      "funcao": "norm_nome",
+      "trecho": "await update.message.reply_text(mensagem_sugestao, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 955,
+      "funcao": "norm_nome",
+      "trecho": "await update.message.reply_text(\"Esse horário já foi confirmado. Está tudo certo 😊\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 1051,
+      "funcao": "norm_nome",
+      "trecho": "await application.bot.send_message(chat_id=user_id, text=mensagem_confirmacao)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 1062,
+      "funcao": "norm_nome",
+      "trecho": "await update.message.reply_text(msg_sucesso)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 1072,
+      "funcao": "norm_nome",
+      "trecho": "await update.message.reply_text(\"❌ Ocorreu um erro ao tentar criar o evento.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\event_handler.py",
+      "linha": 1094,
+      "funcao": "enviar_agenda_excel",
+      "trecho": "await update.message.reply_text(\"📭 Nenhum evento encontrado para gerar a agenda.\")",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 34,
+      "funcao": "criar_followup",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode registrar follow-ups.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 38,
+      "funcao": "criar_followup",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o nome do cliente para o follow-up.\\nEx: /followup Fulan",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 55,
+      "funcao": "criar_followup",
+      "trecho": "📌 Follow-up com *{nome_cliente}* foi registrado com sucesso!",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 57,
+      "funcao": "criar_followup",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o follow-up.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 68,
+      "funcao": "listar_followups",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode visualizar follow-ups.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 76,
+      "funcao": "listar_followups",
+      "trecho": "await update.message.reply_text(\"📭 Nenhum follow-up encontrado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 79,
+      "funcao": "listar_followups",
+      "trecho": "📋 *Seus Follow-ups:*\\n\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 86,
+      "funcao": "listar_followups",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 97,
+      "funcao": "concluir_followup",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode concluir follow-ups.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 101,
+      "funcao": "concluir_followup",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o nome do cliente para concluir o follow-up.\\nEx: /concl",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 112,
+      "funcao": "concluir_followup",
+      "trecho": "✅ Follow-up com *{item[",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 115,
+      "funcao": "concluir_followup",
+      "trecho": "await update.message.reply_text(\"❌ Nenhum follow-up encontrado com esse nome.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 129,
+      "funcao": "criar_followup_por_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode registrar follow-ups.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 137,
+      "funcao": "criar_followup_por_gpt",
+      "trecho": "await update.message.reply_text(\"❌ Não entendi o nome do cliente para o follow-up.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 173,
+      "funcao": "criar_followup_por_gpt",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 178,
+      "funcao": "criar_followup_por_gpt",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o follow-up.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 190,
+      "funcao": "concluir_followup_por_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode concluir follow-ups.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 195,
+      "funcao": "concluir_followup_por_gpt",
+      "trecho": "await update.message.reply_text(\"❌ Não entendi o nome do cliente para concluir o follow-up.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 204,
+      "funcao": "concluir_followup_por_gpt",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 210,
+      "funcao": "concluir_followup_por_gpt",
+      "trecho": "await update.message.reply_text(\"❌ Nenhum follow-up encontrado com esse nome.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 220,
+      "funcao": "verificar_avisos",
+      "trecho": "⏰ Seus lembretes estão configurados para:\\n\\n",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 222,
+      "funcao": "verificar_avisos",
+      "trecho": "⏰ Você está usando os horários *padrão* de lembretes:\\n\\n• 09:00\\n• 13:00\\n• 17:00",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 224,
+      "funcao": "verificar_avisos",
+      "trecho": "await update.message.reply_text(msg, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 234,
+      "funcao": "configurar_avisos",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode configurar os horários de aviso.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 238,
+      "funcao": "configurar_avisos",
+      "trecho": "await update.message.reply_text(\"⚠️ Use: /configuraravisos HH:MM HH:MM HH:MM\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 246,
+      "funcao": "configurar_avisos",
+      "trecho": "❌ Horário inválido: {h}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 253,
+      "funcao": "configurar_avisos",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 258,
+      "funcao": "configurar_avisos",
+      "trecho": "await update.message.reply_text(\"❌ Ocorreu um erro ao salvar os horários.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\followup_handler.py",
+      "linha": 279,
+      "funcao": "rotina_lembrete_followups",
+      "trecho": "await bot.send_message(chat_id=int(uid), text=mensagem)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 51,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(\"✅ Sim, os profissionais foram importados com sucesso!\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 53,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(\"❌ Houve um problema na importação da planilha. Você pode tentar nov",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 55,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(\"🤔 Ainda não recebi nenhuma planilha recente para importar.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 102,
+      "funcao": "processar_texto",
+      "trecho": "✅ Não encontrei agendamentos nesse período — está livre para marcar.",
+      "chamada": "resposta =",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 103,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 119,
+      "funcao": "processar_texto",
+      "trecho": "#    await update.message.reply_text(resposta_fluxo)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 133,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 356,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 389,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta_info)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 422,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resultado_raw[\"resposta\"])",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 446,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resultado_raw[\"resposta\"])",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 539,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 573,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 592,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\gpt_text_handler.py",
+      "linha": 614,
+      "funcao": "processar_texto",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=None)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\importacao_handler.py",
+      "linha": 60,
+      "funcao": "importar_profissionais_handler",
+      "trecho": "await update.message.reply_text(\"❌ Nenhuma importação foi solicitada. Peça primeiro para importar pr",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\importacao_handler.py",
+      "linha": 66,
+      "funcao": "importar_profissionais_handler",
+      "trecho": "await update.message.reply_text(\"🚫 Apenas o dono pode importar arquivos.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\importacao_handler.py",
+      "linha": 70,
+      "funcao": "importar_profissionais_handler",
+      "trecho": "await update.message.reply_text(\"📂 Envie um arquivo Excel (.xlsx) ou CSV com os profissionais.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\importacao_handler.py",
+      "linha": 77,
+      "funcao": "importar_profissionais_handler",
+      "trecho": "📅 Arquivo recebido! Processando...",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\importacao_handler.py",
+      "linha": 83,
+      "funcao": "importar_profissionais_handler",
+      "trecho": "await update.message.reply_text(\"✅ Profissionais importados com sucesso!\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\importacao_handler.py",
+      "linha": 86,
+      "funcao": "importar_profissionais_handler",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao importar profissionais.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 10,
+      "funcao": "set_tipo_negocio",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o tipo de negócio. Ex: /tipo_negocio petshop\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 19,
+      "funcao": "set_tipo_negocio",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o tipo de negócio.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 24,
+      "funcao": "set_estilo_mensagem",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o estilo desejado. Ex: /estilo formal\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 33,
+      "funcao": "set_estilo_mensagem",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o estilo.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 38,
+      "funcao": "set_nome_negocio",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o nome do seu negócio. Ex: /nome_negocio BichoFofo\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 47,
+      "funcao": "set_nome_negocio",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o nome do negócio.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 55,
+      "funcao": "meu_estilo",
+      "trecho": "await update.message.reply_text(\"❌ Nenhum perfil encontrado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 62,
+      "funcao": "meu_estilo",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 73,
+      "funcao": "set_email",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe um e-mail. Exemplo:\\n/meu_email exemplo@email.com\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 82,
+      "funcao": "set_email",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o e-mail.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 90,
+      "funcao": "meu_plano",
+      "trecho": "await update.message.reply_text(\"❌ Nenhum cadastro encontrado. Use /start para começar.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler 2.py",
+      "linha": 117,
+      "funcao": "meu_plano",
+      "trecho": "await update.message.reply_text(texto, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 11,
+      "funcao": "set_tipo_negocio",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o tipo de negócio. Ex: /tipo_negocio petshop\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 18,
+      "funcao": "set_tipo_negocio",
+      "trecho": "🏪 Tipo de negócio definido como: {tipo}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 20,
+      "funcao": "set_tipo_negocio",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o tipo de negócio.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 25,
+      "funcao": "set_estilo_mensagem",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o estilo desejado. Ex: /estilo formal\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 32,
+      "funcao": "set_estilo_mensagem",
+      "trecho": "🎨 Estilo de mensagens definido como: {estilo}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 34,
+      "funcao": "set_estilo_mensagem",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o estilo.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 39,
+      "funcao": "set_nome_negocio",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o nome do seu negócio. Ex: /nome_negocio BichoFofo\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 46,
+      "funcao": "set_nome_negocio",
+      "trecho": "🏷️ Nome do negócio salvo como: {nome}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 48,
+      "funcao": "set_nome_negocio",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o nome do negócio.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 56,
+      "funcao": "meu_estilo",
+      "trecho": "await update.message.reply_text(\"❌ Nenhum perfil encontrado.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 63,
+      "funcao": "meu_estilo",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 74,
+      "funcao": "set_email",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe um e-mail. Exemplo:\\n/meu_email exemplo@email.com\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 81,
+      "funcao": "set_email",
+      "trecho": "📧 E-mail salvo com sucesso: {email}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 83,
+      "funcao": "set_email",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o e-mail.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 91,
+      "funcao": "meu_plano",
+      "trecho": "await update.message.reply_text(\"❌ Nenhum cadastro encontrado. Use /start para começar.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 118,
+      "funcao": "meu_plano",
+      "trecho": "await update.message.reply_text(texto, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 123,
+      "funcao": "set_tipo_usuario",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o tipo de usuário. Ex: /tipo_usuario dono ou /tipo_usuar",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 128,
+      "funcao": "set_tipo_usuario",
+      "trecho": "await update.message.reply_text(\"❌ Valor inválido. Use apenas 'dono' ou 'cliente'.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 133,
+      "funcao": "set_tipo_usuario",
+      "trecho": "🔐 Tipo de usuário definido como: *{tipo}*",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 135,
+      "funcao": "set_tipo_usuario",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o tipo de usuário.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 140,
+      "funcao": "set_modo_uso",
+      "trecho": "await update.message.reply_text(\"⚠️ Informe o modo de uso. Ex: /modo_uso interno ou /modo_uso atendi",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 145,
+      "funcao": "set_modo_uso",
+      "trecho": "await update.message.reply_text(\"❌ Valor inválido. Use apenas 'interno' ou 'atendimento_cliente'.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 150,
+      "funcao": "set_modo_uso",
+      "trecho": "🧭 Modo de uso definido como: *{modo}*",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 152,
+      "funcao": "set_modo_uso",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar o modo de uso.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 160,
+      "funcao": "meu_perfil",
+      "trecho": "await update.message.reply_text(\"❌ Nenhum perfil encontrado. Use /start para iniciar seu cadastro.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 171,
+      "funcao": "meu_perfil",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 188,
+      "funcao": "adicionar_profissional",
+      "trecho": "await update.message.reply_text(\"⚠️ Use o formato: /profissional Nome corte,escova\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 197,
+      "funcao": "adicionar_profissional",
+      "trecho": "await update.message.reply_text(\"❌ Perfil não encontrado. Use /start para iniciar.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 214,
+      "funcao": "adicionar_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 219,
+      "funcao": "adicionar_profissional",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar profissional.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 230,
+      "funcao": "listar_profissionais",
+      "trecho": "await update.message.reply_text(\"❌ Perfil não encontrado. Use /start para iniciar.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 239,
+      "funcao": "listar_profissionais",
+      "trecho": "await update.message.reply_text(\"📭 Nenhum profissional cadastrado ainda.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 242,
+      "funcao": "listar_profissionais",
+      "trecho": "👥 *Profissionais cadastrados:*\\n\\n",
+      "chamada": "mensagem =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\perfil_handler.py",
+      "linha": 247,
+      "funcao": "listar_profissionais",
+      "trecho": "await update.message.reply_text(mensagem, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\reagendamento_handler.py",
+      "linha": 47,
+      "funcao": "handle_resposta_reagendamento",
+      "trecho": "await update.message.reply_text(\"❌ Não encontrei seu agendamento para mover. Pode tentar novamente m",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\reagendamento_handler.py",
+      "linha": 52,
+      "funcao": "handle_resposta_reagendamento",
+      "trecho": "✅ {out.get(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\reagendamento_handler.py",
+      "linha": 56,
+      "funcao": "handle_resposta_reagendamento",
+      "trecho": "❌ {out.get(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler 2.py",
+      "linha": 34,
+      "funcao": "relatorio_diario",
+      "trecho": "\\n📝 *Tarefas do dia:*\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler 2.py",
+      "linha": 36,
+      "funcao": "relatorio_diario",
+      "trecho": "\\n\\n📅 *Eventos do dia:*\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler 2.py",
+      "linha": 38,
+      "funcao": "relatorio_diario",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler 2.py",
+      "linha": 65,
+      "funcao": "relatorio_semanal",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler.py",
+      "linha": 32,
+      "funcao": "relatorio_diario",
+      "trecho": "\\n📝 *Tarefas do dia:*\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler.py",
+      "linha": 34,
+      "funcao": "relatorio_diario",
+      "trecho": "\\n\\n📅 *Eventos do dia:*\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler.py",
+      "linha": 36,
+      "funcao": "relatorio_diario",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler.py",
+      "linha": 60,
+      "funcao": "relatorio_semanal",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler.py",
+      "linha": 71,
+      "funcao": "enviar_relatorio_email",
+      "trecho": "await update.message.reply_text(\"⚠️ Nenhum e-mail configurado para sua conta.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler.py",
+      "linha": 87,
+      "funcao": "enviar_relatorio_email",
+      "trecho": "📧 Relatório enviado com sucesso para {email_destino}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\report_handler.py",
+      "linha": 89,
+      "funcao": "enviar_relatorio_email",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao enviar o relatório por e-mail.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 19,
+      "funcao": "add_task",
+      "trecho": "await update.message.reply_text(\"⚠️ Você precisa informar uma descrição para a tarefa.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 34,
+      "funcao": "add_task",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar a tarefa. Tente novamente.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 46,
+      "funcao": "list_tasks",
+      "trecho": "await update.message.reply_text(\"📭 Nenhuma tarefa encontrada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 49,
+      "funcao": "list_tasks",
+      "trecho": "📌 Suas tarefas:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 54,
+      "funcao": "list_tasks",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 66,
+      "funcao": "list_tasks_by_priority",
+      "trecho": "await update.message.reply_text(\"📭 Nenhuma tarefa encontrada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 72,
+      "funcao": "list_tasks_by_priority",
+      "trecho": "📌 Tarefas por prioridade:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 77,
+      "funcao": "list_tasks_by_priority",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler 2.py",
+      "linha": 90,
+      "funcao": "clear_tasks",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao limpar as tarefas.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 51,
+      "funcao": "add_task",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode acessar tarefas.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 56,
+      "funcao": "add_task",
+      "trecho": "await update.message.reply_text(\"⚠️ Você precisa informar uma descrição para a tarefa.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 72,
+      "funcao": "add_task",
+      "trecho": "✅ Tarefa adicionada: {descricao} (Prioridade: {prioridade})",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 74,
+      "funcao": "add_task",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao salvar a tarefa. Tente novamente.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 86,
+      "funcao": "list_tasks",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode visualizar as tarefas.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 91,
+      "funcao": "list_tasks",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 103,
+      "funcao": "list_tasks_by_priority",
+      "trecho": "await update.message.reply_text(\"📭 Nenhuma tarefa encontrada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 114,
+      "funcao": "list_tasks_by_priority",
+      "trecho": "await update.message.reply_text(\"📭 Nenhuma tarefa encontrada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 122,
+      "funcao": "list_tasks_by_priority",
+      "trecho": "📌 Tarefas por prioridade:\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 126,
+      "funcao": "list_tasks_by_priority",
+      "trecho": "await update.message.reply_text(resposta)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 138,
+      "funcao": "clear_tasks",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode limpar as tarefas.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 146,
+      "funcao": "clear_tasks",
+      "trecho": "await update.message.reply_text(\"📭 Nenhuma tarefa para remover.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 152,
+      "funcao": "clear_tasks",
+      "trecho": "await update.message.reply_text(\"🧹 Todas as tarefas foram removidas com sucesso.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 164,
+      "funcao": "add_task_por_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode adicionar tarefas.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 174,
+      "funcao": "add_task_por_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Nenhuma tarefa identificada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 189,
+      "funcao": "add_task_por_gpt",
+      "trecho": "✅ {adicionadas} tarefa(s) adicionada(s).",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 191,
+      "funcao": "add_task_por_gpt",
+      "trecho": "await update.message.reply_text(\"❌ Nenhuma tarefa foi adicionada.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 203,
+      "funcao": "remover_tarefa_por_descricao",
+      "trecho": "await update.message.reply_text(\"⚠️ Apenas o dono pode remover tarefas.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 232,
+      "funcao": "remover_tarefa_por_descricao",
+      "trecho": "resposta = \"\"",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\task_handler.py",
+      "linha": 238,
+      "funcao": "remover_tarefa_por_descricao",
+      "trecho": "await update.message.reply_text(resposta.strip())",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\test_handler.py",
+      "linha": 15,
+      "funcao": "testar_avisos",
+      "trecho": "await update.message.reply_text(\"✅ Horários salvos com sucesso no Firebase!\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\test_handler.py",
+      "linha": 17,
+      "funcao": "testar_avisos",
+      "trecho": "await update.message.reply_text(\"❌ Falha ao salvar horários no Firebase.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\test_handler.py",
+      "linha": 22,
+      "funcao": "testar_firebase",
+      "trecho": "✅ Firebase conectado. Clientes encontrados: {len(dados)}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\test_handler.py",
+      "linha": 24,
+      "funcao": "testar_firebase",
+      "trecho": "❌ Erro ao acessar o Firebase: {e}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_command_handler.py",
+      "linha": 79,
+      "funcao": "processar_comando_voz",
+      "trecho": "await update.message.reply_text(resposta, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_command_handler.py",
+      "linha": 81,
+      "funcao": "processar_comando_voz",
+      "trecho": "await context.bot.send_message(chat_id=chat_id, text=resposta, parse_mode=\"Markdown\")",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_command_handler.py",
+      "linha": 87,
+      "funcao": "processar_comando_voz",
+      "trecho": "await update.message.reply_text(erro)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_command_handler.py",
+      "linha": 89,
+      "funcao": "processar_comando_voz",
+      "trecho": "await context.bot.send_message(chat_id=chat_id, text=erro)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_handler.py",
+      "linha": 17,
+      "funcao": "handle_voice",
+      "trecho": "await update.message.reply_text(\"❌ Erro ao converter o áudio.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_handler.py",
+      "linha": 22,
+      "funcao": "handle_voice",
+      "trecho": "await update.message.reply_text(\"❌ Não entendi o áudio. Pode repetir?\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_handler.py",
+      "linha": 25,
+      "funcao": "handle_voice",
+      "trecho": "🎤 Você disse: {texto}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "handlers\\voice_handler.py",
+      "linha": 31,
+      "funcao": "handle_voice",
+      "trecho": "❌ Ocorreu um erro ao processar o áudio:\\n{e}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 295,
+      "funcao": "_handle_cadastrar_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 320,
+      "funcao": "_handle_cadastrar_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 334,
+      "funcao": "_continuar_cadastrar_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 343,
+      "funcao": "_continuar_cadastrar_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 374,
+      "funcao": "_executar_cadastrar_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 396,
+      "funcao": "_handle_adicionar_servico_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 419,
+      "funcao": "_handle_adicionar_servico_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 431,
+      "funcao": "_handle_adicionar_servico_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 456,
+      "funcao": "_handle_adicionar_servico_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 475,
+      "funcao": "_continuar_adicionar_servico_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 494,
+      "funcao": "_continuar_adicionar_servico_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 535,
+      "funcao": "_executar_adicionar_servico_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 556,
+      "funcao": "_handle_excluir_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 567,
+      "funcao": "_handle_excluir_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 585,
+      "funcao": "_handle_excluir_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 604,
+      "funcao": "_handle_excluir_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 626,
+      "funcao": "_continuar_excluir_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 633,
+      "funcao": "_continuar_excluir_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 661,
+      "funcao": "_executar_excluir_profissional",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 740,
+      "funcao": "_handle_consultar_agenda_salao",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 761,
+      "funcao": "_continuar_consultar_agenda_salao",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\admin_command_service.py",
+      "linha": 800,
+      "funcao": "_executar_consultar_agenda_salao",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\email_service 2.py",
+      "linha": 141,
+      "funcao": "enviar_email",
+      "trecho": "server.send_message(msg)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\email_service.py",
+      "linha": 268,
+      "funcao": "enviar_email_google",
+      "trecho": "server.send_message(msg)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\encaixe_service.py",
+      "linha": 116,
+      "funcao": "_enviar_msg_telegram",
+      "trecho": "await bot.send_message(chat_id=int(chat_id), text=texto)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\event_service_async.py",
+      "linha": 347,
+      "funcao": "cancelar_evento_por_texto",
+      "trecho": "Encontrei mais de um. Envie o número da opção para cancelar:\\n",
+      "chamada": "msg =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 133,
+      "funcao": "executar_acao_gpt",
+      "trecho": "{resposta}\\n\\n{texto_tarefas}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 141,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Não consegui identificar o usuário.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 149,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(\"Faltaram dados para confirmar o agendamento.\")",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 237,
+      "funcao": "executar_acao_gpt",
+      "trecho": "return await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 246,
+      "funcao": "executar_acao_gpt",
+      "trecho": "return await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 254,
+      "funcao": "executar_acao_gpt",
+      "trecho": "return await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 319,
+      "funcao": "executar_acao_gpt",
+      "trecho": "return await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 326,
+      "funcao": "executar_acao_gpt",
+      "trecho": "return await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 437,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(mensagem, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 471,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 496,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Não consegui identificar o usuário para criar o evento.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 525,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 545,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Não consegui identificar quem está solicitando o cancelamento.\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 557,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(\"❌ Não encontrei nenhum evento correspondente ao que você quer cance",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 566,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 570,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(\"❌ Tive um problema ao cancelar. Pode tentar novamente?\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 591,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(txt)",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 606,
+      "funcao": "executar_acao_gpt",
+      "trecho": "await update.message.reply_text(\"⚠️ Não consegui identificar o usuário para consultar a agenda.\")",
+      "chamada": "reply_text()",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 626,
+      "funcao": "_fmt",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 631,
+      "funcao": "_fmt",
+      "trecho": "await update.message.reply_text(",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 650,
+      "funcao": "_fmt",
+      "trecho": "await update.message.reply_text(texto, parse_mode=\"Markdown\")",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_executor.py",
+      "linha": 661,
+      "funcao": "_fmt",
+      "trecho": "❌ Erro interno: {e}",
+      "chamada": "reply_text()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_service.py",
+      "linha": 1500,
+      "funcao": "norm",
+      "trecho": "Infelizmente não temos esse preço ainda.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_service.py",
+      "linha": 1502,
+      "funcao": "norm",
+      "trecho": "❌ Não consegui identificar o serviço para informar o preço. Você pode tentar reformular a pergunta?",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_service.py",
+      "linha": 1750,
+      "funcao": "norm",
+      "trecho": "Aqui estão os serviços disponíveis:\\n- ",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\gpt_service.py",
+      "linha": 1754,
+      "funcao": "norm",
+      "trecho": "Não há serviços cadastrados no momento.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\onboarding_service.py",
+      "linha": 50,
+      "funcao": "processar_onboarding_endereco_dono",
+      "trecho": "Me envie a rua e o número do negócio.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\onboarding_service.py",
+      "linha": 60,
+      "funcao": "processar_onboarding_endereco_dono",
+      "trecho": "Me envie também o número do endereço.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\onboarding_service.py",
+      "linha": 77,
+      "funcao": "processar_onboarding_endereco_dono",
+      "trecho": "Erro ao salvar endereço. Tente novamente.",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\onboarding_service.py",
+      "linha": 102,
+      "funcao": "processar_onboarding_endereco_dono",
+      "trecho": "Qual é o endereço do negócio? Pode me mandar rua e número.",
+      "chamada": "resposta =",
+      "categoria": "agendamento",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "services\\profissional_service.py",
+      "linha": 245,
+      "funcao": "consultar_todos_precos",
+      "trecho": "📋 *Lista completa de preços:*\\n",
+      "chamada": "resposta =",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "scheduler\\daily_summary.py",
+      "linha": 56,
+      "funcao": "enviar_resumo_para_usuario",
+      "trecho": "await bot.send_message(chat_id=int(user_id), text=mensagem, parse_mode=\"Markdown\")",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "scheduler\\notificacoes_scheduler.py",
+      "linha": 245,
+      "funcao": "processar_notificacoes_agendadas",
+      "trecho": "await bot.send_message(chat_id=int(destinatario_id), text=mensagem)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "scheduler\\notificacoes_scheduler.py",
+      "linha": 250,
+      "funcao": "processar_notificacoes_agendadas",
+      "trecho": "await bot.send_message(chat_id=int(destinatario_id), text=mensagem)",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    },
+    {
+      "arquivo": "scheduler\\notificacoes_scheduler.py",
+      "linha": 324,
+      "funcao": "enviar_resumo_diario",
+      "trecho": "await bot.send_message(chat_id=int(user_id), text=texto, parse_mode=\"Markdown\")",
+      "chamada": "send_message()",
+      "categoria": "sugestao",
+      "classificacao": "A"
+    }
+  ]
+}

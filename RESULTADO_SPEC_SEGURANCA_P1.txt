@@ -1,0 +1,202 @@
+═══════════════════════════════════════════════════════════════════════════════
+         ✅ ESPECIFICAÇÃO DE SEGURANÇA CRIADA — ClienteProfile Não Decide
+═══════════════════════════════════════════════════════════════════════════════
+
+Data: 2026-06-14
+Status: ✅ CRIADA E ATIVA
+Aplicável a: P1.2, P1.3, P1.4 e todas as fases futuras com ClienteProfile
+
+═══════════════════════════════════════════════════════════════════════════════
+                           ARQUIVOS CRIADOS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. docs/specs/SPEC_SEGURANCA_CLIENTEPROFILE_NAO_DECIDE.md
+   └─ Especificação completa e obrigatória
+   └─ 450+ linhas
+   └─ Inclui: regras, matriz de decisão, anti-padrões, exemplos, checklist
+
+2. docs/roadmap/MAPA_CAPACIDADES_REAIS_NEOEVE.md (ATUALIZADO)
+   └─ Seção REGRA DE SEGURANÇA CENTRAL adicionada
+   └─ Linhas: ~570 (após "Princípio: GPT interpreta linguagem...")
+   └─ Resumo da regra central com referência para spec completa
+
+═══════════════════════════════════════════════════════════════════════════════
+                            REGRA CENTRAL
+═══════════════════════════════════════════════════════════════════════════════
+
+ClienteProfile INFLUENCIA sugestões, mas NUNCA DECIDE criação de evento.
+
+Por quê?
+└─ Perfil histórico não representa intenção ATUAL do cliente
+
+Hierarquia de Autoridade:
+1️⃣ MÁXIMA: Mensagem atual do cliente
+2️⃣ CONTEXTUAL: Histórico/Perfil
+3️⃣ MÍNIMA: Defaults do sistema
+
+═══════════════════════════════════════════════════════════════════════════════
+                        O QUE CLIENTEPROFILE PODE
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Sugerir baseado em histórico
+   "Você costuma com Carla. Quer verificar com ela?"
+
+✅ Preencher campos provisoriamente
+   Usar como default no formulário (cliente pode alterar)
+
+✅ Personalizar experiência
+   "Olá de novo!" ou "Bem-vindo, João"
+
+✅ Informar motor determinístico
+   Passar contexto para validação
+
+═══════════════════════════════════════════════════════════════════════════════
+                      O QUE CLIENTEPROFILE NÃO PODE
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ Criar evento
+   ❌ "Agendei corte com Carla quinta"
+
+❌ Confirmar evento
+   ❌ Evento é criado sem confirmação do cliente
+
+❌ Escolher horário final
+   ❌ Cliente deve escolher, não histórico
+
+❌ Escolher profissional final
+   ❌ Cliente deve escolher, não histórico
+
+❌ Ignorar conflito
+   ❌ "Tem conflito mas vou agendar mesmo"
+
+❌ Ignorar disponibilidade
+   ❌ "Profissional indisponível mas vou agendar"
+
+❌ Sobrescrever pedido explícito
+   ❌ Cliente disse "com Bruna", sistema usa "Carla"
+
+❌ Auto-agendar por recorrência
+   ❌ Sem autorização explícita
+
+═══════════════════════════════════════════════════════════════════════════════
+                           REGRAS OBRIGATÓRIAS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Pedido explícito atual sempre vence perfil
+2. Perfil só entra se faltar slot
+3. Toda sugestão baseada em perfil exige confirmação
+4. Criação de evento nunca pula passos obrigatórios
+5. GPT não pode usar profile para decidir
+6. Motor determinístico valida sugestão antes de apresentar
+7. Conflito entre histórico e atual, atual vence
+8. Recusa de sugestão limpa o draft
+9. Nunca agendar automaticamente por recorrência (sem autorização)
+10. Documentar como regra permanente (FEITO)
+
+═══════════════════════════════════════════════════════════════════════════════
+                            FLUXO OBRIGATÓRIO
+═══════════════════════════════════════════════════════════════════════════════
+
+Criação de evento NUNCA pula:
+
+1. Interpretar: qual serviço?
+2. Validar: serviço existe?
+3. Confirmar: duração correta?
+4. Disponibilidade: motor verifica slots
+5. Conflito: motor valida horário
+6. Sugestão: perfil pode influenciar AQUI
+7. Confirmação: cliente confirma
+8. Criação: evento é criado
+
+ClienteProfile pode influenciar em passo 6.
+NÃO pode pular ou alterar passos 1, 2, 3, 4, 5, 7, 8.
+
+═══════════════════════════════════════════════════════════════════════════════
+                          EXEMPLOS CONCRETOS
+═══════════════════════════════════════════════════════════════════════════════
+
+EXEMPLO 1: CORRETO
+├─ Cliente: "Quero fazer um corte"
+├─ Sistema: "Com qual profissional? Você costuma ir com Carla."
+├─ Cliente: "Tá, com Carla mesmo"
+├─ Sistema: "Que dia prefere?"
+├─ Cliente: "Próxima terça"
+├─ Sistema: [Motor valida terça com Carla]
+├─ Sistema: "Terça às 15h com Carla, certo?"
+├─ Cliente: "Confirmo"
+└─ ✅ Evento criado
+
+EXEMPLO 2: ERRADO (ANTI-PADRÃO)
+├─ Cliente: "Quero fazer um corte"
+├─ Sistema: ❌ "Agendei corte com Carla próxima terça às 15h"
+│           (Sem perguntar, baseado apenas em histórico)
+└─ ❌ VIOLAÇÃO: Pulo passos 2-7
+
+EXEMPLO 3: CORRETO (RECUSA)
+├─ Cliente: "Quero manicure"
+├─ Sistema: "Você costuma ir com Paula. Quer com ela?"
+├─ Cliente: "Não, quero com outro"
+├─ Sistema: [Limpa draft, esquece Paula]
+├─ Sistema: "Ok, qual profissional prefere?"
+└─ ✅ Fluxo normal continua
+
+═══════════════════════════════════════════════════════════════════════════════
+                     CHECKLIST PARA CODE REVIEW P1.2+
+═══════════════════════════════════════════════════════════════════════════════
+
+Quando PR envolver ClienteProfile, revisor DEVE validar:
+
+Antes de aprovar qualquer PR envolvendo ClienteProfile:
+
+[ ] Sugestões baseadas em perfil pedem confirmação?
+[ ] Pedido explícito do cliente é respeitado?
+[ ] Dados da conversa atual sobrescrevem histórico?
+[ ] Conflitos são validados antes de sugerir?
+[ ] Recusa de sugestão limpa o draft?
+[ ] Não há criação automática por recorrência aprendida?
+[ ] Motor determinístico valida sugestão?
+[ ] Nenhum passo obrigatório foi pulado?
+[ ] GPT não decidiu baseado em perfil (apenas sugeriu)?
+[ ] Confirmação final antes de criar evento?
+
+Se qualquer item falhar: REJECT PR e cite SPEC_SEGURANCA_CLIENTEPROFILE_NAO_DECIDE.md
+
+═══════════════════════════════════════════════════════════════════════════════
+                         PRÓXIMAS FASES (P1.2+)
+═══════════════════════════════════════════════════════════════════════════════
+
+P1.2 (Histórico Inteligente)
+├─ Carregar ClienteProfile na conversa
+├─ Usar histórico como contexto
+└─ ✅ Respeitar SPEC_SEGURANCA
+
+P1.3 (Preferências)
+├─ Usar profissional_mais_frequente para SUGERIR
+├─ Usar servico_mais_frequente para SUGERIR
+└─ ✅ Respeitar SPEC_SEGURANCA
+
+P1.4 (Perfil Comportamental)
+├─ Coletar taxa de confirmação
+├─ Coletar padrão de recorrência
+└─ ✅ Respeitar SPEC_SEGURANCA
+
+═══════════════════════════════════════════════════════════════════════════════
+                             STATUS FINAL
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Especificação de segurança CRIADA
+✅ Regra central DOCUMENTADA
+✅ Checklist DEFINIDO
+✅ Exemplos INCLUSOS
+✅ Roadmap ATUALIZADO
+✅ Referência PERMANENTE
+
+CRÍTICO PARA MERGING P1.2:
+→ Toda mudança em ClienteProfile deve citar SPEC_SEGURANCA
+→ Code review obrigatório checklist
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔒 ClienteProfile Influencia, Não Decide — REGRA OBRIGATÓRIA E PERMANENTE
+
+═══════════════════════════════════════════════════════════════════════════════

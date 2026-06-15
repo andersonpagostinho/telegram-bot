@@ -242,6 +242,35 @@ async def salvar_evento(evento_data):
         print(f"❌ Erro ao salvar evento global: {e}")
         return False
 
+# ✅ PATCH P2: Atualizar com operações atômicas do Firestore
+async def atualizar_com_operacoes_atomicas(path: str, dados: dict):
+    """
+    Atualiza documento com operações atômicas do Firestore.
+
+    Suporta:
+    - firestore.Increment(n) para contadores
+    - firestore.ArrayUnion([items]) para arrays
+    - Valores normais para campos simples
+
+    Usa update() ao invés de set(merge=True) para garantir atomicidade.
+
+    Args:
+        path: Path até o documento (ex: Clientes/{id}/ClienteProfiles/{cliente_id})
+        dados: Dict com dados e operações atômicas
+
+    Returns:
+        True se sucesso, False se erro
+    """
+    try:
+        from google.cloud import firestore
+        ref = get_ref_from_path(path)
+        await ref.update(dados)
+        print(f"✅ Dados atualizados (operações atômicas) em: {path}")
+        return True
+    except Exception as e:
+        print(f"❌ Erro ao atualizar (operações atômicas) no caminho '{path}': {e}")
+        return False
+
 # ✅ Alias para buscar documento único (para compatibilidade com /start)
 async def buscar_documento(path: str):
     return await buscar_dado_em_path(path)

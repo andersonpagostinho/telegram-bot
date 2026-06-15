@@ -48,7 +48,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status_importacao = context.user_data.get("ultima_importacao_profissionais")
 
         if status_importacao == "sucesso":
-            await update.message.reply_text("✅ Sim, os profissionais foram importados com sucesso!")
+            await update.message.reply_text("Profissionais importados com sucesso.")
         elif status_importacao == "erro":
             await update.message.reply_text("❌ Houve um problema na importação da planilha. Você pode tentar novamente.")
         else:
@@ -99,7 +99,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if eventos:
             resposta = formatar_eventos_telegram(eventos)
         else:
-            resposta = "✅ Não encontrei agendamentos nesse período — está livre para marcar."
+            resposta = "Não encontrei nenhum agendamento nesse período.\n\nSe quiser, posso reservar esse horário para você."
         await update.message.reply_text(resposta)
         resposta_ja_enviada = True
         
@@ -425,26 +425,21 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         resposta_ja_enviada = True
         return
 
-        
-            # 🔄 Limpa a flag após uso
-            context.user_data.pop("origem_email_detectado", None)
+        # 🔄 Limpa a flag após uso
+        context.user_data.pop("origem_email_detectado", None)
 
-            # 🐞 Debug opcional
-            payload_debug = {
-                "texto": texto,
-                "contexto": contexto,
-                "instrucoes": INSTRUCAO_SECRETARIA[:500] + "..."
-            }
-            print(json.dumps(payload_debug, indent=2))
+        # 🐞 Debug opcional
+        payload_debug = {
+            "texto": texto,
+            "contexto": contexto,
+            "instrucoes": INSTRUCAO_SECRETARIA[:500] + "..."
+        }
+        print(json.dumps(payload_debug, indent=2))
 
-            # 🧠 Atualiza memória de que evento foi criado
-            contexto_atual = await carregar_contexto_temporario(user_id) or {}
-            contexto_atual["evento_criado"] = False
-            await salvar_contexto_temporario(user_id, contexto_atual)
-
-        # ✅ Sempre responde ao usuário no final
-        await update.message.reply_text(resultado_raw["resposta"])
-        return
+        # 🧠 Atualiza memória de que evento foi criado
+        contexto_atual = await carregar_contexto_temporario(user_id) or {}
+        contexto_atual["evento_criado"] = False
+        await salvar_contexto_temporario(user_id, contexto_atual)
 
     try:
         resultado = json.loads(resultado_raw) if isinstance(resultado_raw, str) else resultado_raw

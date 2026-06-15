@@ -1,0 +1,30 @@
+[
+  {
+    "arquivo": "handlers\\bot.py",
+    "linha": "125",
+    "funcao": "tratar_mensagens_gerais()",
+    "texto": "✅ Cancelamento concluído. Horário liberado.",
+    "momento": "Fluxo de Cancelamento Horário Concluído"
+  },
+  {
+    "arquivo": "handlers\\event_handler.py",
+    "linha": "84",
+    "funcao": "add_agenda()",
+    "texto": "⚠️ Data ou hora em formato inválido. Use o formato 2025-03-25 14:00.",
+    "momento": "Fluxo de Hora"
+  },
+  {
+    "arquivo": "handlers\\reagendamento_handler.py",
+    "linha": "47",
+    "funcao": "handle_resposta_reagendamento()",
+    "texto": "❌ Não encontrei seu agendamento para mover. Pode tentar novamente mais tarde?",
+    "momento": "Fluxo de Agendamento"
+  },
+  {
+    "arquivo": "handlers\\test_handler.py",
+    "linha": "15",
+    "funcao": "testar_avisos()",
+    "texto": "✅ Horários salvos com sucesso no Firebase!",
+    "momento": "Fluxo de Horário"
+  }
+]
