@@ -233,6 +233,105 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
 
         raise ApplicationHandlerStop
 
+    # P0.1A: CONFIRMAÇÃO DE CANCELAMENTO (precedência alta)
+    cancelamento_pendente = ctx_tmp.get("cancelamento_pendente")
+    estado_fluxo = ctx_tmp.get("estado_fluxo", "").strip().lower()
+
+    if cancelamento_pendente and estado_fluxo == "aguardando_confirmacao_cancelamento":
+
+        # Múltiplos eventos: processar número (1/2/3/...)
+        if texto_usuario.isdigit() and "resumo_eventos" in cancelamento_pendente:
+            # Escolher entre vários eventos
+            idx = int(texto_usuario) - 1
+            resumo_eventos = cancelamento_pendente.get("resumo_eventos", [])
+
+            if 0 <= idx < len(resumo_eventos):
+                ev_selecionado = resumo_eventos[idx]
+                evento_id = ev_selecionado["evento_id"]
+
+                # Atualizar contexto para pedir confirmação do evento selecionado
+                context.user_data["cancelamento_pendente"] = {
+                    "evento_id": evento_id,
+                    "cliente_id": cancelamento_pendente["cliente_id"],
+                    "candidatos": [c for c in cancelamento_pendente.get("candidatos", []) if c[0] == evento_id],
+                    "resumo_evento": {
+                        "descricao": ev_selecionado.get("descricao", ""),
+                        "data": ev_selecionado.get("data", ""),
+                        "hora_inicio": ev_selecionado.get("hora_inicio", ""),
+                    }
+                }
+
+                # Sincronizar em MemoriaTemporaria
+                ctx = await carregar_contexto_temporario(user_id) or {}
+                ctx["cancelamento_pendente"] = context.user_data["cancelamento_pendente"]
+                await salvar_contexto_temporario(user_id, ctx)
+
+                await update.message.reply_text(
+                    f"Tem certeza de cancelar {ev_selecionado.get('descricao', 'Evento')} "
+                    f"em {ev_selecionado.get('data', '')} às {ev_selecionado.get('hora_inicio', '')}? (sim/não)"
+                )
+                raise ApplicationHandlerStop
+            else:
+                await update.message.reply_text("❌ Opção inválida. Tente novamente.")
+                raise ApplicationHandlerStop
+
+        # Confirmação: sim/não/desistir
+        confirmacoes_sim = ["sim", "s", "ok", "confirma", "confirmar", "pode", "pode ser", "sim!"]
+        confirmacoes_nao = ["não", "nao", "não!", "nao!", "desistir", "manter", "deixa como está", "deixa como esta", "não, obrigado", "nao, obrigado"]
+
+        if texto_usuario.lower() in confirmacoes_sim:
+            # ✅ CANCELAR
+            evento_id = cancelamento_pendente.get("evento_id")
+
+            if evento_id:
+                ok = await cancelar_evento(
+                    user_id=user_id,
+                    event_id=evento_id,
+                    cancelado_por_tipo="cliente",
+                    motivo=None
+                )
+
+                if ok:
+                    resumo = cancelamento_pendente.get("resumo_evento", {})
+                    await update.message.reply_text(
+                        f"✅ Cancelado. {resumo.get('descricao', 'Seu evento')} em "
+                        f"{resumo.get('data', '')} às {resumo.get('hora_inicio', '')} foi cancelado."
+                    )
+                else:
+                    await update.message.reply_text(
+                        "❌ Ocorreu um erro ao cancelar. Pode tentar novamente?"
+                    )
+
+                # Limpar em ambos os contextos (MemoriaTemporaria + context.user_data)
+                ctx = await carregar_contexto_temporario(user_id) or {}
+                ctx.pop("cancelamento_pendente", None)
+                ctx.pop("estado_fluxo", None)
+                await salvar_contexto_temporario(user_id, ctx)
+
+                context.user_data.pop("cancelamento_pendente", None)
+                context.user_data.pop("estado_fluxo", None)
+
+            raise ApplicationHandlerStop
+
+        elif texto_usuario.lower() in confirmacoes_nao:
+            # ❌ ABORTAR
+            await update.message.reply_text(
+                "Tudo bem, cancelamento abortado. Seu horário continua reservado."
+            )
+
+            # Limpar em ambos os contextos (MemoriaTemporaria + context.user_data)
+            ctx = await carregar_contexto_temporario(user_id) or {}
+            ctx.pop("cancelamento_pendente", None)
+            ctx.pop("estado_fluxo", None)
+            await salvar_contexto_temporario(user_id, ctx)
+
+            context.user_data.pop("cancelamento_pendente", None)
+            context.user_data.pop("estado_fluxo", None)
+
+            raise ApplicationHandlerStop
+
+    # Fim P0.1A: CONFIRMAÇÃO DE CANCELAMENTO
+
     if ctx_tmp.get("aguardando_confirmacao_agendamento"):
 
         if eh_confirmacao(texto_usuario):

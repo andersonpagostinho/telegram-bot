@@ -1,4 +1,5 @@
 import re
+import logging
 from unidecode import unidecode
 from datetime import datetime, timedelta, date
 from pytz import timezone
@@ -13,6 +14,8 @@ from services.firebase_service_async import (
 )
 from services.notificacao_service import criar_notificacao_agendada
 from utils.formatters import gerar_sugestoes_de_horario
+
+logger = logging.getLogger(__name__)
 
 FUSO_BR = timezone("America/Sao_Paulo")
 
@@ -235,86 +238,99 @@ async def buscar_eventos_por_intervalo(
         return []
 
 
-async def cancelar_evento(user_id: str, event_id: str) -> bool:
+async def cancelar_evento(
+    user_id: str,
+    event_id: str,
+    cancelado_por_tipo: str = "cliente",
+    motivo: str | None = None
+) -> bool:
     """
-    Marca um evento como cancelado (soft delete).
-    Resolve user_id efetivo (dono) quando a chamada vier do cliente.
-    Após cancelar, aciona o motor de encaixe para preencher o buraco.
+    Marca um evento como cancelado (soft delete) com auditoria.
+
+    P0.1A: Validação de ownership + campos de auditoria
+    Retorna: True se cancelou com sucesso, False caso contrário
     """
     try:
-        # resolve o id efetivo como nos outros métodos
+        # Resolve o id efetivo como nos outros métodos
         dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
         user_id_efetivo = user_id
-        if dados_usuario:
-            tipo = dados_usuario.get("tipo_usuario", "cliente")
-            modo = dados_usuario.get("modo_uso", "")
-            if tipo == "cliente" or modo == "atendimento_cliente":
-                user_id_efetivo = await obter_id_dono(user_id)
+        tipo_usuario = dados_usuario.get("tipo_usuario", "cliente")
+        modo = dados_usuario.get("modo_uso", "")
+
+        if tipo_usuario == "cliente" or modo == "atendimento_cliente":
+            user_id_efetivo = await obter_id_dono(user_id)
 
         path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
 
-        # 1) buscar dados do evento ANTES de cancelar (para saber qual buraco abriu)
+        # 1) Buscar dados do evento ANTES de cancelar (para validar ownership)
         ev = await buscar_dado_em_path(path) or {}
-        data = ev.get("data")
-        hora = ev.get("hora_inicio")
-        duracao = ev.get("duracao") or 60
-        # opcional: se você tiver esses campos
-        servico = ev.get("servico") or ev.get("descricao")
-        profissional = ev.get("profissional")
 
-        # 2) cancelar
+        if not ev:
+            logger.warning(f"[CANCELAMENTO_BLOQUEADO] evento_id={event_id} nao encontrado")
+            return False
+
+        # 🔒 P0.1A: VALIDAÇÃO DE OWNERSHIP
+        cliente_id_evento = ev.get("cliente_id")
+
+        if tipo_usuario == "cliente":
+            # Cliente só cancela seu próprio evento
+            if cliente_id_evento != user_id:
+                logger.warning(
+                    f"[CANCELAMENTO_BLOQUEADO] usuario={user_id} nao eh cliente_id={cliente_id_evento}"
+                )
+                return False
+
+        elif tipo_usuario == "dono":
+            # Dono cancela qualquer evento do seu tenant
+            tenant_evento = await obter_id_dono(cliente_id_evento)
+            if tenant_evento != user_id_efetivo:
+                logger.warning(
+                    f"[CANCELAMENTO_BLOQUEADO] tenant_evento={tenant_evento} != tenant_usuario={user_id_efetivo}"
+                )
+                return False
+
+        else:
+            logger.warning(f"[CANCELAMENTO_BLOQUEADO] tipo_usuario_desconhecido={tipo_usuario}")
+            return False
+
+        # ✅ Validação passou, prosseguir com cancelamento
+        # 2) Cancelar com auditoria (P0.1A)
+        now_iso = datetime.now(FUSO_BR).isoformat()
         payload = {
             "status": "cancelado",
-            "cancelado_em": datetime.now(FUSO_BR).isoformat()
+            "cancelado_em": now_iso,
+            "cancelado_por": user_id,
+            "cancelado_por_tipo": cancelado_por_tipo,
+            "cancelamento_confirmado_em": now_iso,
         }
+
+        if motivo:
+            payload["motivo_cancelamento"] = motivo
+
         await atualizar_dado_em_path(path, payload)
 
-        # ✅ HOTFIX: cancelar deve apenas marcar status e liberar horário
-        # (motor de encaixe volta depois, mas sem criar evento automaticamente)
-        return True
-
-        # 3) acionar motor de encaixe (sem quebrar o cancelamento se encaixe falhar)
-        try:
-            from services.encaixe_service import solicitar_encaixe
-
-            if data and hora:
-                # montar datetime completo no fuso
-                dt_desejado = FUSO_BR.localize(
-                    datetime.strptime(f"{data} {hora}", "%Y-%m-%d %H:%M")
-                )
-
-                # ✅ decide pelo modo do DONO/NEGÓCIO (user_id_efetivo)
-                dados_dono = await buscar_dado_em_path(f"Clientes/{user_id_efetivo}") or {}
-                modo_dono = (dados_dono.get("modo_uso") or "").strip().lower()
-
-                # ✅ flag explícita (você pode trocar por config depois)
-                if modo_dono == "auto_encaixe_ativo":
-                    await solicitar_encaixe(
-                        user_id=user_id_efetivo,              # dono/negócio
-                        descricao=servico or ev.get("descricao") or "Encaixe",
-                        profissional=profissional,
-                        duracao_min=int(duracao),
-                        dt_desejado=dt_desejado,
-                        solicitante_user_id=user_id,          # quem solicitou (cliente que cancelou)
-                    )
-                else:
-                    print(f"ℹ️ auto_encaixe desativado (modo_uso={modo_dono})", flush=True)
-
-        except Exception as e:
-            print(f"⚠️ motor de encaixe falhou após cancelamento: {e}", flush=True)
+        # Log de sucesso
+        logger.info(
+            f"[CANCELAMENTO] evento_id={event_id} | "
+            f"cancelado_por={user_id} | tipo={cancelado_por_tipo}"
+        )
 
         return True
 
     except Exception as e:
-        print(f"❌ cancelar_evento: {e}")
+        logger.error(f"❌ cancelar_evento: {e}", exc_info=True)
         return False
 
 
 async def cancelar_evento_por_texto(user_id: str, termo: str):
     """
-    Encontra por texto e cancela.
-    Se houver 1 candidato -> cancela direto.
-    Se houver vários -> retorna lista para confirmação (quem guarda estado é o handler).
+    P0.1A: Busca eventos por termo.
+
+    Retorna:
+    - (False, msg, []) — nenhum encontrado
+    - (False, msg, candidatos) — eventos encontrados (aguardando confirmação)
+
+    Nota: NÃO cancela direto. Handler salva estado pendente e aguarda confirmação.
     """
 
     candidatos = await buscar_eventos_por_termo_avancado(user_id, termo)
@@ -323,30 +339,24 @@ async def cancelar_evento_por_texto(user_id: str, termo: str):
     if not candidatos:
         return False, "❌ Não encontrei nenhum evento correspondente ao que você quer cancelar.", []
 
-    # ✅ Apenas 1 → cancela direto
-    if len(candidatos) == 1:
-        eid, ev = candidatos[0]
-
-        ok = await cancelar_evento(user_id, eid)
-        if not ok:
-            return False, "❌ Tive um problema ao cancelar no sistema.", []
-
-        desc = ev.get("descricao", "Evento")
-        data = ev.get("data", "")
-        hora = ev.get("hora_inicio", "")
-
-        return True, f"✅ {desc} em {data} às {hora} foi cancelado e liberou o horário.", []
-
-    # ⚠️ Vários candidatos → precisa escolher
+    # ✅ P0.1A: Mesmo com 1 evento, pedir confirmação (não cancelar direto)
     linhas = []
     for i, (eid, ev) in enumerate(candidatos, start=1):
-        linhas.append(
-            f"{i}) {ev.get('descricao','(sem título)')} — {ev.get('data','????-??-??')} às {ev.get('hora_inicio','??:??')}"
-        )
+        desc = ev.get('descricao', '(sem título)')
+        data = ev.get('data', '????-??-??')
+        hora = ev.get('hora_inicio', '??:??')
 
-    msg = "Encontrei mais de um. Envie o número da opção para cancelar:\n" + "\n".join(linhas)
+        if len(candidatos) == 1:
+            # 1 evento: mostrar e pedir sim/não
+            msg = f"Tem certeza de cancelar {desc} em {data} às {hora}? (sim/não)"
+        else:
+            # Múltiplos: mostrar lista numerada
+            linhas.append(f"{i}) {desc} — {data} às {hora}")
 
-    # ✅ RETORNA também candidatos (ESSENCIAL)
+    if len(candidatos) > 1:
+        msg = "Encontrei mais de um. Qual deseja cancelar?\n" + "\n".join(linhas)
+
+    # Retorna para handler salvar estado pendente
     return False, msg, candidatos
 
 

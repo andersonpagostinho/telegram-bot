@@ -540,6 +540,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             return True
 
         elif acao == "cancelar_evento":
+            # P0.1A: Cancelamento com confirmação obrigatória
             user_id = _obter_user_id(update, context)
             if not user_id:
                 await update.message.reply_text("⚠️ Não consegui identificar quem está solicitando o cancelamento.")
@@ -547,48 +548,60 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
             termo = (dados or {}).get("termo") or getattr(getattr(update, "message", None), "text", "") or ""
 
-            try:
-                candidatos = await buscar_eventos_por_termo_avancado(user_id, termo)
-            except Exception as e:
-                candidatos = []
-                print(f"buscar_eventos_por_termo_avancado falhou: {e}")
+            # Usar nova função que NÃO cancela direto
+            ok, msg, candidatos = await cancelar_evento_por_texto(user_id, termo)
 
             if not candidatos:
-                await update.message.reply_text("❌ Não encontrei nenhum evento correspondente ao que você quer cancelar.")
+                # Nenhum encontrado
+                await update.message.reply_text(msg)
                 return True
 
+            # Limpar estado anterior
             context.user_data.pop("cancelamento_pendente", None)
 
+            # P0.1A: Salvar estado pendente (mesmo com 1 evento)
+            # Estrutura: armazena evento_id para depois confirmar
             if len(candidatos) == 1:
                 eid, ev = candidatos[0]
-                ok = await cancelar_evento(user_id, eid)
-                if ok:
-                    await update.message.reply_text(
-                        f"✅ Cancelei: {ev.get('descricao','Evento')} em {ev.get('data','')} às  {ev.get('hora_inicio','')}."
-                    )
-                else:
-                    await update.message.reply_text("❌ Tive um problema ao cancelar. Pode tentar novamente?")
-                return True
+                # Só 1 evento: salvar para pedir confirmação (sim/não)
+                context.user_data["cancelamento_pendente"] = {
+                    "evento_id": eid,
+                    "cliente_id": user_id,
+                    "candidatos": [(eid, ev)],
+                    "resumo_evento": {
+                        "descricao": ev.get("descricao", "Evento"),
+                        "data": ev.get("data", ""),
+                        "hora_inicio": ev.get("hora_inicio", ""),
+                        "profissional": ev.get("profissional", ""),
+                    }
+                }
+                context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
+            else:
+                # Múltiplos eventos: salvar candidatos para escolher número depois
+                context.user_data["cancelamento_pendente"] = {
+                    "cliente_id": user_id,
+                    "candidatos": candidatos,
+                    "resumo_eventos": [
+                        {
+                            "evento_id": eid,
+                            "descricao": ev.get("descricao", ""),
+                            "data": ev.get("data", ""),
+                            "hora_inicio": ev.get("hora_inicio", ""),
+                        }
+                        for eid, ev in candidatos
+                    ]
+                }
+                context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
 
-            linhas = []
-            for i, (eid, ev) in enumerate(candidatos, start=1):
-                linhas.append(
-                    f"{i}) {ev.get('descricao','(Sem título)')} — {ev.get('data','')} às {ev.get('hora_inicio','')} "
-                    f"(prof: {ev.get('profissional','-')})"
-                )
+            # P0.1A: Salvar estado em MemoriaTemporaria (persistência) + context.user_data (imediato)
+            # Fazer merge com contexto existente
+            ctx = await carregar_contexto_temporario(user_id) or {}
+            ctx["cancelamento_pendente"] = context.user_data["cancelamento_pendente"]
+            ctx["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
+            await salvar_contexto_temporario(user_id, ctx)
 
-            txt = (
-                "Encontrei mais de um. Qual você deseja cancelar?\n\n"
-                + "\n".join(linhas)
-                + "\n\nResponda com o número da opção."
-            )
-
-            context.user_data["cancelamento_pendente"] = {
-                "user_id": user_id,
-                "candidatos": [eid for eid, _ in candidatos],
-                "criado_em": datetime.now().isoformat()
-            }
-            await update.message.reply_text(txt)
+            # Mensagem (criada por cancelar_evento_por_texto)
+            await update.message.reply_text(msg)
             return True
 
         elif acao == "enviar_email":
