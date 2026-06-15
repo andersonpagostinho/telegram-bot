@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # router/principal_router.py
 
 from services.session_service import pegar_sessao
@@ -2010,6 +2011,42 @@ async def precheck_e_confirmacao_agendamento(
     }
 
     ctx["ultima_opcao_profissionais"] = [prof]
+
+    # =========================================================
+    # 📖 P1.2A: CARREGAMENTO DE CLIENTEPROFILE (LEITURA APENAS)
+    # Ponto seguro: APÓS draft montado, ANTES de salvar contexto
+    # Profile NÃO altera: extração, draft, resposta, confirmação
+    # =========================================================
+    try:
+        from services.clienteprofile_service import obter_profile
+
+        profile = await obter_profile(dono_id, user_id)
+
+        if profile:
+            # ✅ OBRIGATÓRIO: Salvar em ctx ANTES de qualquer operação
+            ctx["clienteprofile"] = profile
+            ctx["clienteprofile_carregado_em"] = datetime.now().isoformat()
+            ctx["clienteprofile_tenant_cliente"] = f"{dono_id}#{user_id}"
+
+            total_eventos = profile.get("historico", {}).get("total_eventos", 0)
+            print(
+                f"[P1.2A] ✅ ClienteProfile carregado "
+                f"tenant={dono_id} cliente={user_id} "
+                f"agendamentos={total_eventos}",
+                flush=True
+            )
+        else:
+            # ✅ OBRIGATÓRIO: Se vazio ou None, salvar None
+            ctx["clienteprofile"] = None
+            print(f"[P1.2A] ⚠️ ClienteProfile vazio para {user_id}", flush=True)
+
+    except Exception as e:
+        # ✅ OBRIGATÓRIO: Em caso de erro, salvar None e não quebrar fluxo
+        ctx["clienteprofile"] = None
+        print(
+            f"[P1.2A] ⚠️ Erro ao carregar ClienteProfile: {e}",
+            flush=True
+        )
 
     await salvar_contexto_temporario(user_id, ctx)
 
