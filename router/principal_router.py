@@ -3398,20 +3398,56 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # Não retorna aqui, deixa continuar para o fluxo normal
             pass
         else:
-            # Qualquer outra coisa nesse contexto, repetir opções
-            if profissionais_validos:
-                lista = ", ".join(profissionais_validos)
-                resposta = f"Desculpe, não entendi. Para *{servico}*, pode escolher: {lista}."
+            # ===== PATCH P1: Detectar se mencionou profissional que NÃO atende =====
+            profs_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+            todos_nomes_profissionais = [
+                (p.get("nome") or chave).strip()
+                for chave, p in profs_dict.items()
+                if (p.get("nome") or chave).strip()
+            ]
+
+            # Encontrar profissional mencionado (válido ou não)
+            prof_mencionado = None
+            for prof in todos_nomes_profissionais:
+                if prof.lower() in texto_lower:
+                    prof_mencionado = prof
+                    break
+
+            if prof_mencionado and prof_mencionado not in profissionais_validos:
+                # Mencionou profissional que NÃO atende este serviço
+                print(f"[PATCH P1] Usuário mencionou {prof_mencionado} que não atende {servico}", flush=True)
+                if profissionais_validos:
+                    lista = ", ".join(profissionais_validos)
+                    resposta = (
+                        f"*{prof_mencionado}* não atende {servico}.\n"
+                        f"Para *{servico}*, posso verificar com: {lista}.\n"
+                        f"Qual você prefere?"
+                    )
+                else:
+                    resposta = f"*{prof_mencionado}* não atende {servico}. Nenhum outro profissional disponível."
+
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return {
+                    "handled": True,
+                    "resposta": resposta,
+                    "motivo": "profissional_mencionado_nao_atende_servico"
+                }
             else:
-                resposta = "Não consegui entender. Tente novamente."
+                # Qualquer outra coisa nesse contexto, repetir opções
+                if profissionais_validos:
+                    lista = ", ".join(profissionais_validos)
+                    resposta = f"Desculpe, não entendi. Para *{servico}*, pode escolher: {lista}."
+                else:
+                    resposta = "Não consegui entender. Tente novamente."
 
-            await salvar_contexto_temporario(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx)
 
-            return {
-                "handled": True,
-                "resposta": resposta,
-                "motivo": "profissional_nao_atende_servico_input_invalido"
-            }
+                return {
+                    "handled": True,
+                    "resposta": resposta,
+                    "motivo": "profissional_nao_atende_servico_input_invalido"
+                }
 
     # =========================================================
     # 🧑‍💼 BLOQUEIO GLOBAL — atendimento assumido pelo humano
@@ -9418,6 +9454,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔥 VALIDAR COMPATIBILIDADE — PRÉ-EXTRAÇÃO
     # Se prof_auto foi detectado, validar se atende servico_auto
     # =========================================================
+    prof_rejeitado_com_resposta_especifica = None
     if prof_auto and servico_auto:
         valido_auto = await validar_profissional_para_servico(
             dono_id=dono_id,
@@ -9427,13 +9464,47 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         print(f"🧪 [VALIDAR_PROF_AUTO] prof={prof_auto} | servico={servico_auto} | ok={valido_auto.get('ok')}", flush=True)
         if not valido_auto.get("ok"):
-            # Profissional incompatível — limpar profissional, manter serviço/horário
+            # Profissional incompatível — resposta específica ANTES de FLOW GUARD
+            prof_rejeitado = prof_auto
             ctx["profissional_escolhido"] = None
             draft_auto["profissional"] = None
+            draft_auto["servico"] = servico_auto
+            if data_hora_auto:
+                draft_auto["data_hora"] = data_hora_auto
             ctx["draft_agendamento"] = draft_auto
             prof_auto = None
-            await salvar_contexto_temporario(user_id, ctx)
-            print(f"🧪 [PROF REJEITADO] {prof_auto} não atende {servico_auto}", flush=True)
+
+            # ===== PATCH P1: Resposta específica para profissional que não atende =====
+            # Buscar profissionais válidos para este serviço
+            try:
+                profissionais_validos = await buscar_profissionais_por_servico(
+                    servicos=[servico_auto],
+                    user_id=user_id
+                )
+                lista_validos = list(profissionais_validos.keys()) if profissionais_validos else []
+
+                if lista_validos:
+                    lista_str = ", ".join(lista_validos)
+                    # Salvar estado para handler de continuidade
+                    ctx["motivo_estado"] = "profissional_nao_atende_servico"
+                    ctx["profissional_rejeitado"] = prof_rejeitado
+                    ctx["profissionais_validos"] = lista_validos
+                    ctx["estado_fluxo"] = "aguardando_profissional"
+
+                    await salvar_contexto_temporario(user_id, ctx)
+                    print(f"🧪 [PATCH P1 RESP ESPECIFICA] prof={prof_rejeitado} não atende {servico_auto} | validos={lista_validos}", flush=True)
+
+                    resposta_especifica = (
+                        f"*{prof_rejeitado}* não atende {servico_auto}.\n"
+                        f"Para *{servico_auto}*, posso verificar com: {lista_str}.\n"
+                        f"Qual você prefere?"
+                    )
+                    prof_rejeitado_com_resposta_especifica = resposta_especifica
+            except Exception as e:
+                print(f"⚠️ [PATCH P1 ERRO] Falha ao buscar profissionais válidos: {str(e)}", flush=True)
+                await salvar_contexto_temporario(user_id, ctx)
+
+            print(f"🧪 [PROF REJEITADO] {prof_rejeitado} não atende {servico_auto}", flush=True)
 
     # 🛡 GUARDA CONTRA CONSULTA PURA
     eh_consulta_pura = (
@@ -10072,6 +10143,17 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
     print(" ANTES DO CHAMAR_GPT_COM_CONTEXTO ", flush=True)
+
+    # ===== PATCH P1: Retornar resposta específica ANTES do FLOW GUARD =====
+    if prof_rejeitado_com_resposta_especifica:
+        print("[PATCH P1 RETURN] Retornando resposta específica antes do FLOW GUARD", flush=True)
+        return await _send_and_stop_ctx(
+            context,
+            user_id,
+            prof_rejeitado_com_resposta_especifica,
+            ctx,
+            texto_usuario,
+        )
 
     # =========================================================
     # 🔒 GARANTE QUE FLUXO SEMPRE RESPONDE ANTES DO GPT
