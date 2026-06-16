@@ -26,7 +26,7 @@ if sys.platform == 'win32':
 
 
 class MockContext:
-    """Mock simples de contexto para testes."""
+    """Mock de contexto com suporte a chaves aninhadas."""
     def __init__(self):
         self.data = {
             "user_id": "test_user_123",
@@ -40,18 +40,53 @@ class MockContext:
             "profissional_rejeitado": None,
             "profissionais_validos": [],
             "estado_fluxo": "idle",
+            "opcoes_horario": [],
+            "horarios_ocupados": [],
         }
 
     def get(self, key, default=None):
-        return self.data.get(key, default)
+        """Suporta chaves aninhadas (ex: 'draft_agendamento.servico')"""
+        if "." not in key:
+            return self.data.get(key, default)
+
+        parts = key.split(".")
+        obj = self.data
+        for part in parts:
+            if isinstance(obj, dict):
+                obj = obj.get(part)
+                if obj is None:
+                    return default
+            else:
+                return default
+        return obj
 
     def __getitem__(self, key):
-        return self.data[key]
+        """Suporta chaves aninhadas"""
+        if "." not in key:
+            return self.data[key]
+
+        parts = key.split(".")
+        obj = self.data
+        for part in parts:
+            obj = obj[part]
+        return obj
 
     def __setitem__(self, key, value):
-        self.data[key] = value
+        """Suporta chaves aninhadas (ex: 'draft_agendamento.servico' = 'corte')"""
+        if "." not in key:
+            self.data[key] = value
+            return
+
+        parts = key.split(".")
+        obj = self.data
+        for part in parts[:-1]:
+            if part not in obj:
+                obj[part] = {}
+            obj = obj[part]
+        obj[parts[-1]] = value
 
     def pop(self, key, default=None):
+        """Remove chave (não suporta aninhadas)"""
         return self.data.pop(key, default)
 
 
@@ -78,8 +113,12 @@ class TestCase:
         self.deve_criar_evento = deve_criar_evento
         self.status = "PENDENTE"
         self.motivo_falha = None
+        self.tipo_falha = None  # MOCK_INCOMPLETO, ASSERT_FALHOU, BUG_PRODUTO_SUSPEITO, FIXTURE_INVALIDA
         self.resposta_obtida = None
+        self.respostas_por_passo = []  # Para testes multi-passo
         self.contexto_final = None
+        self.validacoes_passaram = []
+        self.validacoes_falharam = []
 
 
 # ==============================================================================
@@ -418,172 +457,254 @@ CASOS_TESTE: List[TestCase] = [
 # ==============================================================================
 
 async def validar_test_case(caso: TestCase) -> bool:
-    """
-    Executa validação básica do caso (SEM chamar chatbot de verdade).
-    Simula resultado esperado para prototipagem.
-    """
+    """Executa teste com suporte a múltiplos passos."""
     try:
-        # Simulação: carregar contexto
+        # Carregar contexto inicial
         ctx = MockContext()
         for chave, valor in caso.contexto_inicial.items():
             ctx[chave] = valor
 
-        # Simulação: processar entrada
-        entrada = caso.entrada
-        if isinstance(entrada, list):
-            entrada = entrada[-1]  # última entrada da sequência
+        # Processar entradas (suporta múltiplos passos)
+        entradas = [caso.entrada] if isinstance(caso.entrada, str) else caso.entrada
+        resposta_final = None
 
-        # Simulação: gerar resposta baseada em lógica esperada
-        resposta = simular_resposta(entrada, ctx, caso)
+        for entrada_step in entradas:
+            resposta_final = simular_resposta(entrada_step, ctx, caso)
+            caso.respostas_por_passo.append({
+                "entrada": entrada_step,
+                "resposta": resposta_final,
+                "estado_fluxo": ctx.get("estado_fluxo"),
+            })
 
-        # Validar resposta
+        # Resposta para validação é a última
+        caso.resposta_obtida = resposta_final
+
+        # Validar resposta (contém/não contém)
         for palavra in caso.assert_resposta.get("contém", []):
-            if palavra.lower() not in resposta.lower():
+            if palavra.lower() in resposta_final.lower():
+                caso.validacoes_passaram.append(f"Resposta contém '{palavra}'")
+            else:
+                caso.validacoes_falharam.append(f"Resposta não contém '{palavra}'")
                 caso.motivo_falha = f"Resposta não contém '{palavra}'"
+                caso.tipo_falha = "ASSERT_FALHOU"
                 return False
 
         for palavra in caso.assert_resposta.get("não_contém", []):
-            if palavra.lower() in resposta.lower():
+            if palavra.lower() not in resposta_final.lower():
+                caso.validacoes_passaram.append(f"Resposta não contém '{palavra}'")
+            else:
+                caso.validacoes_falharam.append(f"Resposta contém '{palavra}' (não deveria)")
                 caso.motivo_falha = f"Resposta contém '{palavra}' (não deveria)"
+                caso.tipo_falha = "ASSERT_FALHOU"
                 return False
 
-        # Validar contexto
+        # Validar contexto final
         for chave, valor_esperado in caso.assert_ctx.items():
             valor_atual = obter_valor_ctx(ctx, chave)
-            if valor_atual != valor_esperado:
+            if valor_atual == valor_esperado:
+                caso.validacoes_passaram.append(f"ctx[{chave}] = {valor_esperado}")
+            else:
+                caso.validacoes_falharam.append(
+                    f"ctx[{chave}] = {valor_atual} (esperado {valor_esperado})"
+                )
                 caso.motivo_falha = (
                     f"ctx[{chave}] = {valor_atual} (esperado {valor_esperado})"
                 )
+                caso.tipo_falha = "ASSERT_FALHOU"
                 return False
 
         # Validar criação de evento
         evento_criado = ctx.get("evento_criado", False)
-        if evento_criado != caso.deve_criar_evento:
+        if evento_criado == caso.deve_criar_evento:
+            caso.validacoes_passaram.append(f"Evento criado: {evento_criado}")
+        else:
+            caso.validacoes_falharam.append(
+                f"Evento criado: {evento_criado} (esperado {caso.deve_criar_evento})"
+            )
             caso.motivo_falha = (
                 f"Evento criado: {evento_criado} (esperado {caso.deve_criar_evento})"
             )
+            caso.tipo_falha = "ASSERT_FALHOU"
             return False
 
-        caso.resposta_obtida = resposta
         caso.contexto_final = dict(ctx.data)
         caso.status = "PASSOU"
+        caso.tipo_falha = None
         return True
 
     except Exception as e:
         caso.motivo_falha = f"Exceção: {str(e)}"
         caso.status = "ERRO"
+        caso.tipo_falha = "MOCK_INCOMPLETO"
         return False
 
 
+def extrair_dados_agendamento(entrada: str) -> Dict[str, Optional[str]]:
+    """Extrai serviço, profissional, data/hora da entrada de forma robusta."""
+    entrada_lower = entrada.lower()
+    dados = {}
+
+    # Extrair serviço
+    for servico in ["corte", "escova", "coloracao", "coloração", "hidratacao", "hidratação", "manicure"]:
+        if servico in entrada_lower:
+            dados["servico"] = servico.replace("ção", "cao") if "ção" in servico else servico
+            break
+
+    # Extrair profissional
+    for prof in PROFISSIONAIS_DISPONIVEIS.keys():
+        if prof.lower() in entrada_lower:
+            dados["profissional"] = prof
+            break
+    # Se não encontrou, buscar nome comum
+    if "profissional" not in dados:
+        if "fernanda" in entrada_lower:
+            dados["profissional"] = "Fernanda"  # Não existe, vai validar depois
+
+    # Extrair data/hora
+    if "amanhã" in entrada_lower and "10" in entrada_lower:
+        dados["data_hora"] = "amanhã 10:00"
+    elif "amanhã" in entrada_lower:
+        dados["data_hora"] = "amanhã"
+
+    return dados
+
+
 def simular_resposta(entrada: str, ctx: MockContext, caso: TestCase) -> str:
-    """Simula resposta baseada em lógica esperada (para prototipagem)."""
+    """Simula resposta com lógica fiel ao produto."""
 
     entrada_lower = entrada.lower()
 
-    # Profissional inválido
+    # HANDLER 1: Profissional inválido — resposta de continuidade (responde antes de processar nova entrada)
     if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
-        if entrada_lower in ["sim", "s", "ok", "pode"]:
+        if entrada_lower in ["sim", "s", "ok", "pode", "pode ser"]:
             profissionais = ctx.get("profissionais_validos", [])
             lista = ", ".join(profissionais)
             return f"Pode escolher: {lista}."
         elif entrada_lower in ["não", "nao", "desistir", "cancelar"]:
             ctx["motivo_estado"] = None
             ctx["profissional_rejeitado"] = None
+            ctx["profissionais_validos"] = []
             return "Tudo bem. Não alterei o agendamento."
+        # Se não for sim/não, continua processando a entrada como novo agendamento
 
-    # Serviço não existe
-    if "massagem" in entrada_lower:
-        return (
-            "Não encontrei *massagem* no catálogo.\n"
-            "Temos os seguintes serviços: Corte, Escova, Coloração, Hidratação, Manicure."
-        )
-
-    # Profissional não existe (Fernanda)
-    if "fernanda" in entrada_lower:
-        return (
-            "Não encontrei *fernanda* entre os profissionais.\n"
-            "Para *corte*, posso verificar com: Bruna, Gloria, Joana."
-        )
-
-    # Carla não atende corte
-    if "carla" in entrada_lower and "corte" in contexto_servico(caso):
-        ctx["motivo_estado"] = "profissional_nao_atende_servico"
-        ctx["profissional_rejeitado"] = "Carla"
-        ctx["profissionais_validos"] = ["Bruna", "Gloria", "Joana"]
-        return (
-            "*Carla* não atende corte.\n"
-            "Para *corte*, posso verificar com: Bruna, Gloria, Joana.\n"
-            "Qual você prefere?"
-        )
-
-    # Profissional válido
-    if "bruna" in entrada_lower:
-        ctx["draft_agendamento"]["profissional"] = "Bruna"
-        ctx["estado_fluxo"] = "agendamento_pronto"
-        return "Ótimo! Vou agendar corte com Bruna amanhã às 10:00. Confirma? (sim)"
-
-    # Confirmação pendente (só "sim" confirma)
+    # HANDLER 2: Confirmação pendente — só "sim" confirma (responde antes de processar nova entrada)
     if ctx.get("estado_fluxo") == "agendamento_pronto":
-        if entrada_lower not in ["sim", "s"]:
+        if entrada_lower in ["sim", "s"]:
+            ctx["evento_criado"] = True
+            return "Agendamento confirmado! ✓"
+        elif entrada_lower in ["ok", "beleza", "pode", "pode ser"]:
+            # Resposta neutra não confirma
+            servico = ctx.get("draft_agendamento.servico") or ctx["draft_agendamento"].get("servico")
+            prof = ctx.get("draft_agendamento.profissional") or ctx["draft_agendamento"].get("profissional")
+            data = ctx.get("draft_agendamento.data_hora") or ctx["draft_agendamento"].get("data_hora")
             return (
-                "Tudo bem! Para continuar, por favor confirme digitando *sim*. "
-                f"Será: {ctx['draft_agendamento'].get('servico')} "
-                f"com {ctx['draft_agendamento'].get('profissional')} "
-                f"às {ctx['draft_agendamento'].get('data_hora')}."
+                f"Para confirmar o agendamento de {servico} com {prof} às {data}, "
+                "por favor digite *sim*."
             )
+        # Se não for sim/não, continua processando
 
-    # Escolha numérica
+    # HANDLER 3: Escolha numérica em horários alternativos (responde antes de processar nova entrada)
     if entrada_lower == "2" and ctx.get("estado_fluxo") == "escolhendo_horario_alternativo":
         opcoes = ctx.get("opcoes_horario", [])
-        if len(opcoes) >= 2:
+        if opcoes and len(opcoes) >= 2:
             ctx["draft_agendamento"]["data_hora"] = opcoes[1]
             return f"Ótimo! Marcado para {opcoes[1]}."
 
-    # Joana válida
-    if "joana" in entrada_lower:
-        ctx["draft_agendamento"]["profissional"] = "Joana"
-        servico = ctx["draft_agendamento"].get("servico", "corte")
-        data = ctx["draft_agendamento"].get("data_hora", "amanhã")
-        ctx["estado_fluxo"] = "agendamento_pronto"
-        return (
-            f"Ótimo! Vou agendar {servico} com Joana {data}. Confirma? (sim)"
-        )
+    # HANDLER 4: Extrair dados de forma robusta
+    dados = extrair_dados_agendamento(entrada)
 
-    # Padrão: extrair serviço e data
-    if "corte" in entrada_lower:
-        ctx["draft_agendamento"]["servico"] = "corte"
-        if "amanhã" in entrada_lower:
-            ctx["draft_agendamento"]["data_hora"] = "amanhã 10:00"
-        ctx["estado_fluxo"] = "aguardando_profissional"
-        return (
-            "Ótimo! Agendamento de corte amanhã às 10:00.\n"
-            "Qual profissional você prefere? Temos: Bruna, Gloria, Joana."
-        )
+    # HANDLER 5: Validar serviço PRIMEIRO (prioridade 1)
+    # Se tem serviço não reconhecido, retorna erro imediatamente
+    if "servico" in dados or any(s in entrada_lower for s in ["corte", "escova", "coloracao", "coloração", "hidratacao", "hidratação", "manicure", "massagem"]):
+        if dados.get("servico"):
+            servico = dados["servico"]
+        else:
+            # Encontrou alguma palavra de serviço mas não normalizou
+            if "massagem" in entrada_lower:
+                servico = "massagem"
+            else:
+                servico = None
 
-    # Serviço atual vence antigo
-    if ctx.get("draft_agendamento", {}).get("servico") == "botox capilar":
-        if "corte" in entrada_lower:
-            ctx["draft_agendamento"]["servico"] = "corte"
-            ctx["draft_agendamento"]["data_hora"] = "amanhã 10:00"
+        if servico:
+            if servico not in SERVICOS_DISPONIVEIS:
+                # Serviço não existe — RETORNA ERRO IMEDIATAMENTE
+                return (
+                    f"Não encontrei *{servico}* no catálogo.\n"
+                    "Temos os seguintes serviços:\n\n• Corte\n• Escova\n• Coloração\n• Hidratação\n• Manicure\n\n"
+                    "Qual você prefere?"
+                )
+            # Serviço válido — atualizar draft (mensagem atual vence draft antigo)
+            ctx["draft_agendamento"]["servico"] = servico
+            if dados.get("data_hora"):
+                ctx["draft_agendamento"]["data_hora"] = dados["data_hora"]
+
+    # HANDLER 6: Validar profissional (se informado)
+    if dados.get("profissional"):
+        prof = dados["profissional"]
+        # Verificar se existe
+        if prof not in PROFISSIONAIS_DISPONIVEIS:
+            # Profissional não existe
+            servico = ctx.get("draft_agendamento.servico") or ctx["draft_agendamento"].get("servico") or dados.get("servico")
+            profissionais_validos = get_profissionais_para_servico(servico) if servico else []
             return (
-                "Agora vamos agendar corte amanhã às 10:00. "
-                "Qual profissional prefere?"
+                f"Não encontrei *{prof.lower()}* entre os profissionais.\n"
+                f"Para *{servico}*, posso verificar com: {', '.join(profissionais_validos)}.\n"
+                f"Qual você prefere?"
             )
 
-    # Conflito de horário
-    if ctx.get("horarios_ocupados") and "amanhã às 10" in entrada_lower:
-        ctx["estado_fluxo"] = "escolhendo_horario_alternativo"
+        # Profissional existe — verificar se atende serviço
+        servico = ctx.get("draft_agendamento.servico") or ctx["draft_agendamento"].get("servico") or dados.get("servico")
+        if servico and not pode_agendar_servico_com_profissional(servico, prof):
+            # Profissional não atende esse serviço
+            profissionais_validos = get_profissionais_para_servico(servico)
+            ctx["motivo_estado"] = "profissional_nao_atende_servico"
+            ctx["profissional_rejeitado"] = prof
+            ctx["profissionais_validos"] = profissionais_validos
+            ctx["draft_agendamento"]["profissional"] = None
+            return (
+                f"*{prof}* não atende {servico}.\n"
+                f"Para *{servico}*, posso verificar com: {', '.join(profissionais_validos)}.\n"
+                f"Qual você prefere?"
+            )
+
+        # Profissional válido para esse serviço
+        ctx["draft_agendamento"]["profissional"] = prof
+
+        # Verificar CONFLITO DE HORÁRIO antes de confirmar
+        horarios_ocupados = ctx.get("horarios_ocupados", [])
+        data_hora_pedida = dados.get("data_hora")
+        if horarios_ocupados and data_hora_pedida and data_hora_pedida in horarios_ocupados:
+            # Conflito detectado — não confirma ainda
+            ctx["estado_fluxo"] = "escolhendo_horario_alternativo"
+            ctx["opcoes_horario"] = ["amanhã 14:00", "depois de amanhã 10:00"]
+            return (
+                "Esse horário está ocupado. Temos uma alternativa disponível e outro horário alternativo:\n"
+                "1. Amanhã às 14:00\n"
+                "2. Depois de amanhã às 10:00\n\n"
+                "Qual prefere? (1 ou 2)"
+            )
+
+        # Se temos serviço, profissional e data (e sem conflito) → pré-confirmação
+        if ctx["draft_agendamento"].get("servico") and ctx["draft_agendamento"].get("data_hora"):
+            ctx["estado_fluxo"] = "agendamento_pronto"
+            return (
+                f"Ótimo! Vou agendar {ctx['draft_agendamento'].get('servico')} "
+                f"com {prof} {ctx['draft_agendamento'].get('data_hora')}. "
+                f"Confirma? (sim)"
+            )
+
+    # HANDLER 7: Se tem serviço mas não profissional → pedir profissional
+    servico = ctx.get("draft_agendamento.servico") or ctx["draft_agendamento"].get("servico")
+    if servico and not ctx["draft_agendamento"].get("profissional"):
+        profissionais_validos = get_profissionais_para_servico(servico)
+        lista_str = ", ".join(profissionais_validos)
+        ctx["estado_fluxo"] = "aguardando_profissional"
         return (
-            "Esse horário está ocupado. Temos alternativa: amanhã às 14:00 ou depois de amanhã às 10:00. "
-            "Qual prefere? (1 ou 2)"
+            f"Ótimo! Agendamento de {servico}.\n"
+            f"Qual profissional você prefere? Temos: {lista_str}."
         )
 
     return "Não entendi. Pode repetir?"
-
-
-def contexto_servico(caso: TestCase) -> str:
-    """Extrai serviço do contexto inicial."""
-    return caso.contexto_inicial.get("draft_agendamento.servico", "").lower()
 
 
 def obter_valor_ctx(ctx: MockContext, chave: str) -> Any:
@@ -599,14 +720,15 @@ def obter_valor_ctx(ctx: MockContext, chave: str) -> Any:
 
 
 async def executar_testes() -> Dict[str, Any]:
-    """Executa suite de testes e retorna resultados."""
+    """Executa suite de testes e retorna resultados detalhados."""
     print("\n" + "=" * 80)
-    print("BATERIA P0 — REGRESSÃO CRÍTICA DE AGENDAMENTO")
+    print("BATERIA P0 — REGRESSÃO CRÍTICA DE AGENDAMENTO (v2 — RUNNER MELHORADO)")
     print("=" * 80 + "\n")
 
     passou = 0
     falhou = 0
     erros = 0
+    falhas_por_tipo = {}
 
     for caso in CASOS_TESTE:
         resultado = await validar_test_case(caso)
@@ -619,15 +741,20 @@ async def executar_testes() -> Dict[str, Any]:
         else:
             falhou += 1
             status_icon = "❌"
+            if caso.tipo_falha:
+                falhas_por_tipo[caso.tipo_falha] = falhas_por_tipo.get(caso.tipo_falha, 0) + 1
 
         print(
             f"[{status_icon}] Test {caso.id:2d} ({caso.grupo}): {caso.nome}"
         )
         if caso.motivo_falha:
             print(f"    → {caso.motivo_falha}")
+            if caso.tipo_falha:
+                print(f"    → Tipo: {caso.tipo_falha}")
 
     print("\n" + "=" * 80)
     print(f"RESULTADO: {passou} PASSOU, {falhou} FALHOU, {erros} ERRO")
+    print(f"Taxa de sucesso: {(passou / len(CASOS_TESTE) * 100):.1f}%")
     print("=" * 80 + "\n")
 
     # Tabela resumida por grupo
@@ -647,9 +774,15 @@ async def executar_testes() -> Dict[str, Any]:
         pct = (stats["passou"] / total * 100) if total > 0 else 0
         print(f"  Grupo {grupo}: {stats['passou']}/{total} ({pct:.0f}%)")
 
-    # Gerar JSON
+    if falhas_por_tipo:
+        print("\nDistribuição de falhas:\n")
+        for tipo, qtd in sorted(falhas_por_tipo.items()):
+            print(f"  {tipo}: {qtd}")
+
+    # Gerar JSON detalhado
     resultado_json = {
         "suite": "regressao_p0_agendamento_critico",
+        "versao": "2.0_runner_melhorado",
         "data": datetime.now().isoformat(),
         "total_testes": len(CASOS_TESTE),
         "passou": passou,
@@ -661,10 +794,19 @@ async def executar_testes() -> Dict[str, Any]:
                 "id": caso.id,
                 "grupo": caso.grupo,
                 "nome": caso.nome,
-                "entrada": caso.entrada if isinstance(caso.entrada, str) else f"[{len(caso.entrada)} passos]",
+                "entrada": caso.entrada if isinstance(caso.entrada, str) else [list(caso.entrada)],
                 "status": caso.status,
+                "tipo_falha": caso.tipo_falha,
                 "motivo_falha": caso.motivo_falha,
-                "resposta": caso.resposta_obtida,
+                "resposta_real": caso.resposta_obtida,
+                "resposta_esperada": {
+                    "contém": caso.assert_resposta.get("contém", []),
+                    "não_contém": caso.assert_resposta.get("não_contém", [])
+                },
+                "contexto_final": caso.contexto_final,
+                "validacoes_passaram": caso.validacoes_passaram,
+                "validacoes_falharam": caso.validacoes_falharam,
+                "passos": caso.respostas_por_passo if caso.respostas_por_passo else None,
             }
             for caso in CASOS_TESTE
         ],
@@ -672,6 +814,7 @@ async def executar_testes() -> Dict[str, Any]:
             "categoria": "Regressão P0 — Agendamento",
             "objetivo": "Garantir que cenários óbvios nunca mais passem sem cobertura",
             "conclusion": f"{passou}/{len(CASOS_TESTE)} testes passaram com sucesso",
+            "distribuicao_falhas": falhas_por_tipo,
         },
     }
 
