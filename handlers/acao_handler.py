@@ -386,6 +386,44 @@ async def tratar_mensagem_usuario(user_id, mensagem):
                 profissional_escolhido = nome
                 break
 
+        # 🔍 PATCH P0: Se não encontrou em disponiveis, procura em TODOS os profissionais
+        # para detectar se foi mencionado mas não atende o serviço
+        if not profissional_escolhido:
+            print("🔎 [PATCH] Procurando profissional em TODOS os cadastrados...")
+            tenant_id = await obter_id_dono(user_id)
+            todos_profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+
+            servico = sessao.get("servico")
+            servicos_busca = servico if isinstance(servico, list) else [servico] if servico else []
+
+            # Busca quem atende o serviço
+            prof_que_atendem = await buscar_profissionais_por_servico(servicos_busca, user_id) if servicos_busca else {}
+
+            # Procura nome mencionado em TODOS os profissionais
+            profissional_mencionado = None
+            for nome in todos_profissionais.keys():
+                if unidecode(nome.lower()) in texto_normalizado:
+                    profissional_mencionado = nome
+                    break
+
+            # Se encontrou um profissional mencionado
+            if profissional_mencionado:
+                print(f"✅ [PATCH] Profissional mencionado encontrado: {profissional_mencionado}")
+
+                # Verifica se atende o serviço
+                if profissional_mencionado not in prof_que_atendem:
+                    print(f"❌ [PATCH] {profissional_mencionado} não atende {servico}")
+
+                    # Monta resposta informando que não atende
+                    servico_atual = sessao.get("servico", "esse serviço")
+                    lista = ", ".join(disponiveis) if disponiveis else "ninguém"
+
+                    return (
+                        f"*{profissional_mencionado}* não atende {servico_atual}.\n"
+                        f"Para *{servico_atual}*, posso verificar com: {lista}.\n"
+                        f"Qual você prefere?"
+                    )
+
         # ✅ Se não encontrou profissional, pede para informar
         if not profissional_escolhido:
             return "Qual profissional você prefere? (ex: Joana, Bruna, Carla...)"
