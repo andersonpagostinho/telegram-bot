@@ -1852,18 +1852,53 @@ async def precheck_e_confirmacao_agendamento(
 
     print(f"[PRE-CHECK COMPATIBILIDADE] prof={prof} | servico={servico} | ok={valido.get('ok')}", flush=True)
     if not valido.get("ok"):
+        # 🔥 PATCH P0: Profissional não atende serviço
+        # Ao invés de pergunta "Quer escolher?", listar opções válidas imediatamente
+
+        from services.profissional_service import buscar_profissionais_por_servico
+
+        # Buscar profissionais que ATENDEM esse serviço
+        profissionais_validos = await buscar_profissionais_por_servico(
+            servicos=[servico],
+            user_id=user_id
+        )
+
+        # Montar resposta com opções válidas
+        if profissionais_validos:
+            lista_validos = list(profissionais_validos.keys())
+            lista_str = ", ".join(lista_validos)
+            resposta = (
+                f"*{prof}* não atende {servico}.\n"
+                f"Para *{servico}*, posso verificar com: {lista_str}.\n"
+                f"Qual você prefere?"
+            )
+        else:
+            # Sem ninguém que atenda esse serviço
+            resposta = (
+                f"*{prof}* não atende {servico}.\n"
+                f"Infelizmente, nenhum profissional oferece esse serviço no momento."
+            )
+            lista_validos = []
+
+        # 🔥 Salvar contexto com motivo_estado
         draft = ctx.get("draft_agendamento") or {}
+        draft["servico"] = servico
+        draft["data_hora"] = data_hora
+        draft["profissional"] = None  # Não preencher com profissional inválido
+
         ctx["draft_agendamento"] = draft
         ctx["servico"] = servico
         ctx["data_hora"] = data_hora
+        ctx["estado_fluxo"] = "aguardando_profissional"
+        ctx["motivo_estado"] = "profissional_nao_atende_servico"
+        ctx["profissional_rejeitado"] = prof
+        ctx["profissionais_validos"] = lista_validos
+
         await salvar_contexto_temporario(user_id, ctx)
         return await _send_and_stop(
             context,
             user_id,
-            (
-                f"❌ {prof} não atende {servico}.\n\n"
-                "Quer escolher outra profissional?"
-            ),
+            resposta,
             parse_mode=None
         )
 
@@ -3311,6 +3346,72 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             f"🧠 [NORMALIZADOR_HUMANO] sinais={sinais_humanos}",
             flush=True
         )
+
+    # =========================================================
+    # 🔥 PATCH P0: Handler para "sim/não" após profissional inválido
+    # =========================================================
+    if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
+        profissionais_validos = ctx.get("profissionais_validos", [])
+        servico = ctx.get("servico") or (ctx.get("draft_agendamento", {}).get("servico"))
+
+        print(f"[PATCH_P0] motivo_estado=profissional_nao_atende_servico | texto={texto_lower}", flush=True)
+
+        # Resposta para "sim" — reapresentar opções
+        if texto_lower in ["sim", "s", "ok", "pode", "pode ser", "sim!"]:
+            if profissionais_validos:
+                lista = ", ".join(profissionais_validos)
+                resposta = f"Pode escolher: {lista}."
+            else:
+                resposta = "Nenhum profissional disponível para esse serviço."
+
+            ctx["estado_fluxo"] = "aguardando_profissional"
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return {
+                "handled": True,
+                "resposta": resposta,
+                "motivo": "profissional_nao_atende_servico_reapresentar_opcoes"
+            }
+
+        # Resposta para "não" ou "desistir" — limpar motivo
+        elif texto_lower in ["não", "nao", "desistir", "cancelar", "não obrigado", "nao obrigado"]:
+            # Limpar estado
+            ctx.pop("motivo_estado", None)
+            ctx.pop("profissional_rejeitado", None)
+            ctx.pop("profissionais_validos", None)
+
+            if ctx.get("estado_fluxo") == "aguardando_profissional":
+                ctx["estado_fluxo"] = "idle"
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return {
+                "handled": True,
+                "resposta": "Tudo bem. Não alterei o agendamento.",
+                "motivo": "usuario_cancelou"
+            }
+
+        # Se mencionou um profissional válido, processar normalmente
+        elif any(prof.lower() in texto_lower for prof in profissionais_validos):
+            # Deixar fluxo normal processar (vai cair no resto do router)
+            print(f"[PATCH_P0] Usuário escolheu profissional válido, continuando fluxo normal", flush=True)
+            # Não retorna aqui, deixa continuar para o fluxo normal
+            pass
+        else:
+            # Qualquer outra coisa nesse contexto, repetir opções
+            if profissionais_validos:
+                lista = ", ".join(profissionais_validos)
+                resposta = f"Desculpe, não entendi. Para *{servico}*, pode escolher: {lista}."
+            else:
+                resposta = "Não consegui entender. Tente novamente."
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return {
+                "handled": True,
+                "resposta": resposta,
+                "motivo": "profissional_nao_atende_servico_input_invalido"
+            }
 
     # =========================================================
     # 🧑‍💼 BLOQUEIO GLOBAL — atendimento assumido pelo humano

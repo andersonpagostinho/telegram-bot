@@ -166,13 +166,43 @@ async def tratar_mensagem_usuario(user_id, mensagem):
         if not servicos_parseados:
             servico_normalizado = await encontrar_servico_mais_proximo(mensagem, user_id)
             if not servico_normalizado:
+                # 🔥 PATCH P0: Ser específico sobre qual serviço não foi encontrado
+
+                # Tentar extrair qual serviço o usuário mencionou
+                texto_norm = unidecode((mensagem or "").lower()).strip()
+                servico_mencionado = None
+
+                # Lista de serviços comuns para detectar
+                servicos_comuns = [
+                    "massagem", "massagem terapeutica", "hidro", "sauna", "spa",
+                    "reflexologia", "botox", "preenchimento", "laser", "microblading",
+                    "alongamento", "acrílico", "fibra"
+                ]
+
+                for serv in servicos_comuns:
+                    if serv in texto_norm:
+                        servico_mencionado = serv
+                        break
+
                 if servicos_set:
                     servicos_formatados = "\n".join([f"• {s.capitalize()}" for s in sorted(servicos_set)])
-                    return (
-                        "Não entendi o serviço. Você pode escolher um destes:\n\n"
-                        f"{servicos_formatados}\n\n"
-                        "Qual você deseja?"
-                    )
+
+                    if servico_mencionado:
+                        # Ser específico
+                        return (
+                            f"Não encontrei *{servico_mencionado}* no catálogo.\n"
+                            f"Temos os seguintes serviços:\n\n"
+                            f"{servicos_formatados}\n\n"
+                            "Qual você prefere?"
+                        )
+                    else:
+                        # Resposta genérica
+                        return (
+                            "Não entendi o serviço. Você pode escolher um destes:\n\n"
+                            f"{servicos_formatados}\n\n"
+                            "Qual você deseja?"
+                        )
+
                 return "Não entendi o serviço. Qual serviço você deseja agendar?"
 
             # salva 1 serviço (string) — comportamento antigo
@@ -426,7 +456,47 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
         # ✅ Se não encontrou profissional, pede para informar
         if not profissional_escolhido:
-            return "Qual profissional você prefere? (ex: Joana, Bruna, Carla...)"
+            # 🔥 PATCH P0: Ser específico quando profissional não existe
+
+            # Tentar extrair qual profissional o usuário mencionou
+            todos_profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+            profissional_mencionado_nao_existe = None
+
+            for nome in todos_profissionais.keys():
+                if unidecode(nome.lower()) in texto_normalizado:
+                    # Encontrou um nome que existe, mas não está em disponiveis (já foi tratado acima)
+                    # Então aquele código acima deveria ter retornado. Se chegou aqui, o nome não existe em lugar nenhum.
+                    pass
+
+            # Procurar por qualquer menção de nome próprio (even if doesn't exist)
+            palavras = texto_normalizado.split()
+            for palavra in palavras:
+                # Se tem 3+ caracteres e começa com minúscula, pode ser nome
+                if len(palavra) >= 3:
+                    # Tentar buscar no catálogo
+                    para_procurar = unidecode(palavra.lower())
+                    encontrou = False
+                    for prof_name in todos_profissionais.keys():
+                        if unidecode(prof_name.lower()) == para_procurar:
+                            encontrou = True
+                            break
+                    if not encontrou and palavra[0].isupper() or palavra == palavra.lower():  # Nome próprio ou palavra minúscula mencionada
+                        profissional_mencionado_nao_existe = palavra
+                        break
+
+            servico_atual = sessao.get("servico", "esse serviço")
+            lista_disponiveis = ", ".join(disponiveis) if disponiveis else "ninguém"
+
+            if profissional_mencionado_nao_existe:
+                # Ser específico
+                return (
+                    f"Não encontrei *{profissional_mencionado_nao_existe}* entre os profissionais.\n"
+                    f"Para *{servico_atual}*, posso verificar com: {lista_disponiveis}.\n"
+                    f"Qual você prefere?"
+                )
+            else:
+                # Resposta genérica
+                return "Qual profissional você prefere? (ex: Joana, Bruna, Carla...)"
 
         # ✅ Se o nome não está na lista de disponíveis para o serviço, já orienta
         if profissional_escolhido not in disponiveis:
