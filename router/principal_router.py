@@ -9476,39 +9476,62 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
             # ===== PATCH P1: Resposta específica para profissional que não atende =====
             # Buscar profissionais válidos para este serviço
+            lista_validos = []
             try:
+                from services.profissional_service import buscar_profissionais_por_servico
                 profissionais_validos = await buscar_profissionais_por_servico(
                     servicos=[servico_auto],
                     user_id=user_id
                 )
                 lista_validos = list(profissionais_validos.keys()) if profissionais_validos else []
-
-                if lista_validos:
-                    lista_str = ", ".join(lista_validos)
-                    # Salvar estado para handler de continuidade
-                    ctx["motivo_estado"] = "profissional_nao_atende_servico"
-                    ctx["profissional_rejeitado"] = prof_rejeitado
-                    ctx["profissionais_validos"] = lista_validos
-                    ctx["estado_fluxo"] = "aguardando_profissional"
-
-                    # 🔥 P0 CRÍTICO: Salvar serviço/data CORRETOS, não do draft antigo
-                    # Quando handler responde depois, precisa recuperar os dados ATUAIS
-                    ctx["servico"] = servico_auto
-                    ctx["draft_agendamento"]["servico"] = servico_auto
-                    ctx["draft_agendamento"]["data_hora"] = data_hora_auto
-
-                    await salvar_contexto_temporario(user_id, ctx)
-                    print(f"🧪 [PATCH P1 RESP ESPECIFICA] prof={prof_rejeitado} não atende {servico_auto} | validos={lista_validos}", flush=True)
-
-                    resposta_especifica = (
-                        f"*{prof_rejeitado}* não atende {servico_auto}.\n"
-                        f"Para *{servico_auto}*, posso verificar com: {lista_str}.\n"
-                        f"Qual você prefere?"
-                    )
-                    prof_rejeitado_com_resposta_especifica = resposta_especifica
+                print(f"🧪 [PATCH P1 BUSCA OK] servico={servico_auto} | validos={lista_validos}", flush=True)
             except Exception as e:
-                print(f"⚠️ [PATCH P1 ERRO] Falha ao buscar profissionais válidos: {str(e)}", flush=True)
-                await salvar_contexto_temporario(user_id, ctx)
+                # Fallback determinístico: buscar manualmente se função falhar
+                print(f"⚠️ [PATCH P1 FALLBACK] Erro ao buscar profissionais ({str(e)}), usando fallback", flush=True)
+                try:
+                    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+                    servico_norm = normalizar(servico_auto)
+
+                    for nome, dados in profs_dict.items():
+                        if nome == prof_rejeitado:
+                            continue
+                        servicos_prof = [normalizar(s) for s in (dados.get("servicos") or [])]
+                        if servico_norm in servicos_prof:
+                            lista_validos.append(nome)
+
+                    lista_validos = sorted(lista_validos)
+                    print(f"🧪 [PATCH P1 FALLBACK OK] servico={servico_auto} | validos={lista_validos}", flush=True)
+                except Exception as e2:
+                    print(f"❌ [PATCH P1 FALLBACK ERRO] Ainda falhou: {str(e2)}", flush=True)
+                    lista_validos = []
+
+            # 🔥 P0 CRÍTICO: SEMPRE salvar contexto com dados CORRETOS, mesmo se lista vazia
+            ctx["motivo_estado"] = "profissional_nao_atende_servico"
+            ctx["profissional_rejeitado"] = prof_rejeitado
+            ctx["profissionais_validos"] = lista_validos
+            ctx["estado_fluxo"] = "aguardando_profissional"
+            ctx["servico"] = servico_auto
+            ctx["draft_agendamento"]["servico"] = servico_auto
+            ctx["draft_agendamento"]["profissional"] = None
+            ctx["draft_agendamento"]["data_hora"] = data_hora_auto
+
+            await salvar_contexto_temporario(user_id, ctx)
+
+            if lista_validos:
+                lista_str = ", ".join(lista_validos)
+                resposta_especifica = (
+                    f"*{prof_rejeitado}* não atende {servico_auto}.\n"
+                    f"Para *{servico_auto}*, posso verificar com: {lista_str}.\n"
+                    f"Qual você prefere?"
+                )
+            else:
+                resposta_especifica = (
+                    f"*{prof_rejeitado}* não atende {servico_auto}.\n"
+                    f"Vou precisar que escolha outra profissional para {servico_auto}."
+                )
+
+            prof_rejeitado_com_resposta_especifica = resposta_especifica
+            print(f"🧪 [PATCH P1 COMPLETO] prof={prof_rejeitado} não atende {servico_auto} | validos={lista_validos}", flush=True)
 
             print(f"🧪 [PROF REJEITADO] {prof_rejeitado} não atende {servico_auto}", flush=True)
 
