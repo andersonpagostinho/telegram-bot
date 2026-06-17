@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from datetime import datetime
+import json
 
 from handlers.task_handler import add_task_por_gpt, gerar_texto_tarefas, remover_tarefa_por_descricao
 from handlers.event_handler import add_evento_por_gpt
@@ -34,6 +35,60 @@ from services.profissional_service import buscar_profissionais_disponiveis_no_ho
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
+
+
+# 🔥 P0: Sanitizador de cancelamento_pendente — apenas dados serializáveis
+def sanitizar_cancelamento_pendente(candidatos, cliente_id, evento_id=None):
+    """
+    Converte candidatos (lista de tuplas) em estrutura serializável para Firestore.
+
+    Caso único: retorna dict com evento_id
+    Caso múltiplo: retorna dict com resumo_eventos (lista)
+
+    Proibido: tuplas, evento dict inteiro, datetime, DocumentSnapshot
+    """
+    if not candidatos:
+        return None
+
+    # Construir resumo_eventos a partir de candidatos
+    resumo_eventos = []
+    for item in candidatos:
+        if isinstance(item, tuple):
+            eid, ev = item
+        else:
+            eid, ev = item.get("evento_id"), item
+
+        resumo_eventos.append({
+            "evento_id": str(eid),
+            "descricao": str(ev.get("descricao", "") if isinstance(ev, dict) else ""),
+            "data": str(ev.get("data", "") if isinstance(ev, dict) else ""),
+            "hora_inicio": str(ev.get("hora_inicio", "") if isinstance(ev, dict) else ""),
+            "profissional": str(ev.get("profissional", "") if isinstance(ev, dict) else ""),
+        })
+
+    # Caso único
+    if len(resumo_eventos) == 1:
+        res = resumo_eventos[0]
+        resultado = {
+            "evento_id": res["evento_id"],
+            "cliente_id": str(cliente_id),
+            "resumo_evento": res
+        }
+    else:
+        # Caso múltiplo
+        resultado = {
+            "cliente_id": str(cliente_id),
+            "resumo_eventos": resumo_eventos
+        }
+
+    # Validar serializabilidade
+    try:
+        json.dumps(resultado, ensure_ascii=False)
+        print(f"[SANITIZAR_CANCELAMENTO] OK - serializavel", flush=True)
+        return resultado
+    except TypeError as e:
+        print(f"[SANITIZAR_CANCELAMENTO] ERRO - nao serializavel: {e}", flush=True)
+        return None
 
 
 def _obter_user_id(update, context) -> str:
@@ -559,44 +614,28 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             # Limpar estado anterior
             context.user_data.pop("cancelamento_pendente", None)
 
-            # P0.1A: Salvar estado pendente (mesmo com 1 evento)
-            # Estrutura: armazena evento_id para depois confirmar
-            if len(candidatos) == 1:
-                eid, ev = candidatos[0]
-                # Só 1 evento: salvar para pedir confirmação (sim/não)
-                context.user_data["cancelamento_pendente"] = {
-                    "evento_id": eid,
-                    "cliente_id": user_id,
-                    "candidatos": [(eid, ev)],
-                    "resumo_evento": {
-                        "descricao": ev.get("descricao", "Evento"),
-                        "data": ev.get("data", ""),
-                        "hora_inicio": ev.get("hora_inicio", ""),
-                        "profissional": ev.get("profissional", ""),
-                    }
-                }
-                context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
-            else:
-                # Múltiplos eventos: salvar candidatos para escolher número depois
-                context.user_data["cancelamento_pendente"] = {
-                    "cliente_id": user_id,
-                    "candidatos": candidatos,
-                    "resumo_eventos": [
-                        {
-                            "evento_id": eid,
-                            "descricao": ev.get("descricao", ""),
-                            "data": ev.get("data", ""),
-                            "hora_inicio": ev.get("hora_inicio", ""),
-                        }
-                        for eid, ev in candidatos
-                    ]
-                }
-                context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
+            # 🔥 P0: Sanitizar cancelamento_pendente — APENAS dados serializáveis
+            cancelamento_sanitizado = sanitizar_cancelamento_pendente(candidatos, user_id)
 
-            # P0.1A: Salvar estado em MemoriaTemporaria (persistência) + context.user_data (imediato)
-            # Fazer merge com contexto existente
+            if not cancelamento_sanitizado:
+                # Erro de serialização — não continuar
+                await update.message.reply_text("Não consegui preparar o cancelamento. Pode tentar novamente?")
+                return True
+
+            # Salvar contexto sanitizado
+            context.user_data["cancelamento_pendente"] = cancelamento_sanitizado
+            context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
+
+            # 🔥 P0: Limpar lixo de agendamento antes de entrar em cancelamento
             ctx = await carregar_contexto_temporario(user_id) or {}
-            ctx["cancelamento_pendente"] = context.user_data["cancelamento_pendente"]
+            ctx.pop("motivo_estado", None)
+            ctx.pop("profissional_rejeitado", None)
+            ctx.pop("profissionais_validos", None)
+            ctx.pop("aguardando_confirmacao_agendamento", None)
+            ctx.pop("dados_confirmacao_agendamento", None)
+
+            # Salvar em MemoriaTemporaria (persistência)
+            ctx["cancelamento_pendente"] = cancelamento_sanitizado
             ctx["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
             await salvar_contexto_temporario(user_id, ctx)
 

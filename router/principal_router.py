@@ -3348,6 +3348,58 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         )
 
     # =========================================================
+    # 🔥 P0 CANCELAMENTO: Handler para confirmação de cancelamento
+    # PRIORIDADE: Executa ANTES de P0 profissional e GPT
+    # =========================================================
+    if ctx.get("estado_fluxo") == "aguardando_confirmacao_cancelamento" and ctx.get("cancelamento_pendente"):
+        cancelamento_pendente = ctx.get("cancelamento_pendente", {})
+
+        print(f"[HANDLER_CANCELAMENTO] evento_id={cancelamento_pendente.get('evento_id')} | texto={texto_lower}", flush=True)
+
+        # "Sim" — confirma cancelamento
+        if texto_lower in ["sim", "s", "ok", "pode", "pode ser", "sim!", "yes"]:
+            evento_id = cancelamento_pendente.get("evento_id")
+
+            if evento_id:
+                # Cancelar evento
+                ok = await cancelar_evento(user_id, evento_id)
+
+                if ok:
+                    # Limpar contexto de cancelamento
+                    ctx.pop("cancelamento_pendente", None)
+                    ctx.pop("estado_fluxo", None)
+                    ctx["estado_fluxo"] = "idle"
+                    await salvar_contexto_temporario(user_id, ctx)
+
+                    resumo = cancelamento_pendente.get("resumo_evento", {})
+                    resposta = f"Pronto! O evento {resumo.get('descricao', '')} foi cancelado e o horário ficou disponível."
+
+                    return {
+                        "handled": True,
+                        "resposta": resposta,
+                        "motivo": "cancelamento_confirmado"
+                    }
+                else:
+                    await salvar_contexto_temporario(user_id, ctx)
+                    return {
+                        "handled": True,
+                        "resposta": "❌ Não consegui cancelar. Pode tentar novamente?",
+                        "motivo": "cancelamento_falhou"
+                    }
+
+        # "Não" — aborta cancelamento
+        elif texto_lower in ["não", "nao", "não quero", "nao quero", "deixa", "esquece"]:
+            ctx.pop("cancelamento_pendente", None)
+            ctx["estado_fluxo"] = "idle"
+            await salvar_contexto_temporario(user_id, ctx)
+
+            return {
+                "handled": True,
+                "resposta": "Tudo bem, não cancelei nada.",
+                "motivo": "cancelamento_abortado"
+            }
+
+    # =========================================================
     # 🔥 PATCH P0: Handler para "sim/não" após profissional inválido
     # 🔥 CRÍTICO: Não interceptar se está aguardando confirmação de agendamento
     # =========================================================
