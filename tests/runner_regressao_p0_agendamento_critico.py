@@ -242,10 +242,16 @@ CASOS_TESTE: List[TestCase] = [
         nome="Profissional informado depois, mas não atende",
         entrada=["Quero corte amanhã às 10", "Carla"],
         contexto_inicial={},
-        assert_resposta={
-            "contém": ["Carla", "não atende", "corte"],
-            "não_contém": ["agendado"],
-        },
+        assert_resposta=[
+            {  # Passo 1: Sem profissional, pede qual escolher
+                "contém": ["profissional", "Bruna", "Gloria", "Joana"],
+                "não_contém": ["Carla não atende", "agendado", "confirmado"]
+            },
+            {  # Passo 2: Carla foi escolhida, mas não atende
+                "contém": ["Carla", "não atende", "corte", "Bruna", "Gloria", "Joana"],
+                "não_contém": ["agendado", "confirmado", "botox"]
+            }
+        ],
         assert_ctx={
             "draft_agendamento.servico": "corte",
             "draft_agendamento.data_hora": "amanhã 10:00",

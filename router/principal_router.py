@@ -3395,6 +3395,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         elif any(prof.lower() in texto_lower for prof in profissionais_validos):
             # Deixar fluxo normal processar (vai cair no resto do router)
             print(f"[PATCH_P0] Usuário escolheu profissional válido, continuando fluxo normal", flush=True)
+
+            # 🔥 CRÍTICO: Limpar estado de rejeição ANTES de deixar continuar
+            # Senão, próximo "Pode" será interceptado pelo handler P0 novamente
+            ctx.pop("motivo_estado", None)
+            ctx.pop("profissional_rejeitado", None)
+            ctx.pop("profissionais_validos", None)
+            await salvar_contexto_temporario(user_id, ctx)
+            print(f"[PATCH_P0 LIMPEZA] Estado limpo, continuando com fluxo normal", flush=True)
+
             # Não retorna aqui, deixa continuar para o fluxo normal
             pass
         else:
