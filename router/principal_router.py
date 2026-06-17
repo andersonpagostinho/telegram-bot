@@ -9491,6 +9491,12 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     ctx["profissionais_validos"] = lista_validos
                     ctx["estado_fluxo"] = "aguardando_profissional"
 
+                    # 🔥 P0 CRÍTICO: Salvar serviço/data CORRETOS, não do draft antigo
+                    # Quando handler responde depois, precisa recuperar os dados ATUAIS
+                    ctx["servico"] = servico_auto
+                    ctx["draft_agendamento"]["servico"] = servico_auto
+                    ctx["draft_agendamento"]["data_hora"] = data_hora_auto
+
                     await salvar_contexto_temporario(user_id, ctx)
                     print(f"🧪 [PATCH P1 RESP ESPECIFICA] prof={prof_rejeitado} não atende {servico_auto} | validos={lista_validos}", flush=True)
 

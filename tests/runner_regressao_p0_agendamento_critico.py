@@ -449,6 +449,39 @@ CASOS_TESTE: List[TestCase] = [
         },
         deve_criar_evento=False,
     ),
+
+    # ========== BUG P0: CONTEXTO CONTAMINADO ==========
+    TestCase(
+        id=16,
+        grupo="P0",
+        nome="[BUG P0] Contexto contaminado: profissional incompatível + Sim",
+        entrada=["Quero agendar corte com Carla amanhã às 10", "Sim"],
+        contexto_inicial={
+            "draft_agendamento.servico": "botox capilar",
+            "draft_agendamento.data_hora": "semana que vem",
+            "estado_fluxo": "agendando",
+        },
+        assert_resposta=[
+            {
+                "passo": 1,
+                "contém": ["Carla", "não atende", "corte", "Bruna", "Gloria", "Joana"],
+                "não_contém": ["botox capilar"],
+            },
+            {
+                "passo": 2,
+                "contém": ["Pode escolher", "Bruna", "Gloria", "Joana"],
+                "não_contém": ["botox", "botox capilar"],
+            },
+        ],
+        assert_ctx={
+            "draft_agendamento.servico": "corte",
+            "draft_agendamento.data_hora": "amanhã 10:00",
+            "motivo_estado": "profissional_nao_atende_servico",
+            "profissional_rejeitado": "Carla",
+            "profissionais_validos": ["Bruna", "Gloria", "Joana"],
+        },
+        deve_criar_evento=False,
+    ),
 ]
 
 
@@ -468,7 +501,7 @@ async def validar_test_case(caso: TestCase) -> bool:
         entradas = [caso.entrada] if isinstance(caso.entrada, str) else caso.entrada
         resposta_final = None
 
-        for entrada_step in entradas:
+        for idx, entrada_step in enumerate(entradas):
             resposta_final = simular_resposta(entrada_step, ctx, caso)
             caso.respostas_por_passo.append({
                 "entrada": entrada_step,
@@ -479,24 +512,33 @@ async def validar_test_case(caso: TestCase) -> bool:
         # Resposta para validação é a última
         caso.resposta_obtida = resposta_final
 
-        # Validar resposta (contém/não contém)
-        for palavra in caso.assert_resposta.get("contém", []):
-            if palavra.lower() in resposta_final.lower():
-                caso.validacoes_passaram.append(f"Resposta contém '{palavra}'")
-            else:
-                caso.validacoes_falharam.append(f"Resposta não contém '{palavra}'")
-                caso.motivo_falha = f"Resposta não contém '{palavra}'"
-                caso.tipo_falha = "ASSERT_FALHOU"
-                return False
+        # Validar resposta (contém/não contém) — suporta múltiplos passos
+        assert_respostas = caso.assert_resposta if isinstance(caso.assert_resposta, list) else [caso.assert_resposta]
 
-        for palavra in caso.assert_resposta.get("não_contém", []):
-            if palavra.lower() not in resposta_final.lower():
-                caso.validacoes_passaram.append(f"Resposta não contém '{palavra}'")
+        for passo_idx, assert_resp in enumerate(assert_respostas):
+            # Se é lista, validar o passo correspondente; se é dict, validar a resposta final
+            if passo_idx < len(caso.respostas_por_passo):
+                resposta = caso.respostas_por_passo[passo_idx]["resposta"]
             else:
-                caso.validacoes_falharam.append(f"Resposta contém '{palavra}' (não deveria)")
-                caso.motivo_falha = f"Resposta contém '{palavra}' (não deveria)"
-                caso.tipo_falha = "ASSERT_FALHOU"
-                return False
+                resposta = resposta_final
+
+            for palavra in assert_resp.get("contém", []):
+                if palavra.lower() in resposta.lower():
+                    caso.validacoes_passaram.append(f"Passo {passo_idx+1}: Resposta contém '{palavra}'")
+                else:
+                    caso.validacoes_falharam.append(f"Passo {passo_idx+1}: Resposta não contém '{palavra}'")
+                    caso.motivo_falha = f"Passo {passo_idx+1}: Resposta não contém '{palavra}'"
+                    caso.tipo_falha = "ASSERT_FALHOU"
+                    return False
+
+            for palavra in assert_resp.get("não_contém", []):
+                if palavra.lower() not in resposta.lower():
+                    caso.validacoes_passaram.append(f"Passo {passo_idx+1}: Resposta não contém '{palavra}'")
+                else:
+                    caso.validacoes_falharam.append(f"Passo {passo_idx+1}: Resposta contém '{palavra}' (não deveria)")
+                    caso.motivo_falha = f"Passo {passo_idx+1}: Resposta contém '{palavra}' (não deveria)"
+                    caso.tipo_falha = "ASSERT_FALHOU"
+                    return False
 
         # Validar contexto final
         for chave, valor_esperado in caso.assert_ctx.items():
@@ -799,7 +841,7 @@ async def executar_testes() -> Dict[str, Any]:
                 "tipo_falha": caso.tipo_falha,
                 "motivo_falha": caso.motivo_falha,
                 "resposta_real": caso.resposta_obtida,
-                "resposta_esperada": {
+                "resposta_esperada": caso.assert_resposta if isinstance(caso.assert_resposta, (list, dict)) else {
                     "contém": caso.assert_resposta.get("contém", []),
                     "não_contém": caso.assert_resposta.get("não_contém", [])
                 },
