@@ -422,10 +422,22 @@ async def cancelar_evento_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
     ok, msg = await cancelar_evento_por_texto(user_id, termo)
 
     # ✅ Se vieram múltiplos candidatos, salva estado para o atalho numérico do bot.py finalizar
+    # 🔥 P0: APENAS dados serializáveis — Firestore rejeita tuplas
     if (not ok) and candidatos:
+        resumo_eventos = []
+        for eid, ev in candidatos:
+            resumo_eventos.append({
+                "evento_id": eid,
+                "descricao": ev.get("descricao", ""),
+                "data": ev.get("data", ""),
+                "hora_inicio": ev.get("hora_inicio", ""),
+                "profissional": ev.get("profissional", ""),
+            })
+
         context.user_data["cancelamento_pendente"] = {
             "user_id": str(user_id),
-            "candidatos": [(eid, ev) for (eid, ev) in candidatos],  # lista de tuples
+            "cliente_id": str(user_id),
+            "resumo_eventos": resumo_eventos,
         }
     await update.message.reply_text(msg)
     return

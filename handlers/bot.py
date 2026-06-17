@@ -109,29 +109,8 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     print("🧩 DEBUG CWD:", os.getcwd())
 
     # --- 1) atalho: concluir cancelamento pendente por número ---
-    pend = context.user_data.get("cancelamento_pendente")
+    # 🔥 P0: Movido para seção de confirmação (linha ~240) onde contexto tem resumo_eventos serializado
     msg_txt = (getattr(update.message, "text", "") or "").strip()
-
-    if pend and msg_txt.isdigit():
-        idx = int(msg_txt) - 1
-        cands = pend.get("candidatos", [])
-        user_id_cancel = str(pend.get("user_id") or update.effective_user.id)
-
-        if 0 <= idx < len(cands):
-            try:
-                eid_escolhido = cands[idx]
-                ok = await cancelar_evento(user_id_cancel, eid_escolhido)
-                if ok:
-                    await update.message.reply_text("Pronto, o agendamento foi cancelado e o horário voltou a ficar disponível.")
-                else:
-                    await update.message.reply_text("❌ Não consegui cancelar. Pode tentar novamente?")
-            finally:
-                context.user_data.pop("cancelamento_pendente", None)
-            raise ApplicationHandlerStop
-        else:
-            await update.message.reply_text("Não reconheci essa opção.\n\nEnvie apenas o número de uma das opções que aparecem acima.")
-            raise ApplicationHandlerStop
-    # --- fim do atalho ---
 
     user_id = str(update.message.from_user.id)
     mensagem = msg_txt
@@ -250,14 +229,16 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 evento_id = ev_selecionado["evento_id"]
 
                 # Atualizar contexto para pedir confirmação do evento selecionado
+                # 🔥 P0: APENAS dados serializáveis — sem tuplas nem dicts complexos
                 context.user_data["cancelamento_pendente"] = {
                     "evento_id": evento_id,
                     "cliente_id": cancelamento_pendente["cliente_id"],
-                    "candidatos": [c for c in cancelamento_pendente.get("candidatos", []) if c[0] == evento_id],
                     "resumo_evento": {
+                        "evento_id": evento_id,
                         "descricao": ev_selecionado.get("descricao", ""),
                         "data": ev_selecionado.get("data", ""),
                         "hora_inicio": ev_selecionado.get("hora_inicio", ""),
+                        "profissional": ev_selecionado.get("profissional", ""),
                     }
                 }
 
