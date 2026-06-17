@@ -3349,8 +3349,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # =========================================================
     # 🔥 PATCH P0: Handler para "sim/não" após profissional inválido
+    # 🔥 CRÍTICO: Não interceptar se está aguardando confirmação de agendamento
     # =========================================================
-    if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
+    if (
+        ctx.get("motivo_estado") == "profissional_nao_atende_servico"
+        and not (
+            ctx.get("aguardando_confirmacao_agendamento")
+            and ctx.get("dados_confirmacao_agendamento")
+        )
+    ):
         profissionais_validos = ctx.get("profissionais_validos", [])
         servico = ctx.get("servico") or (ctx.get("draft_agendamento", {}).get("servico"))
 
