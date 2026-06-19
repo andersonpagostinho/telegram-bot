@@ -15,51 +15,118 @@ from google.cloud import firestore
 
 # ========== VERSÃO NOVA (RECOMENDADA) — ISOLADO POR TENANT ==========
 
-async def salvar_contexto_temporario_v2(dono_id: str, cliente_id: str, contexto: dict):
-    """Salvar contexto isolado por dono_id (tenant) + cliente_id.
+async def salvar_sessao_temporaria(actor_id: str, contexto: dict, tenant_id: str):
+    """Salvar sessão isolada por tenant_id + actor_id (NOVO PATH — SEGURO).
 
-    PATCH MT-07: Contextualiza multi-tenant.
-    Path: Clientes/{dono_id}/Sessoes/{cliente_id}
+    PATCH P0 (2026-06-19):
+    Path: Clientes/{tenant_id}/Sessoes/{actor_id}
+
+    Adicionado:
+    - guard_tenant: tenant_id (validação defensiva)
+    - actor_id: actor_id (rastreabilidade)
+    - updated_at: timestamp
+    - schema_version: 2 (para versionamento)
     """
-    if not dono_id:
-        raise ValueError("dono_id é obrigatório para salvar contexto multi-tenant")
-    if not cliente_id:
-        raise ValueError("cliente_id é obrigatório para salvar contexto")
-
-    path = f"Clientes/{dono_id}/Sessoes/{cliente_id}"
-
+    if not tenant_id:
+        raise ValueError("tenant_id é obrigatório para salvar sessão")
+    if not actor_id:
+        raise ValueError("actor_id é obrigatório para salvar sessão")
     if not contexto:
-        print(f"🚨 [BLOCK SAVE] contexto vazio bloqueado em {path}", flush=True)
-        return
+        print(f"🚨 [BLOCK SAVE] contexto vazio bloqueado", flush=True)
+        return False
+
+    from datetime import datetime
+
+    path = f"Clientes/{tenant_id}/Sessoes/{actor_id}"
 
     # 🔥 merge manual defensivo
     atual = await buscar_dado_em_path(path) or {}
     atual.update(contexto)
 
-    print(f"🧪 [SAVE CTX v2] path={path} | dono={dono_id} | cliente={cliente_id} | contexto_final={atual}", flush=True)
+    # 🔥 PATCH P0.4: Adicionar metadados de segurança
+    atual["_tenant_id_guard"] = tenant_id
+    atual["_actor_id"] = actor_id
+    atual["_updated_at"] = datetime.now().isoformat()
+    atual["_schema_version"] = 2
+
+    print(f"🧪 [SAVE SESSAO v2] path={path} | tenant={tenant_id} | actor={actor_id}", flush=True)
 
     return await atualizar_dado_em_path(path, atual)
 
 
-async def carregar_contexto_temporario_v2(dono_id: str, cliente_id: str):
-    """Carregar contexto isolado por dono_id (tenant) + cliente_id.
+# ALIAS para compatibilidade (nome antigo)
+async def salvar_contexto_temporario_v2(dono_id: str, cliente_id: str, contexto: dict):
+    """ALIAS: Use salvar_sessao_temporaria() em novo código."""
+    return await salvar_sessao_temporaria(cliente_id, contexto, dono_id)
 
-    PATCH MT-07: Contextualiza multi-tenant.
-    Path: Clientes/{dono_id}/Sessoes/{cliente_id}
+
+async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
+    """Carregar sessão isolada por tenant_id + actor_id (NOVO PATH — SEGURO).
+
+    PATCH P0.3 (2026-06-19) — Read-through com migração:
+    1. Tenta novo path: Clientes/{tenant_id}/Sessoes/{actor_id}
+    2. Se vazio, tenta legado SOMENTE se tiver guard_tenant == tenant_id
+    3. Se legado válido, migra imediatamente para novo path
+    4. Se legado sem guard ou guard diferente, retorna {}
+
+    Path novo: Clientes/{tenant_id}/Sessoes/{actor_id}
+    Path legado: Clientes/{actor_id}/MemoriaTemporaria/contexto (com validação)
     """
-    if not dono_id:
-        raise ValueError("dono_id é obrigatório para carregar contexto multi-tenant")
-    if not cliente_id:
-        raise ValueError("cliente_id é obrigatório para carregar contexto")
+    if not tenant_id:
+        raise ValueError("tenant_id é obrigatório para carregar sessão")
+    if not actor_id:
+        raise ValueError("actor_id é obrigatório para carregar sessão")
 
-    path = f"Clientes/{dono_id}/Sessoes/{cliente_id}"
-    data = await buscar_dado_em_path(path)
+    path_novo = f"Clientes/{tenant_id}/Sessoes/{actor_id}"
 
-    if not data:
-        print(f"🚨 [CTX VAZIO DETECTADO v2] path={path} | dono={dono_id} | cliente={cliente_id}", flush=True)
+    # 1️⃣ Tenta novo path primeiro (PATCH P0.3: read-through)
+    data_novo = await buscar_dado_em_path(path_novo)
+    if data_novo:
+        print(f"🧪 [LOAD SESSAO v2] path={path_novo} | source=novo | tenant={tenant_id} | actor={actor_id}", flush=True)
+        return data_novo
 
-    print(f"🧪 [LOAD CTX v2] path={path} | dono={dono_id} | cliente={cliente_id} | data={data}", flush=True)
-    return data
+    # 2️⃣ Fallback legado com validação STRICT (PATCH P0.3)
+    print(f"🧪 [LOAD SESSAO v2 FALLBACK] tentando legado para {actor_id}", flush=True)
+
+    path_legado = f"Clientes/{actor_id}/MemoriaTemporaria/contexto"
+    data_legado = await buscar_dado_em_path(path_legado)
+
+    if not data_legado:
+        print(f"🚨 [SESSAO VAZIA] path_novo={path_novo} | path_legado={path_legado}", flush=True)
+        return {}
+
+    # 3️⃣ Validar guard_tenant no legado
+    guard_tenant = data_legado.get("_tenant_id_guard")
+
+    if not guard_tenant:
+        print(f"🚨 [SESSAO LEGADO SEM GUARD] RECUSADA | path={path_legado} | tenant={tenant_id}", flush=True)
+        return {}
+
+    if guard_tenant != tenant_id:
+        print(f"🚨 [SESSAO LEGADO TENANT MISMATCH] RECUSADA | esperado={tenant_id} | armazenado={guard_tenant}", flush=True)
+        return {}
+
+    # 4️⃣ Legado válido — migrar para novo path imediatamente (PATCH P0.3)
+    print(f"🧪 [SESSAO LEGADO MIGRADA] from={path_legado} to={path_novo}", flush=True)
+
+    # Copiar para novo path com metadados
+    from datetime import datetime
+    data_migrada = dict(data_legado)
+    data_migrada["_tenant_id_guard"] = tenant_id
+    data_migrada["_actor_id"] = actor_id
+    data_migrada["_updated_at"] = datetime.now().isoformat()
+    data_migrada["_schema_version"] = 2
+    data_migrada["_migrado_em"] = datetime.now().isoformat()
+
+    await atualizar_dado_em_path(path_novo, data_migrada)
+
+    return data_migrada
+
+
+# ALIAS para compatibilidade (nome antigo)
+async def carregar_contexto_temporario_v2(dono_id: str, cliente_id: str):
+    """ALIAS: Use carregar_sessao_temporaria() em novo código."""
+    return await carregar_sessao_temporaria(cliente_id, dono_id)
 
 
 async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
@@ -123,26 +190,28 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: st
     Função legada mantida APENAS para compatibilidade com código existente.
     ⚠️ NÃO isolado por tenant — pode causar contaminação multi-tenant.
 
-    PATCH DEFENSIVO (2026-06-19):
-    - Se tenant_id informado: gravar tenant_id no contexto como guard rail
-    - Se tenant_id não informado: logar alerta de risco
+    PATCH P0 (2026-06-19):
+    - Se tenant_id ausente: BLOQUEAR salva, retornar False, logar crítico
+    - Se tenant_id informado: salvar com guard_tenant para leitura validada
     """
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
 
     if not contexto:
         print(f"🚨 [BLOCK SAVE LEGADO] contexto vazio bloqueado em {path}", flush=True)
-        return
+        return False
+
+    # 🔥 PATCH P0.1: Bloquear escrita sem tenant_id
+    if not tenant_id:
+        print(f"🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path={path} | tenant_id não fornecido, salvamento RECUSADO", flush=True)
+        return False
 
     # 🔥 merge manual defensivo
     atual = await buscar_dado_em_path(path) or {}
     atual.update(contexto)
 
     # 🧬 PATCH MT-07: Registrar tenant_id para proteção defensiva
-    if tenant_id:
-        atual["_tenant_id_guard"] = tenant_id
-        print(f"🧪 [CTX_LEGADO_SAVE_COMPAT] path={path} | tenant_id={tenant_id} | guard_adicionado", flush=True)
-    else:
-        print(f"🚨 [CTX_LEGADO_SAVE_SEM_TENANT] ⚠️ RISCO | path={path} | tenant_id não fornecido", flush=True)
+    atual["_tenant_id_guard"] = tenant_id
+    print(f"🧪 [CTX_LEGADO_SAVE_COMPAT] path={path} | tenant_id={tenant_id} | guard_adicionado", flush=True)
 
     print(f"🧪 [SAVE CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
 
@@ -155,10 +224,11 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
     Função legada mantida APENAS para compatibilidade com código existente.
     ⚠️ NÃO isolado por tenant — pode retornar dados errados em multi-tenant.
 
-    PATCH DEFENSIVO (2026-06-19):
+    PATCH P0 (2026-06-19):
+    - Se tenant_id ausente: BLOQUEAR leitura, retornar {}, logar crítico
     - Se tenant_id informado: validar que contexto pertence ao tenant correto
-    - Se tenant mismatch: ignorar contexto, logar alerta
-    - Se sem tenant_id: logar alerta de risco, mas retornar para compatibilidade
+    - Se tenant mismatch: retornar {}, logar crítico
+    - Se sem guard: retornar {}, logar crítico
     """
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
     data = await buscar_dado_em_path(path)
@@ -167,20 +237,26 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
         print(f"🚨 [CTX VAZIO DETECTADO LEGADO] path={path}", flush=True)
         return None
 
+    # 🔥 PATCH P0.1: Bloquear leitura sem tenant_id
+    if not tenant_id:
+        print(f"🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path={path} | tenant_id não fornecido, leitura RECUSADA", flush=True)
+        return {}
+
     # 🧬 PATCH MT-07: Validar tenant_id se informado
-    if tenant_id:
-        guard_tenant = data.get("_tenant_id_guard")
-        if guard_tenant and guard_tenant != tenant_id:
-            print(f"🚨 [CTX_LEGADO_TENANT_MISMATCH] ⚠️ BLOQUEADO | path={path} | esperado={tenant_id} | armazenado={guard_tenant}", flush=True)
-            return {}  # Retorna contexto vazio para proteger
-        elif not guard_tenant:
-            print(f"🚨 [CTX_LEGADO_SEM_TENANT] ⚠️ RISCO | path={path} | contexto não tem guard, ignorando para segurança", flush=True)
-            return {}  # Retorna contexto vazio para fluxo crítico
-        else:
-            # Guard bate, permanecer
-            print(f"🧪 [CTX_LEGADO_COMPAT] | path={path} | tenant_id={tenant_id} | guard_validado", flush=True)
-    else:
-        print(f"🚨 [CTX_LEGADO_SEM_TENANT_PARAM] ⚠️ RISCO | path={path} | tenant_id não fornecido, retornando para compatibilidade apenas", flush=True)
+    guard_tenant = data.get("_tenant_id_guard")
+
+    # 🔥 PATCH P0.2: Bloquear se sem guard (contexto antigo/comprometido)
+    if not guard_tenant:
+        print(f"🚨 [CTX_LEGADO_SEM_GUARD] CRÍTICO | path={path} | contexto legado sem guard_tenant, leitura RECUSADA", flush=True)
+        return {}
+
+    # 🔥 PATCH P0.3: Bloquear se tenant mismatch
+    if guard_tenant != tenant_id:
+        print(f"🚨 [CTX_LEGADO_TENANT_MISMATCH] CRÍTICO | path={path} | tenant mismatch: esperado={tenant_id} | armazenado={guard_tenant}, leitura RECUSADA", flush=True)
+        return {}
+
+    # Guard bate, permitir
+    print(f"🧪 [CTX_LEGADO_COMPAT] | path={path} | tenant_id={tenant_id} | guard_validado", flush=True)
 
     print(f"🧪 [LOAD CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
     return data
