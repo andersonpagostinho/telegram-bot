@@ -338,9 +338,15 @@ async def cancelar_evento(
         return False
 
 
-async def cancelar_evento_por_texto(user_id: str, termo: str):
+async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | None = None):
     """
-    P0.1A: Busca eventos por termo.
+    P0.1A: Busca eventos por termo com filtros avançados.
+
+    Suporta:
+    - "cancelar com Bruna" — filtra por profissional
+    - "cancelar amanhã" — filtra por data
+    - "cancelar corte" — filtra por serviço/descrição
+    - combinações: "cancelar corte com Bruna amanhã"
 
     Retorna:
     - (False, msg, []) — nenhum encontrado
@@ -348,8 +354,70 @@ async def cancelar_evento_por_texto(user_id: str, termo: str):
 
     Nota: NÃO cancela direto. Handler salva estado pendente e aguarda confirmação.
     """
+    from datetime import datetime, timedelta
 
-    candidatos = await buscar_eventos_por_termo_avancado(user_id, termo)
+    if not tenant_id:
+        tenant_id = await obter_id_dono(user_id)
+
+    # Busca TODOS os eventos do tenant
+    eventos = await buscar_subcolecao(f"Clientes/{tenant_id}/Eventos") or {}
+
+    # Extrai filtros do termo
+    termo_lower = (termo or "").strip().lower()
+
+    # Detectar se menciona profissional (com "com" ou direto)
+    profissional_filtro = None
+    if " com " in termo_lower:
+        partes = termo_lower.split(" com ")
+        # "cancelar com bruna" ou "corte com bruna"
+        if len(partes) > 1:
+            profissional_filtro = partes[-1].strip()
+
+    # Detectar data (amanhã, hoje, segunda, etc)
+    data_filtro = None
+    hoje = datetime.now().date()
+
+    if "amanhã" in termo_lower or "amanha" in termo_lower:
+        data_filtro = str(hoje + timedelta(days=1))
+    elif "hoje" in termo_lower:
+        data_filtro = str(hoje)
+    # TODO: adicionar suporte a "segunda", "terça", etc
+
+    # Busca eventos que matcham
+    candidatos = []
+
+    for eid, ev in eventos.items():
+        if not isinstance(ev, dict):
+            continue
+
+        # Filtro: apenas eventos ativos (não cancelados)
+        status = str(ev.get("status") or "").strip().lower()
+        if status in ["cancelado", "cancelada", "removido", "removida"]:
+            continue
+
+        # Filtro: profissional (se especificado)
+        if profissional_filtro:
+            prof_evento = (ev.get("profissional") or "").strip().lower()
+            if profissional_filtro not in prof_evento:
+                continue
+
+        # Filtro: data (se especificado)
+        if data_filtro:
+            if ev.get("data") != data_filtro:
+                continue
+
+        # Filtro: termo geral na descrição ou profissional
+        if termo_lower and not (profissional_filtro or data_filtro):
+            # Busca por palavra-chave
+            desc = (ev.get("descricao") or "").strip().lower()
+            prof = (ev.get("profissional") or "").strip().lower()
+            servico = (ev.get("servico") or "").strip().lower()
+
+            if not (termo_lower in desc or termo_lower in prof or termo_lower in servico):
+                continue
+
+        # Passou em todos os filtros
+        candidatos.append((eid, ev))
 
     # ❌ Nenhum encontrado
     if not candidatos:

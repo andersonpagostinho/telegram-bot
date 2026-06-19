@@ -2252,6 +2252,17 @@ async def resolver_alteracao_draft_agendamento(
     alteracao: dict,
     texto_usuario: str = ""
 ):
+    # 🚨 GUARDA P0: Bloquear ajuste incremental se cancelamento está pendente
+    if ctx.get("estado_fluxo") == "aguardando_confirmacao_cancelamento":
+        print(
+            "[GUARD_P0_CANCELAMENTO] Bloqueando resolver_alteracao_draft_agendamento "
+            f"porque cancelamento_pendente está ativo",
+            flush=True
+        )
+        # Retornar vazio — não processar ajuste
+        # Handler de cancelamento (linha ~3362) vai processar em vez disso
+        return None
+
     draft = (ctx or {}).get("draft_agendamento") or {}
     dados_conf = (ctx or {}).get("dados_confirmacao_agendamento") or {}
 
@@ -3795,6 +3806,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # ---------------------------------------------------------
     # [P0-CANCELAMENTO] Detectar intenção de cancelamento em contexto idle
     # Cancelamento é operação crítica que não pode ser ignorada
+    # PATCH P0: Chamar cancelar_evento_por_texto com filtros avançados
     # ---------------------------------------------------------
     features = class_ctx.get("features", {})
     tem_cancelamento = features.get("tem_cancelamento", False)
@@ -3802,17 +3814,48 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     if tem_cancelamento and (not ctx.get("estado_fluxo") or ctx.get("estado_fluxo") == "idle"):
         print(f" [P0-CANCELAMENTO_IDLE] Cancelamento mencionado em contexto idle | texto={texto_lower}", flush=True)
 
-        # Iniciar fluxo de confirmação de cancelamento
-        # O handler em linha 3362 irá processar a confirmação
-        ctx["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
-        ctx["cancelamento_pendente"] = {
-            "origem": "cancelamento_idle",
-            "texto_original": texto_usuario,
-        }
-        await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)
+        # 🔥 PATCH P0: Extrair termo de cancelamento
+        # Remove "cancelar", "quero cancelar", etc para ficar com filtro
+        termo = texto_usuario
+        cancelamento_keywords = ["cancelar", "quero cancelar", "gostaria de cancelar", "desistir", "cancela"]
+        for kw in cancelamento_keywords:
+            if termo.lower().startswith(kw.lower()):
+                termo = termo[len(kw):].strip()
+                break
 
-        resposta = "Entendi que você quer cancelar. Para fazer isso com segurança, preciso localizar qual agendamento você quer cancelar.\n\nPode me informar o horário ou a profissional?"
-        return await _send_and_stop(context, user_id, resposta)
+        # 🔥 PATCH P0: Chamar cancelar_evento_por_texto com filtros
+        from services.event_service_async import cancelar_evento_por_texto
+        from services.gpt_executor import sanitizar_cancelamento_pendente
+
+        ok, msg, candidatos = await cancelar_evento_por_texto(
+            user_id=user_id,
+            termo=termo,
+            tenant_id=dono_id
+        )
+
+        print(f"[P0-CANCELAMENTO_BUSCA] encontrados={len(candidatos)} | msg={msg[:50]}", flush=True)
+
+        if candidatos:
+            # ✅ Encontrou eventos para cancelar
+            ctx["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
+
+            # 🔥 PATCH P0: Sanitizar para contexto (apenas dados serializáveis)
+            cancelamento_dict = sanitizar_cancelamento_pendente(
+                candidatos,
+                cliente_id=user_id
+            )
+
+            ctx["cancelamento_pendente"] = cancelamento_dict or {}
+            await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)
+
+            # Resposta já vem formatada de cancelar_evento_por_texto
+            return await _send_and_stop(context, user_id, msg)
+        else:
+            # ❌ Nenhum evento encontrado
+            print(f"[P0-CANCELAMENTO_NAO_ENCONTRADO] termo={termo}", flush=True)
+
+            resposta = msg or "❌ Não encontrei nenhum evento para cancelar.\n\nPode me informar o serviço, a profissional ou o horário? (ex: 'cancelar corte com Bruna amanhã')"
+            return await _send_and_stop(context, user_id, resposta)
 
     # ---------------------------------------------------------
     # neutro fora de fluxo não deve abrir atendimento,
