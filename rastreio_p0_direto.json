@@ -1,76 +1,76 @@
 [
   {
-    "timestamp": "2026-06-19T23:40:36.395507",
+    "timestamp": "2026-06-19T23:53:31.844560",
     "tipo": "CARREGAR",
     "mensagem": "🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/MemoriaTemporaria/contexto | tenant_id não fornecido, leitura RECUSADA\nSTACK TRACE COMPLETO:\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\rastreio_p0_direto.py\", line 194, in <module>\n    exit_code = asyncio.run(main())\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 195, in run\n    return runner.run(main)\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 712, in run_until_complete\n    self.run_forever()\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 683, in run_forever\n    self._run_once()\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 2040, in _run_once\n    handle._run()\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\events.py\", line 89, in _run\n    self._context.run(self._callback, *self._args)\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\rastreio_p0_direto.py\", line 151, in main\n    await testar_carregar_sem_tenant()\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\rastreio_p0_direto.py\", line 72, in testar_carregar_sem_tenant\n    resultado = await carregar_contexto_temporario(\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\utils\\contexto_temporario.py\", line 248, in carregar_contexto_temporario\n    stack = \"\".join(traceback.format_stack(limit=15))\n"
   },
   {
-    "timestamp": "2026-06-19T23:40:36.397619",
+    "timestamp": "2026-06-19T23:53:31.846114",
     "tipo": "SALVAR",
     "mensagem": "🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/MemoriaTemporaria/contexto | tenant_id não fornecido, salvamento RECUSADO\nSTACK TRACE COMPLETO:\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\rastreio_p0_direto.py\", line 194, in <module>\n    exit_code = asyncio.run(main())\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 195, in run\n    return runner.run(main)\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 712, in run_until_complete\n    self.run_forever()\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 683, in run_forever\n    self._run_once()\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 2040, in _run_once\n    handle._run()\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\events.py\", line 89, in _run\n    self._context.run(self._callback, *self._args)\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\rastreio_p0_direto.py\", line 154, in main\n    await testar_salvar_sem_tenant()\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\rastreio_p0_direto.py\", line 100, in testar_salvar_sem_tenant\n    resultado = await salvar_contexto_temporario(\n  File \"C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\utils\\contexto_temporario.py\", line 206, in salvar_contexto_temporario\n    stack = \"\".join(traceback.format_stack(limit=15))\n"
   },
   {
-    "timestamp": "2026-06-19T23:40:36.399732",
+    "timestamp": "2026-06-19T23:53:31.846551",
     "tipo": "CARREGAR",
     "mensagem": "  Mensagem: 🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/MemoriaTemporaria/contexto | tenant_..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.399898",
+    "timestamp": "2026-06-19T23:53:31.846590",
     "tipo": "SALVAR",
     "mensagem": "  Mensagem: 🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/MemoriaTemporaria/contexto | te..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.400003",
+    "timestamp": "2026-06-19T23:53:31.846620",
     "tipo": "CARREGAR",
     "mensagem": "  Mensagem:   Mensagem: 🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/MemoriaTemporaria/contex..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.400557",
+    "timestamp": "2026-06-19T23:53:31.846648",
     "tipo": "SALVAR",
     "mensagem": "  Mensagem:   Mensagem: 🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/MemoriaTemporaria/c..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.400815",
+    "timestamp": "2026-06-19T23:53:31.846680",
     "tipo": "CARREGAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/MemoriaTempo..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.400972",
+    "timestamp": "2026-06-19T23:53:31.846706",
     "tipo": "SALVAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/Memoria..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.401978",
+    "timestamp": "2026-06-19T23:53:31.846733",
     "tipo": "CARREGAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/7371670478/..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.402201",
+    "timestamp": "2026-06-19T23:53:31.846761",
     "tipo": "SALVAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes/737167..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.402304",
+    "timestamp": "2026-06-19T23:53:31.846792",
     "tipo": "CARREGAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Clientes..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.402367",
+    "timestamp": "2026-06-19T23:53:31.846820",
     "tipo": "SALVAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path=Cli..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.402432",
+    "timestamp": "2026-06-19T23:53:31.846849",
     "tipo": "CARREGAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | p..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.402500",
+    "timestamp": "2026-06-19T23:53:31.846877",
     "tipo": "SALVAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTIC..."
   },
   {
-    "timestamp": "2026-06-19T23:40:36.402722",
+    "timestamp": "2026-06-19T23:53:31.846909",
     "tipo": "CARREGAR",
     "mensagem": "  Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem:   Mensagem: 🚨 [CTX_BLOQUEADO_SEM_TENANT]..."
   }

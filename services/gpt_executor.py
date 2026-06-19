@@ -174,6 +174,10 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         if not acao or acao.strip() == "":
             return False
 
+        # 🔥 PATCH P0: Resolver tenant_id para isolamento multi-tenant
+        user_id = str(update.message.from_user.id)
+        tenant_id = await obter_id_dono(user_id)
+
         print(f"🔁 Ação recebida: {acao}")
         print(f"📦 Dados: {dados}")
 
@@ -261,7 +265,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                             alternativo = nomes_validos[0]
                             nova_data_hora = f"{data}T{hora}:00"
 
-                            contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+                            contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=id_dono) or {}
 
                             contexto_tmp["alternativa_profissional"] = alternativo
                             contexto_tmp["profissional_escolhido"] = alternativo
@@ -287,7 +291,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                                 "descricao": f"{servico.capitalize()} com {alternativo}",
                             }
 
-                            await salvar_contexto_temporario(user_id, contexto_tmp)
+                            await salvar_contexto_temporario(user_id, contexto_tmp, tenant_id=tenant_id)
 
                             return await update.message.reply_text(
                                 (
@@ -326,7 +330,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                         horario = tentativa.get("horario")
                         nova_data_hora = tentativa.get("data_hora")
 
-                        contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+                        contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=id_dono) or {}
 
                         contexto_tmp["estado_fluxo"] = "agendando"
                         contexto_tmp["data_hora"] = nova_data_hora
@@ -350,7 +354,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                             "descricao": f"{servico.capitalize()} com {prof}",
                         }
 
-                        await salvar_contexto_temporario(user_id, contexto_tmp)
+                        await salvar_contexto_temporario(user_id, contexto_tmp, tenant_id=tenant_id)
 
                         janela = await obter_janela_funcionamento(
                             user_id=id_dono,
@@ -434,7 +438,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 # =========================================================
                 # 🔥 SALVA ESTADO DE ESCOLHA ANTES DE RESPONDER
                 # =========================================================
-                contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+                contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
 
                 horarios_formatados = []
                 for s in sugestoes[:3]:
@@ -462,7 +466,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 draft_tmp["modo_prechecagem"] = True
                 contexto_tmp["draft_agendamento"] = draft_tmp
 
-                await salvar_contexto_temporario(user_id, contexto_tmp)
+                await salvar_contexto_temporario(user_id, contexto_tmp, tenant_id=tenant_id)
 
                 print(
                     f"🚨 [CTX SALVO PELO GPT_EXECUTOR] "
@@ -493,7 +497,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 return True
 
             # ✅ SEM CONFLITO → SALVA CONTEXTO + CONFIRMAÇÃO
-            contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+            contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=id_dono) or {}
 
             contexto_tmp["estado_fluxo"] = "agendando"
             contexto_tmp["draft_agendamento"] = {
@@ -516,7 +520,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             contexto_tmp["data_hora"] = data_hora
             contexto_tmp["ultima_opcao_profissionais"] = [prof]
 
-            await salvar_contexto_temporario(user_id, contexto_tmp)
+            await salvar_contexto_temporario(user_id, contexto_tmp, tenant_id=tenant_id)
 
             try:
                 data_fmt = datetime.fromisoformat(data_hora).strftime("%d/%m às %H:%M")
@@ -554,7 +558,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             dono_id = await obter_id_dono(user_id)
 
             # serviço: preferir contexto; se não existir, tenta inferir do texto/descrição
-            contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+            contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
             servico_ctx = _extrair_servico_do_contexto(contexto_tmp)
 
             # tentativa extra: se não achou no contexto, tenta tirar da descrição "escova com Bruna"
@@ -627,7 +631,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
 
             # 🔥 P0: Limpar lixo de agendamento antes de entrar em cancelamento
-            ctx = await carregar_contexto_temporario(user_id) or {}
+            ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
             ctx.pop("motivo_estado", None)
             ctx.pop("profissional_rejeitado", None)
             ctx.pop("profissionais_validos", None)
@@ -637,7 +641,7 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             # Salvar em MemoriaTemporaria (persistência)
             ctx["cancelamento_pendente"] = cancelamento_sanitizado
             ctx["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
-            await salvar_contexto_temporario(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
             # Mensagem (criada por cancelar_evento_por_texto)
             await update.message.reply_text(msg)

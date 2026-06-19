@@ -245,7 +245,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 }
 
                 # Sincronizar em MemoriaTemporaria
-                ctx = await carregar_contexto_temporario(user_id) or {}
+                ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
                 ctx["cancelamento_pendente"] = context.user_data["cancelamento_pendente"]
                 await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
 
@@ -286,7 +286,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                     )
 
                 # Limpar em ambos os contextos (MemoriaTemporaria + context.user_data)
-                ctx = await carregar_contexto_temporario(user_id) or {}
+                ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
                 ctx.pop("cancelamento_pendente", None)
                 ctx.pop("estado_fluxo", None)
                 await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
@@ -303,7 +303,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             )
 
             # Limpar em ambos os contextos (MemoriaTemporaria + context.user_data)
-            ctx = await carregar_contexto_temporario(user_id) or {}
+            ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
             ctx.pop("cancelamento_pendente", None)
             ctx.pop("estado_fluxo", None)
             await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
