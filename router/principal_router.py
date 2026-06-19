@@ -3331,6 +3331,13 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     texto_lower = texto_usuario.lower().strip()
     tnorm = normalizar(texto_usuario)
 
+    # [P0-TENANT] Resolver tenant_id deterministicamente no início da função
+    # Crítico: Toda leitura/escrita de contexto temporário deve usar tenant_id correto
+    dono_id = await obter_id_dono(user_id)
+    if not dono_id:
+        dono_id = str(user_id)
+        print(f"[TENANT_FALLBACK] obter_id_dono retornou None, usando user_id como fallback | user_id={user_id}")
+
     ctx = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
 
     # =========================================================
@@ -4000,7 +4007,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         # transformar escolha simples em ajuste_incremental.
         # =========================================================
 
-        dono_id = await obter_id_dono(user_id)
+        # [P0-TENANT] dono_id já resolvido no início da função (linha ~3335)
+        # Não recalcular aqui para manter tenant_id canônico
         if (
             ctx.get("estado_fluxo") == "aguardando_profissional"
             and not ctx.get("profissional_escolhido")
