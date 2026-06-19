@@ -515,6 +515,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         duracao_minutos = dados.get("duracao", 60)
         user_id = str(update.message.from_user.id)
 
+        # 🔧 PATCH MT-07: Obter dono_id para carregar contexto v2 (multi-tenant)
+        dono_id = await obter_id_dono(user_id)
+
         # ✅ Carrega contexto UMA vez no início (evita UnboundLocalError)
         contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
 
@@ -592,7 +595,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
                 print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
 
-                await salvar_contexto_temporario_v2(id_dono, user_id, contexto_confirmacao)
+                await salvar_contexto_temporario_v2(dono_id, user_id, contexto_confirmacao)
 
                 await update.message.reply_text(
                     f"✨ {descricao}\n"
