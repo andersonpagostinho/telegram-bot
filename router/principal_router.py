@@ -3793,6 +3793,28 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 return await _send_and_stop(context, user_id, resposta_informativa)
 
     # ---------------------------------------------------------
+    # [P0-CANCELAMENTO] Detectar intenção de cancelamento em contexto idle
+    # Cancelamento é operação crítica que não pode ser ignorada
+    # ---------------------------------------------------------
+    features = class_ctx.get("features", {})
+    tem_cancelamento = features.get("tem_cancelamento", False)
+
+    if tem_cancelamento and (not ctx.get("estado_fluxo") or ctx.get("estado_fluxo") == "idle"):
+        print(f" [P0-CANCELAMENTO_IDLE] Cancelamento mencionado em contexto idle | texto={texto_lower}", flush=True)
+
+        # Iniciar fluxo de confirmação de cancelamento
+        # O handler em linha 3362 irá processar a confirmação
+        ctx["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
+        ctx["cancelamento_pendente"] = {
+            "origem": "cancelamento_idle",
+            "texto_original": texto_usuario,
+        }
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)
+
+        resposta = "Entendi que você quer cancelar. Para fazer isso com segurança, preciso localizar qual agendamento você quer cancelar.\n\nPode me informar o horário ou a profissional?"
+        return await _send_and_stop(context, user_id, resposta)
+
+    # ---------------------------------------------------------
     # neutro fora de fluxo não deve abrir atendimento,
     # exceto quando houver sinal humano operacional
     # ---------------------------------------------------------
