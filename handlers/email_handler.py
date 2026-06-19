@@ -290,10 +290,13 @@ async def salvar_contato_se_nao_existir(user_id, nome, email):
 
 async def enviar_email_natural(update, context, texto_usuario):
     user_id = str(update.message.from_user.id)
+    # P0-004 patch: obter dono_id para tenant guard
+    from services.firebase_service_async import obter_id_dono
+    dono_id = await obter_id_dono(user_id)
 
-    # 🔄 Carrega contexto temporário, se necessário
+    # [LOAD] Carrega contexto temporario, se necessario
     if "email_em_espera" not in context.user_data:
-        contexto_memoria = await carregar_contexto_temporario(user_id)
+        contexto_memoria = await carregar_contexto_temporario(user_id, tenant_id=dono_id)
         if contexto_memoria:
             context.user_data.update(contexto_memoria)
 
@@ -317,8 +320,10 @@ async def enviar_email_natural(update, context, texto_usuario):
             "estado_envio": "aguardando_nome"
         })
 
-        await salvar_contexto_temporario(user_id, context.user_data)
-        await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta_bot})
+        # P0-004 patch: adicionar tenant_id guard
+        context.user_data["_tenant_id_guard"] = dono_id
+        await salvar_contexto_temporario(user_id, context.user_data, tenant_id=dono_id)
+        await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta_bot}, tenant_id=dono_id)
         return
 
     # 🧠 Buscar por nome do contato
@@ -335,10 +340,12 @@ async def enviar_email_natural(update, context, texto_usuario):
                 "estado_envio": "aguardando_assunto"
             })
 
-            resposta_bot = f"📨 Qual o assunto do e-mail para {nome_destino} ({email})?"
+            resposta_bot = f"[EMAIL] Qual o assunto do e-mail para {nome_destino} ({email})?"
             await update.message.reply_text(resposta_bot)
-            await salvar_contexto_temporario(user_id, context.user_data)
-            await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta_bot})
+            # P0-004 patch: adicionar tenant_id guard
+            context.user_data["_tenant_id_guard"] = dono_id
+            await salvar_contexto_temporario(user_id, context.user_data, tenant_id=dono_id)
+            await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta_bot}, tenant_id=dono_id)
             return
         else:
             resposta_bot = f"❌ Não encontrei nenhum contato chamado {nome_destino}. Pode informar o e-mail diretamente?"
@@ -351,12 +358,14 @@ async def enviar_email_natural(update, context, texto_usuario):
         nome = texto_usuario.strip()
         context.user_data["nome_em_espera"] = nome
 
-        resposta_bot = "📝 Qual o assunto do e-mail?"
+        resposta_bot = "[FORM] Qual o assunto do e-mail?"
         await update.message.reply_text(resposta_bot)
 
         context.user_data["estado_envio"] = "aguardando_assunto"
-        await salvar_contexto_temporario(user_id, context.user_data)
-        await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta_bot})
+        # P0-004 patch: adicionar tenant_id guard
+        context.user_data["_tenant_id_guard"] = dono_id
+        await salvar_contexto_temporario(user_id, context.user_data, tenant_id=dono_id)
+        await atualizar_contexto(user_id, {"usuario": texto_usuario, "bot": resposta_bot}, tenant_id=dono_id)
         return
 
     # 📝 Assunto aguardado

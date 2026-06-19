@@ -924,16 +924,20 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                             f"e estão disponíveis: *{', '.join(nomes_alternativos)}*."
                         )
 
+                        # P0-004 patch: adicionar tenant_id guard
+                        contexto_evento = {
+                            "estado_fluxo": "aguardando_escolha_horario",
+                            "ultima_opcao_profissionais": nomes_alternativos,
+                            "alternativa_profissional": nomes_alternativos,
+                            "profissional_escolhido": prof_final,
+                            "servico": servico_final,
+                            "data_hora": start_time.replace(second=0, microsecond=0).isoformat(),
+                            "_tenant_id_guard": dono_id  # Guard rail P0-004
+                        }
                         await salvar_contexto_temporario(
                             user_id,
-                            {
-                                "estado_fluxo": "aguardando_escolha_horario",
-                                "ultima_opcao_profissionais": nomes_alternativos,
-                                "alternativa_profissional": nomes_alternativos,
-                                "profissional_escolhido": prof_final,
-                                "servico": servico_final,
-                                "data_hora": start_time.replace(second=0, microsecond=0).isoformat(),
-                            },
+                            contexto_evento,
+                            tenant_id=dono_id  # P0-004 patch
                         )
 
             except Exception as e:

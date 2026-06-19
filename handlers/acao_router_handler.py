@@ -4,6 +4,7 @@ from datetime import datetime
 from services.firebase_service_async import buscar_subcolecao, salvar_dado_em_path
 from services.profissional_service import obter_precos_servico, encontrar_servico_mais_proximo
 from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
+from services.firebase_service_async import obter_id_dono
 
 
 async def executar_acao_por_nome(update, context, acao, dados):
@@ -79,7 +80,8 @@ async def executar_acao_por_nome(update, context, acao, dados):
 
         elif acao == "criar_evento":
             user_id = str(update.message.from_user.id)
-            contexto = await carregar_contexto_temporario(user_id)
+            dono_id = await obter_id_dono(user_id)
+            contexto = await carregar_contexto_temporario(user_id, tenant_id=dono_id)
             resposta_usuario = update.message.text.lower()
             alternativa = (contexto.get("alternativa_profissional") or "").lower()
 
@@ -429,7 +431,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 }
 
             # 🧹 limpa contexto de agendamento
-            ctx = await carregar_contexto_temporario(user_id) or {}
+            ctx = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
             ctx["estado_fluxo"] = "idle"
             ctx.pop("draft_agendamento", None)
             ctx.pop("data_hora", None)
@@ -441,7 +443,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
             ctx.pop("aguardando_confirmacao_agendamento", None)
             ctx.pop("dados_confirmacao_agendamento", None)
 
-            await salvar_contexto_temporario(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)
 
             datas_formatadas = "\n".join(
                 f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
@@ -467,7 +469,8 @@ async def executar_acao_por_nome(update, context, acao, dados):
         elif acao == "definir_meio_periodo_salao":
             from services.agenda_service import definir_janela_especial_agenda_salao, normalizar_lista_datas
             from utils.context_manager import limpar_contexto_agendamento
-            
+
+            dono_id = await obter_id_dono(user_id)
             datas = (dados or {}).get("datas") or []
             inicio = (dados or {}).get("inicio")
             fim = (dados or {}).get("fim")
@@ -494,7 +497,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
                 return
 
             # 🧹 limpa contexto de agendamento
-            await limpar_contexto_agendamento(user_id)
+            await limpar_contexto_agendamento(user_id, tenant_id=dono_id)
 
             datas_formatadas = "\n".join(
                 f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
@@ -520,6 +523,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
             from services.agenda_service import bloquear_agenda_profissional, normalizar_lista_datas
             from utils.context_manager import limpar_contexto_agendamento
 
+            dono_id = await obter_id_dono(user_id)
             profissional = (dados or {}).get("profissional")
             datas = (dados or {}).get("datas") or []
             motivo = (dados or {}).get("motivo") or "indisponivel"
@@ -552,7 +556,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
                     "dados": dados
                 }
 
-            await limpar_contexto_agendamento(user_id)
+            await limpar_contexto_agendamento(user_id, tenant_id=dono_id)
 
             datas_formatadas = "\n".join(
                 f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"
@@ -580,6 +584,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
             from services.agenda_service import definir_janela_especial_profissional, normalizar_lista_datas
             from utils.context_manager import limpar_contexto_agendamento
 
+            dono_id = await obter_id_dono(user_id)
             profissional = (dados or {}).get("profissional")
             datas = (dados or {}).get("datas") or []
             inicio = (dados or {}).get("inicio")
@@ -616,7 +621,7 @@ async def executar_acao_por_nome(update, context, acao, dados):
                     "dados": dados
                 }
 
-            await limpar_contexto_agendamento(user_id)
+            await limpar_contexto_agendamento(user_id, tenant_id=dono_id)
 
             datas_formatadas = "\n".join(
                 f"• {datetime.fromisoformat(d).strftime('%d/%m/%Y')}"

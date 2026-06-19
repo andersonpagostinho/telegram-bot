@@ -117,12 +117,15 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
 
 # ========== VERSÃO LEGADA (DEPRECADA) — APENAS COMPATIBILIDADE ==========
 
-async def salvar_contexto_temporario(user_id: str, contexto: dict):
+async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: str = None):
     """DEPRECADO: Use salvar_contexto_temporario_v2(dono_id, cliente_id, contexto).
 
     Função legada mantida APENAS para compatibilidade com código existente.
     ⚠️ NÃO isolado por tenant — pode causar contaminação multi-tenant.
-    ⚠️ Usar somente se dono_id não disponível (ex: migração).
+
+    PATCH DEFENSIVO (2026-06-19):
+    - Se tenant_id informado: gravar tenant_id no contexto como guard rail
+    - Se tenant_id não informado: logar alerta de risco
     """
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
 
@@ -134,36 +137,78 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict):
     atual = await buscar_dado_em_path(path) or {}
     atual.update(contexto)
 
-    print(f"🧪 [SAVE CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path} | contexto_final={atual}", flush=True)
+    # 🧬 PATCH MT-07: Registrar tenant_id para proteção defensiva
+    if tenant_id:
+        atual["_tenant_id_guard"] = tenant_id
+        print(f"🧪 [CTX_LEGADO_SAVE_COMPAT] path={path} | tenant_id={tenant_id} | guard_adicionado", flush=True)
+    else:
+        print(f"🚨 [CTX_LEGADO_SAVE_SEM_TENANT] ⚠️ RISCO | path={path} | tenant_id não fornecido", flush=True)
+
+    print(f"🧪 [SAVE CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
 
     return await atualizar_dado_em_path(path, atual)
 
 
-async def carregar_contexto_temporario(user_id: str):
+async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
     """DEPRECADO: Use carregar_contexto_temporario_v2(dono_id, cliente_id).
 
     Função legada mantida APENAS para compatibilidade com código existente.
     ⚠️ NÃO isolado por tenant — pode retornar dados errados em multi-tenant.
-    ⚠️ Usar somente se dono_id não disponível (ex: migração).
+
+    PATCH DEFENSIVO (2026-06-19):
+    - Se tenant_id informado: validar que contexto pertence ao tenant correto
+    - Se tenant mismatch: ignorar contexto, logar alerta
+    - Se sem tenant_id: logar alerta de risco, mas retornar para compatibilidade
     """
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
     data = await buscar_dado_em_path(path)
 
     if not data:
         print(f"🚨 [CTX VAZIO DETECTADO LEGADO] path={path}", flush=True)
+        return None
 
-    print(f"🧪 [LOAD CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path} | data={data}", flush=True)
+    # 🧬 PATCH MT-07: Validar tenant_id se informado
+    if tenant_id:
+        guard_tenant = data.get("_tenant_id_guard")
+        if guard_tenant and guard_tenant != tenant_id:
+            print(f"🚨 [CTX_LEGADO_TENANT_MISMATCH] ⚠️ BLOQUEADO | path={path} | esperado={tenant_id} | armazenado={guard_tenant}", flush=True)
+            return {}  # Retorna contexto vazio para proteger
+        elif not guard_tenant:
+            print(f"🚨 [CTX_LEGADO_SEM_TENANT] ⚠️ RISCO | path={path} | contexto não tem guard, ignorando para segurança", flush=True)
+            return {}  # Retorna contexto vazio para fluxo crítico
+        else:
+            # Guard bate, permanecer
+            print(f"🧪 [CTX_LEGADO_COMPAT] | path={path} | tenant_id={tenant_id} | guard_validado", flush=True)
+    else:
+        print(f"🚨 [CTX_LEGADO_SEM_TENANT_PARAM] ⚠️ RISCO | path={path} | tenant_id não fornecido, retornando para compatibilidade apenas", flush=True)
+
+    print(f"🧪 [LOAD CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
     return data
 
 
-async def limpar_contexto_agendamento(user_id: str):
+async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
     """DEPRECADO: Use limpar_contexto_agendamento_v2(dono_id, cliente_id).
 
     Função legada mantida APENAS para compatibilidade com código existente.
     ⚠️ NÃO isolado por tenant.
-    ⚠️ Usar somente se dono_id não disponível (ex: migração).
+
+    PATCH DEFENSIVO (2026-06-19):
+    - Se tenant_id informado: validar antes de limpar
+    - Se mismatch: logar alerta e não limpar
+    - Se sem tenant_id: logar risco
     """
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
+
+    # 🧬 PATCH MT-07: Validar tenant antes de limpar
+    if tenant_id:
+        atual = await buscar_dado_em_path(path) or {}
+        guard_tenant = atual.get("_tenant_id_guard")
+        if guard_tenant and guard_tenant != tenant_id:
+            print(f"🚨 [CTX_LEGADO_CLEAR_MISMATCH] ⚠️ NÃO LIMPANDO | path={path} | esperado={tenant_id} | armazenado={guard_tenant}", flush=True)
+            return  # Não limpa contexto de outro tenant
+        print(f"🧪 [CTX_LEGADO_CLEAR_COMPAT] | path={path} | tenant_id={tenant_id} | limpando com validação", flush=True)
+    else:
+        print(f"🚨 [CTX_LEGADO_CLEAR_SEM_TENANT] ⚠️ RISCO | path={path} | tenant_id não fornecido", flush=True)
 
     payload = {
         "modo_escolha_horario": False,
@@ -201,5 +246,5 @@ async def limpar_contexto_agendamento(user_id: str):
         "estado_fluxo": "idle"
     }
 
-    print(f"🧪 [CLEAR CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path} | payload={payload}", flush=True)
+    print(f"🧪 [CLEAR CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
     return await atualizar_dado_em_path(path, payload)

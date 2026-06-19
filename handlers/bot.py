@@ -162,7 +162,8 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
         raise ApplicationHandlerStop
     
     # --- 1.5) confirmação pendente de agendamento ---
-    ctx_tmp = await carregar_contexto_temporario(user_id) or {}
+    # 🔧 PATCH MT-07: Passar tenant_id para validação defensiva
+    ctx_tmp = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
     print(
     "🧪 [BOT-CTX]",
     {
@@ -191,7 +192,8 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 flush=True
             )
 
-            await limpar_contexto_agendamento(user_id)
+            # 🔧 PATCH MT-07: Passar tenant_id para validação defensiva
+            await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
             await update.message.reply_text(
                 "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
             )
@@ -245,7 +247,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 # Sincronizar em MemoriaTemporaria
                 ctx = await carregar_contexto_temporario(user_id) or {}
                 ctx["cancelamento_pendente"] = context.user_data["cancelamento_pendente"]
-                await salvar_contexto_temporario(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
 
                 await update.message.reply_text(
                     f"Tem certeza de cancelar {ev_selecionado.get('descricao', 'Evento')} "
@@ -287,7 +289,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 ctx = await carregar_contexto_temporario(user_id) or {}
                 ctx.pop("cancelamento_pendente", None)
                 ctx.pop("estado_fluxo", None)
-                await salvar_contexto_temporario(user_id, ctx)
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
 
                 context.user_data.pop("cancelamento_pendente", None)
                 context.user_data.pop("estado_fluxo", None)
@@ -304,7 +306,7 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             ctx = await carregar_contexto_temporario(user_id) or {}
             ctx.pop("cancelamento_pendente", None)
             ctx.pop("estado_fluxo", None)
-            await salvar_contexto_temporario(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
 
             context.user_data.pop("cancelamento_pendente", None)
             context.user_data.pop("estado_fluxo", None)
@@ -343,11 +345,13 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             raise ApplicationHandlerStop
 
         elif texto_usuario in ["nao", "não", "nao.", "não.", "nao!", "não!"]:
+            # P0-004 patch: adicionar tenant_id guard
             await salvar_contexto_temporario(user_id, {
                 **ctx_tmp,
                 "aguardando_confirmacao_agendamento": False,
-                "dados_confirmacao_agendamento": None
-            })
+                "dados_confirmacao_agendamento": None,
+                "_tenant_id_guard": tenant_id  # Guard rail P0-004
+            }, tenant_id=tenant_id)
 
             await update.message.reply_text("Tudo bem, esse horário não foi confirmado.\n\nQual horário você prefere?")
             raise ApplicationHandlerStop

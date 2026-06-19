@@ -38,30 +38,33 @@ def extrair_data_de_texto(ev_texto):
     return datetime.min.date()
 
 async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("🚀 Entrou no processar_texto()")
+    print("[START] Entrou no processar_texto()")
     texto = update.message.text
     user_id = str(update.message.from_user.id)
     resposta_ja_enviada = False
 
-    # 🔎 Verificação sobre status da importação de profissionais
+    # Obter dono_id para tenant guard (P0-002 patch)
+    dono_id = await obter_id_dono(user_id)
+
+    # [CHECK] Verificação sobre status da importação de profissionais
     if texto.lower() in ["importou?", "deu certo a importação?", "deu certo?", "funcionou?"]:
         status_importacao = context.user_data.get("ultima_importacao_profissionais")
 
         if status_importacao == "sucesso":
             await update.message.reply_text("Profissionais importados com sucesso.")
         elif status_importacao == "erro":
-            await update.message.reply_text("❌ Houve um problema na importação da planilha. Você pode tentar novamente.")
+            await update.message.reply_text("[ERRO] Houve um problema na importação da planilha. Você pode tentar novamente.")
         else:
-            await update.message.reply_text("🤔 Ainda não recebi nenhuma planilha recente para importar.")
-        return  # 🔒 Para o fluxo aqui
+            await update.message.reply_text("[INFO] Ainda não recebi nenhuma planilha recente para importar.")
+        return  # Stop flow
 
-    # 📧 Verifica se há e-mail pendente a ser finalizado
+    # [EMAIL] Verifica se há e-mail pendente a ser finalizado
     if "email_em_espera" in context.user_data:
         await enviar_email_natural(update, context, texto)
-        return  # 🔒 Garante que finalize esse fluxo antes de continuar com outros
+        return  # Stop flow
 
-    # ✅ Carregar contexto no início
-    contexto_memoria = await carregar_contexto_temporario(user_id)
+    # [OK] Carregar contexto no início
+    contexto_memoria = await carregar_contexto_temporario(user_id, tenant_id=dono_id)
     print("🧠 Contexto carregado:", contexto_memoria)
 
     # 🧹 Limpeza seletiva se intenção for listar todos os profissionais
@@ -74,6 +77,8 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if contexto_memoria:
             for chave in ["profissional_escolhido", "servico", "data_hora"]:
                 contexto_memoria.pop(chave, None)
+            # P0-002: Add guard rail
+            contexto_memoria["_tenant_id_guard"] = dono_id
             await atualizar_dado_em_path(f"Clientes/{user_id}/MemoriaTemporaria/contexto", contexto_memoria)
 
     # 🔍 Verificação rápida para perguntas diretas sobre eventos
@@ -299,17 +304,21 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass  # Caso a data seja inválida
 
-    # 💾 Salva somente se NÃO for intenção de listar todos os profissionais
+    # [SAVE] Salva somente se NAO for intencao de listar todos os profissionais
     if memoria_inicial and not intencao_listar_profissionais:
-        print(f"💾 Salvando memória inicial: {memoria_inicial}")
+        print(f"[SAVE] Salvando memoria inicial: {memoria_inicial}")
+        # P0-002: Add guard rail
+        memoria_inicial["_tenant_id_guard"] = dono_id
         await atualizar_dado_em_path(f"Clientes/{user_id}/MemoriaTemporaria/contexto", memoria_inicial)
 
-        # 🧠 Interpreta inteligentemente a data/hora se não foi reconhecida antes
+        # [BRAIN] Interpreta inteligentemente a data/hora se nao foi reconhecida antes
         if not memoria_inicial.get("data_hora"):
-            memoria_contexto = await carregar_contexto_temporario(user_id) or {}
+            memoria_contexto = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
             nova_data_hora = interpretar_e_salvar_data_hora(texto)
             if nova_data_hora:
                 memoria_contexto["data_hora"] = nova_data_hora.isoformat()
+                # P0-002: Add guard rail
+                memoria_contexto["_tenant_id_guard"] = dono_id
                 await atualizar_dado_em_path(f"Clientes/{user_id}/MemoriaTemporaria/contexto", memoria_contexto)
                 print(f"📅 Data/hora interpretada e salva: {nova_data_hora}")
 
@@ -436,10 +445,12 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         print(json.dumps(payload_debug, indent=2))
 
-        # 🧠 Atualiza memória de que evento foi criado
-        contexto_atual = await carregar_contexto_temporario(user_id) or {}
+        # [BRAIN] Atualiza memoria de que evento foi criado
+        contexto_atual = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
         contexto_atual["evento_criado"] = False
-        await salvar_contexto_temporario(user_id, contexto_atual)
+        # P0-002: Add guard rail
+        contexto_atual["_tenant_id_guard"] = dono_id
+        await salvar_contexto_temporario(user_id, contexto_atual, tenant_id=dono_id)
 
     try:
         resultado = json.loads(resultado_raw) if isinstance(resultado_raw, str) else resultado_raw
