@@ -1,5 +1,6 @@
 from services.firebase_service_async import atualizar_dado_em_path, buscar_dado_em_path
 from google.cloud import firestore
+import traceback
 
 # ============================================================================
 # PATCH MT-07: Contexto isolado por tenant (dono_id)
@@ -202,7 +203,12 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: st
 
     # 🔥 PATCH P0.1: Bloquear escrita sem tenant_id
     if not tenant_id:
-        print(f"🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path={path} | tenant_id não fornecido, salvamento RECUSADO", flush=True)
+        stack = "".join(traceback.format_stack(limit=15))
+        print(
+            f"🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path={path} | tenant_id não fornecido, salvamento RECUSADO\n"
+            f"STACK TRACE COMPLETO:\n{stack}",
+            flush=True
+        )
         return False
 
     # 🔥 merge manual defensivo
@@ -239,7 +245,12 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
 
     # 🔥 PATCH P0.1: Bloquear leitura sem tenant_id
     if not tenant_id:
-        print(f"🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path={path} | tenant_id não fornecido, leitura RECUSADA", flush=True)
+        stack = "".join(traceback.format_stack(limit=15))
+        print(
+            f"🚨 [CTX_BLOQUEADO_SEM_TENANT] CRÍTICO | path={path} | tenant_id não fornecido, leitura RECUSADA\n"
+            f"STACK TRACE COMPLETO:\n{stack}",
+            flush=True
+        )
         return {}
 
     # 🧬 PATCH MT-07: Validar tenant_id se informado
