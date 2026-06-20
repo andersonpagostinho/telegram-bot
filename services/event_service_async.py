@@ -390,16 +390,35 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     ]
 
     for dia_kw in dias_semana_keywords:
-        termo_sem_data = termo_sem_data.replace(dia_kw, " ").replace(f" {dia_kw}", "")
+        # Remover com espaço antes ou depois (ou ambos)
+        termo_sem_data = termo_sem_data.replace(f" {dia_kw}", "").replace(dia_kw, "")
 
     termo_sem_data = termo_sem_data.strip()
 
+    # [LOG] Diagnóstico de extração de profissional
     profissional_filtro = None
+
+    # Procurar por " com " (meio ou fim) ou "com " (início)
     if " com " in termo_sem_data:
         partes = termo_sem_data.split(" com ")
-        if len(partes) > 1:
-            profissional_filtro = partes[-1].strip()
-            print(f"[P0-CANCELAMENTO_BUSCA_PROF] profissional_extraido='{profissional_filtro}' | termo_sem_data='{termo_sem_data}'", flush=True)
+        prof_raw = partes[-1].strip()
+    elif termo_sem_data.startswith("com "):
+        prof_raw = termo_sem_data[4:].strip()  # Remove "com " do início
+    else:
+        prof_raw = None
+
+    if prof_raw:
+        # Limpar artigos e preposições (ordem importa: fazer mais específicos primeiro)
+        prof_limpo = prof_raw
+        # Remove "a " do início
+        if prof_limpo.startswith("a "):
+            prof_limpo = prof_limpo[2:]
+        # Remove outras preposições
+        prof_limpo = prof_limpo.replace(" na", "").replace(" no", "").replace(" ao", "").strip()
+
+        profissional_filtro = prof_limpo if prof_limpo else prof_raw
+        print(f"[P0-CANCELAMENTO_BUSCA_PROF] profissional_extraido='{profissional_filtro}' | termo_sem_data='{termo_sem_data}' | prof_raw='{prof_raw}'", flush=True)
+
 
     # Busca eventos que matcham
     candidatos = []
