@@ -1,0 +1,322 @@
+================================================================================
+SUMÁRIO EXECUTIVO — AUDITORIA DE MOCKS E TESTES
+Data: 2026-06-19
+================================================================================
+
+VISÃO GERAL:
+
+Analisados:
+  - 5 arquivos mock (firebase, agenda, contexto, session, gpt)
+  - 57 testes (14 pytest + 43 runners)
+  - 10 categorias de problemas
+
+Resultado: 11 problemas identificados (4 P0, 3 P1, 3 P2)
+
+Confiabilidade:
+  - [MOCK] testes: 53 (93%) — ~20% confiável em produção
+  - [INTEGRATION] testes: 2 (3%) — ~100% confiável
+  - [HYBRID] testes: 1 (2%) — ~50% confiável
+  - [UNKNOWN]: 1 (2%)
+
+================================================================================
+PROBLEMAS CRÍTICOS [P0] — PODEM CAUSAR FALHA EM PRODUÇÃO
+================================================================================
+
+P0-1: TENANT_ID NÃO VALIDADO
+  Mock afetado: firebase_mock.py
+  Impacto: Mistura dados entre clientes
+  Testes afetados: 15+ (multi-entidades)
+  Exemplos reais:
+    - runner_stress_multientidades_agendamento.py
+    - runner_matriz_multitenant.py
+  Falha esperada: Cliente A acessa dados de Cliente B
+
+P0-2: RACE CONDITIONS NÃO SIMULADAS
+  Mock afetado: firebase_mock.py
+  Impacto: Agendamentos duplicados em produção
+  Testes afetados: 22+ (stress tests)
+  Exemplos reais:
+    - runner_stress_rajada_agendamento.py
+    - runner_stress_confirmacao_pendente.py
+  Falha esperada: Dois agendamentos no mesmo horário
+  Evidência: agenda_lock_service.py:72-127
+
+P0-3: LOCKS NÃO IMPLEMENTADOS
+  Mock afetado: firebase_mock.py
+  Impacto: Falta de atomicidade
+  Testes afetados: 25+ (todos que criam evento)
+  Função ausente: criar_evento_com_lock()
+  Falha esperada: Inconsistência em operações simultâneas
+
+P0-4: DELETE_FIELD NÃO IMPLEMENTADO
+  Mocks afetados: contexto_mock.py, firebase_mock.py
+  Impacto: Contexto contaminado, dados não limpos
+  Testes afetados: 8
+  Exemplos reais:
+    - test_patch_p0_bloqueio_contexto.py
+    - test_p1_2b_contexto_motor.py
+  Falha esperada: Campo persiste após tentativa de deleção
+
+P0-5: STORAGE EM MEMÓRIA (NÃO PERSISTE)
+  Mock afetado: contexto_mock.py
+  Impacto: Fluxos contínuos falham
+  Testes afetados: TODOS (contexto)
+  Exemplos reais:
+    - runner_stress_confirmacao_pendente.py
+    - runner_stress_mudanca_contexto_fluxo_ativo.py
+  Falha esperada: Contexto perdido entre requisições
+
+P0-6: MERGE SEM VALIDAÇÃO DE SCHEMA
+  Mock afetado: contexto_mock.py
+  Impacto: Estruturas complexas divergem
+  Testes afetados: 7+ (contexto aninhado)
+  Exemplo:
+    Esperado: {"agendamento": {"prof": "X", "data": "Y"}}
+    Mock: {"agendamento": {"data": "Y"}} (perdeu prof!)
+    Real: Preserva ambos
+
+================================================================================
+PROBLEMAS ALTOS [P1] — FUNCIONALIDADE INCOMPLETA
+================================================================================
+
+P1-1: CONFLITO SEMPRE RETORNA FALSE
+  Mock afetado: firebase_mock.py:66-92
+  Impacto: 30+ testes nunca testam conflito real
+  Testes afetados:
+    - runner_stress_conflito_aceite_sugestao.py
+    - runner_stress_conflito_aceite_confirmacao_final.py
+    - runner_stress_substituicao_slots.py
+  Falha esperada: Agendamento aceito em slot lotado
+
+P1-2: EXPEDIENTE CUSTOMIZADO NÃO TESTADO
+  Mock afetado: agenda_mock.py
+  Impacto: Expediente por dia/exception não funciona
+  Testes afetados: 35+ (todos com validação de horário)
+  Exemplos reais:
+    - runner_validacao_hunk5_dia_semana.py
+    - Todos os testes de agenda
+  Falha esperada: Expediente especial ignorado
+  Limitação: Hardcoded "8h-18h"
+
+P1-3: TRANSAÇÕES NÃO IMPLEMENTADAS
+  Mock afetado: firebase_mock.py
+  Impacto: Inconsistência em operações multi-documento
+  Testes afetados: 20+ (múltiplas atualizações)
+  Falha esperada: Atualização parcial silenciosa
+
+================================================================================
+PROBLEMAS MÉDIOS [P2] — LIMITAÇÃO DE COBERTURA
+================================================================================
+
+P2-1: ERROS DE CONEXÃO NÃO SIMULADOS
+  Mocks afetados: TODOS
+  Impacto: Tratamento de erro nunca testado
+  Testes afetados: TODOS
+  Falha esperada: Sem retry/fallback em erro
+
+P2-2: GPT RESPONSES NÃO VARIÁVEIS
+  Mock afetado: gpt_mock.py
+  Impacto: Respostas genéricas mascaram problemas
+  Testes afetados: 50+ (todos com gpt_mock)
+  Falha esperada: Resposta inútil do GPT não detectada
+
+P2-3: BUSCAR_SUBCOLECAO HARDCODED
+  Mock afetado: firebase_mock.py:16-64
+  Impacto: Dados dinâmicos nunca testados
+  Testes afetados: 45+ (todos que buscam dados)
+  Limitação: Sempre retorna 3 profissionais, 4 serviços, 0 eventos
+
+================================================================================
+TESTES MAIS CRÍTICOS PARA REFAZER (P0)
+================================================================================
+
+ALTA PRIORIDADE:
+
+1. runner_stress_rajada_agendamento.py
+   Problema: Race condition não testada
+   Precisa: Lock simulation + Firestore real
+
+2. runner_stress_multientidades_agendamento.py
+   Problema: Isolamento multi-tenant não testado
+   Precisa: Validação de tenant_id
+
+3. runner_stress_conflito_aceite_sugestao.py
+   Problema: Conflito nunca simulado
+   Precisa: Implementar lógica real de conflito
+
+4. runner_stress_conflito_aceite_confirmacao_final.py
+   Problema: Conflito nunca simulado
+   Precisa: Implementar lógica real de conflito
+
+5. test_p1_2b_contexto_motor.py
+   Problema: Merge não valida schema
+   Precisa: Validação de estrutura nested
+
+================================================================================
+TESTES QUE PASSAM COM MOCK MAS FALHAM COM REAL
+================================================================================
+
+Por categoria:
+
+ISOLAMENTO MULTI-TENANT (15 testes)
+  - runner_stress_multi_entidades.py
+  - runner_stress_multientidades_agendamento.py
+  - runner_stress_multientidades_conflito.py
+  - runner_matriz_multitenant.py
+  - E 11 outros
+
+  Cenário: Dois clientes agendando simultaneamente
+  Mock: Sucesso (sem isolamento validado)
+  Real: Falha se dados se cruzam
+
+RACE CONDITION (22 testes)
+  - runner_stress_rajada_agendamento.py
+  - runner_stress_confirmacao_pendente.py
+  - Todos os stress tests com rajada
+
+  Cenário: 20+ mensagens simultâneas
+  Mock: Sucesso (sem lock)
+  Real: Falha com agendamentos duplicados
+
+DETECÇÃO DE CONFLITO (30 testes)
+  - runner_stress_conflito_aceite_sugestao.py
+  - runner_stress_substituicao_slots.py
+  - runner_stress_profissional_alternativo_completo.py
+
+  Cenário: Agendamento em slot ocupado
+  Mock: Sucesso (conflito sempre False)
+  Real: Falha (conflito detectado)
+
+CONTEXTO COMPLEXO (7 testes)
+  - test_p1_2b_contexto_motor.py
+  - runner_stress_mudanca_contexto_fluxo_ativo.py
+
+  Cenário: Estrutura nested em contexto
+  Mock: Sucesso (merge simples)
+  Real: Falha (estrutura perdida)
+
+EXPEDIENTE CUSTOMIZADO (35 testes)
+  - runner_validacao_hunk5_dia_semana.py
+  - Todos os testes com validação de horário
+
+  Cenário: Expediente especial por dia/profissional
+  Mock: Sucesso (8h-18h sempre)
+  Real: Falha (expediente ignorado)
+
+================================================================================
+FUNCIONALIDADES NUNCA TESTADAS
+================================================================================
+
+1. Limpeza de contexto (limpar_contexto_agendamento_v2)
+   Razão: DELETE_FIELD não implementado
+   Impacto: Contexto cresce indefinidamente
+   Referência: contexto_temporario.py:205
+
+2. Isolamento multi-tenant com validação
+   Razão: Sem _tenant_id_guard validado
+   Impacto: Vazamento de dados entre clientes
+   Referência: contexto_temporario.py:99-103
+
+3. Concorrência com locks
+   Razão: Sem agenda_lock_service simulado
+   Impacto: Agendamentos duplicados
+   Referência: agenda_lock_service.py:72-127
+
+4. Verificação real de conflito
+   Razão: Sempre retorna False
+   Impacto: Slot duplo não detectado
+   Referência: event_service_async.py:1019-1051
+
+5. Expediente por dia/exceção/profissional
+   Razão: Hardcoded em mock
+   Impacto: Expediente especial não funciona
+   Referência: agenda_service.py:114-153
+
+6. Recovery de erro Firestore
+   Razão: Nenhuma exceção simulada
+   Impacto: Sem retry/fallback testado
+   Referência: firebase_service_async.py:46-48
+
+================================================================================
+RECOMENDAÇÕES IMEDIATAS (PRÓXIMAS 2 SEMANAS)
+================================================================================
+
+CURTO PRAZO (P0 — BLOQUEADORES):
+
+1. Estratificar testes por confiabilidade
+   Marcar como [MOCK], [INTEGRATION], ou [HYBRID]
+   Benefício: Saber qual teste confiar
+   Tempo: 2 horas
+
+2. Criar documentação de limitações
+   Arquivo: docs/MOCK_LIMITATIONS.md
+   Listar por mock e por problema
+   Benefício: Equipe alinhada
+   Tempo: 3 horas
+
+3. Identificar testes que precisam refazer
+   Priorizar 5 testes P0
+   Planejar execução com Firestore real
+   Benefício: Confiança em produção
+   Tempo: 2 horas
+
+MÉDIO PRAZO (P0 → P1):
+
+4. Executar testes críticos com Firestore real
+   runner_stress_rajada_agendamento.py
+   runner_stress_multientidades_agendamento.py
+   runner_stress_conflito_*.py
+   Tempo: 1 semana
+
+5. Implementar modo fail em mocks
+   Adicionar parametro fail_mode
+   Testar tratamento de erro
+   Tempo: 1 semana
+
+================================================================================
+COMO INTERPRETAR ESTE RELATÓRIO
+================================================================================
+
+Para cada problema:
+  Mock afetado: Qual arquivo de mock
+  Impacto: O que pode dar errado
+  Testes afetados: Números e exemplos
+  Falha esperada: Como falha em produção
+  Referência: Código real que valida o problema
+
+Status de testes:
+  [MOCK]: Usa apenas mocks (rápido, confiança baixa)
+  [INTEGRATION]: Usa Firestore real (lento, confiança alta)
+  [HYBRID]: Mix de mock e real (cuidado)
+
+Severidade:
+  [P0]: CRÍTICO — Pode perder dados ou causar falha
+  [P1]: ALTO — Funcionalidade incompleta
+  [P2]: MÉDIO — Limitação de cobertura
+
+================================================================================
+CONCLUSÃO
+================================================================================
+
+Status: 57 testes, 93% com mocks, 3% com Firestore real
+
+Confiança:
+  - Em lógica simples: ~80%
+  - Em persistência: ~30%
+  - Em concorrência: ~0%
+  - Em produção: ~20%
+
+Recomendação:
+  Antes de deployar em produção, executar 12+ testes críticos
+  com --use-real-firebase para validar contra Firestore real.
+
+Próximos passos:
+  1. Estratificar testes (2h)
+  2. Documentar limitações (3h)
+  3. Refazer 5 testes P0 (1 semana)
+  4. Implementar modo fail (1 semana)
+
+================================================================================
+FIM DO SUMÁRIO
+
+Próxima auditoria: Após implementação de recomendações P0

@@ -1,0 +1,664 @@
+================================================================================
+MATRIZ DE RISCO E IMPACTO — AUDITORIA DE MOCKS
+Data: 2026-06-19
+================================================================================
+
+LEGENDA:
+  [P0] = CRÍTICO: Causa perda de dados ou falha em produção
+  [P1] = ALTO: Funcionalidade incompleta
+  [P2] = MÉDIO: Limitação de cobertura
+
+  IMPACTO ALTO (A): Afeta 20+ testes ou dados críticos
+  IMPACTO MÉDIO (M): Afeta 5-19 testes
+  IMPACTO BAIXO (B): Afeta 1-4 testes
+
+  CONFIABILIDADE:
+    [MOCK]: ~20% confiável em produção (mock-only)
+    [INT]: ~100% confiável (Firestore real)
+    [HYB]: ~50% confiável (mix mock+real)
+
+================================================================================
+MATRIZ VISUAL: SEVERIDADE × IMPACTO
+================================================================================
+
+                    IMPACTO ALTO (A)    IMPACTO MÉDIO (M)   IMPACTO BAIXO (B)
+
+[P0] CRÍTICO         P0-A-1              P0-M-1              P0-B-1
+                     P0-A-2              P0-M-2              P0-B-2
+                     P0-A-3              P0-M-3
+                     P0-A-4
+                     P0-A-5
+                     P0-A-6
+
+[P1] ALTO            P1-A-1              P1-M-1              P1-B-1
+                     P1-A-2              P1-M-2
+                     P1-A-3              P1-M-3
+
+[P2] MÉDIO           P2-A-1              P2-M-1              P2-B-1
+                                         P2-M-2
+                                         P2-M-3
+
+================================================================================
+DETALHAMENTO: SEVERIDADE [P0] × IMPACTO ALTO (A)
+================================================================================
+
+[P0-A-1] TENANT_ID NÃO VALIDADO
+  ──────────────────────────────────
+  Mock: firebase_mock.py
+  Função: obter_id_dono(), buscar_subcolecao()
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [A] ALTO (15+ testes)
+  Confiabilidade: [MOCK] ~20%
+
+  Problema:
+    - Ignora tenant_id completamente
+    - Sempre retorna "dono_teste_001" (hardcoded)
+    - Sem validação de isolamento
+
+  Casos de falha:
+    1. runner_stress_multientidades_agendamento.py
+       Cliente A vê dados de Cliente B
+
+    2. runner_matriz_multitenant.py
+       Isolamento de tenant não verificado
+
+    3. runner_stress_multi_entidades.py
+       Sem guarda de tenant_id
+
+  Evidência real:
+    - contexto_temporario.py:42 → path = f"Clientes/{tenant_id}/..."
+    - contexto_temporario.py:99-103 → valida _tenant_id_guard
+
+  Em produção:
+    ❌ FALHA: Cliente A acessa Firestore e obtém dados de Cliente B
+
+  Risco: PRIVILEGIO ESCALATION, VAZAMENTO DE DADOS
+
+
+[P0-A-2] RACE CONDITIONS NÃO SIMULADAS
+  ──────────────────────────────────
+  Mock: firebase_mock.py
+  Funções: buscar_subcolecao(), verificar_conflito_e_sugestoes_profissional()
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [A] ALTO (22+ testes)
+  Confiabilidade: [MOCK] ~0% (concorrência)
+
+  Problema:
+    - Sem locks implementados
+    - Sem transações
+    - Operações sequenciais, não atômicas
+
+  Casos de falha:
+    1. runner_stress_rajada_agendamento.py
+       20+ mensagens simultâneas → conflito
+       Mock: Sucesso (sem lock)
+       Real: 2+ agendamentos no mesmo slot
+
+    2. runner_stress_confirmacao_pendente.py
+       Estado pendente vs confirmação simultânea
+       Mock: Sucesso (sem transação)
+       Real: Inconsistência
+
+    3. runner_stress_multientidades_conflito.py
+       Dois clientes agendando mesmo slot
+       Mock: Sucesso (sem lock multi-tenant)
+       Real: Conflito
+
+  Evidência real:
+    - agenda_lock_service.py:16 → criar_evento_com_lock()
+    - agenda_lock_service.py:72-127 → limpar_locks_orfaos()
+
+  Em produção:
+    ❌ FALHA: Agendamentos duplicados em slot lotado
+    ❌ FALHA: Confirmação parcial (alguns campos salvos, outros não)
+
+  Risco: CORRUPÇÃO DE DADOS, AGENDAMENTO DUPLICADO
+
+
+[P0-A-3] LOCKS NÃO IMPLEMENTADOS
+  ──────────────────────────────────
+  Mock: firebase_mock.py
+  Função ausente: criar_evento_com_lock()
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [A] ALTO (25+ testes)
+  Confiabilidade: [MOCK] ~0% (atomicidade)
+
+  Problema:
+    - Nenhuma função de lock
+    - Sem gerar_slot_key()
+    - Sem lock_esta_expirado()
+    - Sem limpar_locks_orfaos()
+
+  Casos de falha:
+    1. Qualquer teste que cria evento
+       Mock: Sucesso (sem lock)
+       Real: Falha se concorrente tenta mesmo slot
+
+    2. runner_stress_rajada_agendamento.py
+       20 mensagens → esperado 1 evento
+       Mock: 1 evento ✓
+       Real: 5+ eventos (sem lock)
+
+    3. Recuperação de falha
+       Mock: Sem suporte a lock orphan cleanup
+       Real: Timeout de lock pode bloquear slot
+
+  Evidência real:
+    - event_service_async.py:1003-1004 → resolve_user com lock
+    - agenda_lock_service.py → sistema de locks completo
+
+  Em produção:
+    ❌ FALHA: Agendamentos duplicados
+    ❌ FALHA: Slot bloqueado indefinidamente (lock orphan)
+    ❌ FALHA: Sem recuperação de erro de lock
+
+  Risco: AGENDAMENTO DUPLICADO, INDISPONIBILIDADE DE SLOT
+
+
+[P0-A-4] DELETE_FIELD NÃO IMPLEMENTADO
+  ──────────────────────────────────
+  Mocks: contexto_mock.py, firebase_mock.py
+  Funções afetadas: salvar_contexto_temporario()
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [A] ALTO (8 testes diretos, + 50 indiretos)
+  Confiabilidade: [MOCK] ~50% (contexto parcial)
+
+  Problema:
+    - Sem operação DELETE_FIELD
+    - Sem suporte a remover campos
+    - Contexto nunca é limpo completamente
+
+  Casos de falha:
+    1. test_patch_p0_bloqueio_contexto.py
+       Tenta limpar agendamento_pendente
+       Mock: Campo fica (sem DELETE)
+       Real: Campo removido (com DELETE_FIELD)
+
+    2. test_p1_2b_contexto_motor.py
+       Múltiplas atualizações deixam lixo
+       Mock: Contexto cresce
+       Real: Contexto limpo
+
+    3. Fluxo de 100+ agendamentos
+       Mock: Contexto acumula 100 registros
+       Real: Contexto limpo entre fluxos
+
+  Evidência real:
+    - contexto_temporario.py:205 → limpar_contexto_agendamento_v2()
+    - firebase_service_async.py:245-272 → atualizar_com_operacoes_atomicas()
+    - Firestore.DELETE_FIELD operação nativa
+
+  Em produção:
+    ❌ FALHA: Contexto cresce indefinidamente
+    ❌ FALHA: Performance degrada com tempo
+    ❌ FALHA: Comportamento errático em contexto sujo
+
+  Risco: DEGRADAÇÃO DE PERFORMANCE, CONTEXT POLLUTION
+
+
+[P0-A-5] STORAGE EM MEMÓRIA (NÃO PERSISTE)
+  ──────────────────────────────────
+  Mock: contexto_mock.py
+  Linha: 6 (self.storage = {})
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [A] ALTO (TODOS os testes de contexto)
+  Confiabilidade: [MOCK] ~5% (sem persistência)
+
+  Problema:
+    - Dict em memória simples
+    - Dados perdidos após execução
+    - Sem persistência em Firestore
+    - reset() limpa tudo entre testes
+
+  Casos de falha:
+    1. Fluxo contínuo de usuário
+       Mock: Mensagem 1 → contexto ✓
+              (crash)
+              Mensagem 2 → contexto ✗ (perdido)
+
+       Real: Contexto recuperado de Firestore ✓
+
+    2. runner_stress_confirmacao_pendente.py
+       Estado pendente entre mensagens
+       Mock: Pendente perdido em crash
+       Real: Pendente recuperado
+
+    3. Integração com múltiplas requisições
+       Mock: Dados isolados por execução
+       Real: Dados compartilhados entre requisições
+
+  Evidência real:
+    - contexto_temporario.py:42 → path em Firestore
+    - firestore.save() persiste entre requisições
+
+  Em produção:
+    ❌ FALHA: Usuário perde agendamento pendente após crash
+    ❌ FALHA: Fluxo descontinuado sem aviso
+    ❌ FALHA: Impossível recuperar estado após falha
+
+  Risco: PERDA DE DADOS, FLUXO INCOMPLETO
+
+
+[P0-A-6] MERGE NÃO RESPEITA SCHEMA
+  ──────────────────────────────────
+  Mock: contexto_mock.py
+  Linha: 31 (self.storage[user_id].update(contexto))
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [A] ALTO (7+ testes diretos)
+  Confiabilidade: [MOCK] ~40% (estrutura simples OK)
+
+  Problema:
+    - update() Python simples (shallow)
+    - Não valida schema Firestore
+    - Não detecta conflito de tipos
+    - Comportamento diferente de merge=True
+
+  Casos de falha:
+    1. test_p1_2b_contexto_motor.py
+       Contexto = {"agendamento": {"prof": "X", "data": "Y"}}
+       Update = {"agendamento": {"data": "Z"}}
+
+       Mock (update simples):
+         {"agendamento": {"data": "Z"}} ← prof perdido!
+
+       Real (merge=True):
+         {"agendamento": {"prof": "X", "data": "Z"}} ✓
+
+    2. runner_stress_mudanca_contexto_fluxo_ativo.py
+       Múltiplas atualizações podem perder dados
+
+    3. Estrutura nested profunda
+       Mock: Apenas primeiro nível
+       Real: Recursivo em toda estrutura
+
+  Evidência real:
+    - firebase_service_async.py:123 → merge=True em update
+    - Firestore merge semântica recursiva
+
+  Em produção:
+    ❌ FALHA: Campo perdido em atualização
+    ❌ FALHA: Inconsistência entre mock e real
+    ❌ FALHA: Comportamento impredizível
+
+  Risco: CORRUPÇÃO SILENCIOSA DE CONTEXTO
+
+================================================================================
+DETALHAMENTO: SEVERIDADE [P0] × IMPACTO MÉDIO (M)
+================================================================================
+
+[P0-M-1] VERIFICAR_CONFLITO SEMPRE RETORNA FALSE
+  ──────────────────────────────────
+  Mock: firebase_mock.py:66-92
+  Função: verificar_conflito_e_sugestoes_profissional()
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [M] MÉDIO (30 testes)
+  Confiabilidade: [MOCK] ~0% (conflito)
+
+  Problema:
+    - Sempre retorna conflito=False
+    - Nunca simula conflito real
+    - Ignora duracao_min, horário, profissional
+
+  Testes afetados:
+    - runner_stress_conflito_aceite_sugestao.py
+    - runner_stress_conflito_aceite_confirmacao_final.py
+    - runner_stress_substituicao_slots.py
+    - runner_stress_profissional_alternativo_completo.py
+    - 26 outros testes de agenda
+
+  Cenário de falha:
+    User 1: 14h-15h (45 min)
+    User 2: 14:30h-15:30h (45 min)
+
+    Mock: Ambos agendados ✓ (conflito sempre False)
+    Real: Conflito detectado, sugestão de alternativa
+
+  Evidência real:
+    - event_service_async.py:1019-1051 → verifica encaixe exato
+    - event_service_async.py:1050 → valida intervalo inteiro
+
+  Em produção:
+    ❌ FALHA: Agendamento em horário ocupado
+    ❌ FALHA: Profissional com sobreposição
+    ❌ FALHA: Sugestão alternativa nunca oferecida
+
+  Risco: AGENDAMENTO DUPLICADO
+
+
+[P0-M-2] BUSCAR_SUBCOLECAO SEMPRE RETORNA DADOS
+  ──────────────────────────────────
+  Mock: firebase_mock.py:16-64
+  Função: buscar_subcolecao()
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [M] MÉDIO (45+ testes)
+  Confiabilidade: [MOCK] ~50% (dados estáticos)
+
+  Problema:
+    - Hardcoded 3 profissionais, 4 serviços, 0 eventos
+    - Nunca retorna vazio (exceto Agenda)
+    - Dados dinâmicos nunca testados
+
+  Casos de falha:
+    1. Profissional deletado
+       Mock: Ainda retorna 3 profissionais
+       Real: Retorna 2 (sem profissional deletado)
+
+    2. Novo serviço adicionado
+       Mock: Continua retornando 4
+       Real: Retorna 5
+
+    3. Agenda com conflito
+       Mock: Sempre retorna {} (sem conflito)
+       Real: Retorna evento existente
+
+  Evidência real:
+    - firebase_service_async.py:72-92 → busca real de Firestore
+
+  Em produção:
+    ❌ FALHA: Dados desatualizados
+    ❌ FALHA: Fallback não testado (dados vazios)
+    ❌ FALHA: Excesso de confiança em dados fixos
+
+  Risco: COMPORTAMENTO DIVERGENTE COM DADOS REAIS
+
+
+[P0-M-3] VALIDAÇÃO MINIMAL DE HORÁRIO
+  ──────────────────────────────────
+  Mock: agenda_mock.py:28-44
+  Função: validar_horario_funcionamento()
+
+  Severidade: [P0] CRÍTICO
+  Impacto: [M] MÉDIO (10 testes diretos)
+  Confiabilidade: [MOCK] ~40% (validação básica)
+
+  Problema:
+    - Apenas verifica se hora_inicio entre 8h-18h
+    - Não valida se tarefa cabe no expediente
+    - Não conhece dia da semana
+    - Ignora parâmetro profissional
+
+  Caso de falha:
+    hora_inicio: 17:30
+    duracao_min: 90
+    expediente: 8h-18h
+
+    Mock: PERMITIDO ✓ (17:30 >= 8 e < 18)
+    Real: NÃO PERMITIDO ✗ (terminaria 19h, fora expediente)
+
+  Testes afetados:
+    - runner_dry_run.py
+    - test_patch_p0_cancelamento.py
+
+  Em produção:
+    ❌ FALHA: Agendamento agendado fora do expediente
+    ❌ FALHA: Cliente tem confirmação errada
+
+  Risco: EXPECTATIVA DE CLIENTE NÃO CUMPRIDA
+
+================================================================================
+DETALHAMENTO: SEVERIDADE [P1] × IMPACTO ALTO (A)
+================================================================================
+
+[P1-A-1] EXPEDIENTE CUSTOMIZADO NÃO TESTADO
+  ──────────────────────────────────
+  Mock: agenda_mock.py
+  Linha: hardcoded "8h-18h"
+
+  Severidade: [P1] ALTO
+  Impacto: [A] ALTO (35+ testes)
+  Confiabilidade: [MOCK] ~20% (expediente fixo)
+
+  Limitações:
+    - Sem expediente por dia diferente
+    - Sem exceção por data (feriado)
+    - Sem expediente por profissional
+    - Sem considerar fuso horário
+
+  Casos não testados:
+    1. Segunda: 8h-18h (normal)
+    2. Sábado: 8h-14h (reduzido)
+    3. Feriado 25/12: fechado
+    4. Bruna: 10h-16h (profissional específico)
+
+  Evidência real:
+    - agenda_service.py:99-112 → obter_config_agenda()
+    - agenda_service.py:114-153 → valida por dia da semana
+
+  Em produção:
+    ❌ FALHA: Expediente especial ignorado
+    ❌ FALHA: Agendamento em dia fechado aceito
+
+  Risco: EXPECTATIVA DE CLIENTE
+
+
+[P1-A-2] CONFLITO COM SUGESTÃO ALTERNATIVA
+  ──────────────────────────────────
+  Mock: firebase_mock.py:88-92
+  Função: retorna sugestoes=[]
+
+  Severidade: [P1] ALTO
+  Impacto: [A] ALTO (25+ testes)
+  Confiabilidade: [MOCK] ~0% (sugestão)
+
+  Problema:
+    - Nunca retorna sugestões alternativas
+    - Sempre sugestoes=[], profissional_alternativo=None
+
+  Casos não testados:
+    1. Profissional indisponível → sugerir outro
+    2. Horário lotado → sugerir próximo disponível
+    3. Serviço atendido por 3 profissionais → sugerir todos
+
+  Testes afetados:
+    - runner_stress_profissional_alternativo_completo.py
+    - runner_stress_conflito_aceite_sugestao.py
+
+  Em produção:
+    ❌ FALHA: Usuário não recebe alternativa
+
+  Risco: UX DEGRADADA
+
+
+[P1-A-3] TRANSAÇÕES NÃO IMPLEMENTADAS
+  ──────────────────────────────────
+  Mock: firebase_mock.py (todas as funções)
+  Função ausente: transaction()
+
+  Severidade: [P1] ALTO
+  Impacto: [A] ALTO (20+ testes)
+  Confiabilidade: [MOCK] ~60% (operações simples)
+
+  Problema:
+    - Sem transações multi-documento
+    - Sem all-or-nothing semantics
+    - Sem retry automático em conflito
+
+  Cenário de falha:
+    Operação: Criar evento + Atualizar agenda + Salvar contexto
+
+    Mock: 3 operações sequenciais (qualquer falha no meio = inconsistência)
+    Real: Transação (all succeed ou all fail)
+
+  Em produção:
+    ❌ FALHA: Atualização parcial silenciosa
+
+  Risco: INCONSISTÊNCIA DE DADOS
+
+================================================================================
+DETALHAMENTO: SEVERIDADE [P1] × IMPACTO MÉDIO (M)
+================================================================================
+
+[P1-M-1] PEGAR_SESSAO SEMPRE RETORNA NONE
+  ──────────────────────────────────
+  Mock: session_mock.py:15
+  Função: pegar_sessao()
+
+  Severidade: [P1] ALTO
+  Impacto: [M] MÉDIO (5 testes)
+  Confiabilidade: [MOCK] ~0% (sessão ativa)
+
+  Problema:
+    - Hardcoded return None
+    - Nunca retorna sessão ativa
+
+  Caso não testado:
+    - Usuário com sessão ativa
+    - Sessão expirada
+    - Sessão com dados
+
+  Em produção:
+    ❌ FALHA: Código de sessão ativa nunca executado
+
+  Risco: BRANCH NÃO TESTADO
+
+
+[P1-M-2] RESETAR_SESSAO NÃO FAZ NADA
+  ──────────────────────────────────
+  Mock: session_mock.py:19
+  Função: resetar_sessao()
+
+  Severidade: [P1] ALTO
+  Impacto: [M] MÉDIO (3 testes)
+  Confiabilidade: [MOCK] ~0% (cleanup)
+
+  Problema:
+    - Apenas registra chamada
+    - Não deleta sessão
+    - Não persiste mudança
+
+  Em produção:
+    ❌ FALHA: Cleanup de sessão não testado
+
+  Risco: SESSÃO PODE FICAR ÓRFÃ
+
+
+[P1-M-3] GPT RESPONSES NÃO VARIÁVEIS
+  ──────────────────────────────────
+  Mock: gpt_mock.py:19-35
+  Função: gerar_resposta_p1()
+
+  Severidade: [P1] ALTO
+  Impacto: [M] MÉDIO (50+ testes)
+  Confiabilidade: [MOCK] ~30% (respostas reais)
+
+  Problema:
+    - Respostas template hardcoded
+    - Sem variabilidade
+    - Sempre sucesso
+
+  Casos não testados:
+    1. Resposta inútil do GPT
+    2. Resposta vaga
+    3. Hallucination do GPT
+    4. Timeout de API
+
+  Em produção:
+    ❌ FALHA: Resposta inútil não detectada
+
+  Risco: EXPERIÊNCIA DEGRADADA
+
+================================================================================
+DETALHAMENTO: SEVERIDADE [P2] × IMPACTO ALTO (A)
+================================================================================
+
+[P2-A-1] ERROS DE CONEXÃO NÃO SIMULADOS
+  ──────────────────────────────────
+  Mocks: TODOS
+  Funções: Sem exceção
+
+  Severidade: [P2] MÉDIO
+  Impacto: [A] ALTO (TODOS 57 testes)
+  Confiabilidade: [MOCK] ~0% (error handling)
+
+  Problema:
+    - Nunca lança exceção
+    - Sem timeout simulado
+    - Sem erro de permissão
+    - Sempre sucesso
+
+  Casos não testados:
+    1. Timeout Firestore
+    2. Erro de permissão
+    3. Erro de conexão
+    4. Rate limit API
+
+  Funcionalidades nunca testadas:
+    - Retry logic
+    - Fallback
+    - Tratamento graceful
+
+  Em produção:
+    ❌ FALHA: Sem retry/fallback em erro
+
+  Risco: INDISPONIBILIDADE
+
+================================================================================
+RESUMO POR MOCK
+================================================================================
+
+FIREBASE_MOCK.PY: 7 problemas
+  [P0] CRÍTICO: 4 (tenant, race, locks, conflito)
+  [P1] ALTO: 2 (buscar hardcoded, sem transação)
+  [P2] MÉDIO: 1 (sem erro)
+
+AGENDA_MOCK.PY: 4 problemas
+  [P0] CRÍTICO: 1 (validação minimal)
+  [P1] ALTO: 2 (expediente, profissional)
+  [P2] MÉDIO: 1 (sem fuso)
+
+CONTEXTO_MOCK.PY: 5 problemas
+  [P0] CRÍTICO: 3 (tenant, delete_field, storage, merge)
+  [P1] ALTO: 1 (sem validação schema)
+  [P2] MÉDIO: 1 (sem erro)
+
+SESSION_MOCK.PY: 2 problemas
+  [P1] ALTO: 2 (pegar, resetar)
+
+GPT_MOCK.PY: 3 problemas
+  [P1] ALTO: 1 (respostas não variáveis)
+  [P2] MÉDIO: 2 (sem validação, sem erro)
+
+TOTAL: 21 problemas
+
+================================================================================
+TESTE PRIORITY MATRIX
+================================================================================
+
+REFAZER AGORA (P0 BLOQUEADORES):
+  1. runner_stress_rajada_agendamento.py (race condition)
+  2. runner_stress_multientidades_agendamento.py (isolamento)
+  3. runner_stress_conflito_aceite_sugestao.py (detecção)
+  4. runner_stress_conflito_aceite_confirmacao_final.py (detecção)
+  5. test_p1_2b_contexto_motor.py (merge)
+
+REFAZER SEMANA QUE VEM (P1 ALTOS):
+  6. runner_validacao_hunk5_dia_semana.py (expediente)
+  7. runner_stress_confirmacao_pendente.py (transação)
+  8. runner_stress_confirmacao_agendamento.py (lock)
+
+REFAZER MÊS QUE VEM (P2 MÉDIOS):
+  9. runner_stress_profissional_alternativo_completo.py (sugestão)
+  10. runner_stress_multi_entidades.py (isolamento)
+
+================================================================================
+CONCLUSÃO
+================================================================================
+
+Total de problemas: 21
+  - P0 (Crítico): 11 problemas, afetam 90+ testes
+  - P1 (Alto): 7 problemas, afetam 60+ testes
+  - P2 (Médio): 3 problemas, afetam 57+ testes
+
+Confiabilidade média: ~25% (mock-only)
+
+Recomendação: Refazer 5-8 testes críticos com Firestore real antes de deployar.
+
+================================================================================

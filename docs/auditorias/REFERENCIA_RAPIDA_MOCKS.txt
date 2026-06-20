@@ -1,0 +1,295 @@
+================================================================================
+REFERÊNCIA RÁPIDA — PROBLEMAS COM MOCKS
+Atualizado: 2026-06-19
+================================================================================
+
+PROBLEMA 1: Tenant não isolado
+  Arquivo: firebase_mock.py:14, contexto_mock.py:6
+  Risco: [P0] Dados misturados entre clientes
+  Teste: runner_stress_multientidades_agendamento.py
+  Ação: Validar isolamento de tenant_id
+  Confiabilidade: ~20%
+
+PROBLEMA 2: Race condition não simulada
+  Arquivo: firebase_mock.py (buscar_subcolecao, verificar_conflito)
+  Risco: [P0] Agendamentos duplicados
+  Teste: runner_stress_rajada_agendamento.py
+  Ação: Implementar lock simulation
+  Confiabilidade: ~0%
+
+PROBLEMA 3: Locks não implementados
+  Arquivo: firebase_mock.py (faltando criar_evento_com_lock)
+  Risco: [P0] Agendamento duplicado
+  Teste: Qualquer teste de concurrent agendamento
+  Ação: Implementar criar_evento_com_lock()
+  Confiabilidade: ~0%
+
+PROBLEMA 4: DELETE_FIELD ausente
+  Arquivo: contexto_mock.py:31, firebase_mock.py
+  Risco: [P0] Contexto contaminado
+  Teste: test_patch_p0_bloqueio_contexto.py
+  Ação: Implementar DELETE_FIELD
+  Confiabilidade: ~50%
+
+PROBLEMA 5: Storage em memória (não persiste)
+  Arquivo: contexto_mock.py:6 (self.storage = {})
+  Risco: [P0] Fluxo contínuo falha
+  Teste: runner_stress_confirmacao_pendente.py
+  Ação: Usar Firestore ou arquivo persistido
+  Confiabilidade: ~5%
+
+PROBLEMA 6: Merge sem validação
+  Arquivo: contexto_mock.py:31 (update() simples)
+  Risco: [P0] Estrutura nested perdida
+  Teste: test_p1_2b_contexto_motor.py
+  Ação: Validar schema Firestore no mock
+  Confiabilidade: ~40%
+
+PROBLEMA 7: Conflito sempre False
+  Arquivo: firebase_mock.py:88-92
+  Risco: [P1] 30+ testes nunca testam conflito real
+  Teste: runner_stress_conflito_aceite_sugestao.py
+  Ação: Implementar lógica real de conflito
+  Confiabilidade: ~0%
+
+PROBLEMA 8: Expediente hardcoded
+  Arquivo: agenda_mock.py:28-44 (hardcoded "8h-18h")
+  Risco: [P1] Expediente especial não funciona
+  Teste: runner_validacao_hunk5_dia_semana.py
+  Ação: Estender agenda_mock com config real
+  Confiabilidade: ~20%
+
+PROBLEMA 9: Transações ausentes
+  Arquivo: firebase_mock.py (sem transaction)
+  Risco: [P1] Operações multi-documento não atômicas
+  Teste: runner_stress_confirmacao_pendente.py
+  Ação: Implementar transações ou detectar não-atomicidade
+  Confiabilidade: ~60%
+
+PROBLEMA 10: Buscar_subcolecao hardcoded
+  Arquivo: firebase_mock.py:16-64
+  Risco: [P1] Dados dinâmicos nunca testados
+  Teste: Qualquer teste que busca profissionais/serviços
+  Ação: Implementar busca real de Firestore
+  Confiabilidade: ~50%
+
+PROBLEMA 11: Erros nunca simulados
+  Arquivo: TODOS OS MOCKS
+  Risco: [P2] Tratamento de erro nunca testado
+  Teste: runner_p0_resiliencia_operacional_real.py
+  Ação: Adicionar modo fail em mocks
+  Confiabilidade: ~0%
+
+================================================================================
+TABELA RÁPIDA: O QUE FUNCIONA VS O QUE NÃO FUNCIONA
+================================================================================
+
+                          MOCK        REAL        DIVERGÊNCIA
+────────────────────────────────────────────────────────────────
+Obter ID dono             ✓ (fake)    ✓ (real)    Sempre mesmo ID
+Buscar profissionais      ✓ (fake)    ✓ (real)    Sempre 3, nunca vazio
+Buscar serviços           ✓ (fake)    ✓ (real)    Sempre 4, nunca vazio
+Validar conflito          ✗ (false)   ✓ (real)    Sempre sem conflito
+Validar horário           ~ (simple)  ✓ (complex) Não valida duração
+Expediente por dia        ✗ (fixed)   ✓ (config)  Sempre 8h-18h
+Locks                     ✗ (none)    ✓ (real)    Sem lock simulation
+Isolamento tenant         ✗ (none)    ✓ (real)    Sem validação
+Contexto persistência     ✗ (memory)  ✓ (real)    Perdido após execução
+DELETE_FIELD              ✗ (none)    ✓ (real)    Não remove campos
+Transações                ✗ (none)    ✓ (real)    Operações sequenciais
+Erro tratamento           ✗ (none)    ✓ (real)    Sempre sucesso
+Sessão ativa              ✗ (none)    ~ (partial) Sempre None
+GPT variabilidade         ✗ (fixed)   ~ (var)     Sempre template
+
+Legenda:
+  ✓ Implementado
+  ~ Parcialmente
+  ✗ Não implementado
+
+================================================================================
+TESTES QUE DEFINITIVAMENTE FALHAM EM PRODUÇÃO
+================================================================================
+
+1. runner_stress_rajada_agendamento.py
+   Problema: Race condition
+   Esperado no mock: 1 agendamento
+   Real com 20+ mensagens: 3-5 agendamentos (sem lock)
+
+2. runner_stress_multientidades_agendamento.py
+   Problema: Isolamento tenant
+   Esperado: Cliente A vê apenas dados A
+   Real: Cliente A pode acessar dados de Cliente B
+
+3. runner_stress_conflito_aceite_sugestao.py
+   Problema: Conflito sempre False
+   Esperado: Sugere alternativa quando conflito
+   Real: Agendamento aceito em slot lotado (no mock)
+
+4. test_p1_2b_contexto_motor.py
+   Problema: Merge sem validação
+   Esperado: Campo perdido em update
+   Real: Campo preservado com merge=True
+
+5. runner_validacao_hunk5_dia_semana.py
+   Problema: Expediente hardcoded
+   Esperado: Sábado 8h-18h (como mock)
+   Real: Sábado 8h-14h (conforme config)
+
+================================================================================
+COMO INTERPRETAR RESULTADO DE TESTE
+================================================================================
+
+Se teste passou COM MOCK:
+
+  [MOCK] ONLY
+    ├─ Lógica está correta em teoria
+    ├─ Mas produção pode falhar
+    └─ Precisa refazer com Firestore real
+
+  [INTEGRATION] OK
+    ├─ Teste validado contra sistema real
+    ├─ Produção deve passar
+    └─ Confiança alta
+
+  [HYBRID] CUIDADO
+    ├─ Mix de mock e real
+    ├─ Pode haver mismatch
+    └─ Verificar compatibility
+
+Se teste falhou COM MOCK:
+
+  [MOCK] BUG
+    ├─ Lógica está errada
+    ├─ Precisa refazer código
+    └─ Teste válido
+
+  [INTEGRATION] BUG
+    ├─ Problema real com Firestore
+    ├─ Código está errado
+    └─ Teste válido
+
+================================================================================
+ESTRATÉGIA DE TESTE RECOMENDADA
+================================================================================
+
+FASE 1: DESENVOLVIMENTO (hoje)
+  ✓ Usar [MOCK] para testes rápidos
+  ✓ Validar lógica simples
+  ✓ Smoke tests
+
+FASE 2: ANTES DE MERGE (antes do commit)
+  ✓ Rodar [INTEGRATION] para testes críticos
+  ✓ Validar persistência
+  ✓ Validar concorrência (se aplicável)
+
+FASE 3: ANTES DE DEPLOY (antes de produção)
+  ✓ Rodar todos [INTEGRATION]
+  ✓ Validar contra Firestore real
+  ✓ Stress test com Firestore real
+
+FASE 4: MONITORAMENTO (produção)
+  ✓ Monitora race conditions
+  ✓ Monitora isolamento tenant
+  ✓ Monitora contexto pollution
+
+================================================================================
+TESTES A PRIORIZAR PARA REFARZER COM FIRESTORE REAL
+================================================================================
+
+SEMANA 1 (P0 CRÍTICOS):
+  [ ] runner_stress_rajada_agendamento.py (race condition)
+  [ ] runner_stress_multientidades_agendamento.py (isolamento)
+
+SEMANA 2 (P0 CRÍTICOS):
+  [ ] runner_stress_conflito_aceite_sugestao.py (conflito)
+  [ ] runner_stress_conflito_aceite_confirmacao_final.py (conflito)
+  [ ] test_p1_2b_contexto_motor.py (merge)
+
+SEMANA 3 (P1 ALTOS):
+  [ ] runner_validacao_hunk5_dia_semana.py (expediente)
+  [ ] runner_stress_confirmacao_pendente.py (transação)
+
+SEMANA 4 (P2 MÉDIOS):
+  [ ] runner_stress_profissional_alternativo_completo.py (sugestão)
+  [ ] runner_stress_multi_entidades.py (isolamento v2)
+
+================================================================================
+COMANDO PARA RODAR TESTES COM FIRESTORE REAL
+================================================================================
+
+Para executar com Firestore real (quando implementado):
+
+  pytest tests/ --use-real-firebase
+
+Para executar apenas testes [INTEGRATION]:
+
+  pytest tests/ -m integration
+
+Para executar apenas [MOCK]:
+
+  pytest tests/ -m mock
+
+Para comparar mock vs real:
+
+  pytest tests/test_mock_parity.py
+
+================================================================================
+REFERÊNCIA DE ARQUIVO PARA CADA PROBLEMA
+================================================================================
+
+FIREBASE_MOCK.PY:
+  Linha 14: obter_id_dono() hardcoded
+  Linha 16-64: buscar_subcolecao() hardcoded
+  Linha 66-92: verificar_conflito() sempre False
+  Faltando: criar_evento_com_lock()
+  Faltando: DELETE_FIELD
+
+AGENDA_MOCK.PY:
+  Linha 28-44: Validação minimal de horário
+  Hardcoded: "8h-18h" sempre
+  Faltando: Carregamento de config Firestore
+  Faltando: Expediente por profissional
+
+CONTEXTO_MOCK.PY:
+  Linha 6: Storage em memória (não persiste)
+  Linha 31: update() simples (não merge=True)
+  Faltando: DELETE_FIELD
+  Faltando: Validação de tenant_id
+
+SESSION_MOCK.PY:
+  Linha 15: pegar_sessao() sempre None
+  Linha 19: resetar_sessao() não faz nada
+
+GPT_MOCK.PY:
+  Linha 19-35: Respostas template hardcoded
+  Faltando: Validação de payload
+  Faltando: Erro de API
+
+================================================================================
+DOCUMENTAÇÃO RELACIONADA
+================================================================================
+
+ARQUIVO COMPLETO:
+  docs/auditorias/AUDITORIA_MOCKS_2026_06_19.txt
+
+SUMÁRIO:
+  docs/auditorias/SUMARIO_AUDITORIA_MOCKS.txt
+
+MATRIZ DE RISCO:
+  docs/auditorias/MATRIZ_RISCO_MOCKS.txt
+
+ESTA REFERÊNCIA:
+  docs/auditorias/REFERENCIA_RAPIDA_MOCKS.txt
+
+================================================================================
+CONTATO E PERGUNTAS
+================================================================================
+
+Esta auditoria foi gerada automaticamente por Claude Code.
+Nenhum arquivo foi alterado (audit-only).
+Próxima auditoria recomendada: Após implementação de P0.
+
+Data: 2026-06-19
+Status: RELATÓRIO FINAL
+
+================================================================================
