@@ -48,6 +48,45 @@ from services.clienteprofile_service import criar_ou_atualizar_profile_apos_even
 
 logger = logging.getLogger(__name__)
 
+def formatar_mensagem_conflito_profissional(
+    profissional: str,
+    hora: str,
+    sugestoes: list,
+    alternativas: list,
+    servico: str
+) -> str:
+    """[FORMATADOR OFICIAL] Formata mensagem de conflito de agenda.
+
+    Reutiliza padrão de principal_router.py linhas 4920-4935.
+    Garante consistência na comunicação de conflitos.
+
+    Args:
+        profissional: Nome da profissional que está ocupada
+        hora: Hora original solicitada (HH:MM)
+        sugestoes: Lista de horários livres ["HH:MM - HH:MM", ...]
+        alternativas: Lista de profissionais alternativas
+        servico: Serviço solicitado
+
+    Returns:
+        str: Mensagem formatada com markdown (Telegram)
+    """
+    msg = f"⛔ A *{profissional}* já tem atendimento às *{hora}* nesse dia.\n\n"
+
+    if sugestoes:
+        msg += f"✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n"
+        for s in sugestoes[:3]:
+            msg += f"🔄 {s}\n"
+
+    if alternativas:
+        alts_str = ", ".join([f"*{p}*" for p in alternativas])
+        msg += (
+            f"\n💡 Se você quiser manter *{hora}*, estas profissionais fazem "
+            f"*{servico}* e estão disponíveis: {alts_str}.\n"
+        )
+
+    msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+    return msg
+
 def _precisa_profissional(contexto: dict, descricao: str) -> bool:
     """
     Só exige 'profissional' quando for recepção de salão (atendimento_cliente).
@@ -1003,24 +1042,30 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
                 print(f"[PATCH_P0_CONFLITO] Sugestões geradas: {conflito_info}", flush=True)
 
-                # Construir resposta com sugestões
-                prof_display = profissional or "profissional"
-                resposta = f"❌ A *{prof_display}* não tem esse horário disponível.\n\n"
+                # [FORMATADOR OFICIAL] Usar padrão de principal_router.py
+                sugestoes = conflito_info.get("sugestoes") or []
+                alternativas = (
+                    conflito_info.get("profissional_alternativo")
+                    or conflito_info.get("alternativa_profissional")
+                    or conflito_info.get("profissionais_alternativos")
+                    or conflito_info.get("alternativas")
+                    or []
+                )
 
-                if conflito_info.get("sugestoes"):
-                    sugestoes_list = conflito_info["sugestoes"][:3]  # Primeiras 3 sugestões
-                    sugestoes_str = ", ".join([f"*{s}*" for s in sugestoes_list])
-                    resposta += f"✅ Posso oferecer estes horários:\n{sugestoes_str}\n"
-                else:
-                    resposta += "❌ Infelizmente não há horários disponíveis neste dia.\n"
+                if isinstance(alternativas, str):
+                    alternativas = [alternativas]
+                if isinstance(alternativas, dict):
+                    alternativas = alternativas.get("profissionais") or alternativas.get("nomes") or []
+                if not isinstance(alternativas, list):
+                    alternativas = list(alternativas) if alternativas else []
 
-                # Oferecer profissionais alternativos se disponível
-                if conflito_info.get("profissional_alternativo"):
-                    alts = conflito_info["profissional_alternativo"][:2]  # Primeiros 2 alternativos
-                    alts_str = ", ".join([f"*{p}*" for p in alts])
-                    resposta += f"\n💡 Ou posso agendar com: {alts_str}"
-
-                resposta += "\n\nQual preferir?"
+                resposta = formatar_mensagem_conflito_profissional(
+                    profissional=profissional or "profissional",
+                    hora=evento_data.get("hora_inicio", "??"),
+                    sugestoes=sugestoes,
+                    alternativas=alternativas,
+                    servico=servico or "serviço"
+                )
 
                 await update.message.reply_text(resposta, parse_mode="Markdown")
 
@@ -1059,7 +1104,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             return True
 
         # ✅ Sucesso real — só chega aqui se não houve conflito/erro
-        print("✅ Evento salvo")
+        print("[OK] Evento salvo")
 
         # P1.1: Atualizar ClienteProfile (background, não-bloqueante)
         # PATCH P1: Adicionar evento_id e dados completos
@@ -1137,12 +1182,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
 
             if resultado_notif["cliente"]["sucesso"]:
-                print(f"✅ Notificação cliente criada: {resultado_notif['cliente']['notif_id']}")
+                print(f"[OK] Notificação cliente criada: {resultado_notif['cliente']['notif_id']}")
             else:
-                print(f"⚠️ Falha ao criar notificação cliente: {resultado_notif['cliente'].get('motivo')}")
+                print(f"[WARN] Falha ao criar notificação cliente: {resultado_notif['cliente'].get('motivo')}")
 
             if resultado_notif["profissional"]["sucesso"]:
-                print(f"✅ Notificação profissional criada: {resultado_notif['profissional']['notif_id']}")
+                print(f"[OK] Notificação profissional criada: {resultado_notif['profissional']['notif_id']}")
             elif resultado_notif["profissional"]["motivo"] != "profissional_sem_id":
                 print(f"⚠️ Falha ao criar notificação profissional: {resultado_notif['profissional'].get('motivo')}")
 

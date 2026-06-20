@@ -50,7 +50,7 @@ async def salvar_sessao_temporaria(actor_id: str, contexto: dict, tenant_id: str
     atual["_updated_at"] = datetime.now().isoformat()
     atual["_schema_version"] = 2
 
-    print(f"🧪 [SAVE SESSAO v2] path={path} | tenant={tenant_id} | actor={actor_id}", flush=True)
+    print(f"[DIAG] [SAVE SESSAO v2] path={path} | tenant={tenant_id} | actor={actor_id}", flush=True)
 
     return await atualizar_dado_em_path(path, atual)
 
@@ -83,11 +83,11 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
     # 1️⃣ Tenta novo path primeiro (PATCH P0.3: read-through)
     data_novo = await buscar_dado_em_path(path_novo)
     if data_novo:
-        print(f"🧪 [LOAD SESSAO v2] path={path_novo} | source=novo | tenant={tenant_id} | actor={actor_id}", flush=True)
+        print(f"[DIAG] [LOAD SESSAO v2] path={path_novo} | source=novo | tenant={tenant_id} | actor={actor_id}", flush=True)
         return data_novo
 
     # 2️⃣ Fallback legado com validação STRICT (PATCH P0.3)
-    print(f"🧪 [LOAD SESSAO v2 FALLBACK] tentando legado para {actor_id}", flush=True)
+    print(f"[DIAG] [LOAD SESSAO v2 FALLBACK] tentando legado para {actor_id}", flush=True)
 
     path_legado = f"Clientes/{actor_id}/MemoriaTemporaria/contexto"
     data_legado = await buscar_dado_em_path(path_legado)
@@ -108,7 +108,7 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
         return {}
 
     # 4️⃣ Legado válido — migrar para novo path imediatamente (PATCH P0.3)
-    print(f"🧪 [SESSAO LEGADO MIGRADA] from={path_legado} to={path_novo}", flush=True)
+    print(f"[DIAG] [SESSAO LEGADO MIGRADA] from={path_legado} to={path_novo}", flush=True)
 
     # Copiar para novo path com metadados
     from datetime import datetime
@@ -150,14 +150,14 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
     # [PATCH P0] DELETE_FIELD para TODOS os campos transitórios
     # Mantém APENAS: estado_fluxo, aguardando_confirmacao_* e metadados estruturais
     payload = {
-        # ✅ METADADOS ESTRUTURAIS — preservar
+        # [OK] METADADOS ESTRUTURAIS — preservar
         "estado_fluxo": "idle",
         "aguardando_confirmacao_agendamento": False,
         "aguardando_confirmacao_cancelamento": False,
         "ultima_acao": "contexto_limpo",
         "_updated_at": datetime.now().isoformat(),
 
-        # ❌ CAMPOS TRANSITÓRIOS — DELETE_FIELD (remover completamente)
+        # [ERROR] CAMPOS TRANSITÓRIOS — DELETE_FIELD (remover completamente)
         # Fluxo de agendamento
         "draft_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
@@ -211,7 +211,7 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: st
     """DEPRECADO: Use salvar_contexto_temporario_v2(dono_id, cliente_id, contexto).
 
     Função legada mantida APENAS para compatibilidade com código existente.
-    ⚠️ NÃO isolado por tenant — pode causar contaminação multi-tenant.
+    [WARN] NÃO isolado por tenant — pode causar contaminação multi-tenant.
 
     PATCH P0 (2026-06-19):
     - Se tenant_id ausente: BLOQUEAR salva, retornar False, logar crítico
@@ -246,9 +246,9 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: st
 
     # 🧬 PATCH MT-07: Registrar tenant_id para proteção defensiva
     atual["_tenant_id_guard"] = tenant_id
-    print(f"🧪 [CTX_LEGADO_SAVE_COMPAT] path={path} | tenant_id={tenant_id} | guard_adicionado", flush=True)
+    print(f"[DIAG] [CTX_LEGADO_SAVE_COMPAT] path={path} | tenant_id={tenant_id} | guard_adicionado", flush=True)
 
-    print(f"🧪 [SAVE CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
+    print(f"[SAVE_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path={path}", flush=True)
 
     resultado = await atualizar_dado_em_path(path, atual)
     print(f"[DIAG_SALVAR] resultado_save={resultado} | tipo={type(resultado)}", flush=True)
@@ -259,7 +259,7 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
     """DEPRECADO: Use carregar_contexto_temporario_v2(dono_id, cliente_id).
 
     Função legada mantida APENAS para compatibilidade com código existente.
-    ⚠️ NÃO isolado por tenant — pode retornar dados errados em multi-tenant.
+    [WARN] NÃO isolado por tenant — pode retornar dados errados em multi-tenant.
 
     PATCH P0 (2026-06-19):
     - Se tenant_id ausente: BLOQUEAR leitura, retornar {}, logar crítico
@@ -306,17 +306,17 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
         return {}
 
     # Guard bate, permitir
-    print(f"🧪 [CTX_LEGADO_COMPAT] | path={path} | tenant_id={tenant_id} | guard_validado", flush=True)
+    print(f"[CTX_LEGADO_COMPAT] | path={path} | tenant_id={tenant_id} | guard_validado", flush=True)
 
     print(f"[DIAG_CARREGAR] retornando_legado: estado_fluxo={data.get('estado_fluxo')} | cancelamento_pendente={bool(data.get('cancelamento_pendente'))}", flush=True)
-    print(f"🧪 [LOAD CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
+    print(f"[LOAD_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path={path}", flush=True)
     return data
 
 
 async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
     """[PATCH P0] Limpeza legada com DELETE_FIELD (compatibilidade).
 
-    ⚠️ DEPRECADO: Use limpar_contexto_agendamento_v2(dono_id, cliente_id).
+    [WARN] DEPRECADO: Use limpar_contexto_agendamento_v2(dono_id, cliente_id).
     Mantida APENAS para compatibilidade com código existente.
 
     PATCH P0 (2026-06-19):
@@ -333,22 +333,22 @@ async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
         atual = await buscar_dado_em_path(path) or {}
         guard_tenant = atual.get("_tenant_id_guard")
         if guard_tenant and guard_tenant != tenant_id:
-            print(f"🚨 [CTX_LEGADO_CLEAR_MISMATCH] ⚠️ NÃO LIMPANDO | path={path} | esperado={tenant_id} | armazenado={guard_tenant}", flush=True)
+            print(f"🚨 [CTX_LEGADO_CLEAR_MISMATCH] [WARN] NÃO LIMPANDO | path={path} | esperado={tenant_id} | armazenado={guard_tenant}", flush=True)
             return  # Não limpa contexto de outro tenant
-        print(f"🧪 [CTX_LEGADO_CLEAR_COMPAT] | path={path} | tenant_id={tenant_id} | limpando com validação", flush=True)
+        print(f"[DIAG] [CTX_LEGADO_CLEAR_COMPAT] | path={path} | tenant_id={tenant_id} | limpando com validação", flush=True)
     else:
-        print(f"🚨 [CTX_LEGADO_CLEAR_SEM_TENANT] ⚠️ RISCO | path={path} | tenant_id não fornecido", flush=True)
+        print(f"🚨 [CTX_LEGADO_CLEAR_SEM_TENANT] [WARN] RISCO | path={path} | tenant_id não fornecido", flush=True)
 
     # [PATCH P0] DELETE_FIELD para TODOS os campos transitórios
     payload = {
-        # ✅ METADADOS ESTRUTURAIS — preservar
+        # [OK] METADADOS ESTRUTURAIS — preservar
         "estado_fluxo": "idle",
         "aguardando_confirmacao_agendamento": False,
         "aguardando_confirmacao_cancelamento": False,
         "ultima_acao": "contexto_limpo",
         "_updated_at": datetime.now().isoformat(),
 
-        # ❌ CAMPOS TRANSITÓRIOS — DELETE_FIELD (remover completamente)
+        # [ERROR] CAMPOS TRANSITÓRIOS — DELETE_FIELD (remover completamente)
         # Fluxo de agendamento
         "draft_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
@@ -390,7 +390,7 @@ async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
         "data_hora_pendente": firestore.DELETE_FIELD,
     }
 
-    print(f"[PATCH_P0_CLEAR] ⚠️ LEGADO path={path} | user_id={user_id}", flush=True)
+    print(f"[PATCH_P0_CLEAR] [WARN] LEGADO path={path} | user_id={user_id}", flush=True)
     print(f"[PATCH_P0_CLEAR] DELETE_FIELD count: {len([v for v in payload.values() if v is firestore.DELETE_FIELD])}", flush=True)
 
     return await atualizar_dado_em_path(path, payload)

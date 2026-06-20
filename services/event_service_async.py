@@ -138,7 +138,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
                 print("♻️ Evento já existe (idempotente). Não criando duplicado.")
                 return "duplicado"
 
-            print(f"✅ Evento criado com sucesso com proteção: {event_id}")
+            print(f"[OK] Evento criado com sucesso com proteção: {event_id}")
             # Continua para enviar notificação
 
         else:
@@ -153,7 +153,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
                 return "duplicado"
 
             await salvar_dado_em_path(path, evento)
-            print(f"✅ Evento pendente salvo: {event_id}")
+            print(f"[OK] Evento pendente salvo: {event_id}")
             # Retorna sem enviar notificação (evento ainda não confirmado)
             return True
 
@@ -1008,11 +1008,11 @@ async def verificar_conflito_e_sugestoes_profissional(
     profissionais = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Profissionais") or {}
 
     print(
-        f"🧪 Dados recebidos: user_id={user_id}, data={data}, hora_inicio={hora_inicio}, "
+        f"[DIAG] Dados recebidos: user_id={user_id}, data={data}, hora_inicio={hora_inicio}, "
         f"duracao_min={duracao_min}, profissional={profissional}, servico={servico}",
         flush=True
     )
-    print(f"📦 Eventos existentes:\n{json.dumps(eventos, indent=2, default=str)}", flush=True)
+    print(f"[EVENTOS] Eventos existentes:\n{json.dumps(eventos, indent=2, default=str)}", flush=True)
 
     prof_norm = unidecode((profissional or "").strip().lower())
 
@@ -1142,7 +1142,7 @@ async def verificar_conflito_e_sugestoes_profissional(
                 alternativos.append(nome_alt)
 
     print(
-        f"✅ Resultado: conflito={conflito}, sugestões={sugestoes}, alternativos={alternativos}",
+        f"[RESULTADO_SUGESTOES] conflito={conflito}, sugestoes={sugestoes}, alternativos={alternativos}",
         flush=True
     )
 
