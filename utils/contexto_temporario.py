@@ -211,9 +211,16 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: st
         )
         return False
 
+    # [DIAGNOSTICO_P0] Path legado
+    print(f"[DIAG_SALVAR] path_legado={path} | tenant_id={tenant_id} | user_id={user_id}", flush=True)
+
     # 🔥 merge manual defensivo
     atual = await buscar_dado_em_path(path) or {}
+    print(f"[DIAG_SALVAR] antes_merge: estado_fluxo={atual.get('estado_fluxo')} | cancelamento_pendente={bool(atual.get('cancelamento_pendente'))}", flush=True)
+
     atual.update(contexto)
+
+    print(f"[DIAG_SALVAR] depois_merge: estado_fluxo={atual.get('estado_fluxo')} | cancelamento_pendente={bool(atual.get('cancelamento_pendente'))} | keys_atualizadas={list(contexto.keys())}", flush=True)
 
     # 🧬 PATCH MT-07: Registrar tenant_id para proteção defensiva
     atual["_tenant_id_guard"] = tenant_id
@@ -221,7 +228,9 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: st
 
     print(f"🧪 [SAVE CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
 
-    return await atualizar_dado_em_path(path, atual)
+    resultado = await atualizar_dado_em_path(path, atual)
+    print(f"[DIAG_SALVAR] resultado_save={resultado} | tipo={type(resultado)}", flush=True)
+    return resultado
 
 
 async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
@@ -237,7 +246,13 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
     - Se sem guard: retornar {}, logar crítico
     """
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
+
+    # [DIAGNOSTICO_P0] Rastrear carregamento
+    print(f"[DIAG_CARREGAR] path_legado={path} | tenant_id={tenant_id} | user_id={user_id}", flush=True)
+
     data = await buscar_dado_em_path(path)
+
+    print(f"[DIAG_CARREGAR] lido_legado: existe={bool(data)} | estado_fluxo={data.get('estado_fluxo') if data else None} | cancelamento_pendente={bool(data.get('cancelamento_pendente')) if data else None}", flush=True)
 
     if not data:
         print(f"🚨 [CTX VAZIO DETECTADO LEGADO] path={path}", flush=True)
@@ -256,6 +271,8 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
     # 🧬 PATCH MT-07: Validar tenant_id se informado
     guard_tenant = data.get("_tenant_id_guard")
 
+    print(f"[DIAG_CARREGAR] guard_validacao: guard_tenant={guard_tenant} | esperado={tenant_id} | match={guard_tenant == tenant_id}", flush=True)
+
     # 🔥 PATCH P0.2: Bloquear se sem guard (contexto antigo/comprometido)
     if not guard_tenant:
         print(f"🚨 [CTX_LEGADO_SEM_GUARD] CRÍTICO | path={path} | contexto legado sem guard_tenant, leitura RECUSADA", flush=True)
@@ -269,6 +286,7 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
     # Guard bate, permitir
     print(f"🧪 [CTX_LEGADO_COMPAT] | path={path} | tenant_id={tenant_id} | guard_validado", flush=True)
 
+    print(f"[DIAG_CARREGAR] retornando_legado: estado_fluxo={data.get('estado_fluxo')} | cancelamento_pendente={bool(data.get('cancelamento_pendente'))}", flush=True)
     print(f"🧪 [LOAD CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
     return data
 

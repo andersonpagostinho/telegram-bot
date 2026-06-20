@@ -16,6 +16,7 @@ from services.gpt_service import (
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
 
 from datetime import datetime, timedelta
+from google.cloud import firestore
 from utils.interpretador_datas import interpretar_data_e_hora
 from utils.gpt_utils import estimar_duracao, formatar_descricao_evento
 from utils.mensagens_agendamento import montar_mensagem_preconfirmacao
@@ -3384,11 +3385,35 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 ok = await cancelar_evento(user_id, evento_id)
 
                 if ok:
-                    # Limpar contexto de cancelamento
-                    ctx.pop("cancelamento_pendente", None)
-                    ctx.pop("estado_fluxo", None)
-                    ctx["estado_fluxo"] = "idle"
-                    await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)
+                    # [PATCH_P0] Limpeza real com DELETE_FIELD
+                    # Substitui ctx.pop() que não remove campos do Firestore com merge=True
+                    payload_limpeza = {
+                        "estado_fluxo": "idle",
+                        "aguardando_confirmacao_agendamento": False,
+                        "aguardando_confirmacao_cancelamento": False,
+                        "ultima_acao": "cancelamento_concluido",
+                        "cancelamento_pendente": firestore.DELETE_FIELD,
+                        "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
+                        "candidatos_cancelamento": firestore.DELETE_FIELD,
+                        "draft_agendamento": firestore.DELETE_FIELD,
+                        "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
+                        "profissional_escolhido": firestore.DELETE_FIELD,
+                        "data_hora": firestore.DELETE_FIELD,
+                        "servico": firestore.DELETE_FIELD,
+                        "interpretacao_conversacional": firestore.DELETE_FIELD,
+                        "intencao_conversacional": firestore.DELETE_FIELD,
+                        "objetivo_conversacional": firestore.DELETE_FIELD,
+                        "tipo_ajuste_incremental": firestore.DELETE_FIELD,
+                    }
+
+                    # [DIAGNOSTICO_P0_SAVE] Antes de salvar limpeza
+                    print(f"[DIAG_SAVE_PRE] tenant_id={dono_id} | actor_id={user_id} | path=Clientes/{dono_id}/Sessoes/{user_id}", flush=True)
+                    print(f"[DIAG_SAVE_PRE] PATCH_P0: Usando DELETE_FIELD para limpeza real", flush=True)
+                    print(f"[DIAG_SAVE_PRE] campos_remove={len([k for k, v in payload_limpeza.items() if v is firestore.DELETE_FIELD])}", flush=True)
+
+                    resultado_save = await salvar_contexto_temporario(user_id, payload_limpeza, tenant_id=dono_id)
+
+                    print(f"[DIAG_SAVE_POS] resultado={resultado_save} | tipo={type(resultado_save)}", flush=True)
 
                     resumo = cancelamento_pendente.get("resumo_evento", {})
                     resposta = f"Pronto! O evento {resumo.get('descricao', '')} foi cancelado e o horário ficou disponível."
@@ -3408,9 +3433,26 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         # "Não" — aborta cancelamento
         elif texto_lower in ["não", "nao", "não quero", "nao quero", "deixa", "esquece"]:
-            ctx.pop("cancelamento_pendente", None)
-            ctx["estado_fluxo"] = "idle"
-            await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)
+            # [PATCH_P0] Limpeza real com DELETE_FIELD
+            payload_limpeza = {
+                "estado_fluxo": "idle",
+                "aguardando_confirmacao_agendamento": False,
+                "aguardando_confirmacao_cancelamento": False,
+                "ultima_acao": "cancelamento_abortado",
+                "cancelamento_pendente": firestore.DELETE_FIELD,
+                "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
+                "candidatos_cancelamento": firestore.DELETE_FIELD,
+                "draft_agendamento": firestore.DELETE_FIELD,
+                "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
+                "profissional_escolhido": firestore.DELETE_FIELD,
+                "data_hora": firestore.DELETE_FIELD,
+                "servico": firestore.DELETE_FIELD,
+                "interpretacao_conversacional": firestore.DELETE_FIELD,
+                "intencao_conversacional": firestore.DELETE_FIELD,
+                "objetivo_conversacional": firestore.DELETE_FIELD,
+                "tipo_ajuste_incremental": firestore.DELETE_FIELD,
+            }
+            await salvar_contexto_temporario(user_id, payload_limpeza, tenant_id=dono_id)
 
             return {
                 "handled": True,
