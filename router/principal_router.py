@@ -2253,6 +2253,9 @@ async def resolver_alteracao_draft_agendamento(
     alteracao: dict,
     texto_usuario: str = ""
 ):
+    # [PATCH_P0] Obter dono_id para salvar contexto com tenant_id correto
+    dono_id = await obter_id_dono(user_id)
+
     # 🚨 GUARDA P0: Bloquear ajuste incremental se cancelamento está pendente
     if ctx.get("estado_fluxo") == "aguardando_confirmacao_cancelamento":
         print(
