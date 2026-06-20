@@ -3811,6 +3811,15 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     features = class_ctx.get("features", {})
     tem_cancelamento = features.get("tem_cancelamento", False)
 
+    # 🔥 PATCH P0: Cancelamento vence qualquer draft de agendamento
+    if tem_cancelamento:
+        print(f"[P0-CANCELAMENTO_VENCE] Cancelamento detectado, limpando draft anterior", flush=True)
+        ctx.pop("draft_agendamento", None)
+        ctx.pop("aguardando_confirmacao_agendamento", None)
+        ctx.pop("dados_confirmacao_agendamento", None)
+        ctx.pop("intencao_conversacional", None)
+        ctx["estado_fluxo"] = "idle"  # Resetar para permitir cancelamento
+
     if tem_cancelamento and (not ctx.get("estado_fluxo") or ctx.get("estado_fluxo") == "idle"):
         print(f" [P0-CANCELAMENTO_IDLE] Cancelamento mencionado em contexto idle | texto={texto_lower}", flush=True)
 
