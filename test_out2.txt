@@ -1,0 +1,234 @@
+
+================================================================================
+BATERIA P0 — FLUXO COMPLETO COM FIRESTORE REAL
+================================================================================
+
+[LIMPEZA] Removendo dados de teste anteriores...
+[LIMPEZA] Dados de teste removidos
+
+================================================================================
+SETUP: Registrando cliente teste
+================================================================================
+
+[SETUP] Criando cliente: Clientes/bateria_p0_user_teste_001
+[SETUP] id_negocio: bateria_p0_dono_teste
+[OK] Dados atualizados (merge) em: Clientes/bateria_p0_user_teste_001
+[SETUP] Resultado: True
+
+[SETUP] Validando que obter_id_dono retorna tenant correto...
+[SETUP] obter_id_dono('bateria_p0_user_teste_001') = 'bateria_p0_dono_teste'
+[SETUP] Esperado: 'bateria_p0_dono_teste'
+
+[SETUP] Validacao OK: tenant resolvido corretamente
+[SETUP] Cliente teste pronto para bateria P0
+
+================================================================================
+ETAPA 1: Conflito Detectado
+================================================================================
+[PRÉ] Criando evento ocupado: Bruna 10:00
+[SAVE] Tentando salvar dados em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000
+   - bucket: 100000 (tipo: <class 'str'>)
+   - profissional: Bruna (tipo: <class 'str'>)
+   - timestamp_lock: 2026-06-19T23:34:53.678827 (tipo: <class 'str'>)
+   - expira_em: 2026-06-20T23:34:53.678827 (tipo: <class 'str'>)
+   - status: reservado (tipo: <class 'str'>)
+   - evento_id: None (tipo: <class 'NoneType'>)
+[OK] Dados salvos (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000
+[SAVE] Tentando salvar dados em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000
+   - bucket: 101000 (tipo: <class 'str'>)
+   - profissional: Bruna (tipo: <class 'str'>)
+   - timestamp_lock: 2026-06-19T23:34:53.735234 (tipo: <class 'str'>)
+   - expira_em: 2026-06-20T23:34:53.735234 (tipo: <class 'str'>)
+   - status: reservado (tipo: <class 'str'>)
+   - evento_id: None (tipo: <class 'NoneType'>)
+[OK] Dados salvos (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000
+[SAVE] Tentando salvar dados em: Clientes/bateria_p0_dono_teste/Eventos/evt_ocupado_2026-06-19_1000
+   - descricao: Corte com Bruna (ocupado) (tipo: <class 'str'>)
+   - profissional: Bruna (tipo: <class 'str'>)
+   - servico: Corte (tipo: <class 'str'>)
+   - data: 2026-06-19 (tipo: <class 'str'>)
+   - hora_inicio: 10:00 (tipo: <class 'str'>)
+   - hora_fim: 10:20 (tipo: <class 'str'>)
+   - duracao: 20 (tipo: <class 'int'>)
+   - confirmado: True (tipo: <class 'bool'>)
+   - status: confirmado (tipo: <class 'str'>)
+   - cliente_id: cliente_teste_001 (tipo: <class 'str'>)
+   - cliente_nome: João Ocupado (tipo: <class 'str'>)
+   - criado_em: 2026-06-19T23:34:53.807812 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/bateria_p0_dono_teste/Eventos/evt_ocupado_2026-06-19_1000
+[OK] Dados atualizados (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000
+[OK] Dados atualizados (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000
+[PRÉ] Resultado: {'ok': True, 'evento_id': 'evt_ocupado_2026-06-19_1000', 'motivo': 'Evento criado com sucesso'}
+
+[TESTE] Tentando agendar Bruna no mesmo horário (10:00)...
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.678827', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.678827', 'status': 'confirmado', 'bucket': '100000', 'timestamp_confirmacao': '2026-06-19T23:34:53.870942'}
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.735234', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.735234', 'status': 'confirmado', 'bucket': '101000', 'timestamp_confirmacao': '2026-06-19T23:34:53.909572'}
+[TESTE] Resultado: {'ok': False, 'motivo': 'Slot ocupado: Bruna 10:00-10:20', 'tipo_erro': 'lock_existente'}
+[OK] ETAPA 1 PASSOU: Conflito lock_existente detectado corretamente
+
+================================================================================
+ETAPA 2: Lock Existente Bloqueado
+================================================================================
+[TESTE] Segunda tentativa no mesmo horário...
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.678827', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.678827', 'status': 'confirmado', 'bucket': '100000', 'timestamp_confirmacao': '2026-06-19T23:34:53.870942'}
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.735234', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.735234', 'status': 'confirmado', 'bucket': '101000', 'timestamp_confirmacao': '2026-06-19T23:34:53.909572'}
+[TESTE] Resultado 2ª tentativa: {'ok': False, 'motivo': 'Slot ocupado: Bruna 10:00-10:20', 'tipo_erro': 'lock_existente'}
+[OK] ETAPA 2 PASSOU: Lock bloqueou segunda tentativa
+
+================================================================================
+ETAPA 3: Sugestoes Geradas
+================================================================================
+[TESTE] Gerando sugestoes para Bruna...
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/Eventos/evt_ocupado_2026-06-19_1000: {'criado_em': '2026-06-19T23:34:53.807812', 'profissional': 'Bruna', 'duracao': 20, 'descricao': 'Corte com Bruna (ocupado)', 'hora_fim': '10:20', 'confirmado': True, 'cliente_id': 'cliente_teste_001', 'data': '2026-06-19', 'cliente_nome': 'João Ocupado', 'hora_inicio': '10:00', 'status': 'confirmado', 'servico': 'Corte'}
+[DIAG] Dados recebidos: user_id=bateria_p0_user_teste_001, data=2026-06-19, hora_inicio=10:00, duracao_min=20, profissional=Bruna, servico=Corte
+[EVENTOS] Eventos existentes:
+{
+  "evt_ocupado_2026-06-19_1000": {
+    "criado_em": "2026-06-19T23:34:53.807812",
+    "profissional": "Bruna",
+    "duracao": 20,
+    "descricao": "Corte com Bruna (ocupado)",
+    "hora_fim": "10:20",
+    "confirmado": true,
+    "cliente_id": "cliente_teste_001",
+    "data": "2026-06-19",
+    "cliente_nome": "Jo\u00e3o Ocupado",
+    "hora_inicio": "10:00",
+    "status": "confirmado",
+    "servico": "Corte"
+  }
+}
+[FALHA] ERRO na Etapa 3: Excecao ao processar
+[TRACEBACK]
+Traceback (most recent call last):
+  File "C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\tests\p0_bateria_real_fluxo_completo_conflito_a_criacao.py", line 288, in etapa_3_sugestoes_geradas
+    conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\services\event_service_async.py", line 1144, in verificar_conflito_e_sugestoes_profissional
+    print(
+  File "C:\Users\ANDERSON\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+
+
+================================================================================
+ETAPA 4: Aceite de Sugestão
+================================================================================
+[FALHA] Nenhuma sugestão disponível de ETAPA 3
+
+================================================================================
+ETAPA 5: Confirmação Final
+================================================================================
+[DIAG_CARREGAR] path_legado=Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto | tenant_id=bateria_p0_dono_teste | user_id=bateria_p0_user_teste_001
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=confirmando_agendamento | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=bateria_p0_dono_teste | esperado=bateria_p0_dono_teste | match=True
+[CTX_LEGADO_COMPAT] | path=Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto | tenant_id=bateria_p0_dono_teste | guard_validado
+[DIAG_CARREGAR] retornando_legado: estado_fluxo=confirmando_agendamento | cancelamento_pendente=False
+[LOAD_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path=Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto
+[TESTE] Contexto carregado: estado=confirmando_agendamento
+[DIAG_SALVAR] path_legado=Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto | tenant_id=bateria_p0_dono_teste | user_id=bateria_p0_user_teste_001
+[DIAG_SALVAR] antes_merge: estado_fluxo=confirmando_agendamento | cancelamento_pendente=False
+[DIAG_SALVAR] depois_merge: estado_fluxo=confirmando_agendamento | cancelamento_pendente=False | keys_atualizadas=['aguardando_confirmacao_agendamento', 'draft_agendamento', '_tenant_id_guard', 'ultima_acao', 'estado_fluxo']
+[FALHA] ERRO na Etapa 5: Execucao falhou
+[TRACEBACK]
+Traceback (most recent call last):
+  File "C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\tests\p0_bateria_real_fluxo_completo_conflito_a_criacao.py", line 446, in etapa_5_confirmacao_final
+    resultado_confirm = await salvar_contexto_temporario(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\utils\contexto_temporario.py", line 249, in salvar_contexto_temporario
+    print(f"\U0001f9ea [CTX_LEGADO_SAVE_COMPAT] path={path} | tenant_id={tenant_id} | guard_adicionado", flush=True)
+  File "C:\Users\ANDERSON\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f9ea' in position 0: character maps to <undefined>
+
+
+================================================================================
+ETAPA 6: Criação do Evento
+================================================================================
+[DIAG_CARREGAR] path_legado=Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto | tenant_id=bateria_p0_dono_teste | user_id=bateria_p0_user_teste_001
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=confirmando_agendamento | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=bateria_p0_dono_teste | esperado=bateria_p0_dono_teste | match=True
+[CTX_LEGADO_COMPAT] | path=Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto | tenant_id=bateria_p0_dono_teste | guard_validado
+[DIAG_CARREGAR] retornando_legado: estado_fluxo=confirmando_agendamento | cancelamento_pendente=False
+[LOAD_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path=Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto
+[TESTE] Draft para criação: {'profissional': 'Bruna', 'duracao': 20, 'hora_inicio': '09:40', 'servico': 'Corte', 'data': '2026-06-19'}
+[TESTE] Criando evento: Bruna 09:40
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.678827', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.678827', 'status': 'confirmado', 'bucket': '100000', 'timestamp_confirmacao': '2026-06-19T23:34:53.870942'}
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.735234', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.735234', 'status': 'confirmado', 'bucket': '101000', 'timestamp_confirmacao': '2026-06-19T23:34:53.909572'}
+[SAVE] Tentando salvar dados em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_094000
+   - bucket: 094000 (tipo: <class 'str'>)
+   - profissional: Bruna (tipo: <class 'str'>)
+   - timestamp_lock: 2026-06-19T23:34:54.206720 (tipo: <class 'str'>)
+   - expira_em: 2026-06-20T23:34:54.206720 (tipo: <class 'str'>)
+   - status: reservado (tipo: <class 'str'>)
+   - evento_id: None (tipo: <class 'NoneType'>)
+[OK] Dados salvos (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_094000
+[SAVE] Tentando salvar dados em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_095000
+   - bucket: 095000 (tipo: <class 'str'>)
+   - profissional: Bruna (tipo: <class 'str'>)
+   - timestamp_lock: 2026-06-19T23:34:54.251021 (tipo: <class 'str'>)
+   - expira_em: 2026-06-20T23:34:54.251021 (tipo: <class 'str'>)
+   - status: reservado (tipo: <class 'str'>)
+   - evento_id: None (tipo: <class 'NoneType'>)
+[OK] Dados salvos (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_095000
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/Eventos/evt_ocupado_2026-06-19_1000: {'criado_em': '2026-06-19T23:34:53.807812', 'profissional': 'Bruna', 'duracao': 20, 'descricao': 'Corte com Bruna (ocupado)', 'hora_fim': '10:20', 'confirmado': True, 'cliente_id': 'cliente_teste_001', 'data': '2026-06-19', 'cliente_nome': 'João Ocupado', 'hora_inicio': '10:00', 'status': 'confirmado', 'servico': 'Corte'}
+[SAVE] Tentando salvar dados em: Clientes/bateria_p0_dono_teste/Eventos/evt_final_2026-06-19_0940
+   - descricao: Corte com Bruna (tipo: <class 'str'>)
+   - profissional: Bruna (tipo: <class 'str'>)
+   - servico: Corte (tipo: <class 'str'>)
+   - data: 2026-06-19 (tipo: <class 'str'>)
+   - hora_inicio: 09:40 (tipo: <class 'str'>)
+   - hora_fim: 10:00 (tipo: <class 'str'>)
+   - duracao: 20 (tipo: <class 'int'>)
+   - confirmado: True (tipo: <class 'bool'>)
+   - status: confirmado (tipo: <class 'str'>)
+   - cliente_id: bateria_p0_user_teste_001 (tipo: <class 'str'>)
+   - cliente_nome: Teste P0 (tipo: <class 'str'>)
+   - criado_em: 2026-06-19T23:34:54.310465 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/bateria_p0_dono_teste/Eventos/evt_final_2026-06-19_0940
+[OK] Dados atualizados (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_094000
+[OK] Dados atualizados (merge) em: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_095000
+[TESTE] Resultado criação: {'ok': True, 'evento_id': 'evt_final_2026-06-19_0940', 'motivo': 'Evento criado com sucesso'}
+[OK] ETAPA 6 PASSOU: Evento criado com sucesso
+
+================================================================================
+ETAPA 7: Limpeza de Contexto
+================================================================================
+[TESTE] Limpando contexto com DELETE_FIELD...
+[PATCH_P0_CLEAR] path=Clientes/bateria_p0_dono_teste/Sessoes/bateria_p0_user_teste_001 | dono=bateria_p0_dono_teste | cliente=bateria_p0_user_teste_001
+[PATCH_P0_CLEAR] DELETE_FIELD count: 26
+[OK] Dados atualizados (merge) em: Clientes/bateria_p0_dono_teste/Sessoes/bateria_p0_user_teste_001
+[TESTE] Resultado limpeza: True
+[OK] ETAPA 7 PASSOU: Contexto limpo corretamente
+
+[OK] Resultado salvo em: C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\tests\resultado_bateria_p0_fluxo.json
+
+================================================================================
+RESULTADO FINAL
+================================================================================
+[OK] Passaram: 4/7
+[FALHA] Falharam: 3/7
+ Fluxo validado: False
+
+[LIMPEZA] Removendo dados de teste anteriores...
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_094000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:54.206720', 'evento_id': 'evt_final_2026-06-19_0940', 'expira_em': '2026-06-20T23:34:54.206720', 'status': 'confirmado', 'bucket': '094000', 'timestamp_confirmacao': '2026-06-19T23:34:54.359895'}
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_095000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:54.251021', 'evento_id': 'evt_final_2026-06-19_0940', 'expira_em': '2026-06-20T23:34:54.251021', 'status': 'confirmado', 'bucket': '095000', 'timestamp_confirmacao': '2026-06-19T23:34:54.382793'}
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.678827', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.678827', 'status': 'confirmado', 'bucket': '100000', 'timestamp_confirmacao': '2026-06-19T23:34:53.870942'}
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000: {'profissional': 'Bruna', 'timestamp_lock': '2026-06-19T23:34:53.735234', 'evento_id': 'evt_ocupado_2026-06-19_1000', 'expira_em': '2026-06-20T23:34:53.735234', 'status': 'confirmado', 'bucket': '101000', 'timestamp_confirmacao': '2026-06-19T23:34:53.909572'}
+[DELETE] Dado deletado de: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_094000
+  Deletado: bruna_20260619_094000
+[DELETE] Dado deletado de: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_095000
+  Deletado: bruna_20260619_095000
+[DELETE] Dado deletado de: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_100000
+  Deletado: bruna_20260619_100000
+[DELETE] Dado deletado de: Clientes/bateria_p0_dono_teste/AgendaLocks/bruna_20260619_101000
+  Deletado: bruna_20260619_101000
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/Eventos/evt_final_2026-06-19_0940: {'criado_em': '2026-06-19T23:34:54.310465', 'profissional': 'Bruna', 'duracao': 20, 'descricao': 'Corte com Bruna', 'hora_fim': '10:00', 'confirmado': True, 'cliente_id': 'bateria_p0_user_teste_001', 'data': '2026-06-19', 'cliente_nome': 'Teste P0', 'hora_inicio': '09:40', 'status': 'confirmado', 'servico': 'Corte'}
+[DOC] Documento encontrado em Clientes/bateria_p0_dono_teste/Eventos/evt_ocupado_2026-06-19_1000: {'criado_em': '2026-06-19T23:34:53.807812', 'profissional': 'Bruna', 'duracao': 20, 'descricao': 'Corte com Bruna (ocupado)', 'hora_fim': '10:20', 'confirmado': True, 'cliente_id': 'cliente_teste_001', 'data': '2026-06-19', 'cliente_nome': 'João Ocupado', 'hora_inicio': '10:00', 'status': 'confirmado', 'servico': 'Corte'}
+[DELETE] Dado deletado de: Clientes/bateria_p0_dono_teste/Eventos/evt_final_2026-06-19_0940
+  Deletado evento: evt_final_2026-06-19_0940
+[DELETE] Dado deletado de: Clientes/bateria_p0_dono_teste/Eventos/evt_ocupado_2026-06-19_1000
+  Deletado evento: evt_ocupado_2026-06-19_1000
+[LIMPEZA] Dados de teste removidos
