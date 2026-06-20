@@ -367,8 +367,11 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     # Extrai filtros do termo
     termo_lower = (termo or "").strip().lower()
 
-    # [LOG] Diagnóstico inicial
-    print(f"[P0-CANCELAMENTO_BUSCA] termo_original='{termo}' | user_id={user_id} | tenant_id={tenant_id} | total_eventos={len(eventos or {})}", flush=True)
+    # [LOG] ETAPA 1: Diagnóstico inicial
+    print(f"[P0-DIAG-ETAPA1] termo_original='{termo}'", flush=True)
+    print(f"[P0-DIAG-ETAPA1] termo_lower='{termo_lower}'", flush=True)
+    print(f"[P0-DIAG-ETAPA1] user_id={user_id} tenant_id={tenant_id}", flush=True)
+    print(f"[P0-DIAG-ETAPA1] total_eventos_carregados={len(eventos or {})}", flush=True)
 
     # PASSO 1: Extrair DATA usando interpretador já existente
     # Isso evita contaminar profissional com data
@@ -376,7 +379,10 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     data_extraida = interpretar_data_e_hora(termo_lower)
     if data_extraida:
         data_filtro = data_extraida.strftime("%Y-%m-%d")
-        print(f"[P0-CANCELAMENTO_BUSCA_DATA] data_extraida={data_filtro}", flush=True)
+        print(f"[P0-DIAG-ETAPA2] data_extraida_sucesso=true", flush=True)
+        print(f"[P0-DIAG-ETAPA2] data_filtro={data_filtro}", flush=True)
+    else:
+        print(f"[P0-DIAG-ETAPA2] data_extraida_sucesso=false", flush=True)
 
     # PASSO 2: Extrair PROFISSIONAL (após remover referências de data)
     # Remover dia da semana, "amanhã", "hoje" do termo antes de extrair profissional
@@ -394,6 +400,7 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
         termo_sem_data = termo_sem_data.replace(f" {dia_kw}", "").replace(dia_kw, "")
 
     termo_sem_data = termo_sem_data.strip()
+    print(f"[P0-DIAG-ETAPA3] termo_sem_data='{termo_sem_data}'", flush=True)
 
     # [LOG] Diagnóstico de extração de profissional
     profissional_filtro = None
@@ -417,7 +424,10 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
         prof_limpo = prof_limpo.replace(" na", "").replace(" no", "").replace(" ao", "").strip()
 
         profissional_filtro = prof_limpo if prof_limpo else prof_raw
-        print(f"[P0-CANCELAMENTO_BUSCA_PROF] profissional_extraido='{profissional_filtro}' | termo_sem_data='{termo_sem_data}' | prof_raw='{prof_raw}'", flush=True)
+        print(f"[P0-DIAG-ETAPA4] prof_raw='{prof_raw}'", flush=True)
+        print(f"[P0-DIAG-ETAPA4] profissional_filtro='{profissional_filtro}'", flush=True)
+    else:
+        print(f"[P0-DIAG-ETAPA4] profissional_filtro=None prof_raw_nao_encontrado=true", flush=True)
 
 
     # Busca eventos que matcham
@@ -426,31 +436,49 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     eventos_apos_prof = 0
     eventos_apos_data = 0
 
+    print(f"[P0-DIAG-ETAPA5] iniciando_loop_de_filtros numero_total_eventos={len(eventos or {})}", flush=True)
+
     for eid, ev in eventos.items():
         if not isinstance(ev, dict):
+            print(f"[P0-DIAG-EVENTO] eid={eid} tipo_invalido=nao_eh_dict", flush=True)
             continue
 
-        # Filtro: apenas eventos ativos (não cancelados)
+        event_status = str(ev.get("status") or "").strip().lower()
+        event_prof = (ev.get("profissional") or "").strip()
+        event_data = ev.get("data") or ""
+
+        # Filtro: apenas eventos confirmados (cancelamento só para confirmados)
         status = str(ev.get("status") or "").strip().lower()
-        if status in ["cancelado", "cancelada", "removido", "removida"]:
+        if status not in ["confirmado", "confirmada"]:
+            print(f"[P0-DIAG-EVENTO] eid={eid} status={event_status} prof={event_prof} data={event_data} rejeitado=status_nao_confirmado", flush=True)
             continue
 
         eventos_ativos += 1
+        print(f"[P0-DIAG-EVENTO] eid={eid} status={event_status} prof={event_prof} data={event_data} passou_filtro_status=sim", flush=True)
 
         # Filtro: profissional (se especificado)
         if profissional_filtro:
             prof_evento = (ev.get("profissional") or "").strip().lower()
-            if profissional_filtro not in prof_evento:
+            prof_filtro_lower = profissional_filtro.lower()
+            prof_match = prof_filtro_lower in prof_evento
+            print(f"[P0-DIAG-EVENTO] eid={eid} filtrando_por_prof filtro={prof_filtro_lower} evento={prof_evento} match={prof_match}", flush=True)
+            if not prof_match:
+                print(f"[P0-DIAG-EVENTO] eid={eid} rejeitado=profissional_nao_match", flush=True)
                 continue
 
         eventos_apos_prof += 1
+        print(f"[P0-DIAG-EVENTO] eid={eid} passou_filtro_prof=sim", flush=True)
 
         # Filtro: data (se especificado)
         if data_filtro:
-            if ev.get("data") != data_filtro:
+            data_match = ev.get("data") == data_filtro
+            print(f"[P0-DIAG-EVENTO] eid={eid} filtrando_por_data filtro={data_filtro} evento={ev.get('data')} match={data_match}", flush=True)
+            if not data_match:
+                print(f"[P0-DIAG-EVENTO] eid={eid} rejeitado=data_nao_match", flush=True)
                 continue
 
         eventos_apos_data += 1
+        print(f"[P0-DIAG-EVENTO] eid={eid} passou_filtro_data=sim", flush=True)
 
         # Filtro: termo geral na descrição ou profissional
         if termo_lower and not (profissional_filtro or data_filtro):
@@ -459,18 +487,24 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
             prof = (ev.get("profissional") or "").strip().lower()
             servico = (ev.get("servico") or "").strip().lower()
 
-            if not (termo_lower in desc or termo_lower in prof or termo_lower in servico):
+            termo_found = (termo_lower in desc or termo_lower in prof or termo_lower in servico)
+            print(f"[P0-DIAG-EVENTO] eid={eid} filtrando_por_termo_geral termo={termo_lower} desc={desc} prof={prof} servico={servico} match={termo_found}", flush=True)
+            if not termo_found:
+                print(f"[P0-DIAG-EVENTO] eid={eid} rejeitado=termo_geral_nao_match", flush=True)
                 continue
 
         # Passou em todos os filtros
+        print(f"[P0-DIAG-EVENTO] eid={eid} ACEITO_COMO_CANDIDATO", flush=True)
         candidatos.append((eid, ev))
 
     # [LOG] Relatório de filtragem
-    print(f"[P0-CANCELAMENTO_BUSCA_FILTROS] ativos={eventos_ativos} | apos_prof={eventos_apos_prof} | apos_data={eventos_apos_data} | candidatos_finais={len(candidatos)}", flush=True)
+    print(f"[P0-DIAG-ETAPA6] resumo_filtragem ativos={eventos_ativos} apos_prof={eventos_apos_prof} apos_data={eventos_apos_data} candidatos_finais={len(candidatos)}", flush=True)
 
     # ❌ Nenhum encontrado
     if not candidatos:
-        return False, "❌ Não encontrei nenhum evento correspondente ao que você quer cancelar.", []
+        print(f"[P0-DIAG-RESULTADO] nenhum_candidato_encontrado=true", flush=True)
+        print(f"[P0-DIAG-RESULTADO] diagnostico: verif P0-DIAG-EVENTO acima para ver onde cada evento foi rejeitado", flush=True)
+        return False, "Não encontrei nenhum evento correspondente ao que você quer cancelar.", []
 
     # ✅ P0.1A: Mesmo com 1 evento, pedir confirmação (não cancelar direto)
     linhas = []
