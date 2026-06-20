@@ -70,17 +70,17 @@ def formatar_mensagem_conflito_profissional(
     Returns:
         str: Mensagem formatada com markdown (Telegram)
     """
-    msg = f"⛔ A *{profissional}* já tem atendimento às *{hora}* nesse dia.\n\n"
+    msg = f"A *{profissional}* já tem atendimento às *{hora}* nesse dia.\n\n"
 
     if sugestoes:
-        msg += f"✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n"
+        msg += f"Estes horários estão livres com a *{profissional}* no mesmo dia:\n"
         for s in sugestoes[:3]:
-            msg += f"🔄 {s}\n"
+            msg += f"  {s}\n"
 
     if alternativas:
         alts_str = ", ".join([f"*{p}*" for p in alternativas])
         msg += (
-            f"\n💡 Se você quiser manter *{hora}*, estas profissionais fazem "
+            f"\nSe você quiser manter *{hora}*, estas profissionais fazem "
             f"*{servico}* e estão disponíveis: {alts_str}.\n"
         )
 
