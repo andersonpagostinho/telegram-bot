@@ -1027,47 +1027,70 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             print(f"[PATCH_P0_CONFLITO] Conflito detectado: {tipo_erro} — gerando sugestões", flush=True)
 
             try:
-                # Gerar sugestões de horários alternativos
-                from services.event_service_async import verificar_conflito_e_sugestoes_profissional
-
+                # [PATCH_P0] Reutilizar exatamente o código que funciona (linhas 839-990)
                 duracao_evento = evento_data.get("duracao", 30)
-                conflito_info = await verificar_conflito_e_sugestoes_profissional(
-                    user_id=dono_id,
-                    data=evento_data.get("data"),
-                    hora_inicio=evento_data.get("hora_inicio"),
-                    duracao_min=duracao_evento,
-                    profissional=profissional,
-                    servico=servico
+                sugestoes = gerar_sugestoes_de_horario(
+                    start_time,
+                    ocupados,
+                    duracao_evento_minutos=duracao_evento,
+                    max_sugestoes=3
                 )
 
-                print(f"[PATCH_P0_CONFLITO] Sugestões geradas: {conflito_info}", flush=True)
+                alternativa = None
+                sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes]) if sugestoes else ""
 
-                # [FORMATADOR OFICIAL] Usar padrão de principal_router.py
-                sugestoes = conflito_info.get("sugestoes") or []
-                alternativas = (
-                    conflito_info.get("profissional_alternativo")
-                    or conflito_info.get("alternativa_profissional")
-                    or conflito_info.get("profissionais_alternativos")
-                    or conflito_info.get("alternativas")
-                    or []
+                id_dono = dono_id
+                servico_final = servico
+
+                # Alternativas no MESMO horário (mesmo serviço)
+                alternativas_txt = ""
+                try:
+                    if servico_final:
+                        data_ref = start_time.date()
+                        hora_ref = start_time.strftime("%H:%M")
+
+                        aptas = await buscar_profissionais_por_servico([servico_final], id_dono)
+                        livres = await buscar_profissionais_disponiveis_no_horario(
+                            user_id=id_dono,
+                            data=data_ref,
+                            hora=hora_ref,
+                            duracao=duracao_evento
+                        )
+
+                        def norm_nome(n: str) -> str:
+                            return unidecode.unidecode(str(n).strip().lower())
+
+                        aptas_norm = {norm_nome(n): n for n in aptas.keys()}
+                        livres_norm = {norm_nome(n): n for n in livres.keys()}
+                        prof_ocupada_norm = norm_nome(profissional)
+
+                        nomes_alternativos = []
+                        for k in livres_norm.keys():
+                            if k == prof_ocupada_norm:
+                                continue
+                            if k in aptas_norm:
+                                nomes_alternativos.append(livres_norm[k])
+
+                        alternativa = nomes_alternativos if nomes_alternativos else None
+
+                        if nomes_alternativos:
+                            alternativas_txt = (
+                                f"\n\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem *{servico_final}* "
+                                f"e estão disponíveis: *{', '.join(nomes_alternativos)}*."
+                            )
+
+                except Exception as e:
+                    print(f"[PATCH_P0_CONFLITO] Falha ao obter alternativas: {e}", flush=True)
+
+                # Montar mensagem EXATAMENTE como em linhas 985-990
+                mensagem_sugestao = (
+                    f"⛔ A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
+                    f"\n\n✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
+                    f"{alternativas_txt}"
+                    "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
                 )
 
-                if isinstance(alternativas, str):
-                    alternativas = [alternativas]
-                if isinstance(alternativas, dict):
-                    alternativas = alternativas.get("profissionais") or alternativas.get("nomes") or []
-                if not isinstance(alternativas, list):
-                    alternativas = list(alternativas) if alternativas else []
-
-                resposta = formatar_mensagem_conflito_profissional(
-                    profissional=profissional or "profissional",
-                    hora=evento_data.get("hora_inicio", "??"),
-                    sugestoes=sugestoes,
-                    alternativas=alternativas,
-                    servico=servico or "serviço"
-                )
-
-                await update.message.reply_text(resposta, parse_mode="Markdown")
+                await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
 
                 # [PATCH_P0] Salvar estado de espera por escolha de horário
                 contexto_conflito = {
