@@ -131,9 +131,11 @@ async def carregar_contexto_temporario_v2(dono_id: str, cliente_id: str):
 
 
 async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
-    """Limpar contexto isolado por dono_id (tenant) + cliente_id.
+    """[PATCH P0] Limpeza centralizada com DELETE_FIELD.
 
-    PATCH MT-07: Contextualiza multi-tenant.
+    Limpa TODOS os campos transitórios de conversa/fluxo.
+    Preserva APENAS metadados estruturais.
+
     Path: Clientes/{dono_id}/Sessoes/{cliente_id}
     """
     if not dono_id:
@@ -141,45 +143,65 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
     if not cliente_id:
         raise ValueError("cliente_id é obrigatório para limpar contexto")
 
+    from datetime import datetime
+
     path = f"Clientes/{dono_id}/Sessoes/{cliente_id}"
 
+    # [PATCH P0] DELETE_FIELD para TODOS os campos transitórios
+    # Mantém APENAS: estado_fluxo, aguardando_confirmacao_* e metadados estruturais
     payload = {
-        "modo_escolha_horario": False,
-        "horarios_sugeridos": [],
-        "alternativa_profissional": None,
-        "ultima_opcao_profissionais": [],
+        # ✅ METADADOS ESTRUTURAIS — preservar
+        "estado_fluxo": "idle",
+        "aguardando_confirmacao_agendamento": False,
+        "aguardando_confirmacao_cancelamento": False,
+        "ultima_acao": "contexto_limpo",
+        "_updated_at": datetime.now().isoformat(),
 
-        "aguardando_confirmacao_agendamento": firestore.DELETE_FIELD,
+        # ❌ CAMPOS TRANSITÓRIOS — DELETE_FIELD (remover completamente)
+        # Fluxo de agendamento
+        "draft_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
         "dados_anteriores": firestore.DELETE_FIELD,
+        "profissional_escolhido": firestore.DELETE_FIELD,
+        "data_hora": firestore.DELETE_FIELD,
+        "servico": firestore.DELETE_FIELD,
+        "hora_confirmada": firestore.DELETE_FIELD,
+        "evento_criado": firestore.DELETE_FIELD,
 
-        "draft_agendamento": {},
-        "ultima_acao": None,
-        "ultima_intencao": None,
+        # Fluxo de cancelamento
+        "cancelamento_pendente": firestore.DELETE_FIELD,
+        "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
+        "candidatos_cancelamento": firestore.DELETE_FIELD,
 
-        "hora_confirmada": None,
-        "sugestoes": [],
-        "ultima_consulta": None,
+        # Interpretação conversacional
+        "interpretacao_conversacional": firestore.DELETE_FIELD,
+        "intencao_conversacional": firestore.DELETE_FIELD,
+        "objetivo_conversacional": firestore.DELETE_FIELD,
+        "tipo_ajuste_incremental": firestore.DELETE_FIELD,
+        "modo_conversa": firestore.DELETE_FIELD,
 
-        "data_hora": None,
-        "servico": None,
-        "profissional_escolhido": None,
+        # Escolha de horários
+        "modo_escolha_horario": firestore.DELETE_FIELD,
+        "horarios_sugeridos": firestore.DELETE_FIELD,
+        "sugestoes": firestore.DELETE_FIELD,
 
-        "historico_texto": [],
+        # Sugestões e alternativas
+        "alternativa_profissional": firestore.DELETE_FIELD,
+        "ultima_opcao_profissionais": firestore.DELETE_FIELD,
 
-        "evento_criado": False,
+        # Histórico e consultas
+        "historico_texto": firestore.DELETE_FIELD,
+        "ultima_consulta": firestore.DELETE_FIELD,
+        "ultima_intencao": firestore.DELETE_FIELD,
 
-        "pergunta_amanha_mesmo_horario": False,
-        "data_hora_pendente": None,
-
-        "objetivo_conversacional": None,
-        "intencao_conversacional": None,
-        "modo_conversa": None,
-
-        "estado_fluxo": "idle"
+        # Questões sobre repetição
+        "pergunta_amanha_mesmo_horario": firestore.DELETE_FIELD,
+        "data_hora_pendente": firestore.DELETE_FIELD,
     }
 
-    print(f"🧪 [CLEAR CTX v2] path={path} | dono={dono_id} | cliente={cliente_id} | payload_keys={list(payload.keys())}", flush=True)
+    print(f"[PATCH_P0_CLEAR] path={path} | dono={dono_id} | cliente={cliente_id}", flush=True)
+    print(f"[PATCH_P0_CLEAR] DELETE_FIELD count: {len([v for v in payload.values() if v is firestore.DELETE_FIELD])}", flush=True)
+
     return await atualizar_dado_em_path(path, payload)
 
 
@@ -292,16 +314,18 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
 
 
 async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
-    """DEPRECADO: Use limpar_contexto_agendamento_v2(dono_id, cliente_id).
+    """[PATCH P0] Limpeza legada com DELETE_FIELD (compatibilidade).
 
-    Função legada mantida APENAS para compatibilidade com código existente.
-    ⚠️ NÃO isolado por tenant.
+    ⚠️ DEPRECADO: Use limpar_contexto_agendamento_v2(dono_id, cliente_id).
+    Mantida APENAS para compatibilidade com código existente.
 
-    PATCH DEFENSIVO (2026-06-19):
-    - Se tenant_id informado: validar antes de limpar
-    - Se mismatch: logar alerta e não limpar
-    - Se sem tenant_id: logar risco
+    PATCH P0 (2026-06-19):
+    - DELETE_FIELD para TODOS os campos transitórios
+    - Validação tenant se informado
+    - Bloqueia se tenant mismatch
     """
+    from datetime import datetime
+
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
 
     # 🧬 PATCH MT-07: Validar tenant antes de limpar
@@ -315,41 +339,58 @@ async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
     else:
         print(f"🚨 [CTX_LEGADO_CLEAR_SEM_TENANT] ⚠️ RISCO | path={path} | tenant_id não fornecido", flush=True)
 
+    # [PATCH P0] DELETE_FIELD para TODOS os campos transitórios
     payload = {
-        "modo_escolha_horario": False,
-        "horarios_sugeridos": [],
-        "alternativa_profissional": None,
-        "ultima_opcao_profissionais": [],
+        # ✅ METADADOS ESTRUTURAIS — preservar
+        "estado_fluxo": "idle",
+        "aguardando_confirmacao_agendamento": False,
+        "aguardando_confirmacao_cancelamento": False,
+        "ultima_acao": "contexto_limpo",
+        "_updated_at": datetime.now().isoformat(),
 
-        "aguardando_confirmacao_agendamento": firestore.DELETE_FIELD,
+        # ❌ CAMPOS TRANSITÓRIOS — DELETE_FIELD (remover completamente)
+        # Fluxo de agendamento
+        "draft_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
         "dados_anteriores": firestore.DELETE_FIELD,
+        "profissional_escolhido": firestore.DELETE_FIELD,
+        "data_hora": firestore.DELETE_FIELD,
+        "servico": firestore.DELETE_FIELD,
+        "hora_confirmada": firestore.DELETE_FIELD,
+        "evento_criado": firestore.DELETE_FIELD,
 
-        "draft_agendamento": {},
-        "ultima_acao": None,
-        "ultima_intencao": None,
+        # Fluxo de cancelamento
+        "cancelamento_pendente": firestore.DELETE_FIELD,
+        "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
+        "candidatos_cancelamento": firestore.DELETE_FIELD,
 
-        "hora_confirmada": None,
-        "sugestoes": [],
-        "ultima_consulta": None,
+        # Interpretação conversacional
+        "interpretacao_conversacional": firestore.DELETE_FIELD,
+        "intencao_conversacional": firestore.DELETE_FIELD,
+        "objetivo_conversacional": firestore.DELETE_FIELD,
+        "tipo_ajuste_incremental": firestore.DELETE_FIELD,
+        "modo_conversa": firestore.DELETE_FIELD,
 
-        "data_hora": None,
-        "servico": None,
-        "profissional_escolhido": None,
+        # Escolha de horários
+        "modo_escolha_horario": firestore.DELETE_FIELD,
+        "horarios_sugeridos": firestore.DELETE_FIELD,
+        "sugestoes": firestore.DELETE_FIELD,
 
-        "historico_texto": [],
+        # Sugestões e alternativas
+        "alternativa_profissional": firestore.DELETE_FIELD,
+        "ultima_opcao_profissionais": firestore.DELETE_FIELD,
 
-        "evento_criado": False,
+        # Histórico e consultas
+        "historico_texto": firestore.DELETE_FIELD,
+        "ultima_consulta": firestore.DELETE_FIELD,
+        "ultima_intencao": firestore.DELETE_FIELD,
 
-        "pergunta_amanha_mesmo_horario": False,
-        "data_hora_pendente": None,
-
-        "objetivo_conversacional": None,
-        "intencao_conversacional": None,
-        "modo_conversa": None,
-
-        "estado_fluxo": "idle"
+        # Questões sobre repetição
+        "pergunta_amanha_mesmo_horario": firestore.DELETE_FIELD,
+        "data_hora_pendente": firestore.DELETE_FIELD,
     }
 
-    print(f"🧪 [CLEAR CTX LEGADO] ⚠️ NÃO MULTI-TENANT | path={path}", flush=True)
+    print(f"[PATCH_P0_CLEAR] ⚠️ LEGADO path={path} | user_id={user_id}", flush=True)
+    print(f"[PATCH_P0_CLEAR] DELETE_FIELD count: {len([v for v in payload.values() if v is firestore.DELETE_FIELD])}", flush=True)
+
     return await atualizar_dado_em_path(path, payload)

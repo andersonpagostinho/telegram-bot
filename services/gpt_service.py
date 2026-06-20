@@ -800,7 +800,10 @@ async def processar_com_gpt_com_acao(
             try:
                 if contexto_salvo.get("aguardando_confirmacao_agendamento"):
                     if uid != "desconhecido":
-                        await limpar_contexto_agendamento(uid)
+                        # [PATCH_P0] Obter tenant_id para limpeza segura
+                        from services.firebase_service_async import obter_id_dono
+                        tenant_id = await obter_id_dono(uid)
+                        await limpar_contexto_agendamento(uid, tenant_id=tenant_id)
                         await limpar_contexto(uid)
                     return {
                         "resposta": "👋 Olá! Em que mais posso te ajudar hoje?",
@@ -1302,7 +1305,10 @@ async def processar_com_gpt_com_acao(
         ]
         if any(p in texto_lower for p in palavras_cancelamento):
             print("🛑 Cancelamento detectado. Limpando contexto.")
-            await limpar_contexto_agendamento(user_id)
+            # [PATCH_P0] Obter tenant_id para limpeza segura
+            from services.firebase_service_async import obter_id_dono
+            tenant_id = await obter_id_dono(user_id)
+            await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
             await limpar_contexto(user_id)
             await resetar_sessao(user_id)
             contexto_salvo = {}
