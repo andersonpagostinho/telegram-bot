@@ -977,13 +977,88 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         print("📦 Disparando salvar_evento com:", evento_data)
         resultado_salvamento = await salvar_evento(user_id, evento_data)
 
+        # [PATCH_P0] Detectar e tratar duplicado
         if resultado_salvamento == "duplicado":
             await update.message.reply_text("Esse horário já está confirmado.\n\nSe precisar alterar ou cancelar, é só me avisar.")
             return True
 
+        # [PATCH_P0] CRÍTICO: Detectar conflito_lock_existente e gerar sugestões
+        if resultado_salvamento and isinstance(resultado_salvamento, str) and resultado_salvamento.startswith("conflito_"):
+            tipo_erro = resultado_salvamento.split("_", 1)[1]
+            print(f"[PATCH_P0_CONFLITO] Conflito detectado: {tipo_erro} — gerando sugestões", flush=True)
+
+            try:
+                # Gerar sugestões de horários alternativos
+                from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+
+                duracao_evento = evento_data.get("duracao", 30)
+                conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                    user_id=user_id,
+                    data=evento_data.get("data"),
+                    hora_inicio=evento_data.get("hora_inicio"),
+                    duracao_min=duracao_evento,
+                    profissional=profissional,
+                    servico=servico
+                )
+
+                print(f"[PATCH_P0_CONFLITO] Sugestões geradas: {conflito_info}", flush=True)
+
+                # Construir resposta com sugestões
+                prof_display = profissional or "profissional"
+                resposta = f"❌ A *{prof_display}* não tem esse horário disponível.\n\n"
+
+                if conflito_info.get("sugestoes"):
+                    sugestoes_list = conflito_info["sugestoes"][:3]  # Primeiras 3 sugestões
+                    sugestoes_str = ", ".join([f"*{s}*" for s in sugestoes_list])
+                    resposta += f"✅ Posso oferecer estes horários:\n{sugestoes_str}\n"
+                else:
+                    resposta += "❌ Infelizmente não há horários disponíveis neste dia.\n"
+
+                # Oferecer profissionais alternativos se disponível
+                if conflito_info.get("profissional_alternativo"):
+                    alts = conflito_info["profissional_alternativo"][:2]  # Primeiros 2 alternativos
+                    alts_str = ", ".join([f"*{p}*" for p in alts])
+                    resposta += f"\n💡 Ou posso agendar com: {alts_str}"
+
+                resposta += "\n\nQual preferir?"
+
+                await update.message.reply_text(resposta, parse_mode="Markdown")
+
+                # [PATCH_P0] Salvar estado de espera por escolha de horário
+                contexto_conflito = {
+                    "estado_fluxo": "aguardando_escolha_horario",
+                    "ultima_acao": "conflito_detectado",
+                    "motivo_bloqueio": tipo_erro,
+                    "draft_agendamento": evento_data,  # Preservar dados originais
+                    "horarios_sugeridos": conflito_info.get("sugestoes", []),
+                    "alternativa_profissional": conflito_info.get("profissional_alternativo", []),
+                    "data_tentativa_agendamento": start_time.isoformat() if start_time else None,
+                    "profissional_tentado": profissional,
+                    "servico_tentado": servico,
+                }
+
+                await salvar_contexto_temporario(
+                    user_id,
+                    contexto_conflito,
+                    tenant_id=dono_id
+                )
+                print(f"[PATCH_P0_CONFLITO] Contexto salvo: estado_fluxo=aguardando_escolha_horario", flush=True)
+
+                return True  # Não continuar com notificações ou sucesso
+
+            except Exception as e:
+                print(f"[PATCH_P0_CONFLITO] Erro ao gerar sugestões: {e}", flush=True)
+                await update.message.reply_text(
+                    f"❌ Não consegui agendar nesse horário. Tente outro horário ou profissional."
+                )
+                return True
+
+        # [PATCH_P0] Erro genérico (sem conflito específico)
         if not resultado_salvamento:
+            print(f"[PATCH_P0] Salvamento falhou (resultado_salvamento={resultado_salvamento})", flush=True)
             return True
 
+        # ✅ Sucesso real — só chega aqui se não houve conflito/erro
         print("✅ Evento salvo")
 
         # P1.1: Atualizar ClienteProfile (background, não-bloqueante)
