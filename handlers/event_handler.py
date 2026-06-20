@@ -1032,7 +1032,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
                 duracao_evento = evento_data.get("duracao", 30)
                 conflito_info = await verificar_conflito_e_sugestoes_profissional(
-                    user_id=user_id,
+                    user_id=dono_id,
                     data=evento_data.get("data"),
                     hora_inicio=evento_data.get("hora_inicio"),
                     duracao_min=duracao_evento,
