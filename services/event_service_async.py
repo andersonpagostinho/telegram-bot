@@ -347,6 +347,7 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     - "cancelar amanhã" — filtra por data
     - "cancelar corte" — filtra por serviço/descrição
     - combinações: "cancelar corte com Bruna amanhã"
+    - dias da semana: "cancelar com Bruna na segunda"
 
     Retorna:
     - (False, msg, []) — nenhum encontrado
@@ -355,6 +356,7 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     Nota: NÃO cancela direto. Handler salva estado pendente e aguarda confirmação.
     """
     from datetime import datetime, timedelta
+    from utils.interpretador_datas import interpretar_data_e_hora
 
     if not tenant_id:
         tenant_id = await obter_id_dono(user_id)
@@ -365,26 +367,45 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     # Extrai filtros do termo
     termo_lower = (termo or "").strip().lower()
 
-    # Detectar se menciona profissional (com "com" ou direto)
+    # [LOG] Diagnóstico inicial
+    print(f"[P0-CANCELAMENTO_BUSCA] termo_original='{termo}' | user_id={user_id} | tenant_id={tenant_id} | total_eventos={len(eventos or {})}", flush=True)
+
+    # PASSO 1: Extrair DATA usando interpretador já existente
+    # Isso evita contaminar profissional com data
+    data_filtro = None
+    data_extraida = interpretar_data_e_hora(termo_lower)
+    if data_extraida:
+        data_filtro = data_extraida.strftime("%Y-%m-%d")
+        print(f"[P0-CANCELAMENTO_BUSCA_DATA] data_extraida={data_filtro}", flush=True)
+
+    # PASSO 2: Extrair PROFISSIONAL (após remover referências de data)
+    # Remover dia da semana, "amanhã", "hoje" do termo antes de extrair profissional
+    termo_sem_data = termo_lower
+
+    dias_semana_keywords = [
+        "segunda", "segunda-feira", "terca", "terça", "terça-feira",
+        "quarta", "quarta-feira", "quinta", "quinta-feira",
+        "sexta", "sexta-feira", "sabado", "sábado", "domingo",
+        "amanhã", "amanha", "hoje"
+    ]
+
+    for dia_kw in dias_semana_keywords:
+        termo_sem_data = termo_sem_data.replace(dia_kw, " ").replace(f" {dia_kw}", "")
+
+    termo_sem_data = termo_sem_data.strip()
+
     profissional_filtro = None
-    if " com " in termo_lower:
-        partes = termo_lower.split(" com ")
-        # "cancelar com bruna" ou "corte com bruna"
+    if " com " in termo_sem_data:
+        partes = termo_sem_data.split(" com ")
         if len(partes) > 1:
             profissional_filtro = partes[-1].strip()
-
-    # Detectar data (amanhã, hoje, segunda, etc)
-    data_filtro = None
-    hoje = datetime.now().date()
-
-    if "amanhã" in termo_lower or "amanha" in termo_lower:
-        data_filtro = str(hoje + timedelta(days=1))
-    elif "hoje" in termo_lower:
-        data_filtro = str(hoje)
-    # TODO: adicionar suporte a "segunda", "terça", etc
+            print(f"[P0-CANCELAMENTO_BUSCA_PROF] profissional_extraido='{profissional_filtro}' | termo_sem_data='{termo_sem_data}'", flush=True)
 
     # Busca eventos que matcham
     candidatos = []
+    eventos_ativos = 0
+    eventos_apos_prof = 0
+    eventos_apos_data = 0
 
     for eid, ev in eventos.items():
         if not isinstance(ev, dict):
@@ -395,16 +416,22 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
         if status in ["cancelado", "cancelada", "removido", "removida"]:
             continue
 
+        eventos_ativos += 1
+
         # Filtro: profissional (se especificado)
         if profissional_filtro:
             prof_evento = (ev.get("profissional") or "").strip().lower()
             if profissional_filtro not in prof_evento:
                 continue
 
+        eventos_apos_prof += 1
+
         # Filtro: data (se especificado)
         if data_filtro:
             if ev.get("data") != data_filtro:
                 continue
+
+        eventos_apos_data += 1
 
         # Filtro: termo geral na descrição ou profissional
         if termo_lower and not (profissional_filtro or data_filtro):
@@ -418,6 +445,9 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
 
         # Passou em todos os filtros
         candidatos.append((eid, ev))
+
+    # [LOG] Relatório de filtragem
+    print(f"[P0-CANCELAMENTO_BUSCA_FILTROS] ativos={eventos_ativos} | apos_prof={eventos_apos_prof} | apos_data={eventos_apos_data} | candidatos_finais={len(candidatos)}", flush=True)
 
     # ❌ Nenhum encontrado
     if not candidatos:
