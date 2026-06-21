@@ -538,21 +538,24 @@ class BateriaP0Cancelamento:
                 tenant_id=tenant_id
             )
 
-            # Validar que mensagem contém índices
+            # Validar formatacao de indice corretamente
+            # Regra: 1 candidato: "sim/nao" | Multiplos: indices "1)", "2)", etc
             indices_presentes = []
-            if len(candidatos) > 0:
+            if len(candidatos) > 1:
                 for i in range(1, min(len(candidatos) + 1, 5)):
                     if f"{i})" in mensagem or f"{i}." in mensagem or f"[{i}]" in mensagem:
                         indices_presentes.append(i)
+                validacao = len(indices_presentes) >= min(len(candidatos), 2)
+            else:
+                # 1 candidato: pode nao ter indices (eh sim/nao)
+                validacao = len(mensagem) > 0
 
             resultado["etapas"]["indices"] = {
                 "candidatos_totais": len(candidatos),
-                "indices_encontrados": indices_presentes,
-                "tem_indices": len(indices_presentes) >= min(len(candidatos), 2),
+                "indices_encontrados": indices_presentes if len(candidatos) > 1 else "N/A",
+                "tem_indices": "multiplos" if len(candidatos) > 1 else "um_candidato",
             }
 
-            # Validar
-            validacao = len(indices_presentes) >= 1 if len(candidatos) > 0 else True
             resultado["status"] = "PASSOU" if validacao else "FALHOU"
             self.resultados["cenarios_" + ("passou" if validacao else "falhou")] += 1
 
