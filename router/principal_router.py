@@ -978,6 +978,8 @@ def eh_desistencia_fluxo(txt: str) -> bool:
     t = normalizar(txt or "")
 
     sinais_fortes = [
+        "nao",
+        "não",
         "cancelar",
         "cancela",
         "nao quero",

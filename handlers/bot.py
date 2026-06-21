@@ -50,7 +50,10 @@ from handlers.test_handler import testar_firebase, testar_avisos
 
 from handlers.encaixe_handler import handle_pedido_encaixe
 from handlers.reagendamento_handler import handle_resposta_reagendamento
-from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
+from utils.contexto_temporario import (
+    carregar_contexto_temporario, salvar_contexto_temporario,
+    carregar_contexto_temporario_v2, limpar_contexto_agendamento_v2
+)
 from services.gpt_executor import executar_acao_gpt
 from utils.contexto_temporario import limpar_contexto_agendamento
 from router.principal_router import eh_gatilho_agendar
@@ -162,8 +165,8 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
         raise ApplicationHandlerStop
     
     # --- 1.5) confirmação pendente de agendamento ---
-    # 🔧 PATCH MT-07: Passar tenant_id para validação defensiva
-    ctx_tmp = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
+    # 🔧 PATCH MT-07: Usar v2 para isolamento multi-tenant
+    ctx_tmp = await carregar_contexto_temporario_v2(tenant_id, user_id) or {}
     print(
     "🧪 [BOT-CTX]",
     {
@@ -213,6 +216,25 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
         )
 
         raise ApplicationHandlerStop
+
+    # P0-BUG-FIX: NEGAÇÃO DE CONFIRMAÇÃO DE AGENDAMENTO
+    confirmacao_pendente = ctx_tmp.get("aguardando_confirmacao_agendamento")
+
+    if confirmacao_pendente:
+        # Verificar se é negação (deve ter score >= 2)
+        if eh_desistencia_fluxo(texto_usuario):
+            print(
+                f"🧪 [BOT-NEGACAO-CONFIRMACAO] texto={mensagem!r} | "
+                f"aguardando_confirmacao_agendamento={confirmacao_pendente}",
+                flush=True
+            )
+
+            # 🔧 PATCH BUG-1: Limpar contexto de confirmação pendente
+            await limpar_contexto_agendamento_v2(tenant_id, user_id)
+            await update.message.reply_text(
+                "Tudo bem. Não vou agendar então. Quando quiser, é só me chamar."
+            )
+            raise ApplicationHandlerStop
 
     # P0.1A: CONFIRMAÇÃO DE CANCELAMENTO (precedência alta)
     cancelamento_pendente = ctx_tmp.get("cancelamento_pendente")

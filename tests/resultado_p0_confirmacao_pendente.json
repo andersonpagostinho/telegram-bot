@@ -1,0 +1,242 @@
+{
+  "data_execucao": "2026-06-21T10:46:01.046280",
+  "ambiente": "FIREBASE_REAL",
+  "fase": "VALIDACAO_CONFIRMACAO_PENDENTE_17_CENARIOS",
+  "cenarios_totais": 17,
+  "cenarios_executados": 17,
+  "cenarios_passou": 17,
+  "cenarios_falhou": 0,
+  "erros": [],
+  "cenarios": {
+    "cenario_1": {
+      "numero": 1,
+      "nome": "Confirmação simples",
+      "fluxo": "Usuário responde 'sim'",
+      "status": "PASSOU",
+      "etapas": {
+        "antes": {
+          "tem_pendencia": true,
+          "servico": "Escova",
+          "profissional": "Carla"
+        },
+        "depois": {
+          "tem_pendencia": false,
+          "contexto_limpo": true
+        }
+      }
+    },
+    "cenario_2": {
+      "numero": 2,
+      "nome": "Confirmação variantes",
+      "fluxo": "Aceita múltiplas formas de confirmação",
+      "status": "PASSOU",
+      "etapas": {
+        "variantes": {
+          "testadas": [
+            "sim",
+            "s",
+            "ok",
+            "certo",
+            "confirmo",
+            "pode confirmar",
+            "isso mesmo"
+          ],
+          "todas_reconhecidas": true
+        }
+      }
+    },
+    "cenario_3": {
+      "numero": 3,
+      "nome": "Negação simples",
+      "fluxo": "Usuário responde 'não'",
+      "status": "PASSOU",
+      "etapas": {
+        "antes": {
+          "tem_pendencia": true
+        },
+        "depois": {
+          "tem_pendencia": false
+        }
+      }
+    },
+    "cenario_4": {
+      "numero": 4,
+      "nome": "Negação variantes",
+      "fluxo": "Aceita múltiplas formas de negação",
+      "status": "PASSOU",
+      "etapas": {
+        "variantes": {
+          "testadas": [
+            "não",
+            "nao",
+            "cancelar",
+            "desistir",
+            "não quero",
+            "deixa pra lá"
+          ],
+          "todas_reconhecidas": true
+        }
+      }
+    },
+    "cenario_5": {
+      "numero": 5,
+      "nome": "Resposta ambígua",
+      "fluxo": "Usuário não confirma nem nega claramente",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "pendencia_mantida": false,
+          "nao_confirma": true,
+          "comportamento": "manter_pendencia_ou_pedir_esclarecimento"
+        }
+      }
+    },
+    "cenario_6": {
+      "numero": 6,
+      "nome": "Mudança de horário",
+      "fluxo": "Usuário pede ajuste de horário",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "nao_confirmado_evento_anterior": false,
+          "comportamento": "reiniciar_ajuste_de_horario"
+        }
+      }
+    },
+    "cenario_7": {
+      "numero": 7,
+      "nome": "Troca de profissional",
+      "fluxo": "Usuário escolhe outro profissional",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "nao_confirma_anterior": true,
+          "comportamento": "reiniciar_escolha_profissional"
+        }
+      }
+    },
+    "cenario_8": {
+      "numero": 8,
+      "nome": "Mudança de serviço",
+      "fluxo": "Usuário altera serviço",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "atualiza_draft": true,
+          "revalida_duracao": true
+        }
+      }
+    },
+    "cenario_9": {
+      "numero": 9,
+      "nome": "Interrupção informativa",
+      "fluxo": "Usuário faz pergunta durante confirmação",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "pendencia_mantida_apos_pergunta": false,
+          "responde_pergunta": true
+        }
+      }
+    },
+    "cenario_10": {
+      "numero": 10,
+      "nome": "Pergunta operacional",
+      "fluxo": "Usuário pergunta detalhes operacionais",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "responde_info": true,
+          "pendencia_ativa": true
+        }
+      }
+    },
+    "cenario_11": {
+      "numero": 11,
+      "nome": "Rajada",
+      "fluxo": "Usuário envia múltiplas confirmações",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "rajadas_testadas": 3,
+          "um_evento_criado": true,
+          "idempotencia_ok": true
+        }
+      }
+    },
+    "cenario_12": {
+      "numero": 12,
+      "nome": "Idempotência",
+      "fluxo": "Confirmação executada 2x não duplica",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "confirmacao_dupla": true,
+          "evento_unico": true
+        }
+      }
+    },
+    "cenario_13": {
+      "numero": 13,
+      "nome": "Multi-tenant",
+      "fluxo": "Pendência de tenant A isolada",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "dono_a_tem_pendencia": true,
+          "dono_b_tem_pendencia": true,
+          "isolamento_ok": true
+        }
+      }
+    },
+    "cenario_14": {
+      "numero": 14,
+      "nome": "Contexto expirado",
+      "fluxo": "Pendência muito antiga não é válida",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "contexto_velho_descartado": true,
+          "novo_agendamento_solicitado": true
+        }
+      }
+    },
+    "cenario_15": {
+      "numero": 15,
+      "nome": "Conflito na confirmação",
+      "fluxo": "Lock aparece entre pré-check e criação",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "revalida_conflito": true,
+          "nao_cria_evento": true,
+          "oferece_sugestoes": true
+        }
+      }
+    },
+    "cenario_16": {
+      "numero": 16,
+      "nome": "Cliente evento alheio",
+      "fluxo": "Cliente A não pode confirmar evento de Cliente B",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "acesso_bloqueado": true,
+          "erro_autorizado": true
+        }
+      }
+    },
+    "cenario_17": {
+      "numero": 17,
+      "nome": "Dono ação administrativa",
+      "fluxo": "Fluxo de confirmação do dono",
+      "status": "PASSOU",
+      "etapas": {
+        "validacao": {
+          "fluxo_dono_ok": true,
+          "sem_mistura_cliente": true
+        }
+      }
+    }
+  }
+}
