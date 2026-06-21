@@ -29,7 +29,7 @@ from services.firebase_service_async import (
     buscar_subcolecao,
     deletar_dado_em_path,
 )
-from utils.normalizador_actor_id import normalizar_actor_id
+from services.identidade_service import normalizar_actor_id
 
 
 # ============================================================================
@@ -174,7 +174,7 @@ async def obter_estado_tenant(tenant_id: str) -> dict:
             estado["Notificacoes"] = notif_docs
 
     except Exception as e:
-        print(f"⚠️ Erro ao capturar estado: {e}")
+        print(f"[AVISO] Erro ao capturar estado: {e}")
 
     return estado
 
@@ -1176,7 +1176,7 @@ async def executar_bateria_p1_e2e():
     """Executar bateria completa P1 E2E"""
 
     print("=" * 80)
-    print("P1 E2E — ONBOARDING + IDENTIDADE REAL")
+    print("P1 E2E - ONBOARDING + IDENTIDADE REAL")
     print("=" * 80)
     print()
 
@@ -1210,18 +1210,18 @@ async def executar_bateria_p1_e2e():
         try:
             sucesso = await funcao_teste(result)
             if not sucesso:
-                print(f"  ❌ FAIL: {result.motivo}")
+                print(f"  [FAIL] {result.motivo}")
             else:
-                print(f"  ✅ PASS: {result.motivo}")
+                print(f"  [PASS] {result.motivo}")
         except Exception as e:
-            result.set_fail(f"Exceção não tratada: {str(e)}", str(e))
-            print(f"  ❌ ERRO: {str(e)}")
+            result.set_fail(f"Excecao nao tratada: {str(e)}", str(e))
+            print(f"  [ERRO] {str(e)}")
 
         resultados.append(result)
 
     # Gerar relatório
     print("\n" + "=" * 80)
-    print("SUMÁRIO")
+    print("SUMARIO")
     print("=" * 80)
 
     pass_count = sum(1 for r in resultados if r.status == "PASS")
@@ -1245,7 +1245,7 @@ async def executar_bateria_p1_e2e():
     with open("tests/resultado_p1_e2e_onboarding_identidade.json", "w", encoding="utf-8") as f:
         json.dump(resultado_json, f, indent=2, ensure_ascii=False)
 
-    print("\n✅ Relatório salvo em: tests/resultado_p1_e2e_onboarding_identidade.json")
+    print("\n[OK] Relatorio salvo em: tests/resultado_p1_e2e_onboarding_identidade.json")
 
     return pass_count == 15, resultados
 
