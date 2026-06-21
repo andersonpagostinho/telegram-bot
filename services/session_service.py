@@ -1,6 +1,7 @@
 from firebase_admin import firestore
 from datetime import datetime, timedelta
 from utils.contexto_temporario import salvar_contexto_temporario
+from services.firebase_service_async import obter_id_dono  # [P2-MIGRACAO-LOTE1-OC2]
 import pytz
 import asyncio
 
@@ -43,6 +44,12 @@ async def limpar_sessoes_expiradas():
         await asyncio.to_thread(doc.reference.delete)
 
 async def sincronizar_contexto(user_id, sessao):
+    # [P2-MIGRACAO-LOTE1-OC2] Resolver tenant_id deterministicamente
+    tenant_id = await obter_id_dono(user_id)
+    if not tenant_id:
+        tenant_id = str(user_id)
+        print(f"[TENANT_FALLBACK] sincronizar_contexto: obter_id_dono retornou None, usando user_id como fallback | user_id={user_id}")
+
     memoria = {
         "estado": sessao.get("estado"),
         "servico": sessao.get("servico"),
@@ -63,4 +70,4 @@ async def sincronizar_contexto(user_id, sessao):
     memoria_filtrada = {k: v for k, v in memoria.items() if v}
 
     print(f"🔄 Sincronizando contexto temporário para {user_id}: {memoria_filtrada}")
-    await salvar_contexto_temporario(user_id, memoria_filtrada)
+    await salvar_contexto_temporario(user_id, memoria_filtrada, tenant_id=tenant_id)  # [P2-MIGRACAO-LOTE1-OC2]

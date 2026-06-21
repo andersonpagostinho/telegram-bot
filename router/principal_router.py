@@ -4253,7 +4253,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         "objetivo_conversacional": ctx.get("objetivo_conversacional"),
         "modo_conversa": ctx.get("modo_conversa"),
         "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
-    })
+    }, tenant_id=dono_id)  # [P2-MIGRACAO-LOTE1-OC1] tenant_id origin: dono_id (linha 3354)
 
     # =========================================================
     # 🔒 P0 — EARLY RETURN NEGAÇÃO CONFIRMAÇÃO PENDENTE
