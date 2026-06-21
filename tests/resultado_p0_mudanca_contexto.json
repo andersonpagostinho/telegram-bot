@@ -1,0 +1,285 @@
+{
+  "data_execucao": "2026-06-21T10:55:34.904493",
+  "ambiente": "FIREBASE_REAL",
+  "fase": "VALIDACAO_MUDANCA_CONTEXTO_25_CENARIOS",
+  "cenarios_totais": 25,
+  "cenarios_executados": 25,
+  "cenarios_passou": 25,
+  "cenarios_falhou": 0,
+  "erros": [],
+  "cenarios": {
+    "cenario_1": {
+      "numero": 1,
+      "nome": "Agendamento ativo → pergunta informativa",
+      "fluxo": "Usuário pergunta endereço durante agendamento",
+      "status": "PASSOU",
+      "etapas": {
+        "draft_antes": {
+          "tem_servico": true
+        },
+        "pergunta": "qual o endereço?",
+        "draft_depois": {
+          "tem_servico": true
+        },
+        "evento_criado": false
+      }
+    },
+    "cenario_2": {
+      "numero": 2,
+      "nome": "Agendamento ativo → consulta preço",
+      "fluxo": "Usuário pergunta quanto custa",
+      "status": "PASSOU",
+      "etapas": {
+        "pergunta": "quanto custa?",
+        "responde_preco": true,
+        "draft_mantido": true
+      }
+    },
+    "cenario_3": {
+      "numero": 3,
+      "nome": "Agendamento ativo → troca de profissional",
+      "fluxo": "Usuário pede outro profissional",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "prefiro com a Carla",
+        "profissional_atualizado": true,
+        "servico_mantido": true
+      }
+    },
+    "cenario_4": {
+      "numero": 4,
+      "nome": "Agendamento ativo → troca de serviço",
+      "fluxo": "Usuário muda para outro serviço",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "na verdade quero escova",
+        "servico_atualizado": true,
+        "duracao_recalculada": true
+      }
+    },
+    "cenario_5": {
+      "numero": 5,
+      "nome": "Agendamento ativo → troca de data",
+      "fluxo": "Usuário muda data",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "melhor amanhã",
+        "data_atualizada": true,
+        "servico_profissional_mantidos": true
+      }
+    },
+    "cenario_6": {
+      "numero": 6,
+      "nome": "Agendamento ativo → troca de hora",
+      "fluxo": "Usuário muda hora",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "pode ser às 15?",
+        "hora_atualizada": true,
+        "revalida_disponibilidade": true
+      }
+    },
+    "cenario_7": {
+      "numero": 7,
+      "nome": "Confirmação pendente → pergunta informativa",
+      "fluxo": "Pergunta durante confirmação",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "qual endereço?",
+        "confirmacao_mantida": true
+      }
+    },
+    "cenario_8": {
+      "numero": 8,
+      "nome": "Confirmação pendente → troca de horário",
+      "fluxo": "Muda hora durante confirmação",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "prefiro às 11",
+        "confirmacao_cancelada": true,
+        "volta_para_validacao": true
+      }
+    },
+    "cenario_9": {
+      "numero": 9,
+      "nome": "Confirmação pendente → troca de profissional",
+      "fluxo": "Muda profissional durante confirmação",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "faz com a Joana",
+        "confirmacao_cancelada": true,
+        "profissional_atualizado": true
+      }
+    },
+    "cenario_10": {
+      "numero": 10,
+      "nome": "Confirmação pendente → cancelamento",
+      "fluxo": "Nega durante confirmação",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "não quero mais",
+        "confirmacao_limpa": true,
+        "evento_nao_criado": true
+      }
+    },
+    "cenario_11": {
+      "numero": 11,
+      "nome": "Escolha de horário pendente → pergunta informativa",
+      "fluxo": "Pergunta durante escolha de hora",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "qual endereço?",
+        "opcoes_mantidas": true
+      }
+    },
+    "cenario_12": {
+      "numero": 12,
+      "nome": "Escolha de horário pendente → escolhe índice",
+      "fluxo": "Seleciona opção",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "1",
+        "opcao_selecionada": true,
+        "prepara_confirmacao": true
+      }
+    },
+    "cenario_13": {
+      "numero": 13,
+      "nome": "Escolha de horário pendente → troca profissional",
+      "fluxo": "Muda profissional durante escolha",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "prefiro a Gloria",
+        "profissional_atualizado": true,
+        "opcoes_recalculadas": true
+      }
+    },
+    "cenario_14": {
+      "numero": 14,
+      "nome": "Fluxo cancelamento pendente → pergunta informativa",
+      "fluxo": "Pergunta durante cancelamento",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "qual endereço?",
+        "cancelamento_mantido": true
+      }
+    },
+    "cenario_15": {
+      "numero": 15,
+      "nome": "Fluxo cancelamento pendente → negação",
+      "fluxo": "Nega cancelamento",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "não",
+        "cancelamento_limpo": true,
+        "evento_preservado": true
+      }
+    },
+    "cenario_16": {
+      "numero": 16,
+      "nome": "Fluxo cancelamento pendente → confirmação",
+      "fluxo": "Confirma cancelamento",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "sim",
+        "evento_cancelado": true,
+        "contexto_limpo": true
+      }
+    },
+    "cenario_17": {
+      "numero": 17,
+      "nome": "Mudança de intenção: agendar → cancelar",
+      "fluxo": "Muda de agendamento para cancelamento",
+      "status": "PASSOU",
+      "etapas": {
+        "draft_agendamento_limpo": true,
+        "entra_fluxo_cancelamento": true
+      }
+    },
+    "cenario_18": {
+      "numero": 18,
+      "nome": "Mudança de intenção: cancelar → agendar",
+      "fluxo": "Muda de cancelamento para agendamento",
+      "status": "PASSOU",
+      "etapas": {
+        "cancelamento_limpo": true,
+        "inicia_agendamento": true,
+        "evento_nao_cancelado": true
+      }
+    },
+    "cenario_19": {
+      "numero": 19,
+      "nome": "Mensagem pessoal durante fluxo ativo",
+      "fluxo": "Usuário envia mensagem social",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "estou cansado hoje",
+        "draft_mantido": true,
+        "evento_nao_criado": true
+      }
+    },
+    "cenario_20": {
+      "numero": 20,
+      "nome": "Mensagem ambígua durante fluxo ativo",
+      "fluxo": "Usuário envia mensagem ambígua",
+      "status": "PASSOU",
+      "etapas": {
+        "mensagem": "pode ser",
+        "pede_esclarecimento": true
+      }
+    },
+    "cenario_21": {
+      "numero": 21,
+      "nome": "Multi-tenant isolation",
+      "fluxo": "Mudança em tenant A não afeta B",
+      "status": "PASSOU",
+      "etapas": {
+        "tenant_a_isolado": true,
+        "tenant_b_isolado": true
+      }
+    },
+    "cenario_22": {
+      "numero": 22,
+      "nome": "Contexto legado não pode vencer v2",
+      "fluxo": "v2 prevalece sobre legado",
+      "status": "PASSOU",
+      "etapas": {
+        "v2_carregado": true,
+        "legado_nao_contamina": true
+      }
+    },
+    "cenario_23": {
+      "numero": 23,
+      "nome": "Rajada mudança de contexto",
+      "fluxo": "Múltiplas mudanças rápidas",
+      "status": "PASSOU",
+      "etapas": {
+        "ordem_preservada": true,
+        "no_maximo_um_evento": true,
+        "estado_consistente": true
+      }
+    },
+    "cenario_24": {
+      "numero": 24,
+      "nome": "Conflito após mudança de hora",
+      "fluxo": "Mudança gera conflito",
+      "status": "PASSOU",
+      "etapas": {
+        "hora_ocupada": true,
+        "oferece_sugestoes": true,
+        "sem_confirmacao_indevida": true
+      }
+    },
+    "cenario_25": {
+      "numero": 25,
+      "nome": "Serviço incompatível após troca de profissional",
+      "fluxo": "Profissional não faz serviço",
+      "status": "PASSOU",
+      "etapas": {
+        "servico_incompativel": true,
+        "bloqueia_mudanca": true,
+        "sugere_alternativas": true
+      }
+    }
+  }
+}
