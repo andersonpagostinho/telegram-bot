@@ -3,32 +3,9 @@
 # Canal → actor_id → tenant_id → tipo_usuario → permissões
 
 import asyncio
-import firebase_admin
-from firebase_admin import firestore
 from datetime import datetime
 import pytz
-import hashlib
-
-
-def _get_db():
-    """Obtém cliente Firestore, inicializando Firebase se necessário."""
-    try:
-        app = firebase_admin.get_app()
-    except ValueError:
-        # Tentar inicializar com arquivo de credenciais padrão
-        import json
-        import os
-        creds_path = os.path.join(os.path.dirname(__file__), "..", "firebaseConfig.json")
-        if os.path.exists(creds_path):
-            cred = firestore.credentials.Certificate(creds_path)
-            firebase_admin.initialize_app(cred)
-        else:
-            firebase_admin.initialize_app()
-
-    return firestore.client()
-
-
-db = None  # Inicializa tardiamente
+from services.firestore_client import get_db
 
 # Normalização de canal e identificador
 CANAIS_VALIDOS = ["whatsapp", "sms", "voz", "email", "web"]
@@ -85,11 +62,10 @@ async def resolver_ator_por_canal(tenant_id: str, canal: str, identificador: str
         raise ValueError("tenant_id é obrigatório")
 
     try:
-        _db = _get_db()
         actor_id = normalizar_actor_id(canal, identificador)
 
         doc = await asyncio.to_thread(
-            lambda: _db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).get()
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).get()
         )
 
         if doc.exists:
@@ -138,9 +114,8 @@ async def criar_ator_dono(tenant_id: str, canal: str, identificador: str, nome: 
             "permissoes": ["admin", "ler", "escrever", "deletar"]
         }
 
-        _db = _get_db()
         await asyncio.to_thread(
-            lambda: _db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).set(ator_data)
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).set(ator_data)
         )
 
         print(f"[OK] Ator DONO criado: {actor_id} (tenant: {tenant_id})")
@@ -186,9 +161,8 @@ async def criar_ator_cliente_automatico(tenant_id: str, canal: str, identificado
             "permissoes": ["ler", "agendamento"]
         }
 
-        _db = _get_db()
         await asyncio.to_thread(
-            lambda: _db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).set(ator_data)
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).set(ator_data)
         )
 
         # Registrar também na coleção Clientes para histórico
@@ -207,7 +181,7 @@ async def criar_ator_cliente_automatico(tenant_id: str, canal: str, identificado
         }
 
         await asyncio.to_thread(
-            lambda: db.collection("Clientes").document(tenant_id).collection("Clientes").document(actor_id).set(cliente_data)
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Clientes").document(actor_id).set(cliente_data)
         )
 
         print(f"[OK] Ator CLIENTE criado automaticamente: {actor_id} (tenant: {tenant_id})")
@@ -254,9 +228,8 @@ async def criar_ator_profissional(tenant_id: str, canal: str, identificador: str
             "permissoes": ["ler", "operacional"]
         }
 
-        _db = _get_db()
         await asyncio.to_thread(
-            lambda: _db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).set(ator_data)
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).set(ator_data)
         )
 
         print(f"[OK] Ator PROFISSIONAL criado: {actor_id} (tenant: {tenant_id})")
@@ -285,7 +258,7 @@ async def roteador_por_tipo_usuario(tenant_id: str, actor_id: str) -> dict | Non
 
     try:
         doc = await asyncio.to_thread(
-            lambda: db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).get()
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).get()
         )
 
         if not doc.exists:
@@ -319,7 +292,7 @@ async def atualizar_ultimo_contato(tenant_id: str, actor_id: str) -> bool:
         now = datetime.now(pytz.UTC).isoformat()
 
         await asyncio.to_thread(
-            lambda: db.collection("Clientes").document(tenant_id).collection("Clientes").document(actor_id).update({
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Clientes").document(actor_id).update({
                 "ultimo_contato_em": now,
                 "atualizado_em": now
             })
@@ -346,7 +319,7 @@ async def buscar_profissional_por_nome(tenant_id: str, nome: str) -> dict | None
 
     try:
         docs = await asyncio.to_thread(
-            lambda: list(db.collection("Clientes").document(tenant_id).collection("Atores")
+            lambda: list(get_db().collection("Clientes").document(tenant_id).collection("Atores")
                     .where("tipo_usuario", "==", "profissional")
                     .where("nome", "==", nome)
                     .limit(1)
@@ -376,7 +349,7 @@ async def listar_profissionais(tenant_id: str) -> list:
 
     try:
         docs = await asyncio.to_thread(
-            lambda: list(db.collection("Clientes").document(tenant_id).collection("Atores")
+            lambda: list(get_db().collection("Clientes").document(tenant_id).collection("Atores")
                     .where("tipo_usuario", "==", "profissional")
                     .where("ativo", "==", True)
                     .stream())

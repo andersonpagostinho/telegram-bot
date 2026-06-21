@@ -4,28 +4,10 @@
 # Dados permanentes salvos em Firestore em Configuracao/negocio
 
 import asyncio
-import firebase_admin
-from firebase_admin import firestore
 from datetime import datetime
 import pytz
 from services.identidade_service import criar_ator_dono, normalizar_actor_id
-
-
-def _get_db():
-    """Obtém cliente Firestore, inicializando Firebase se necessário."""
-    try:
-        firebase_admin.get_app()
-    except ValueError:
-        import json
-        import os
-        creds_path = os.path.join(os.path.dirname(__file__), "..", "firebaseConfig.json")
-        if os.path.exists(creds_path):
-            cred = firestore.credentials.Certificate(creds_path)
-            firebase_admin.initialize_app(cred)
-        else:
-            firebase_admin.initialize_app()
-
-    return firestore.client()
+from services.firestore_client import get_db
 
 # Estados do onboarding
 ETAPAS_ONBOARDING = [
@@ -78,9 +60,8 @@ async def iniciar_onboarding_dono(tenant_id: str, actor_id: str, dono_nome: str,
             "dono_email": dono_email
         }
 
-        _db = _get_db()
         await asyncio.to_thread(
-            lambda: _db.collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").set(config_data)
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").set(config_data)
         )
 
         print(f"[OK] Onboarding iniciado para tenant {tenant_id}")
@@ -113,7 +94,7 @@ async def pegar_etapa_onboarding(tenant_id: str) -> dict:
 
     try:
         doc = await asyncio.to_thread(
-            lambda: db.collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").get()
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").get()
         )
 
         if not doc.exists:
@@ -151,7 +132,7 @@ async def avancar_etapa_onboarding(tenant_id: str, campo: str, valor: str) -> di
 
     try:
         # Obter configuração atual
-        config_ref = db.collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio")
+        config_ref = get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio")
 
         def atualizar():
             config_doc = config_ref.get()
@@ -282,7 +263,7 @@ async def marcar_onboarding_completo(tenant_id: str) -> bool:
 
     try:
         await asyncio.to_thread(
-            lambda: db.collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").update({
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").update({
                 "onboarding_status": "completo",
                 "onboarding_etapa_atual": "completo",
                 "concluido_em": datetime.now(pytz.UTC).isoformat()
@@ -322,7 +303,7 @@ async def validar_onboarding_minimo(tenant_id: str) -> dict:
 
     try:
         doc = await asyncio.to_thread(
-            lambda: db.collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").get()
+            lambda: get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").get()
         )
 
         if not doc.exists:
