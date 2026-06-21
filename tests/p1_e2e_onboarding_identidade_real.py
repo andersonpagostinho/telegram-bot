@@ -207,11 +207,17 @@ async def cenario_01_primeiro_acesso_dono(result: TestResult):
         # Simular entrada no router (primeira mensagem)
         mensagem = "Olá, quero usar o sistema de agendamento"
 
-        # Esperado:
-        # - actor_id normalizado = whatsapp:11999999999
-        # - tipo_usuario = dono (primeiro acesso nesse canal)
-        # - tenant_id criado = tenant_id
-        # - estado_fluxo = onboarding_dono
+        # Chamar o fluxo real de identidade + onboarding
+        # Isso deve criar um DONO (já que é o primeiro acesso do tenant)
+        from router.integracao_identidade_onboarding import processar_fluxo_identidade_onboarding
+
+        resultado_fluxo = await processar_fluxo_identidade_onboarding(
+            user_id=user_id,
+            mensagem=mensagem,
+            tenant_id=tenant_id,
+            ctx={},
+            context=None
+        )
 
         resultado_depois = await obter_estado_tenant(tenant_id)
 

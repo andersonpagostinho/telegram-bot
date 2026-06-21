@@ -359,3 +359,39 @@ async def listar_profissionais(tenant_id: str) -> list:
     except Exception as e:
         print(f"[ERRO] Listar profissionais: {e}")
         return []
+
+
+async def tenant_tem_dono(tenant_id: str) -> bool:
+    """
+    Verifica se um tenant já possui dono configurado.
+
+    Regra determinística: Tenant tem dono se existe qualquer Ator com
+    tipo_usuario="dono" e ativo=True.
+
+    Path: Clientes/{tenant_id}/Atores/
+    Query: tipo_usuario == "dono" AND ativo == True
+
+    Args:
+        tenant_id: ID do tenant
+
+    Returns:
+        True se tenant tem dono configurado, False caso contrário
+    """
+    if not tenant_id:
+        return False
+
+    try:
+        docs = await asyncio.to_thread(
+            lambda: list(get_db().collection("Clientes").document(tenant_id).collection("Atores")
+                    .where("tipo_usuario", "==", "dono")
+                    .where("ativo", "==", True)
+                    .limit(1)
+                    .stream())
+        )
+
+        tem_dono = len(docs) > 0
+        print(f"[DEBUG] tenant_tem_dono({tenant_id}) = {tem_dono}")
+        return tem_dono
+    except Exception as e:
+        print(f"[AVISO] Erro ao verificar dono do tenant: {e}")
+        return False
