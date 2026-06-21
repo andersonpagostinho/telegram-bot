@@ -10915,7 +10915,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             "ultima_acao": "confirmar_agendamento_por_consulta",
             "estado_fluxo": "aguardando_confirmacao_consulta",
         }
-        await salvar_contexto_temporario(user_id, ctx_consulta)
+        await salvar_contexto_temporario(user_id, ctx_consulta, tenant_id=dono_id)  # [P2-MIGRACAO-LOTE2-OC1]
 
         print(f" [CONSULTA PURA ESTADO SALVO] aguardando_confirmacao_agendamento_por_consulta=True | servico='{servico_para_resposta}'", flush=True)
 
@@ -11341,7 +11341,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     # 🔥 merge em vez de sobrescrever
                     ctx_atual.update(contexto_update)
 
-                    await salvar_contexto_temporario(user_id, ctx_atual)
+                    await salvar_contexto_temporario(user_id, ctx_atual, tenant_id=dono_id)  # [P2-MIGRACAO-LOTE2-OC2]
 
                     partes = []
                     if servico_ctx:
