@@ -2270,5 +2270,13 @@ ClienteProfile NUNCA DECIDE criação de evento.
 
 ---
 
-**Última atualização:** 2026-06-14  
+## ⚠️ Alterações em Componentes Críticos
+
+Mudanças em componentes críticos (principal_router, event_handler, agenda_service, agenda_lock_service, session_service, firestore_service) exigem auditoria prévia de impacto, dependências e evidências.
+
+**Procedimento completo:** `docs/procedimentos/PROCEDIMENTO_AUDITORIA_PRE_ALTERACAO.md`
+
+---
+
+**Última atualização:** 2026-06-20  
 **Status:** Documento congelado até descongelamento comprovado

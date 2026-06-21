@@ -1,0 +1,359 @@
+# Procedimento de Auditoria Pré-Alteração — NeoEve
+
+**Versão:** 1.0  
+**Data:** 2026-06-20  
+**Status:** Documento vivo (evolui com descobertas)
+
+---
+
+## Objetivo
+
+Evitar regressões silenciosas causadas por alterações em componentes interdependentes.
+
+**Princípio:** NeoEve é altamente interligada (sessão → contexto → agenda → conflito → confirmação → evento). Uma alteração pequena em um componente pode quebrar funcionalidades aparentemente desconexas.
+
+---
+
+## Componentes Críticos (Escopo)
+
+Qualquer alteração nestes arquivos **exige auditoria completa**:
+
+- `router/principal_router.py` — Roteamento central de fluxos
+- `handlers/event_handler.py` — Criação e manipulação de eventos
+- `services/agenda_service.py` — Lógica de agendamento
+- `services/agenda_lock_service.py` — Proteção de concorrência em agenda
+- `services/session_service.py` — Gerenciamento de contexto e sessão
+- `services/firestore_service.py` — Persistência e consultas
+- `services/disponibilidade_service.py` — Cálculo de disponibilidade
+- `services/conflict/` (ou equivalente) — Detecção de conflitos
+
+---
+
+## Classificação de Mudança (Matriz de Risco)
+
+Use esta matriz para calibrar o rigor da auditoria:
+
+| Tipo | Categoria | Exemplo | Auditoria Completa | Teste Automatizado |
+|------|-----------|---------|:--:|:--:|
+| **A** | Texto/UI | Alterar mensagem de confirmação | ❌ | ⚠️ |
+| **B** | Fluxo Conversacional | Mudar ordem de perguntas | ⚠️ Parcial | ✅ |
+| **C** | Agenda/Conflito | Alterar detecção de conflito | ✅ Sim | ✅ |
+| **D** | Multi-tenant | Mudar resolução de tenant | ✅ Sim | ✅ |
+| **E** | Persistência/Firestore | Alterar estrutura de salvamento | ✅ Sim | ✅ |
+
+**Regra:**
+- **Tipo A:** Pode ser feito com confiança
+- **Tipo B:** Precisa de regressão
+- **Tipo C, D, E:** Exige auditoria completa + regressão + aprovação
+
+---
+
+## Checklist Obrigatório Pré-Alteração
+
+Antes de implementar qualquer patch em componentes críticos, responda **todas** estas perguntas:
+
+### 1. Fundamentação
+
+- [ ] **Qual é a causa raiz?**
+  - Arquivo, função, linha
+  - Evidência observável (log, teste, snapshots)
+  - Não: "provavelmente", "deve ser", "acredito que"
+
+- [ ] **Qual evidência comprova?**
+  - Log real em produção/staging?
+  - Teste automatizado falhando?
+  - Reprodução consistente?
+  - Snapshot de estado Firestore?
+
+### 2. Mapa de Dependências
+
+- [ ] **Quem chama esse código?**
+  - Listar funções/rotas que chamam
+  - Exemplo: `principal_router.py:3389` → `executar_acao_gpt()` → `add_evento_por_gpt()`
+
+- [ ] **O que esse código chama?**
+  - Listar funções/serviços que ele invoca
+  - Cuidado com side effects (Firestore, cache, contexto)
+
+### 3. Fluxos Afetados
+
+- [ ] **Quais fluxos conversacionais usam esse código?**
+  - Agendamento?
+  - Confirmação pendente?
+  - Cancelamento?
+  - Retomada de fluxo?
+  - Listar todos os cenários
+
+- [ ] **Qual é o contexto de execução?**
+  - Single-tenant ou multi-tenant?
+  - Sincronizado ou assincronizado?
+  - Webhook, scheduler, ou handler?
+
+### 4. Testes Existentes
+
+- [ ] **Existe teste automatizado cobrindo o comportamento atual?**
+  - Se SIM: qual teste? (`tests/...`)
+  - Se NÃO: registrar ausência + criar cenário de reprodução ANTES de alterar
+
+- [ ] **Qual teste validará a correção?**
+  - Novo teste?
+  - Modificação de teste existente?
+  - E2E ou unitário?
+
+### 5. Regressões Potenciais
+
+- [ ] **O que pode quebrar com essa alteração?**
+  - Fluxos paralelos?
+  - Cenários de concorrência?
+  - Casos limítrofes (datas, horas, multi-tenant)?
+  - Estados anteriores em contexto/cache?
+
+- [ ] **Quais cenários de regressão precisam ser testados?**
+  - Caminho feliz
+  - Dados faltando
+  - Confirmação duplicada
+  - Usuários simultâneos
+  - Conflitos de agenda
+  - Timeouts/erros
+
+### 6. Patch Mínimo
+
+- [ ] **Qual é a mudança mínima possível?**
+  - Uma linha? Uma função? Uma seção?
+  - Não refatorar além do necessário
+  - Não tocar em código não relacionado
+
+- [ ] **Posso demonstrar antes/depois?**
+  - Diff com contexto suficiente
+  - Explicar cada linha alterada
+
+---
+
+## Fluxo de Auditoria (Passo a Passo)
+
+### **Fase 1: Investigação (Sem Código)**
+
+1. Colete a evidência
+   - Reproduza o bug consistentemente
+   - Capture logs reais
+   - Snapshots de Firestore
+   - JSON do GPT (se aplicável)
+
+2. Classifique a mudança
+   - Tipo A, B, C, D ou E?
+   - Isso determina o resto do procedimento
+
+3. Responda o checklist completo
+   - Se há dúvida em qualquer ponto, investigue mais
+   - Não pule nenhuma pergunta
+
+4. Mapeie dependências
+   - Crie um diagrama mental: A → B → C → resultado
+   - Identifique pontos de falha potencial
+
+### **Fase 2: Design (Antes do Código)**
+
+1. Descreva a solução
+   - Uma frase resumindo a correção
+   - Por que essa é a causa raiz?
+
+2. Valide hipóteses alternativas
+   - Pode ser outra camada?
+   - Pode ser ordem de execução?
+   - Pode ser estado compartilhado?
+
+3. Identifique testes necessários
+   - Qual teste valida a correção?
+   - Qual cenário captura a regressão potencial?
+
+### **Fase 3: Implementação**
+
+1. Crie teste primeiro (se não existir)
+   - Reproduz o bug
+   - Falha antes da correção
+   - Passa depois
+
+2. Implemente a correção mínima
+   - Uma alteração por vez
+   - Não refatore o resto do arquivo
+
+3. Valide localmente
+   - Teste passa?
+   - Nenhuma outra falha?
+
+### **Fase 4: Regressão**
+
+1. Execute testes de regressão
+   - Teste completo (agendamento, confirmação, cancelamento)
+   - Testes de concorrência
+   - Cenários multi-tenant
+
+2. Valide comportamento real
+   - Logs confirmam o fluxo correto?
+   - Firestore tem estado esperado?
+   - Usuário recebe mensagem correta?
+
+3. Documente findings
+   - O que funcionou?
+   - O que não funcionou?
+   - Qual foi a causa?
+
+### **Fase 5: Aprovação**
+
+1. Prepare para code review
+   - Documento de contexto (causa raiz + evidência)
+   - Diff com explicação linha por linha
+   - Testes automatizados + regressão manual
+
+2. Obtenha aprovação
+   - Revisor valida checklist
+   - Revisor valida regressão
+   - Revisor aprova ou pede ajustes
+
+---
+
+## Critérios de Aprovação
+
+Um patch é aprovado **APENAS SE**:
+
+- [ ] Responde todas as 6 seções do checklist
+- [ ] Evidência é observável (não suposição)
+- [ ] Causa raiz está em arquivo + função + linha
+- [ ] Impacto foi mapeado (quem chama, o que chama)
+- [ ] Teste automatizado valida a correção
+- [ ] Regressão foi executada (mínimo 4 cenários)
+- [ ] Nenhuma refatoração desnecessária
+- [ ] Documentação é clara
+
+**Rejeição automática se:**
+
+- ❌ Suposição não verificada ("provavelmente")
+- ❌ Sem teste automatizado em componentes C, D, E
+- ❌ Sem cenários de regressão testados
+- ❌ Refatoração simultânea com correção
+- ❌ Múltiplas causas raiz corrigidas em um patch
+
+---
+
+## Exemplos de Aplicação
+
+### Exemplo 1: Alteração Tipo A (Segura)
+
+**Mudança:** Alterar texto de confirmação de "Confirma?" para "Tem certeza?"
+
+**Classificação:** Tipo A (Texto/UI)
+
+**Auditoria:**
+- ❌ Não exige auditoria completa
+- ⚠️ Testar na mensagem
+
+**Implementação:**
+```python
+# Antes
+mensagem = "Confirma o agendamento?"
+
+# Depois
+mensagem = "Tem certeza que quer agendar?"
+```
+
+---
+
+### Exemplo 2: Alteração Tipo C (Crítica)
+
+**Mudança:** Ajustar detecção de conflito em `agenda_lock_service.py`
+
+**Classificação:** Tipo C (Agenda/Conflito)
+
+**Checklist:**
+- ✅ Causa raiz: Lock órfão bloqueava agenda
+- ✅ Evidência: Log mostrando lock sem evento_id após 24h
+- ✅ Quem chama: `crear_evento_com_lock()` em event_handler
+- ✅ Teste existe? SIM: `test_lock_orfao_expirado.py`
+- ✅ Regressão: RO-05 (lock órfão), RO-04 (restart durante criação)
+- ✅ Patch mínimo: Função `limpar_locks_orfaos()` + chamada no início
+
+**Implementação:**
+```python
+# Novo: limpar locks órfãos expirados
+def limpar_locks_orfaos(dono_id, horas=24):
+    # Remove locks sem evento_id que expiraram
+    pass
+
+# Modificado: usar no início de criar_evento_com_lock
+def criar_evento_com_lock(dono_id, evento):
+    limpar_locks_orfaos(dono_id)  # ← Adicionado
+    # resto do código
+```
+
+**Regressão:**
+- Teste RO-05 valida expiração
+- Teste RO-04 valida novo evento após restart
+- E2E agenda simples
+- Concorrência 2 usuários
+
+---
+
+### Exemplo 3: Alteração Tipo E (Máxima Criticidade)
+
+**Mudança:** Alterar campo `evento_data` em Firestore
+
+**Classificação:** Tipo E (Persistência/Firestore)
+
+**Checklist:** COMPLETO (todas as 6 seções, todas as 12 perguntas)
+
+**Fluxo:**
+1. Investigação + evidência (2-4h)
+2. Design + hipóteses (1h)
+3. Teste primeiro + implementação (2-4h)
+4. Regressão completa (4-6h)
+5. Code review + aprovação (1-2h)
+
+**Total:** Mínimo 12-18 horas
+
+**Regressão obrigatória:**
+- Todos os 13 testes RO-01 até RO-13
+- Testes multi-tenant (MT-07, MT-08)
+- E2E completo (criação, confirmação, cancelamento)
+- Concorrência (2-5 usuários simultâneos)
+
+---
+
+## Quando NÃO Usar Este Procedimento
+
+- [ ] Alterações em arquivos não-críticos (utils, formatters, logs)
+- [ ] Mudanças de documentação
+- [ ] Atualizações de dependências (sem lógica alterada)
+- [ ] Correções de typo em strings
+
+**Nesses casos:** Código review comum é suficiente.
+
+---
+
+## Quando SEMPRE Usar
+
+- [ ] Qualquer alteração em componentes da lista de escopo
+- [ ] Mudanças que afetam agenda, confirmação ou contexto
+- [ ] Alterações em multi-tenant
+- [ ] Mudanças em persistência Firestore
+
+---
+
+## Evolução deste Documento
+
+Este documento é **vivo** e evolui com:
+
+- Novos bugs descobertos
+- Regressões encontradas em produção
+- Melhorias no procedimento
+- Novos componentes críticos identificados
+
+**Histórico de mudanças:**
+- 2026-06-20: Versão 1.0 (inicial)
+
+---
+
+## Referências
+
+- **CLAUDE.md:** `## ⚠️ Alterações em Componentes Críticos`
+- **Testes de Regressão:** `docs/auditorias/MATRIZ_P0_*.md`
+- **Code Review:** `docs/policies/POLITICA_CODE_REVIEW_CLIENTEPROFILE.md`

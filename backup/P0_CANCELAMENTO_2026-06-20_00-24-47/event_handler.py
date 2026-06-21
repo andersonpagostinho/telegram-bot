@@ -1,0 +1,1314 @@
+# handlers/event_handler.py 
+
+import logging
+import dateparser
+import re
+import io
+import unidecode  # no topo, junto dos imports
+from openpyxl import Workbook
+from telegram import InputFile
+from datetime import datetime, time, timedelta
+from telegram import Update
+from telegram.ext import ContextTypes
+from utils.tts_utils import responder_em_audio
+from utils.formatters import formatar_horario_atual, gerar_sugestoes_de_horario, adaptar_genero
+from utils.mensagens_agendamento import montar_mensagem_confirmacao_sucesso
+from services.excel_service import gerar_excel_agenda
+from services.notificacao_service import criar_notificacao_agendada
+from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario
+from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
+from utils.contexto_temporario import (
+    salvar_contexto_temporario,  # ⚠️ LEGADO (v1)
+    carregar_contexto_temporario,  # ⚠️ LEGADO (v1)
+    limpar_contexto_agendamento,  # ⚠️ LEGADO (v1)
+    salvar_contexto_temporario_v2,  # ✅ v2 novo
+    carregar_contexto_temporario_v2,  # ✅ v2 novo
+    limpar_contexto_agendamento_v2,  # ✅ v2 novo
+)
+
+from services.firebase_service_async import (
+    salvar_cliente,
+    buscar_cliente,
+    buscar_dados,
+    salvar_dado_em_path,
+    buscar_subcolecao,
+    salvar_dados,
+    atualizar_dado_em_path,
+    buscar_dado_em_path,
+    obter_id_dono,
+)
+from services.event_service_async import salvar_evento, buscar_eventos_por_intervalo, cancelar_evento_por_texto
+from utils.plan_utils import verificar_acesso_modulo, verificar_pagamento
+from services.agenda_service import (
+    validar_horario_funcionamento,
+    resolver_fora_do_expediente,
+)
+from services.event_service_async import evento_deve_entrar_na_agenda
+from services.clienteprofile_service import criar_ou_atualizar_profile_apos_evento
+
+logger = logging.getLogger(__name__)
+
+def formatar_mensagem_conflito_profissional(
+    profissional: str,
+    hora: str,
+    sugestoes: list,
+    alternativas: list,
+    servico: str
+) -> str:
+    """[FORMATADOR OFICIAL] Formata mensagem de conflito de agenda.
+
+    Reutiliza padrão de principal_router.py linhas 4920-4935.
+    Garante consistência na comunicação de conflitos.
+
+    Args:
+        profissional: Nome da profissional que está ocupada
+        hora: Hora original solicitada (HH:MM)
+        sugestoes: Lista de horários livres ["HH:MM - HH:MM", ...]
+        alternativas: Lista de profissionais alternativas
+        servico: Serviço solicitado
+
+    Returns:
+        str: Mensagem formatada com markdown (Telegram)
+    """
+    msg = f"A *{profissional}* já tem atendimento às *{hora}* nesse dia.\n\n"
+
+    if sugestoes:
+        msg += f"Estes horários estão livres com a *{profissional}* no mesmo dia:\n"
+        for s in sugestoes[:3]:
+            msg += f"  {s}\n"
+
+    if alternativas:
+        alts_str = ", ".join([f"*{p}*" for p in alternativas])
+        msg += (
+            f"\nSe você quiser manter *{hora}*, estas profissionais fazem "
+            f"*{servico}* e estão disponíveis: {alts_str}.\n"
+        )
+
+    msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+    return msg
+
+def _precisa_profissional(contexto: dict, descricao: str) -> bool:
+    """
+    Só exige 'profissional' quando for recepção de salão (atendimento_cliente).
+    Reuniões/agenda pessoal não precisam.
+    """
+    contexto = contexto or {}
+    usuario = (contexto.get("usuario") or {})
+    modo_uso = contexto.get("modo_uso") or usuario.get("modo_uso") or "interno"
+    tipo_negocio = (contexto.get("tipoNegocio") or contexto.get("tipo_negocio") or "")
+    desc = unidecode.unidecode((descricao or "").lower())
+
+    eh_reuniao = "reuni" in desc  # pega 'reunião'/'reuniao'
+    return (modo_uso == "atendimento_cliente" and "sala" in unidecode.unidecode(tipo_negocio.lower()) and not eh_reuniao)
+
+async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context): return
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    if len(context.args) < 4:
+        await update.message.reply_text(
+            "⚠️ Uso correto: /agenda <Descrição> <AAAA-MM-DD> <HH:MM início> <HH:MM fim>\n"
+            "Exemplo: /agenda Reunião 2025-03-25 14:00 15:00"
+        )
+        return
+
+    descricao = context.args[0]
+    data = context.args[1]
+    hora_inicio = context.args[2]
+    hora_fim = context.args[3]
+    user_id = str(update.message.from_user.id)
+
+    try:
+        inicio = datetime.fromisoformat(f"{data}T{hora_inicio}")
+        fim = datetime.fromisoformat(f"{data}T{hora_fim}")
+        duracao = fim - inicio
+        duracao_minutos = int(duracao.total_seconds() / 60)
+    except Exception:
+        await update.message.reply_text("⚠️ Data ou hora em formato inválido. Use o formato 2025-03-25 14:00.")
+        return
+
+    # 🔍 Buscar eventos do dia
+    eventos_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=inicio.date())
+
+    # 🔄 Verificar conflitos com base nos horários
+    conflitos = []
+    for ev in eventos_dia:
+        try:
+            ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
+            ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
+        except Exception:
+            # fallback: ignora eventos mal formatados
+            continue
+
+        if inicio < ev_fim and fim > ev_inicio:
+            conflitos.append((ev_inicio, ev_fim))
+
+    if conflitos:
+        sugestoes = []
+        atual = datetime.combine(inicio.date(), time(8, 0))
+        limite = datetime.combine(inicio.date(), time(18, 0))
+
+        while atual + duracao <= limite:
+            livre = all(not (atual < f and atual + duracao > i) for i, f in conflitos)
+            if livre:
+                sugestoes.append(f"{atual.strftime('%H:%M')} - {(atual + duracao).strftime('%H:%M')}")
+                if len(sugestoes) >= 3:
+                    break
+            atual += timedelta(minutes=15)
+
+        resposta = "⚠️ Já existe um evento nesse horário.\n"
+        resposta += "\n".join(f"🔄 Alternativa: {s}" for s in sugestoes) if sugestoes else "❌ Nenhum horário alternativo disponível."
+        await update.message.reply_text(resposta)
+        return
+
+    # ✅ Salvar evento no Firebase
+    evento = {
+        "descricao": descricao,
+        "data": data,
+        "hora_inicio": hora_inicio,
+        "hora_fim": hora_fim,
+        "duracao": duracao_minutos,
+        "confirmado": False,
+        "link": ""
+    }
+
+    print("📦 Salvando evento com os dados:", evento)
+    sucesso = await salvar_evento(user_id, evento)
+    if sucesso:
+        await update.message.reply_text(
+            f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
+            parse_mode="Markdown"
+        )
+
+        from services.notificacao_service import criar_notificacao_agendada
+
+        await criar_notificacao_agendada(
+            user_id=user_id,
+            descricao=descricao,
+            data=data,
+            hora_inicio=hora_inicio,
+            canal="telegram",
+            minutos_antes=30,
+            destinatario_user_id=user_id,  # dono recebe o aviso
+            alvo_evento={"data": data, "hora_inicio": hora_inicio}
+        )
+    else:
+        await update.message.reply_text("❌ Ocorreu um erro ao tentar salvar o evento.")
+
+async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context): return
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    user_id = str(update.message.from_user.id)
+    hoje = datetime.now().date()
+
+    eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=hoje)
+
+    if not eventos:
+        await update.message.reply_text("📭 Nenhum evento encontrado para hoje.")
+        return
+
+    resposta = "📅 Eventos de hoje:\n" + "\n".join(f"- {ev}" for ev in eventos)
+    await update.message.reply_text(resposta)
+
+async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context): return
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    descricao = ' '.join(context.args)
+    if not descricao:
+        await update.message.reply_text("⚠️ Informe a descrição do evento para confirmar.")
+        return
+
+    user_id = str(update.message.from_user.id)
+    dono_id = await obter_id_dono(user_id)   # 👈 garante que busca no dono
+
+    eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
+
+    for event_id, evento in eventos.items():
+        texto_evento = f"{evento.get('descricao', '')} {evento.get('data', '')} {evento.get('hora_inicio', '')} {evento.get('hora_fim', '')}".lower()
+        if descricao.lower() in texto_evento:
+            evento["confirmado"] = True
+            await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento)
+            await responder_em_audio(update, context, f"✅ Reunião confirmada: {evento['descricao']}")
+            return
+
+    await update.message.reply_text("❌ Evento não encontrado.")
+
+async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_pagamento(update, context): return
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    descricao = ' '.join(context.args).lower()
+    if not descricao:
+        await update.message.reply_text("⚠️ Informe o nome do evento para confirmar presença.")
+        return
+
+    user_id = str(update.message.from_user.id)
+    dono_id = await obter_id_dono(user_id)  # 👈 aqui
+
+    eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
+
+    for event_id, evento in eventos.items():
+        if descricao in evento.get("descricao", "").lower():
+            evento["confirmado"] = True
+            await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento)
+            await responder_em_audio(update, context, f"✅ Presença confirmada para: {evento['descricao']}")
+            return
+
+    await update.message.reply_text("❌ Evento não encontrado.")
+
+
+async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    user_id = str(update.message.from_user.id)
+    dono_id = await obter_id_dono(user_id)  # 👈 aqui
+
+    event_id = "evento_debug"
+    evento_data = {
+        "descricao": "Evento de Teste via Bot",
+        "data": "2025-03-30",
+        "hora_inicio": "12:00",
+        "hora_fim": "13:00",
+        "confirmado": False,
+        "link": "https://exemplo.com/evento-debug"
+    }
+
+    if await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento_data):
+        await responder_em_audio(update, context, "✅ Evento de teste salvo com sucesso.")
+    else:
+        await update.message.reply_text("❌ Erro ao salvar evento de teste.")
+
+    eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
+    if not eventos:
+        await update.message.reply_text("📭 Nenhum evento encontrado.")
+        return
+
+    resposta = "📂 Eventos salvos:\n"
+    for eid, ev in eventos.items():
+        resposta += f"\n📌 {eid}: {ev.get('descricao')} ({ev.get('data')} {ev.get('hora_inicio')} - {ev.get('hora_fim')})"
+
+    await responder_em_audio(update, context, resposta)
+
+async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE, texto: str):
+    if not await verificar_pagamento(update, context): return
+    if not await verificar_acesso_modulo(update, context): return
+
+    if context.chat_data.get("evento_via_gpt"):
+        return  # evitar duplicação
+
+    try:
+        texto = texto.lower().replace("marcar reunião", "").replace("agendar reunião", "").replace("às", "as").strip()
+        data_hora = dateparser.parse(texto, languages=["pt"])
+        if not data_hora:
+            await update.message.reply_text("Não captei direito a data. Tenta assim: '14 de junho às 14h'")
+            return
+
+        user_id = str(update.message.from_user.id)
+        start_time = data_hora
+        end_time = start_time + timedelta(hours=1)
+        duracao = 60
+        titulo = "Reunião agendada por voz"
+
+        # 🆔 Resolver dono_id para contexto v2
+        dono_id = await obter_id_dono(user_id)
+
+        # 🧠 Recupera contexto e profissional alternativo (v2)
+        contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+        profissional = contexto.get("profissional")  # vem do contexto anterior
+        alternativa = None
+
+        # 🔍 Só exige profissional se o tipo de evento precisar
+        if _precisa_profissional(contexto, titulo) and not profissional:
+            await update.message.reply_text(
+                "❌ Não consegui identificar a profissional. Pode repetir dizendo quem irá atender?"
+            )
+            return
+
+        # 🔍 Verifica conflitos
+        eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date())
+        ocupados = []
+
+        for ev in eventos:
+            try:
+                ev_inicio = datetime.strptime(f"{ev['data']} {ev['hora_inicio']}", "%Y-%m-%d %H:%M")
+                ev_fim = datetime.strptime(f"{ev['data']} {ev['hora_fim']}", "%Y-%m-%d %H:%M")
+                ocupados.append((ev_inicio, ev_fim))
+            except:
+                continue
+
+        print("🧪 TESTE - checando conflito...")
+        conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
+
+        if conflito:
+            sugestoes = gerar_sugestoes_de_horario(
+                start_time,
+                ocupados,
+                duracao_evento_minutos=duracao_minutos,
+                max_sugestoes=3
+            )
+            sugestoes_formatadas = "\n".join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
+
+            alternativa = None
+
+            # ✅ Persistir agendamento pendente (data ORIGINAL) para não perder o dia
+            #    (isso é o que permite o usuário mandar só "15:20" depois)
+            try:
+                servico_ctx = None
+
+                # tenta derivar do texto "descricao" (ex: "escova com Joana" -> "escova")
+                if isinstance(descricao, str) and descricao.strip():
+                    desc_lower = descricao.strip().lower()
+                    servico_ctx = desc_lower.split(" com ")[0].strip()
+
+                # fallback: se já existe algo no contexto
+                servico_final = servico_ctx or contexto.get("servico")
+
+                # profissional: salva o atual ou preserva o que já existe
+                prof_final = profissional or contexto.get("profissional_escolhido") or contexto.get("profissional")
+
+                contexto["ultima_acao"] = "criar_evento"
+                contexto["estado_fluxo"] = "aguardando_escolha_horario"
+                contexto.pop("aguardando_horario", None)
+                contexto["data_hora"] = start_time.replace(second=0, microsecond=0).isoformat()
+
+                if prof_final:
+                    contexto["profissional_escolhido"] = prof_final
+
+                contexto["duracao"] = duracao_minutos
+                contexto["sugestoes"] = sugestoes
+                contexto["alternativa_profissional"] = alternativa
+
+                if servico_final:
+                    contexto["servico"] = servico_final
+
+                # ✅ SEMPRE salvar dados_anteriores (não condicionar ao serviço)
+                contexto["dados_anteriores"] = {
+                    "profissional": prof_final,
+                    "servico": servico_final,
+                    "data_hora": start_time.replace(second=0, microsecond=0).isoformat(),
+                    "duracao": duracao_minutos,
+                }
+
+                await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+                print("💾 Contexto pendente salvo (conflito).")
+
+            except Exception as e:
+                print(f"⚠️ Falha ao salvar contexto pendente no conflito: {e}")
+
+            mensagem_sugestao = (
+                f"⛔ A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
+                f"\n\n✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
+                f"{alternativa_txt}"
+                "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
+            )
+
+            print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
+            await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
+            return True  # ⛔️ Não agenda nesse momento
+
+        # ✅ Salva o evento no Firebase
+        evento_data = {
+            "descricao": titulo,
+            "data": start_time.strftime("%Y-%m-%d"),
+            "hora_inicio": start_time.strftime("%H:%M"),
+            "hora_fim": end_time.strftime("%H:%M"),
+            "duracao": duracao,
+            "confirmado": True,
+            "status": "confirmado",
+            "link": "",
+        }
+        if profissional:
+            evento_data["profissional"] = profissional  # ✅ só se tiver
+
+        print(f"👤 Profissional detectado: {profissional}") 
+        sucesso = await salvar_evento(user_id, evento_data)
+        if sucesso:
+            msg = f"✅ Reunião marcada para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
+            await responder_em_audio(update, context, msg)
+
+            # 🔔 Lembretes para o DONO (quem executou o comando / a conta que está usando o bot)
+            from services.notificacao_service import criar_notificacao_agendada
+            try:
+                # 30 min antes
+                await criar_notificacao_agendada(
+                    user_id=user_id,
+                    descricao=titulo,
+                    data=start_time.strftime("%Y-%m-%d"),
+                    hora_inicio=start_time.strftime("%H:%M"),
+                    canal="telegram",
+                    minutos_antes=30,
+                    destinatario_user_id=user_id,  # dono recebe
+                    alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")}
+                )
+                
+            except Exception as e:
+                print(f"⚠️ Falha ao agendar lembretes (voz): {e}")
+        else:
+            await update.message.reply_text("❌ Não foi possível salvar o evento.")
+
+    except Exception as e:
+        print(f"❌ Erro ao agendar por voz: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao tentar agendar a reunião.")
+
+    finally:
+        context.chat_data.pop("evento_via_gpt", None)
+
+async def cancelar_evento_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    termo = " ".join(context.args) if context.args else ""
+    if not termo:
+        await update.message.reply_text(
+            "Uso: /cancelar <parte do título/data/hora>\nEx.: /cancelar reunião 15:00 ou /cancelar 2025-10-12"
+        )
+        return
+
+    ok, msg = await cancelar_evento_por_texto(user_id, termo)
+
+    # ✅ Se vieram múltiplos candidatos, salva estado para o atalho numérico do bot.py finalizar
+    # 🔥 P0: APENAS dados serializáveis — Firestore rejeita tuplas
+    if (not ok) and candidatos:
+        resumo_eventos = []
+        for eid, ev in candidatos:
+            resumo_eventos.append({
+                "evento_id": eid,
+                "descricao": ev.get("descricao", ""),
+                "data": ev.get("data", ""),
+                "hora_inicio": ev.get("hora_inicio", ""),
+                "profissional": ev.get("profissional", ""),
+            })
+
+        context.user_data["cancelamento_pendente"] = {
+            "user_id": str(user_id),
+            "cliente_id": str(user_id),
+            "resumo_eventos": resumo_eventos,
+        }
+    await update.message.reply_text(msg)
+    return
+
+# ✅ definição de duração de eventos
+async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAULT_TYPE, mensagem: str):
+    match = re.search(r'(\d{1,3})\s*(min|minuto|minutos)', mensagem.lower())
+
+    if match:
+        minutos = int(match.group(1))
+
+        if 15 <= minutos <= 180:
+            user_id = str(update.message.from_user.id)
+            dono_id = await obter_id_dono(user_id)  # 👈 salva na config do dono
+            await atualizar_dado_em_path(f"Clientes/{dono_id}/configuracoes", {"duracao_padrao_evento": minutos})
+
+            await update.message.reply_text(f"✅ Duração dos eventos ajustada para {minutos} minutos.")
+            return True
+
+        else:
+            await update.message.reply_text("⚠️ Por favor, escolha uma duração entre 15 e 180 minutos.")
+            return True
+
+    return False
+
+# ✅ Criar evento via GPT com verificação de conflito
+async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict):
+    print("⚙️ Executando add_evento_por_gpt")
+
+    # [TESTE_SURI] 5️⃣ PAYLOAD PARA ADD_EVENTO_POR_GPT
+    print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: dados_keys={list((dados or {}).keys())}", flush=True)
+    if "cliente_nome" in (dados or {}):
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
+    if "profissional" in (dados or {}):
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: profissional={repr(dados.get('profissional'))}", flush=True)
+    if "servico" in (dados or {}):
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: servico={repr(dados.get('servico'))}", flush=True)
+
+    if not await verificar_pagamento(update, context): return False
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return False
+
+    if context.chat_data.get("evento_via_gpt"):
+        return False  # evitar duplicação
+    context.chat_data["evento_via_gpt"] = True
+
+    try:
+        descricao = dados.get("descricao", "Evento sem título")
+        servico = (dados or {}).get("servico")
+        profissional = dados.get("profissional") or dados.get("profissional_escolhido")
+        data_hora_str = dados.get("data_hora")  # ISO string
+
+        # 🔥 PATCH: construir título automaticamente
+        servico_txt = (str(servico).strip() if servico else "")
+        prof_txt = (str(profissional).strip() if profissional else "")
+
+        if servico_txt and prof_txt:
+            descricao = f"{servico_txt.capitalize()} com {prof_txt}"
+        elif servico_txt:
+            descricao = servico_txt.capitalize()
+        elif prof_txt:
+            descricao = f"Atendimento com {prof_txt}"
+        else:
+            descricao = "Atendimento"
+
+        # garante no payload também
+        dados["descricao"] = descricao
+        dados["titulo"] = descricao
+
+        duracao_minutos = dados.get("duracao", 60)
+        user_id = str(update.message.from_user.id)
+
+        # 🔧 PATCH MT-07: Obter dono_id para carregar contexto v2 (multi-tenant)
+        dono_id = await obter_id_dono(user_id)
+
+        # ✅ Carrega contexto UMA vez no início (evita UnboundLocalError)
+        contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+
+        # 🆔 Buscar cliente cadastrado para usar nome persistido
+        cliente_cadastrado = await buscar_cliente(user_id) or {}
+
+        # 📝 Aplicar ordem de prioridade para cliente_nome
+        cliente_nome = (
+            dados.get("cliente_nome")
+            or cliente_cadastrado.get("nome")
+            or update.message.from_user.full_name
+            or update.message.from_user.first_name
+        )
+
+        cliente_id = user_id
+
+        # 🚫 BLOQUEIO: impedir agendamento sem confirmação explícita
+        texto_usuario = (
+            (getattr(getattr(update, "message", None), "text", None) or dados.get("texto_usuario") or "")
+            .lower()
+            .strip()
+        )
+
+        def eh_confirmacao(txt: str) -> bool:
+            txt = (txt or "").lower().strip()
+            gatilhos = [
+                "sim", "ok", "confirmado", "confirmar", "confirma",
+                "pode", "pode ser", "fechar", "agende", "marque",
+                "pode agendar", "pode marcar",
+                "certo", "perfeito", "beleza", "blz",
+            ]
+            return any(g == txt or g in txt for g in gatilhos)
+
+        # 🧠 Se não há confirmação explícita, NÃO agenda
+        # ✅ CONTROLE DE CONFIRMAÇÃO (modo híbrido)
+        origem = (dados or {}).get("origem")
+
+        if dados.get("confirmado") is True:
+            print("⚙️ Confirmado pelo chamador (confirmado=True): pulando gate de confirmação", flush=True)
+
+        elif origem == "auto":
+            # 🛑 Se já existe confirmação pendente no contexto, não pode pular confirmação
+            ctx_tmp = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+            if ctx_tmp.get("aguardando_confirmacao_agendamento"):
+                print("🛑 Confirmação pendente detectada — não vou executar modo automático.", flush=True)
+                return {"acao": None, "handled": True}
+
+            print("⚙️ Modo automático: pulando confirmação", flush=True)
+
+        else:
+            if not eh_confirmacao(texto_usuario):
+
+                # 🧠 Formatar data/hora (de ISO para 03/03 às 14:00)
+                try:
+                    dt = datetime.fromisoformat(data_hora_str)
+                    data_formatada = dt.strftime("%d/%m às %H:%M")
+                except:
+                    data_formatada = data_hora_str  # fallback se der erro
+
+                # 🛑 Marca que agora estamos aguardando confirmação do usuário
+                contexto_confirmacao = {
+                    "aguardando_confirmacao_agendamento": True,
+                    "dados_confirmacao_agendamento": {
+                        "servico": servico,
+                        "profissional": profissional,
+                        "data_hora": data_hora_str,
+                        "duracao": duracao_minutos,
+                        "descricao": descricao,
+                        "origem": "confirmacao_pendente",
+                    }
+                }
+
+                # [TESTE_SURI] 4️⃣ CONTEXTO SALVO
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: servico={repr(servico)}", flush=True)
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
+
+                await salvar_contexto_temporario_v2(dono_id, user_id, contexto_confirmacao)
+
+                await update.message.reply_text(
+                    f"✨ {descricao}\n"
+                    f"📆 {data_formatada}\n\n"
+                    f"Posso confirmar esse horário pra você?",
+                    parse_mode="Markdown"
+                )
+                return {"acao": None, "handled": True}
+
+        # 🧠 Trata profissional alternativo (contexto já carregado acima)
+        resposta_usuario_norm = (
+            (getattr(getattr(update, "message", None), "text", None) or "")
+            .strip()
+            .lower()
+        )
+
+        alternativa = contexto.get("alternativa_profissional")
+
+        nomes_alternativos = []
+        if isinstance(alternativa, list):
+            nomes_alternativos = [str(x).strip() for x in alternativa if str(x).strip()]
+        elif isinstance(alternativa, str) and alternativa.strip():
+            nomes_alternativos = [alternativa.strip()]
+
+        profissional_alternativo_escolhido = None
+        for nome_alt in nomes_alternativos:
+            if nome_alt.lower() in resposta_usuario_norm:
+                profissional_alternativo_escolhido = nome_alt
+                break
+
+        if profissional_alternativo_escolhido:
+            profissional = profissional_alternativo_escolhido
+            dados["profissional"] = profissional
+
+            # ✅ ao escolher a alternativa, limpa resíduos do modo de sugestão
+            contexto.pop("alternativa_profissional", None)
+            contexto.pop("sugestoes", None)
+            contexto.pop("modo_escolha_horario", None)
+            contexto.pop("horarios_sugeridos", None)
+
+            await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+            print(f"🔁 Profissional substituído com sucesso: {profissional}")
+        elif nomes_alternativos:
+            # ❌ Usuário não escolheu nenhuma alternativa explicitamente → limpa
+            contexto.pop("alternativa_profissional", None)
+            contexto.pop("sugestoes", None)
+            await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+        
+        if not profissional:
+            # Só tenta descobrir/exigir profissional se realmente precisar
+            if _precisa_profissional(contexto, descricao):
+                profissional = await obter_profissional_para_evento(user_id, descricao)
+                if not profissional:
+                    await update.message.reply_text("❌ Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
+                    return False
+            else:
+                profissional = None  # reunião/agenda pessoal não precisa
+
+        if not descricao or not data_hora_str:
+            await update.message.reply_text("❌ Dados insuficientes para criar o evento.")
+            return False
+
+        try:
+            start_time = datetime.fromisoformat(data_hora_str)
+        except ValueError:
+            await update.message.reply_text("❌ Formato de data/hora inválido.")
+            return False
+
+        end_time = start_time + timedelta(minutes=duracao_minutos)
+
+        # =========================================================
+        # 🔒 FAIL-SAFE FINAL — VALIDAÇÃO DE EXPEDIENTE
+        # =========================================================
+        id_dono = await obter_id_dono(user_id)
+
+        validacao_funcionamento = await validar_horario_funcionamento(
+            user_id=id_dono,
+            data_iso=start_time.strftime("%Y-%m-%d"),
+            hora_inicio=start_time.strftime("%H:%M"),
+            duracao_min=duracao_minutos,
+            profissional=profissional,
+        )
+
+        if not validacao_funcionamento.get("permitido"):
+            motivo = validacao_funcionamento.get("motivo")
+
+            if motivo == "fora_do_expediente":
+
+                data_ref = start_time.strftime("%Y-%m-%d")
+                hora_ref = start_time.strftime("%H:%M")
+
+                tentativa = await resolver_fora_do_expediente(
+                    user_id=id_dono,
+                    data_iso=data_ref,
+                    hora_inicio=hora_ref,
+                    duracao_min=duracao_minutos,
+                    servico=descricao,
+                    profissional=profissional,
+                )
+
+                if tentativa.get("ok"):
+                    horario = tentativa.get("horario")
+
+                    janela = await obter_janela_funcionamento(
+                        user_id=id_dono,
+                        data_str=data_ref,
+                        profissional=profissional,
+                    )
+
+                    fim_janela = janela.get("fim") if janela.get("aberto") else None
+
+                    texto_base = ""
+
+                    if fim_janela:
+                        texto_base = (
+                            f"Esse horário não está disponível nesse dia, porque o salão atende só até {fim_janela}.\n\n"
+                        )
+                    else:
+                        texto_base = (
+                            "Esse horário não está disponível nesse dia.\n\n"
+                        )
+
+                    await update.message.reply_text(
+                        texto_base
+                        + f"O horário mais próximo que tenho disponível é às {horario}.\n"
+                        + "Posso agendar pra você? 😊"
+                    )
+                    return False
+
+                # fallback (mantém comportamento antigo)
+                await update.message.reply_text(
+                    "❌ Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
+                )
+                return False
+
+            await update.message.reply_text(
+                "❌ Não consegui validar esse horário na agenda configurada. Tente novamente."
+            )
+            return False
+
+        eventos_do_dia = await buscar_eventos_por_intervalo(
+            id_dono,
+            dia_especifico=start_time.date()
+        ) or []
+
+        ocupados = []
+
+        for ev in eventos_do_dia:
+
+            evento_id = (
+                ev.get("id")
+                or ev.get("event_id")
+                or ev.get("evento_id")
+                or ""
+            )
+
+            # 🔥 filtro estrutural da agenda
+            if not evento_deve_entrar_na_agenda(
+                evento_id=evento_id,
+                evento=ev,
+                data_consulta=start_time.strftime("%Y-%m-%d")
+            ):
+                print(
+                    f"🧹 [EVENTO_IGNORADO_HANDLER] id={evento_id}",
+                    flush=True
+                )
+                continue
+
+            # Se houver profissional, filtra por ele
+            if profissional:
+                if unidecode.unidecode(ev.get("profissional", "").lower()) != unidecode.unidecode(profissional.lower()):
+                    continue
+
+            try:
+                ev_inicio = datetime.strptime(
+                    f"{ev['data']} {ev['hora_inicio']}",
+                    "%Y-%m-%d %H:%M"
+                )
+
+                ev_fim = datetime.strptime(
+                    f"{ev['data']} {ev['hora_fim']}",
+                    "%Y-%m-%d %H:%M"
+                )
+
+                ocupados.append((ev_inicio, ev_fim))
+
+            except Exception as e:
+                print(f"⚠️ Erro ao processar evento: {e}")
+                continue
+
+        # 📌 DEBUG dos horários ocupados e do novo agendamento
+        print(f"📌 Novo agendamento solicitado: {start_time} → {end_time}")
+        for i, (ini, fim) in enumerate(ocupados):
+            print(f"❗ Evento ocupado {i}: {ini} → {fim} | Conflita? {not (end_time <= ini or start_time >= fim)}")
+
+        print("🔍 Entrando no bloco de verificação de conflitos...")
+        # Verifica se há conflito real com esse horário
+        conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
+
+        if conflito:
+            # ⚠️ Aqui sim faz sentido sugerir horários alternativos com base no horário solicitado
+            sugestoes = gerar_sugestoes_de_horario(
+                start_time,
+                ocupados,
+                duracao_evento_minutos=duracao_minutos,
+                max_sugestoes=3
+            )
+
+            alternativa = None
+            sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
+
+            id_dono = user_id
+            try:
+                cliente_tmp = await buscar_cliente(user_id) or {}
+                id_dono = str(cliente_tmp.get("id_negocio") or cliente_tmp.get("id_dono") or user_id)
+            except Exception as e:
+                print(f"⚠️ Falha ao obter id_negocio: {e}", flush=True)
+
+            # ✅ Persistir agendamento pendente (data ORIGINAL) para não perder o dia
+            try:
+                # tenta derivar serviço do texto (ex: "escova com Joana" -> "escova")
+                servico_ctx = None
+                if isinstance(descricao, str) and descricao.strip():
+                    servico_ctx = descricao.strip().lower().split(" com ")[0].strip()
+
+                servico_final = servico_ctx or contexto.get("servico")
+                prof_final = profissional or contexto.get("profissional_escolhido")
+
+                contexto["ultima_acao"] = "criar_evento"
+                contexto["estado_fluxo"] = "aguardando_escolha_horario"
+                contexto.pop("aguardando_horario", None)
+                contexto["data_hora"] = start_time.replace(second=0, microsecond=0).isoformat()
+
+                if prof_final:
+                    contexto["profissional_escolhido"] = prof_final
+
+                # ✅ sempre salvar
+                contexto["duracao"] = duracao_minutos
+                contexto["sugestoes"] = sugestoes
+                contexto["alternativa_profissional"] = alternativa
+
+                if servico_final:
+                    contexto["servico"] = servico_final
+
+                # ✅ sempre salvar dados_anteriores (para o gpt_service retomar com "15:20")
+                contexto["dados_anteriores"] = {
+                    "profissional": prof_final,
+                    "servico": servico_final,
+                    "data_hora": start_time.replace(second=0, microsecond=0).isoformat(),
+                    "duracao": duracao_minutos,
+                }
+
+                await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+                print("💾 Contexto pendente salvo (conflito).")
+
+            except Exception as e:
+                print(f"⚠️ Falha ao salvar contexto pendente no conflito: {e}")
+
+            nomes_alternativos = []
+            if isinstance(alternativa, list):
+                nomes_alternativos = [str(x).strip() for x in alternativa if str(x).strip()]
+            elif isinstance(alternativa, str) and alternativa.strip():
+                nomes_alternativos = [alternativa.strip()]
+
+            if len(nomes_alternativos) == 1:
+                alternativa_txt = (
+                    f"\n\n💡 Porém, *{nomes_alternativos[0]}* está disponível exatamente às *{start_time.strftime('%H:%M')}*."
+                )
+            elif len(nomes_alternativos) > 1:
+                lista_alt = ", ".join(f"*{n}*" for n in nomes_alternativos)
+                alternativa_txt = (
+                    f"\n\n💡 Tenho estas profissionais disponíveis exatamente às *{start_time.strftime('%H:%M')}*: {lista_alt}."
+                )
+            else:
+                alternativa_txt = ""
+
+            # --- Alternativas no MESMO horário (mesmo serviço) ---
+            alternativas_txt = ""
+            try:
+                # blindagem: se por algum motivo servico_final não existir aqui
+                servico_final = servico_final or contexto.get("servico")
+
+                if servico_final:
+                    data_ref = start_time.date()
+                    hora_ref = start_time.strftime("%H:%M")
+
+                    # quem faz o serviço (no NEGÓCIO/DONO)
+                    aptas = await buscar_profissionais_por_servico([servico_final], id_dono)  # dict {nome: dados}
+
+                    # quem está livre no horário (no NEGÓCIO/DONO)
+                    livres = await buscar_profissionais_disponiveis_no_horario(
+                        user_id=id_dono,
+                        data=data_ref,
+                        hora=hora_ref,
+                        duracao=duracao_minutos
+                    )  # dict {nome: dados}
+
+                    # normaliza para interseção robusta
+                    def norm_nome(n: str) -> str:
+                        return unidecode.unidecode(str(n).strip().lower())
+
+                    aptas_norm = {norm_nome(n): n for n in aptas.keys()}
+                    livres_norm = {norm_nome(n): n for n in livres.keys()}
+                    prof_ocupada_norm = norm_nome(profissional)
+
+                    # interseção: faz o serviço E está livre, removendo a profissional ocupada
+                    nomes_alternativos = []
+                    for k in livres_norm.keys():
+                        if k == prof_ocupada_norm:
+                            continue
+                        if k in aptas_norm:
+                            nomes_alternativos.append(livres_norm[k])
+
+                    alternativa = nomes_alternativos if nomes_alternativos else None
+                    contexto["alternativa_profissional"] = alternativa
+
+                    print(
+                        f"🧪 alternativas debug | servico={servico_final} | "
+                        f"aptas={list(aptas.keys())} | livres={list(livres.keys())} | alts={nomes_alternativos}",
+                        flush=True
+                    )
+
+                    if nomes_alternativos:
+                        alternativas_txt = (
+                            f"\n\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem *{servico_final}* "
+                            f"e estão disponíveis: *{', '.join(nomes_alternativos)}*."
+                        )
+
+                        # P0-004 patch: adicionar tenant_id guard
+                        contexto_evento = {
+                            "estado_fluxo": "aguardando_escolha_horario",
+                            "ultima_opcao_profissionais": nomes_alternativos,
+                            "alternativa_profissional": nomes_alternativos,
+                            "profissional_escolhido": prof_final,
+                            "servico": servico_final,
+                            "data_hora": start_time.replace(second=0, microsecond=0).isoformat(),
+                            "_tenant_id_guard": dono_id  # Guard rail P0-004
+                        }
+                        await salvar_contexto_temporario(
+                            user_id,
+                            contexto_evento,
+                            tenant_id=dono_id  # P0-004 patch
+                        )
+
+            except Exception as e:
+                print(f"⚠️ Falha ao montar alternativas no mesmo horário: {e}", flush=True)
+
+            mensagem_sugestao = (
+                f"⛔ A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
+                f"\n\n✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
+                f"{alternativas_txt or alternativa_txt}"
+                "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+            )
+
+            print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
+            await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
+            return True  # ⛔️ Não agenda nesse momento
+
+        evento_data = {
+            "descricao": descricao,
+            "data": start_time.strftime("%Y-%m-%d"),
+            "hora_inicio": start_time.strftime("%H:%M"),
+            "hora_fim": end_time.strftime("%H:%M"),
+            "duracao": duracao_minutos,
+            "confirmado": True,
+            "status": "confirmado",
+            "link": "",
+            "cliente_id": cliente_id,
+            "cliente_nome": cliente_nome,
+        }
+        if profissional:
+            evento_data["profissional"] = profissional
+
+        # [TESTE_SURI] 6️⃣ EVENTO_DATA ANTES DE SALVAR
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: profissional={repr(evento_data.get('profissional'))}", flush=True)
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
+
+        print("📦 Disparando salvar_evento com:", evento_data)
+        resultado_salvamento = await salvar_evento(user_id, evento_data)
+
+        # [PATCH_P0] Detectar e tratar duplicado
+        if resultado_salvamento == "duplicado":
+            await update.message.reply_text("Esse horário já está confirmado.\n\nSe precisar alterar ou cancelar, é só me avisar.")
+            return True
+
+        # [PATCH_P0] CRÍTICO: Detectar conflito_lock_existente e gerar sugestões
+        if resultado_salvamento and isinstance(resultado_salvamento, str) and resultado_salvamento.startswith("conflito_"):
+            tipo_erro = resultado_salvamento.split("_", 1)[1]
+            print(f"[PATCH_P0_CONFLITO] Conflito detectado: {tipo_erro} — gerando sugestões", flush=True)
+
+            try:
+                # [PATCH_P0] Reutilizar exatamente o código que funciona (linhas 839-990)
+                duracao_evento = evento_data.get("duracao", 30)
+                sugestoes = gerar_sugestoes_de_horario(
+                    start_time,
+                    ocupados,
+                    duracao_evento_minutos=duracao_evento,
+                    max_sugestoes=3
+                )
+
+                alternativa = None
+                sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes]) if sugestoes else ""
+
+                id_dono = dono_id
+                servico_final = servico
+
+                # Alternativas no MESMO horário (mesmo serviço)
+                alternativas_txt = ""
+                try:
+                    if servico_final:
+                        data_ref = start_time.date()
+                        hora_ref = start_time.strftime("%H:%M")
+
+                        aptas = await buscar_profissionais_por_servico([servico_final], id_dono)
+                        livres = await buscar_profissionais_disponiveis_no_horario(
+                            user_id=id_dono,
+                            data=data_ref,
+                            hora=hora_ref,
+                            duracao=duracao_evento
+                        )
+
+                        def norm_nome(n: str) -> str:
+                            return unidecode.unidecode(str(n).strip().lower())
+
+                        aptas_norm = {norm_nome(n): n for n in aptas.keys()}
+                        livres_norm = {norm_nome(n): n for n in livres.keys()}
+                        prof_ocupada_norm = norm_nome(profissional)
+
+                        nomes_alternativos = []
+                        for k in livres_norm.keys():
+                            if k == prof_ocupada_norm:
+                                continue
+                            if k in aptas_norm:
+                                nomes_alternativos.append(livres_norm[k])
+
+                        alternativa = nomes_alternativos if nomes_alternativos else None
+
+                        if nomes_alternativos:
+                            alternativas_txt = (
+                                f"\n\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem *{servico_final}* "
+                                f"e estão disponíveis: *{', '.join(nomes_alternativos)}*."
+                            )
+
+                except Exception as e:
+                    print(f"[PATCH_P0_CONFLITO] Falha ao obter alternativas: {e}", flush=True)
+
+                # Montar mensagem EXATAMENTE como em linhas 985-990
+                mensagem_sugestao = (
+                    f"⛔ A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
+                    f"\n\n✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
+                    f"{alternativas_txt}"
+                    "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                )
+
+                await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
+
+                # [PATCH_P0] Salvar estado de espera por escolha de horário
+                contexto_conflito = {
+                    "estado_fluxo": "aguardando_escolha_horario",
+                    "ultima_acao": "conflito_detectado",
+                    "motivo_bloqueio": tipo_erro,
+                    "draft_agendamento": evento_data,  # Preservar dados originais
+                    "horarios_sugeridos": conflito_info.get("sugestoes", []),
+                    "alternativa_profissional": conflito_info.get("profissional_alternativo", []),
+                    "data_tentativa_agendamento": start_time.isoformat() if start_time else None,
+                    "profissional_tentado": profissional,
+                    "servico_tentado": servico,
+                }
+
+                await salvar_contexto_temporario(
+                    user_id,
+                    contexto_conflito,
+                    tenant_id=dono_id
+                )
+                print(f"[PATCH_P0_CONFLITO] Contexto salvo: estado_fluxo=aguardando_escolha_horario", flush=True)
+
+                return True  # Não continuar com notificações ou sucesso
+
+            except Exception as e:
+                print(f"[PATCH_P0_CONFLITO] Erro ao gerar sugestões: {e}", flush=True)
+                await update.message.reply_text(
+                    f"❌ Não consegui agendar nesse horário. Tente outro horário ou profissional."
+                )
+                return True
+
+        # [PATCH_P0] Erro genérico (sem conflito específico)
+        if not resultado_salvamento:
+            print(f"[PATCH_P0] Salvamento falhou (resultado_salvamento={resultado_salvamento})", flush=True)
+            return True
+
+        # ✅ Sucesso real — só chega aqui se não houve conflito/erro
+        print("[OK] Evento salvo")
+
+        # P1.1: Atualizar ClienteProfile (background, não-bloqueante)
+        # PATCH P1: Adicionar evento_id e dados completos
+        # PATCH P3: Adicionar callback para capturar exceções da task
+        try:
+            tenant_id = await obter_id_dono(user_id)
+            import asyncio
+
+            # PATCH P1: Gerar evento_id mesmo do usado em notificações
+            evento_id = f"{cliente_id}_{profissional or 'pessoal'}_{evento_data.get('data')}_{evento_data.get('hora_inicio')}".replace(" ", "_").lower()
+
+            # PATCH P3: Criar task com callback de erro
+            async def profile_callback(task):
+                try:
+                    await task
+                except Exception as e:
+                    logger.error(f"PATCH P3: Profile falhou após retry: {e}", exc_info=True)
+
+            task = asyncio.create_task(
+                criar_ou_atualizar_profile_apos_evento(
+                    tenant_id=tenant_id,
+                    cliente_id=cliente_id,
+                    evento_id=evento_id,  # PATCH P1
+                    evento_data={
+                        "profissional": profissional,
+                        "servico": servico,
+                        "cliente_nome": cliente_nome,
+                        "data": evento_data.get("data"),  # PATCH P1
+                        "hora": evento_data.get("hora_inicio"),  # PATCH P1
+                    }
+                )
+            )
+
+            # PATCH P3: Adicionar callback para erros
+            task.add_done_callback(lambda t: profile_callback(t) if t.exception() else None)
+
+        except Exception as e:
+            # NÃO bloqueia agendamento se profile falhar
+            logger.warning(f"Falha ao atualizar profile (não bloqueante): {e}")
+
+        # 🔔 Criar notificações para cliente e profissional
+        from services.notificacao_service import criar_notificacao_agendada, criar_notificacoes_evento_cliente_e_profissional
+
+        try:
+            # Calcular event_id (mesmo lógica de salvar_evento)
+            id_dono_notif = await obter_id_dono(user_id)
+            event_id = f"{cliente_id}_{profissional or 'pessoal'}_{evento_data.get('data')}_{evento_data.get('hora_inicio')}".replace(" ", "_").lower()
+
+            # Buscar profissional_user_id se profissional existe
+            profissional_user_id = None
+            if profissional:
+                try:
+                    profs_dict = await buscar_subcolecao(f"Clientes/{id_dono_notif}/Profissionais") or {}
+                    # Buscar por nome do profissional
+                    for prof_nome, prof_dados in profs_dict.items():
+                        if prof_nome.lower().strip() == profissional.lower().strip():
+                            profissional_user_id = prof_dados.get("user_id") or prof_dados.get("chat_id") or prof_dados.get("telegram_id")
+                            break
+                except Exception as e:
+                    print(f"⚠️ Falha ao buscar profissional_user_id: {e}")
+
+            # Criar notificações (cliente + profissional se houver)
+            resultado_notif = await criar_notificacoes_evento_cliente_e_profissional(
+                tenant_id=id_dono_notif,
+                evento_id=event_id,
+                cliente_id=cliente_id,
+                cliente_nome=cliente_nome,
+                profissional_nome=profissional or "Sem profissional",
+                profissional_user_id=profissional_user_id,
+                data=evento_data.get("data"),
+                hora_inicio=evento_data.get("hora_inicio"),
+                canal_cliente="telegram",
+                canal_profissional="telegram",
+                minutos_antes=30,
+            )
+
+            if resultado_notif["cliente"]["sucesso"]:
+                print(f"[OK] Notificação cliente criada: {resultado_notif['cliente']['notif_id']}")
+            else:
+                print(f"[WARN] Falha ao criar notificação cliente: {resultado_notif['cliente'].get('motivo')}")
+
+            if resultado_notif["profissional"]["sucesso"]:
+                print(f"[OK] Notificação profissional criada: {resultado_notif['profissional']['notif_id']}")
+            elif resultado_notif["profissional"]["motivo"] != "profissional_sem_id":
+                print(f"⚠️ Falha ao criar notificação profissional: {resultado_notif['profissional'].get('motivo')}")
+
+        except Exception as e:
+            print(f"⚠️ Falha ao criar notificações cliente+profissional: {e}")
+            # Continua mesmo se falhar
+
+        # 🔔 Lembretes (60 e 10 min antes)
+        # NOTA: criar_notificacao_agendada será descontinuado após migração para criar_notificacoes_evento_cliente_e_profissional
+        try:
+            # Decide quem recebe o lembrete:
+            # - se veio cliente_user_id (atendimento ao cliente) -> notifica o cliente
+            # - senão -> notifica o dono (quem está usando o bot)
+            cliente_user_id = dados.get("cliente_user_id") if isinstance(dados, dict) else None
+            destinatario = cliente_user_id or user_id
+
+            # 30 min antes
+            await criar_notificacao_agendada(
+                user_id=user_id,
+                descricao=descricao,
+                data=start_time.strftime("%Y-%m-%d"),
+                hora_inicio=start_time.strftime("%H:%M"),
+                canal="telegram",
+                minutos_antes=30,
+                destinatario_user_id=destinatario,
+                alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")}
+            )
+
+        except Exception as e:
+            print(f"⚠️ Falha ao agendar lembretes do evento: {e}")
+
+        mensagem_confirmacao = (
+            f"📝 {descricao.capitalize()}\n"
+            f"📅 {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}"
+        )
+
+        if context.user_data.get("origem_email_detectado"):
+            mensagem_confirmacao = (
+                "📬 Um novo evento foi criado com base em um e-mail importante:\n\n"
+                + mensagem_confirmacao
+            )
+        context.user_data.pop("origem_email_detectado", None)
+
+        try:
+            from main import application
+            await application.bot.send_message(chat_id=user_id, text=mensagem_confirmacao)
+        except Exception as e:
+            print(f"❌ Erro ao enviar notificação Telegram: {e}")
+
+        try:
+            from utils.whatsapp_utils import enviar_mensagem_whatsapp
+            await enviar_mensagem_whatsapp(user_id, mensagem_confirmacao)
+        except Exception as e:
+            print(f"❌ Erro ao enviar WhatsApp: {e}")
+
+        msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
+        await update.message.reply_text(msg_sucesso)
+
+        await limpar_contexto_agendamento_v2(dono_id, user_id)
+
+        return True
+
+    except Exception as e:
+        import traceback
+        print(f"❌ Erro inesperado em add_evento_por_gpt: {e}")
+        traceback.print_exc()
+        await update.message.reply_text("❌ Ocorreu um erro ao tentar criar o evento.")
+        return False
+
+    finally:
+        context.chat_data.pop("evento_via_gpt", None)
+
+async def enviar_agenda_excel(update: Update, context: ContextTypes.DEFAULT_TYPE, intervalo: str = "hoje"):
+    if not await verificar_pagamento(update, context): return
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return
+
+    user_id = str(update.message.from_user.id)
+
+    if intervalo == "hoje":
+        eventos = await buscar_eventos_por_intervalo(user_id, dias=0)
+    elif intervalo == "amanha":
+        eventos = await buscar_eventos_por_intervalo(user_id, dias=1)
+    elif intervalo == "semana":
+        eventos = await buscar_eventos_por_intervalo(user_id, semana=True)
+    else:
+        eventos = await buscar_eventos_por_intervalo(user_id, dias=-365)
+
+    if not eventos:
+        await update.message.reply_text("📭 Nenhum evento encontrado para gerar a agenda.")
+        await responder_em_audio(update, context, "Nenhum evento disponível para gerar a agenda.")
+        return
+
+    # 🧾 Gera planilha em memória
+    excel_stream = await gerar_excel_agenda(user_id, eventos)
+
+    await update.message.reply_document(
+        document=InputFile(excel_stream, filename="agenda_neoagenda.xlsx"),
+        caption="📎 Aqui está sua agenda exportada com sucesso."
+    )
+
+    await responder_em_audio(update, context, "Sua agenda em Excel foi gerada e enviada.")  

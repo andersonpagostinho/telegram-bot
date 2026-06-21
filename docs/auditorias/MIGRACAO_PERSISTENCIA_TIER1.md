@@ -278,5 +278,64 @@ GPT actions → salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=te
 ---
 
 **Migração Executada:** 2026-06-21  
-**Validação:** Em progresso  
+**Validação:** ✅ CONCLUÍDO (4/4 critérios)  
+**Commit:** 05efb23  
 **Responsável:** Equipe NeoEve
+
+---
+
+## ✅ CHECKLIST DE APROVAÇÃO — FASE 1 TIER 1
+
+| Critério | Status | Evidência |
+|----------|--------|-----------|
+| py_compile OK | ✅ | Sem erros de sintaxe |
+| grep: 0 escritas legadas | ✅ | 0 ocorrências restantes |
+| P0 Regressão: 174/174 PASS | ✅ | Todas as 9 baterias |
+| Commit criado | ✅ | 05efb23 |
+
+**RESULTADO FINAL: ✅ APROVADO PARA PRODUÇÃO**
+
+---
+
+## ⚠️ Observação P1
+
+**P1 DefaultCredentialsError (Bloqueante de Ambiente)**
+- 8/9 testes falharam com `google.auth.exceptions.DefaultCredentialsError`
+- 1/9 teste PASSOU (sanity)
+- Causa: GOOGLE_APPLICATION_CREDENTIALS não configurada
+- Classificação: **BLOQUEANTE DE AMBIENTE**, não de código
+
+**Evidência de Segurança:**
+P0 174/174 PASS prova que a migração é segura. P1 não será usado como evidência de sucesso nesta fase.
+
+---
+
+## 🚀 PRÓXIMO: Fase 2 Tier 2 — Auditoria Prévia de Impacto
+
+Antes de iniciar Fase 2, executar auditoria prévia estruturada:
+
+### 1. Listar arquivos Tier 2 candidatos
+- Todos os arquivos com `salvar_contexto_temporario` sem tenant_id
+- Separar por camada (handlers/, services/, router/)
+
+### 2. Classificar risco por componente
+- CRÍTICO: motor agenda, conflito, disponibilidade
+- ALTO: notificações, cancelamento
+- MÉDIO: contexto geral, estado fluxo
+- BAIXO: cache, histórico
+
+### 3. Mapear chamadas legadas restantes
+- Quantas ocorrências por arquivo
+- Origem do tenant_id em cada contexto
+- Se pode ser propagado ou recalculado
+
+### 4. Separar persistência de comportamento
+- Mudança de path NÃO altera lógica
+- Dados persistem idênticos
+- Nenhuma transformação ocorre
+
+### 5. Garantir segurança crítica
+- Motor agenda: ZERO alterações
+- Conflito: ZERO alterações
+- Disponibilidade: ZERO alterações
+- Notificações: ZERO alterações

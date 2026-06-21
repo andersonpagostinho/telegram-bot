@@ -1,5 +1,5 @@
 {
-  "data_execucao": "2026-06-20T20:48:27.685723",
+  "data_execucao": "2026-06-21T20:02:55.510608",
   "ambiente": "FIREBASE_REAL",
   "fase": "VALIDACAO_BATERIA_15_COMPLETA",
   "cenarios_totais": 15,
@@ -16,13 +16,12 @@
       "etapas": {
         "busca": {
           "termo": "Cancelar com a Bruna na segunda",
-          "candidatos_encontrados": 3,
+          "candidatos_encontrados": 2,
           "eventos_ids": [
-            "7371670478_bruna_2026-06-22_10:20",
             "test_bruna_2026-06-22_14:00",
             "test_bruna_2026-06-22_14:40"
           ],
-          "mensagem": "Encontrei mais de um. Qual deseja cancelar?\n1) Corte com Bruna — 2026-06-22 às 10:20\n2) Corte com Br"
+          "mensagem": "Encontrei mais de um. Qual deseja cancelar?\n1) Corte com Bruna — 2026-06-22 às 14:00\n2) Escova com B"
         },
         "validacao": {
           "profissional_extraido": true,
@@ -41,20 +40,20 @@
       "status": "PASSOU",
       "etapas": {
         "multiplos": {
-          "candidatos": 3,
+          "candidatos": 2,
           "tem_multiplos": true,
           "lista_opcoes": true,
           "oferece_indices": true
         },
         "eventos_listados": [
           {
-            "hora": "10:20",
+            "hora": "14:00",
             "descricao": "Corte com Bruna",
             "profissional": "Bruna"
           },
           {
-            "hora": "14:00",
-            "descricao": "Corte com Bruna",
+            "hora": "14:40",
+            "descricao": "Escova com Bruna",
             "profissional": "Bruna"
           }
         ]
@@ -86,11 +85,11 @@
       "status": "PASSOU",
       "etapas": {
         "busca": {
-          "candidatos_encontrados": 3,
+          "candidatos_encontrados": 2,
           "pode_confirmar": true
         },
         "confirmacao": {
-          "evento_id": "7371670478_bruna_2026-06-22_10:20",
+          "evento_id": "test_bruna_2026-06-22_14:00",
           "status_antes": "confirmado",
           "status_depois": "cancelado",
           "tem_cancelado_por": true,
@@ -122,12 +121,9 @@
       "status": "PASSOU",
       "etapas": {
         "indices": {
-          "candidatos_totais": 2,
-          "indices_encontrados": [
-            1,
-            2
-          ],
-          "tem_indices": true
+          "candidatos_totais": 1,
+          "indices_encontrados": "N/A",
+          "tem_indices": "um_candidato"
         }
       }
     },
@@ -139,7 +135,7 @@
       "etapas": {
         "busca": {
           "termo": "Cancelar na segunda",
-          "candidatos_encontrados": 2,
+          "candidatos_encontrados": 1,
           "tem_opcoes": true
         }
       }
@@ -168,7 +164,7 @@
       "status": "PASSOU",
       "etapas": {
         "busca": {
-          "evento_pendente_id": "test_pendente_2026-06-23_16:00",
+          "evento_pendente_id": "test_pendente_2026-06-24_16:00",
           "candidatos_totais": 9,
           "evento_pendente_encontrado": false
         }
@@ -194,8 +190,8 @@
       "status": "PASSOU",
       "etapas": {
         "idempotencia": {
-          "primeiro_cancelado_em": "2026-06-20T20:48:30.387130",
-          "segundo_cancelado_em": "2026-06-20T20:48:30.442503",
+          "primeiro_cancelado_em": "2026-06-21T20:02:58.169225",
+          "segundo_cancelado_em": "2026-06-21T20:02:58.217283",
           "status_final": "cancelado",
           "sem_erro": true
         }

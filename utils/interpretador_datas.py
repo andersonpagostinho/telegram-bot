@@ -248,7 +248,7 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
 
             dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
             result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
-            print(f"🧪 [PARSER] fonte_parse=manual_hoje_amanha | resultado={result}", flush=True)
+            print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
             return result
 
         # ✅ Detecta dia da semana isolado ou com hora, ex:
@@ -288,7 +288,7 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
                 datetime(alvo.year, alvo.month, alvo.day, hora, minuto, 0, 0)
             )
             result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
-            print(f"🧪 [PARSER] fonte_parse=manual_dia_semana | resultado={result}", flush=True)
+            print(f"[PARSER] fonte_parse=manual_dia_semana resultado={result}", flush=True)
             return result
 
         # ✅ Se for só hora, não decide data aqui (isso é do fluxo/sessão)
@@ -327,7 +327,7 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
 
             dt_aware = FUSO_BR.localize(datetime(ano, mes, dia, hora, minuto, 0, 0))
             result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
-            print(f"🧪 [PARSER] fonte_parse=manual_dia_mes | resultado={result}", flush=True)
+            print(f"[PARSER] fonte_parse=manual_dia_mes resultado={result}", flush=True)
             return result
 
         # ✅ Caso geral: dateparser com base BR
@@ -372,12 +372,12 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
             texto_reduzido = extrair_trecho_temporal(texto_original)
             parsed_reduzido = None
 
-        # 🧪 Logs comparativos
-        print(f"🧪 [PARSER] texto_original={texto_original!r}", flush=True)
-        print(f"🧪 [PARSER] texto_reduzido={texto_reduzido!r}", flush=True)
-        print(f"🧪 [PARSER] parsed_original={parsed_original}", flush=True)
-        print(f"🧪 [PARSER] parsed_reduzido={parsed_reduzido}", flush=True)
-        print(f"🧪 [PARSER] fonte_parse={fonte_parse}", flush=True)
+        # [LOGS COMPARATIVOS]
+        print(f"[PARSER] texto_original={texto_original!r}", flush=True)
+        print(f"[PARSER] texto_reduzido={texto_reduzido!r}", flush=True)
+        print(f"[PARSER] parsed_original={parsed_original}", flush=True)
+        print(f"[PARSER] parsed_reduzido={parsed_reduzido}", flush=True)
+        print(f"[PARSER] fonte_parse={fonte_parse}", flush=True)
 
         if isinstance(parsed, datetime):
             return parsed
@@ -391,7 +391,7 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
 def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     texto_lower = (texto or "").lower()
 
-    # 🔥 gatilho simples e direto (P0)
+    # [GATILHO SIMPLES E DIRETO] (P0)
     gatilhos = [
         "não abriremos",
         "nao abriremos",

@@ -17,6 +17,7 @@ __pycache__/
 .env
 credentials.json
 firebase_credentials.json
+firebaseConfig.json
 google_calendar.json
 webclient.json
 BotTelegramOAuth.json
