@@ -8,8 +8,9 @@ from utils.gpt_utils import (
 )
 
 
-async def executar_acao_gpt_por_confirmacao(user_id, contexto_salvo):
+async def executar_acao_gpt_por_confirmacao(user_id, contexto_salvo, tenant_id=None):
     """Executa a ação pendente conforme confirmação do usuário."""
+    # [P1-MIGRACAO] tenant_id agora é parâmetro para garantir isolamento multi-tenant
     acao = contexto_salvo.get("ultima_acao")
     dados = contexto_salvo.get("dados_anteriores", {})
 
@@ -23,7 +24,7 @@ async def executar_acao_gpt_por_confirmacao(user_id, contexto_salvo):
 
         dados.update({"profissional": profissional, "servico": servico, "data_hora": data_hora})
         contexto_salvo["dados_anteriores"] = dados
-        await salvar_contexto_temporario(user_id, contexto_salvo)
+        await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
         pendentes = []
         if not profissional:
@@ -46,8 +47,9 @@ async def executar_acao_gpt_por_confirmacao(user_id, contexto_salvo):
     return {"resposta": "Certo, seguindo com a ação anterior.", "acao": acao, "dados": dados}
 
 
-async def executar_confirmacao_generica(user_id, contexto_salvo):
+async def executar_confirmacao_generica(user_id, contexto_salvo, tenant_id=None):
     """Reexecuta a última ação confirmada com base no contexto salvo."""
+    # [P1-MIGRACAO] tenant_id agora é parâmetro para garantir isolamento multi-tenant
     ultima_acao = contexto_salvo.get("ultima_acao")
     ultima_intencao = contexto_salvo.get("ultima_intencao")
     dados_anteriores = contexto_salvo.get("dados_anteriores")
@@ -112,7 +114,7 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
                 "data_hora": data_hora_sugerida,
             }
 
-            await salvar_contexto_temporario(user_id, contexto_salvo)
+            await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
             # 🔥 se veio de troca de profissional, não repete a explicação do expediente
             if origem == "troca_profissional":
@@ -133,7 +135,7 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
             "ultima_intencao": None,
             "dados_anteriores": None,
         })
-        await salvar_contexto_temporario(user_id, contexto_salvo)
+        await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
         if origem == "troca_profissional":
             return {
@@ -161,7 +163,7 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
                 "ultima_intencao": None,
                 "dados_anteriores": None,
             })
-            await salvar_contexto_temporario(user_id, contexto_salvo)
+            await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
             return {
                 "resposta": f"{servico.capitalize()} agendado com {profissional} para {formatar_data(data_hora)}. ✂️",
                 "acao": "criar_evento",
@@ -192,7 +194,7 @@ async def executar_confirmacao_generica(user_id, contexto_salvo):
         "ultima_intencao": None,
         "dados_anteriores": None
     })
-    await salvar_contexto_temporario(user_id, contexto_salvo)
+    await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
     return {
         "resposta": f"✅ Ação confirmada: {ultima_intencao.replace('_', ' ').capitalize()}!",
         "acao": ultima_acao,

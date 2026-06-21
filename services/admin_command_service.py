@@ -91,6 +91,9 @@ async def processar_comando_administrativo(
     if dono_id != user_id:
         return None   # cliente final — ignora silenciosamente
 
+    # [P1-MIGRACAO] Armazenar tenant_id no contexto para uso em salvar_contexto_temporario
+    ctx["tenant_id"] = dono_id
+
     # ── 2. Continuidade de fluxo admin em andamento ───────────────
     draft = ctx.get("draft") or {}
     if draft.get("dominio") == "admin" and draft.get("acao"):
@@ -272,7 +275,7 @@ async def _continuar_fluxo_admin(
     print(f"⚠️ [ADMIN] draft com ação desconhecida: {acao} — limpando", flush=True)
     ctx["draft"] = {}
     ctx["estado_fluxo"] = "idle"
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
     return None
 
 
@@ -314,7 +317,7 @@ async def _handle_cadastrar_profissional(
         "slots": {"nome": nome_final},
         "slots_faltantes": [cfg["slot_faltante"]],
     }
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
 
     print(f"🔧 [ADMIN] cadastrar_profissional aguardando serviços | nome={nome_final}", flush=True)
     await update.message.reply_text(
@@ -330,7 +333,7 @@ async def _continuar_cadastrar_profissional(
     if not nome:
         ctx["draft"] = {}
         ctx["estado_fluxo"] = "idle"
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
         await update.message.reply_text(
             "⚠️ Perdi o nome da profissional. Comece novamente:\n*cadastrar profissional Inês*",
             parse_mode="Markdown",
@@ -365,7 +368,7 @@ async def _executar_cadastrar_profissional(
         )
         ctx["draft"] = {}
         ctx["estado_fluxo"] = "idle"
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
         print("🔧 [ADMIN] contexto limpo após sucesso", flush=True)
         return resultado or {"handled": True, "already_sent": True}
 
@@ -446,7 +449,7 @@ async def _handle_adicionar_servico_profissional(
         },
         "slots_faltantes": ["preco_duracao"],
     }
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
 
     print(
         f"🔧 [ADMIN] adicionar_servico_profissional aguardando preço/duração | "
@@ -471,7 +474,7 @@ async def _continuar_adicionar_servico_profissional(
     if not nome or not servico:
         ctx["draft"] = {}
         ctx["estado_fluxo"] = "idle"
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
         await update.message.reply_text(
             "⚠️ Perdi os dados. Por favor, comece novamente.\n"
             "Ex: *Carla também faz luzes*",
@@ -526,7 +529,7 @@ async def _executar_adicionar_servico_profissional(
         )
         ctx["draft"] = {}
         ctx["estado_fluxo"] = "idle"
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
         print("🔧 [ADMIN] contexto limpo após sucesso", flush=True)
         return resultado or {"handled": True, "already_sent": True}
 
@@ -598,7 +601,7 @@ async def _handle_excluir_profissional(
         "slots": {"nome": nome_fmt},
         "aguardando_confirmacao": True,
     }
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
 
     print(f"🔧 [ADMIN] excluir_profissional aguardando confirmação | nome={nome_fmt}", flush=True)
     await update.message.reply_text(
@@ -622,7 +625,7 @@ async def _continuar_excluir_profissional(
     if t in _NEGACOES:
         ctx["draft"] = {}
         ctx["estado_fluxo"] = "idle"
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
         await update.message.reply_text(
             f"Tudo bem, *{nome}* não foi removida.",
             parse_mode="Markdown",
@@ -652,7 +655,7 @@ async def _executar_excluir_profissional(
         )
         ctx["draft"] = {}
         ctx["estado_fluxo"] = "idle"
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
         print("🔧 [ADMIN] contexto limpo após excluir", flush=True)
         return resultado or {"handled": True, "already_sent": True}
 
@@ -734,7 +737,7 @@ async def _handle_consultar_agenda_salao(
         "slots": {},
         "slots_faltantes": ["data"],
     }
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
 
     print("🔧 [ADMIN] consultar_agenda_salao aguardando data", flush=True)
     await update.message.reply_text(
@@ -792,7 +795,7 @@ async def _executar_consultar_agenda_salao(
         if (ctx.get("draft") or {}).get("acao") == "consultar_agenda_salao":
             ctx["draft"] = {}
             ctx["estado_fluxo"] = "idle"
-            await salvar_contexto_temporario(user_id, ctx)
+            await salvar_contexto_temporario(user_id, ctx, tenant_id=ctx.get("tenant_id"))
         return resultado or {"handled": True, "already_sent": True}
 
     except Exception as e:

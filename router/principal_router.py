@@ -43,6 +43,7 @@ from services.classificador_conversa import (
 )
 from services.interpretador_conversacional import interpretar_conversa_operacional
 from utils.normalizador_humano import normalizar_intencao_humana
+from router.integracao_identidade_onboarding import processar_fluxo_identidade_onboarding
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -3358,6 +3359,36 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     ctx = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
 
     # =========================================================
+    # 🔐 P1 IDENTIDADE + ONBOARDING: Resolver ator e validar guard
+    # PRIORIDADE: Executa ANTES de P0 normal
+    # - Resolve ator por canal (dono, profissional, cliente)
+    # - Valida guard forte (tenant_id, tipo_usuario, onboarding)
+    # - Se dono sem onboarding: direciona para onboarding_dono, não cai em P0
+    # - Se cliente novo: cria automático
+    # =========================================================
+    resultado_identidade = await processar_fluxo_identidade_onboarding(
+        user_id=user_id,
+        mensagem=texto_usuario,
+        tenant_id=dono_id,
+        ctx=ctx,
+        context=context
+    )
+
+    # Se fluxo de identidade/onboarding foi processado, retornar
+    if resultado_identidade is not None:
+        if context is not None and resultado_identidade.get("handled"):
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=resultado_identidade.get("resposta", ""),
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                print(f"[ERRO] Falha ao enviar mensagem: {e}", flush=True)
+
+        return resultado_identidade
+
+    # =========================================================
     # 🧠 NORMALIZADOR HUMANO — sinais sociais/implícitos
     # Não decide agenda. Não cria evento. Só enriquece contexto.
     # =========================================================
@@ -5775,7 +5806,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         from services.gpt_actions import executar_confirmacao_generica
 
-        resultado = await executar_confirmacao_generica(user_id, ctx)
+        # [P1-MIGRACAO] Passar dono_id como tenant_id para isolamento multi-tenant
+        resultado = await executar_confirmacao_generica(user_id, ctx, tenant_id=dono_id)
 
         if resultado and resultado.get("acao"):
             return await executar_acao_gpt(
