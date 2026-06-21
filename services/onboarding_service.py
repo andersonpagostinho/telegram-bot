@@ -85,7 +85,7 @@ async def processar_onboarding_endereco_dono(
         ctx.pop("estado_fluxo", None)
         ctx.pop("aguardando_endereco_negocio", None)
         ctx["estado_fluxo"] = "agendando"  # Retorna ao estado normal
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)  # [P2-MIGRACAO-LOTE4-OC1]
 
         resposta = f"Perfeito. Endereço salvo: {endereco['completo']}."
         return {
@@ -97,7 +97,7 @@ async def processar_onboarding_endereco_dono(
     # Primeira vez: não tem endereço, não perguntamos ainda → perguntar agora
     ctx["estado_fluxo"] = "aguardando_endereco_negocio"
     ctx["aguardando_endereco_negocio"] = True
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=dono_id)  # [P2-MIGRACAO-LOTE4-OC2]
 
     resposta = "Qual é o endereço do negócio? Pode me mandar rua e número."
     return {
