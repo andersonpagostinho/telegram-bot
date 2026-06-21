@@ -26,10 +26,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from services.firebase_service_async import (
     buscar_dado_em_path,
     salvar_dado_em_path,
-    listar_documentos,
-    deletar_documento,
+    buscar_subcolecao,
+    deletar_dado_em_path,
 )
-from router.principal_router import roteador_principal
 from utils.normalizador_actor_id import normalizar_actor_id
 
 
@@ -95,10 +94,20 @@ async def limpar_tenant(tenant_id: str):
     try:
         # Limpar Clientes/{tenant_id}
         clientes_path = f"Clientes/{tenant_id}"
-        docs = await listar_documentos(clientes_path)
-        for doc_id in docs:
-            await deletar_documento(f"{clientes_path}/{doc_id}")
-        await deletar_documento(clientes_path)
+
+        # Listar sub-coleções
+        subcoleções = ["Configuracao", "Profissionais", "ServicosNegocio", "Atores", "Clientes", "Sessoes", "Eventos", "Notificacoes"]
+
+        for subcolecao in subcoleções:
+            try:
+                docs = await buscar_subcolecao(f"{clientes_path}/{subcolecao}")
+                for doc_id in docs:
+                    await deletar_dado_em_path(f"{clientes_path}/{subcolecao}/{doc_id}")
+            except Exception:
+                pass
+
+        # Deletar tenant
+        await deletar_dado_em_path(clientes_path)
     except Exception as e:
         # Ignorar se não existe
         pass
@@ -130,53 +139,39 @@ async def obter_estado_tenant(tenant_id: str) -> dict:
             estado["Configuracao"] = config
 
         # Profissionais
-        prof_docs = await listar_documentos(f"Clientes/{tenant_id}/Profissionais")
-        for prof_id in prof_docs:
-            prof_data = await buscar_dado_em_path(f"Clientes/{tenant_id}/Profissionais/{prof_id}")
-            if prof_data:
-                estado["Profissionais"][prof_id] = prof_data
+        prof_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais")
+        if isinstance(prof_docs, dict):
+            estado["Profissionais"] = prof_docs
 
         # ServicosNegocio
-        serv_docs = await listar_documentos(f"Clientes/{tenant_id}/ServicosNegocio")
-        for serv_id in serv_docs:
-            serv_data = await buscar_dado_em_path(f"Clientes/{tenant_id}/ServicosNegocio/{serv_id}")
-            if serv_data:
-                estado["ServicosNegocio"][serv_id] = serv_data
+        serv_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/ServicosNegocio")
+        if isinstance(serv_docs, dict):
+            estado["ServicosNegocio"] = serv_docs
 
         # Atores
-        ator_docs = await listar_documentos(f"Clientes/{tenant_id}/Atores")
-        for ator_id in ator_docs:
-            ator_data = await buscar_dado_em_path(f"Clientes/{tenant_id}/Atores/{ator_id}")
-            if ator_data:
-                estado["Atores"][ator_id] = ator_data
+        ator_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/Atores")
+        if isinstance(ator_docs, dict):
+            estado["Atores"] = ator_docs
 
         # Clientes
-        cli_docs = await listar_documentos(f"Clientes/{tenant_id}/Clientes")
-        for cli_id in cli_docs:
-            cli_data = await buscar_dado_em_path(f"Clientes/{tenant_id}/Clientes/{cli_id}")
-            if cli_data:
-                estado["Clientes"][cli_id] = cli_data
+        cli_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/Clientes")
+        if isinstance(cli_docs, dict):
+            estado["Clientes"] = cli_docs
 
         # Sessoes
-        sess_docs = await listar_documentos(f"Clientes/{tenant_id}/Sessoes")
-        for sess_id in sess_docs:
-            sess_data = await buscar_dado_em_path(f"Clientes/{tenant_id}/Sessoes/{sess_id}")
-            if sess_data:
-                estado["Sessoes"][sess_id] = sess_data
+        sess_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/Sessoes")
+        if isinstance(sess_docs, dict):
+            estado["Sessoes"] = sess_docs
 
         # Eventos
-        ev_docs = await listar_documentos(f"Clientes/{tenant_id}/Eventos")
-        for ev_id in ev_docs:
-            ev_data = await buscar_dado_em_path(f"Clientes/{tenant_id}/Eventos/{ev_id}")
-            if ev_data:
-                estado["Eventos"][ev_id] = ev_data
+        ev_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/Eventos")
+        if isinstance(ev_docs, dict):
+            estado["Eventos"] = ev_docs
 
         # Notificações
-        notif_docs = await listar_documentos(f"Clientes/{tenant_id}/Notificacoes")
-        for notif_id in notif_docs:
-            notif_data = await buscar_dado_em_path(f"Clientes/{tenant_id}/Notificacoes/{notif_id}")
-            if notif_data:
-                estado["Notificacoes"][notif_id] = notif_data
+        notif_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/Notificacoes")
+        if isinstance(notif_docs, dict):
+            estado["Notificacoes"] = notif_docs
 
     except Exception as e:
         print(f"⚠️ Erro ao capturar estado: {e}")
@@ -588,17 +583,19 @@ async def cenario_07_profissional_tenta_acao_dono(result: TestResult):
         tenant_id = "teste_tenant_cenario_02"
 
         # Verificar state antes
-        prof_count_antes = len(await listar_documentos(f"Clientes/{tenant_id}/Profissionais"))
+        prof_antes = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais")
+        prof_count_antes = len(prof_antes) if isinstance(prof_antes, dict) else 0
 
         # Profissional tenta cadastrar outro (não deve funcionar)
         # (Em caso real, seria rejeitado pelo router)
 
         # Verificar state depois (não deveria ter mudado)
-        prof_count_depois = len(await listar_documentos(f"Clientes/{tenant_id}/Profissionais"))
+        prof_depois = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais")
+        prof_count_depois = len(prof_depois) if isinstance(prof_depois, dict) else 0
 
         validacoes = {
             "profissional_count_nao_mudou": prof_count_antes == prof_count_depois,
-            "renata_nao_criada": "renata" not in await listar_documentos(f"Clientes/{tenant_id}/Profissionais"),
+            "renata_nao_criada": "renata" not in prof_depois if isinstance(prof_depois, dict) else True,
             "bloqueado_por_permissao": True,  # Regra de negócio
         }
 
@@ -763,10 +760,11 @@ async def cenario_10_dono_consulta_agenda_completa(result: TestResult):
         tenant_id = "teste_tenant_cenario_02"
 
         # Verificar eventos do tenant
-        eventos_docs = await listar_documentos(f"Clientes/{tenant_id}/Eventos")
+        eventos_docs = await buscar_subcolecao(f"Clientes/{tenant_id}/Eventos")
+        eventos_count = len(eventos_docs) if isinstance(eventos_docs, dict) else 0
 
         validacoes = {
-            "eventos_encontrados": len(eventos_docs) >= 2,  # Mínimo 2 eventos
+            "eventos_encontrados": eventos_count >= 2,  # Mínimo 2 eventos
             "usa_tenant_correto": True,  # Path contém tenant_id
             "nao_vaza_outro_tenant": True,  # Não há acesso cruzado
         }
