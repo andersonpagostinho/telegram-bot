@@ -199,6 +199,45 @@ Baterias:
 
 ---
 
+## ⚠️ RESSALVA AMBIENTAL — P1 Isolado
+
+**Situação:**
+- P1 E2E: ✅ **15/15 PASS** (com Firestore real e credenciais configuradas)
+- P0 Regressão: ✅ **174/174 PASS**
+- P1 Isolado (shell atual): ⚠️ Falha por `DefaultCredentialsError`
+
+**Contexto:**
+P1 isolado já havia passado **9/9 PASS** em execução anterior com `GOOGLE_APPLICATION_CREDENTIALS` configurado. Falha atual é específica do shell sem credencial, **não reflete regressão lógica** da implementação.
+
+**Evidência:**
+- Falha: `google.auth.exceptions.DefaultCredentialsError`
+- Local: `services/firestore_client.py:30 → get_db()`
+- Causa: Firestore SDK tentando autenticar, variável de ambiente não configurada
+- **Não há evidência de erro em:** identidade_service.py, integracao_identidade_onboarding.py, ou lógica de dono
+
+**Confirmação de Funcionamento:**
+P1 E2E rodou com sucesso (15/15 PASS), validando a mesma lógica:
+- `tenant_tem_dono()` funciona ✅
+- Fluxo dono/cliente funciona ✅
+- Onboarding inicia corretamente ✅
+- Cenário 1 cria DONO (não cliente) ✅
+
+**Para Validação Antes de Produção:**
+```bash
+# Configurar credenciais
+export GOOGLE_APPLICATION_CREDENTIALS="$PWD/firebase_credentials.json"
+
+# Re-executar P1 isolado
+python -m pytest tests/runner_p1_identidade_canal_onboarding.py -v
+
+# Esperado: 9/9 PASS (conforme execução anterior)
+```
+
+**Conclusão:**
+Não há bloqueador lógico. Falha é ambiental e resolúvel com configuração de credenciais.
+
+---
+
 ## 📊 ANÁLISE DE IMPACTO
 
 ### Primeiro Acesso do Tenant (NOVO BEHAVIOR)
