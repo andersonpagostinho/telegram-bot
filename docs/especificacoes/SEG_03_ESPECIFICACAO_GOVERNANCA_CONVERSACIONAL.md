@@ -536,6 +536,106 @@ Caso 7b: P0 Regressão (174 testes)
 
 ---
 
+## ERRATA SEG-03A — PERSISTÊNCIA DE GOVERNANÇA
+
+**Data:** 2026-06-23  
+**Motivo:** Revisão arquitetural identificou risco de violação de princípio em camadas  
+**Ação:** Redistribuir campos conforme recomendação SEG-03A
+
+### Mudanças em Modelo de Dados (Seção 3)
+
+#### ❌ ANTERIOR (Violação de Arquitetura)
+
+```json
+{
+  "actor_id": "whatsapp:5511999005",
+  "responder_automaticamente": false,      // ❌ Não deve estar aqui
+  "modo_dono": "silencioso",               // ❌ Não deve estar aqui
+  "tipo_usuario": "profissional",          // ❌ Duplicado de Atores
+  "identificado": true,                    // ❌ Não deve estar aqui
+  "_decisoes_log": [...]                   // ❌ Não deve estar aqui
+}
+```
+
+#### ✅ APÓS SEG-03A (Distribuído)
+
+**Clientes/{tenant}/Atores/{actor}**
+```json
+{
+  "tipo_usuario": "cliente|profissional",
+  "identificado": true,
+  "origem_contato": "site|referencia"
+}
+```
+
+**Clientes/{tenant}/Governanca/{actor}**
+```json
+{
+  "responder_automaticamente": true,
+  "modo_dono": "normal|admin|silencioso",
+  "bloqueado_ate": "2026-06-24T15:30:00Z"
+}
+```
+
+**Clientes/{tenant}/Sessoes/{actor}**
+```json
+{
+  "motivo_bloqueio": "responder_automaticamente=false",
+  "estado_fluxo": "agendando",
+  "draft_agendamento": {...}
+}
+```
+
+**Clientes/{tenant}/AuditoriaGovernanca/{evento_id}**
+```json
+{
+  "comando": "/pausar",
+  "campo_alterado": "responder_automaticamente",
+  "valor_anterior": true,
+  "valor_novo": false,
+  "timestamp": "2026-06-23T12:00:00Z"
+}
+```
+
+### Mudanças em Ordem de Decisão (Seção 4)
+
+#### ❌ ANTERIOR
+
+```python
+ctx = await carregar_contexto_temporario(user_id)
+if ctx.get("responder_automaticamente") == False:  # Consulta sessão
+    return bloqueado
+```
+
+#### ✅ APÓS SEG-03A
+
+```python
+ctx = await carregar_contexto_temporario(user_id)
+ator = await buscar_ator(actor_id, tenant_id)        # Atores
+governanca = await buscar_governanca(actor_id)       # Governanca
+
+if governanca.get("responder_automaticamente") == False:
+    return bloqueado
+if ator.get("tipo_usuario") == "profissional":
+    return bloqueado
+```
+
+### Mudanças em Critérios de Aceite (Seção 8)
+
+**Adicionar CA-8:**
+```
+CA-8: Persistência Respeitada
+When: Implementação com distribuição recomendada
+Then: 
+  - responder_automaticamente consultado em Governanca
+  - tipo_usuario consultado em Atores
+  - Histórico em AuditoriaGovernanca (imutável)
+  - Sessão contém apenas transitório
+  - Nenhum reload de Sessão perde policy
+```
+
+---
+
 ## 10. ESPECIFICAÇÃO DE RESPOSTA À GOVERNANÇA
 
 ### Respostas Padrão
