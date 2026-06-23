@@ -2278,5 +2278,173 @@ Mudanças em componentes críticos (principal_router, event_handler, agenda_serv
 
 ---
 
-**Última atualização:** 2026-06-20  
-**Status:** Documento congelado até descongelamento comprovado
+## 🛡️ Regra de Ouro — Correções Pós-Baseline
+
+**Princípio Fundamental:**  
+Após checkpoints oficiais (ex.: baseline-216-pass), alterações devem ser incrementais, auditáveis e reversíveis.
+
+### Fluxo Obrigatório Pós-Baseline
+
+Toda correção funcional após um baseline validado deve seguir **obrigatoriamente** este fluxo:
+
+1. ✅ **Auditar um único cenário ou problema**
+   - Isolar o defeito específico
+   - Não generalizar para múltiplos cenários
+   - Criar teste de reprodução
+
+2. ✅ **Identificar a causa raiz com evidências**
+   - Arquivo + função + linha (Regra Zero)
+   - Evidência operacional (log, teste, breakpoint)
+   - Hipótese dominante confirmada
+
+3. ✅ **Aplicar o menor patch possível**
+   - Mudança mínima para corrigir a causa raiz
+   - Não refatorar código adjacente
+   - Não "melhorar" enquanto corrige
+
+4. ✅ **Validar o cenário alvo**
+   - Teste específico do defeito passa
+   - Não assumir que o problema foi resolvido
+   - Confirmar operacionalmente
+
+5. ✅ **Executar regressão obrigatória**
+   - P1 E2E completo (42/42 deve passar)
+   - P0 Regressão completo (174/174 deve passar)
+   - Nenhum novo timeout gRPC
+   - Exit code 0 em todas as suites
+
+6. ✅ **Somente após regressão verde: commit**
+   - Escrever mensagem clara da correção
+   - Referenciar causa raiz
+   - Listar testes de validação
+
+### Regras Invioláveis
+
+```
+❌ PROIBIDO durante correções pós-baseline:
+
+1. Nunca corrigir múltiplos cenários na mesma alteração
+   └─ Causa: Impossível determinar qual patch resolveu qual problema
+
+2. Nunca aplicar refatorações amplas para resolver um único cenário
+   └─ Causa: Aumenta risco de regressão desnecessariamente
+
+3. Nunca prosseguir para o próximo cenário sem validar o anterior
+   └─ Causa: Acumula defeitos em cascata
+
+4. Nunca ignorar regressão em suítes estáveis
+   └─ Causa: Quebra confiança no baseline
+
+5. Nunca corrigir sem auditoria prévia
+   └─ Causa: Sintomas vs. causas raiz
+
+6. Nunca hipótese sem evidência operacional
+   └─ Causa: Suposições viram bugs silenciosos
+```
+
+### Procedimento em Caso de Regressão
+
+**Se qualquer suíte estável falhar durante regressão:**
+
+1. ⛔ **INTERROMPER IMEDIATAMENTE**
+   - Não commitar a mudança
+   - Não prosseguir para próxima correção
+
+2. 🔍 **Investigar regressão**
+   - Qual teste falhou?
+   - Em qual cenário?
+   - Qual é a causa raiz da regressão?
+
+3. 🔧 **Opções:**
+   - Ajustar o patch para evitar regressão
+   - OU reverter a mudança e abordar diferente
+   - OU expandir regressão para validar caso não coberto antes
+
+4. ✅ **Re-validar após ajuste**
+   - Cenário original + testes de regressão
+   - Suítes completas novamente (P1 E2E + P0)
+
+### Exemplo Correto
+
+```
+Cenário: "Conflito de horário não detectado em contexto específico"
+
+✅ PROCESSO:
+1. Auditar: Apenas este cenário de conflito
+   └─ Teste isolado que reproduz: agendamento X para slot Y com profissional Z já ocupado
+   
+2. Causa raiz: verificar_conflito_agenda() não considera contexto_tenant
+   └─ Arquivo: services/agenda_service.py:457-489
+   └─ Função: verificar_conflito_agenda()
+   └─ Evidência: Log mostra tenant_id=None na busca
+
+3. Patch mínimo: Adicionar tenant_id à query (3 linhas)
+   └─ services/agenda_service.py:462: adicionar where("tenant_id", "==", tenant_id)
+   └─ Não refatorar a função inteira
+   └─ Não reorganizar estrutura
+
+4. Validar: Teste de cenário passa
+   └─ agendamento X para slot Y agora bloqueia corretamente
+   
+5. Regressão (OBRIGATÓRIA):
+   └─ P1 E2E: 42/42 PASS ✅
+   └─ P0 Regressão: 174/174 PASS ✅
+   └─ Sem novo timeout gRPC ✅
+   
+6. Commit apenas após regressão verde:
+   └─ "Fix: Adicionar tenant_id à verificação de conflito em agenda_service.py:462
+      Causa raiz: verificar_conflito_agenda() ignorava isolamento multi-tenant
+      Validação: Cenário específico + P1 E2E (42/42) + P0 (174/174)"
+```
+
+### Exemplo Incorreto
+
+```
+❌ PROCESSO PROIBIDO:
+
+"Conflito não detectado + notificação errada + contexto desatualizado"
+    └─ Múltiplos cenários em um único patch (❌ PROIBIDO #1)
+    
+"Vamos refatorar toda a classe agenda_service para suportar isso"
+    └─ Refatoração ampla para um problema (❌ PROIBIDO #2)
+    
+"Mudei agenda_service.py, vou seguir para confirmar o handler"
+    └─ Sem validar regressão antes (❌ PROIBIDO #3)
+    
+"Falhou P0 teste 47, mas é um caso raro, vou commitar mesmo"
+    └─ Ignorar regressão (❌ PROIBIDO #4)
+    
+"Acho que o problema é no GPT" [sem verificar código]
+    └─ Suposição sem auditoria (❌ PROIBIDO #5)
+```
+
+### Métrica de Conformidade
+
+Para cada correção pós-baseline, registrar:
+
+```
+[ ] Cenário único auditado?
+[ ] Causa raiz identificada com evidência (arquivo+função+linha)?
+[ ] Patch mínimo aplicado?
+[ ] Cenário alvo validado?
+[ ] P1 E2E: 42/42 PASS?
+[ ] P0 Regressão: 174/174 PASS?
+[ ] Nenhum novo timeout gRPC?
+[ ] Commit com causa raiz + validação?
+
+Se qualquer [ ] não marcado: ❌ NÃO COMMITAR
+```
+
+### Objetivo
+
+🎯 Preservar o baseline validado (216/216 PASS)  
+🎯 Impedir regressões silenciosas em componentes críticos  
+🎯 Manter rastreabilidade de cada correção  
+🎯 Garantir que código corrigido permaneça corrigido  
+🎯 Facilitar reversão de mudanças se necessário  
+
+---
+
+**Última atualização:** 2026-06-23  
+**Status:** Documento congelado até descongelamento comprovado  
+**Adição:** Regra de Ouro — Correções Pós-Baseline (2026-06-23)
