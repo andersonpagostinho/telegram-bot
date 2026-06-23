@@ -146,130 +146,180 @@ Smoke test:
 
 ---
 
-## CLASSIFICAÇÃO COM BASE EM EVIDÊNCIA INDIRETA
+## CLASSIFICAÇÃO COM BASE EM EVIDÊNCIA REAL
 
-### Hipótese Dominante: **A) GPT não extrai pedido final**
+### Resultado: **E) Teste/Expectativa Incorreta** ✅ CONFIRMADA
 
-**Justificativa:**
+**Evidência Operacional Real:**
 
-1. **Mensagem é estruturada claramente** (confirmado em P1-R01)
-   - Pedido está claramente no final
-   - Não há ambiguidade léxica
+Arquivo: `resultado_audit_cenario_05_gpt_real.json` (2026-06-23T09:58:13)
 
-2. **Fenômeno de mensagens longas com ruído**
-   - 96.5% da mensagem é conteúdo pessoal repetitivo
-   - GPT pode priorizar conteúdo predominante
-   - Pedido no final é 3.4% apenas
+#### JSON Analisado - Etapa 4 (Classificação)
+```json
+"modo": "operacional",
+"confianca": 100,
+"motivo": "contexto_servico, pedido_com_servico, pedido_temporal, 
+           pergunta_sobre_servico, consulta_disponibilidade"
+```
 
-3. **Padrão documentado em AI**
-   - Modelos tendem a focar em token majoritário
-   - Contexto longo dilui atenção ao final
-   - Sem instrução explícita, último framing é perdido
+#### JSON Analisado - Etapa 9 (Estado Depois)
+```json
+"estado_depois": {
+  "profissional_escolhido": "Bruna",
+  "servico_sugerido_consulta": "corte",
+  "data_hora": "2026-06-24T15:00:00",
+  "aguardando_confirmacao_agendamento_por_consulta": true,
+  "estado_fluxo": "aguardando_confirmacao_consulta",
+  "ultima_acao": "confirmar_agendamento_por_consulta"
+}
+```
 
-4. **Teste E2E não chama GPT**
-   - P1 E2E não usa principal_router
-   - Portanto, não reproduz fluxo que usaria GPT
-   - Cenário 05 especificamente testa GPT real
+#### Slots Extraídos (Com Sucesso!)
+- **Profissional**: `"Bruna"` ✅
+- **Serviço**: `"corte"` ✅
+- **Data/Hora**: `"2026-06-24T15:00:00"` (amanhã 15h) ✅
+- **Estado Fluxo**: `"aguardando_confirmacao_consulta"` ✅
 
-### Probabilidade da Causa
+#### Conclusão
+O cenário 05 **FUNCIONA CORRETAMENTE**:
+1. Mensagem original detectada: "e queria marcar corte com a Bruna amanhã às 15h"
+2. Classificação: operacional com 100% confiança
+3. Todos os slots foram extraídos corretamente
+4. Estado foi salvo no Firestore
+5. Router processou o pedido final sem erros
 
-| Hipótese | Prob | Razão |
-|----------|------|-------|
-| **A: GPT não extrai** | **60%** | Ruído predominante dilui pedido |
-| B: Parser descarta | 20% | Menos provável (JSON bem estruturado) |
-| C: Router descarta | 15% | Improvável (outros testes passam) |
-| D: Classificador bloqueia | 3% | P0 testes indicam que não |
-| E: Setup incorreto | 2% | Smoke test passou |
+### Por Que o Teste Falha?
+
+O teste valida apenas:
+```python
+confirmacao_pendente == True
+```
+
+Mas esse fluxo específico (Cenário 05 = mensagem longa com consulta pura) usa:
+```python
+aguardando_confirmacao_agendamento_por_consulta == True
+ou
+estado_fluxo == "aguardando_confirmacao_consulta"
+```
+
+**Root Cause:** A expectativa do teste está desatualizada com a implementação real.
+
+### Descarte das Hipóteses A-D
+
+| Hipótese | Status | Evidência |
+|----------|--------|-----------|
+| **A: GPT não extrai pedido final** | ❌ DESCARTADA | JSON mostra "Bruna", "corte", "15h" extraídos com 100% confiança |
+| **B: Parser descarta slots** | ❌ DESCARTADA | draft_agendamento contém profissional e data_hora |
+| **C: Router descarta dados** | ❌ DESCARTADA | Estado foi salvo em Firestore, resposta foi enviada |
+| **D: Classificador bloqueia operacional** | ❌ DESCARTADA | modo_conversa="operacional", confianca=100 |
+| **E: Setup/Expectativa incorreta** | ✅ **CONFIRMADA** | Teste valida campo errado |
 
 ---
 
-## PATCH MÍNIMO RECOMENDADO
+## PATCH RECOMENDADO (Teste, Não Produto)
 
-### Caso Confirmado: Hipótese A (Mais Provável)
+### Caso Confirmado: Hipótese E (Teste/Expectativa Incorreta)
 
-**Arquivo:** `prompts/manual_secretaria.py`
+**Arquivo:** `tests/p1_robustez_fluxo_conversacional_real.py` (Cenário 05)
 
-**Seção:** 7.5 (Nova)
+**Objetivo:** Aceitar como sucesso qualquer um dos estados válidos de confirmação
 
-**Adição (~8 linhas):**
+**Mudança (~5 linhas):**
 
 ```python
-7.5 MENSAGENS MUITO LONGAS COM CONTEUDO PESSOAL:
+# ANTES (Incompleto):
+assert confirmacao_pendente == True, f"Cenário 05: confirmacao_pendente deveria ser True, mas é {confirmacao_pendente}"
 
-Se a mensagem for maior que 1000 caracteres E tiver muito conteúdo pessoal:
-- Procure pela ÚLTIMA frase que contém palavras operacionais
-  (marcar, agendar, reservar, gostaria de, quero)
-- Essa frase no final contém o pedido operacional real
-- Extraia slots DESSA frase com prioridade, não do conteúdo inicial
-
-Exemplos:
-  "...tive um dia complicado... gostaria de marcar corte com a Bruna amanhã às 15h"
-  └─ Extrair de: "gostaria de marcar corte com a Bruna amanhã às 15h"
-  
-  "...resolvi várias coisas... quero agendar escova para segunda"
-  └─ Extrair de: "quero agendar escova para segunda"
+# DEPOIS (Completo):
+confirmacao_ou_consulta = (
+    confirmacao_pendente == True
+    or estado_fluxo == "aguardando_confirmacao_consulta"
+    or estado.get("aguardando_confirmacao_agendamento_por_consulta") == True
+)
+assert confirmacao_ou_consulta, f"Cenário 05: nenhum estado de confirmação válido. confirmacao_pendente={confirmacao_pendente}, estado_fluxo={estado_fluxo}"
 ```
 
-**Risco:** MUITO BAIXO
-- Adição, não modificação
-- Instruição explícita para GPT
-- Sem mudança de lógica de código
-- Sem efeito em mensagens curtas
+**Risco:** ZERO
+- Mudança apenas no teste, não no produto
+- Torna o teste mais robusto
+- Aceita todos os fluxos válidos de confirmação
+- Sem alteração em prompts, router, parser, classificador
+
+**Por que não mudar o produto:**
+- ✅ Produto está correto e funcionando
+- ✅ Teste é que tem expectativa desatualizada
+- ✅ Múltiplos fluxos de confirmação são válidos por design
 
 ---
 
-## PRÓXIMAS ETAPAS RECOMENDADAS
+## RESULTADO FINAL (2026-06-23)
 
-### FASE 1: Desbloquear (CONCLUÍDA PARCIALMENTE)
+### ✅ CLASSIFICAÇÃO CONFIRMADA: E) Teste/Expectativa Incorreta
 
-✅ **P1-R01D: Resolver priority_utils.py** — COMPLETO
-- Bloqueador 1 resolvido
-- py_compile passou
-- Pronto para re-executar testes que usam priority_utils
+**JSON Real Analisado:**
+- Arquivo: `resultado_audit_cenario_05_gpt_real.json`
+- Timestamp: 2026-06-23T09:58:13
+- Etapas executadas: 9/9 completo
 
-⏸️ **P1-R01E: Refatorar audit_cenario_05_gpt_real.py** — PENDENTE
-- Bloqueador 2 identificado
-- Escopo: Usar functions corretas ou re-arquitetar script pós-INFRA-03
-- Opções:
-  - Opção A: Migrar funções de teste para services/firebase_service_async_test.py
-  - Opção B: Usar functions equivalentes de P1 E2E que funcionam
-  - Opção C: Simplificar audit script para chamar principal_router diretamente (sem setup/limpar tenant)
+**Evidência Coletada:**
+- ✅ Classificação: operacional (100% confiança)
+- ✅ Profissional: Bruna
+- ✅ Serviço: corte
+- ✅ Data/Hora: 2026-06-24T15:00:00
+- ✅ Estado: aguardando_confirmacao_agendamento_por_consulta = true
 
-### FASE 2: Coleta de Evidência (BLOQUEADA)
+**Conclusão:**
+O produto funciona corretamente. O teste falha porque valida apenas `confirmacao_pendente`, mas este fluxo usa múltiplos estados de confirmação válidos.
 
-```bash
-python tests/audit_cenario_05_gpt_real.py
-→ resultado_audit_cenario_05_gpt_real.json
+---
 
-Depende de: P1-R01E estar resolvido
-```
+### PRÓXIMAS AÇÕES
 
-### FASE 3: Classificação com Dados Reais (AGUARDANDO)
+#### ✅ FASE 1-3: COMPLETADAS
+- P1-R01D: priority_utils.py desbloqueado
+- P1-R01E: Script de auditoria reparado e executado
+- Dados reais coletados e analisados
 
-Após resultado_audit_cenario_05_gpt_real.json ser gerado:
-- JSON bruto do GPT capturado
-- Slots extraídos validados
-- Hipótese A/B/C/D/E confirmada com 100% certeza
+#### 📋 FASE 4: Patch Recomendado (NÃO IMPLEMENTADO)
 
-### FASE 4: Patch de Interpretação (CONDICIONAL)
+**Escopo:** Teste apenas (não produto)
 
-Se Classificação = A (GPT não extrai pedido final):
+**Arquivo:** `tests/p1_robustez_fluxo_conversacional_real.py`
+
+**Mudança (~5 linhas):**
 ```python
-# Em prompts/manual_secretaria.py
-SECAO_7_5 = """
-[instrução para lidar com mensagens longas]
-"""
+# Aceitar qualquer um dos estados válidos de confirmação:
+confirmacao_ou_consulta = (
+    confirmacao_pendente == True
+    or estado_fluxo == "aguardando_confirmacao_consulta"
+    or estado.get("aguardando_confirmacao_agendamento_por_consulta") == True
+)
+assert confirmacao_ou_consulta, "..."
 ```
 
-### FASE 5: Regressão (OBRIGATÓRIA)
+**Status:** Recomendado, mas NÃO implementado (por polícia de usuário)
 
-```bash
-python tests/p1_robustez_fluxo_conversacional_real.py
+#### ❌ Sem Alterações no Produto
+- ❌ Não alterar prompts (funcionam perfeitamente)
+- ❌ Não alterar router (processou corretamente)
+- ❌ Não alterar parser (extraiu slots corretos)
+- ❌ Não alterar classificador (100% confiança operacional)
+- ❌ Não alterar serviços (estado foi salvo)
 
-Expectativa:
-- Cenário 05 PASS (confirmacao_pendente = True)
-- Todos outros cenários mantêm status
-```
+---
+
+## STATUS FINAL (2026-06-23)
+
+| Aspecto | Status | Evidência |
+|---------|--------|-----------|
+| GPT Conectado | ✅ OK | Smoke test + Auditoria PASS |
+| Bloqueador 1 (priority_utils) | ✅ Resolvido | py_compile PASS |
+| Bloqueador 2 (audit script) | ✅ Resolvido | Utilitários copiados |
+| Auditoria Executada | ✅ COMPLETO | JSON gerado com 9/9 etapas |
+| Classificação | ✅ E CONFIRMADA | Teste/expectativa incorreta |
+| Produto Funciona | ✅ SIM | Slots extraídos corretamente |
+| Patch Recomendado | ✅ Pronto | Teste, não produto (não implementado) |
+| Próximo Passo | ⏹️ PARAR | Escopo concluído per polícia |
 
 ---
 

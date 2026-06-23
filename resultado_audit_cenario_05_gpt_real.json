@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-06-23T09:58:13.588064",
+  "cenario": 5,
+  "descricao": "Mensagem longa com pedido no final",
+  "etapas": [
+    {
+      "numero": 1,
+      "nome": "setup_tenant",
+      "status": "OK",
+      "tenant_id": "audit_cenario_05_gpt_3e7e159a",
+      "actor_id": "whatsapp:55119999005"
+    },
+    {
+      "numero": 2,
+      "nome": "texto_original",
+      "tamanho_chars": 1367,
+      "primeiros_100": "Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo be",
+      "ultimos_100": "i \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! e queria marcar corte com a Bruna amanh\u00e3 \u00e0s 15h"
+    },
+    {
+      "numero": 3,
+      "nome": "normalizacao",
+      "entrada_chars": 1367,
+      "saida_chars": 1367,
+      "nota": "Classificador normaliza internamente"
+    },
+    {
+      "numero": 4,
+      "nome": "classificacao",
+      "modo": "operacional",
+      "confianca": 100,
+      "completo": {
+        "modo_conversa": "operacional",
+        "confianca": 100,
+        "motivo": "contexto_servico, pedido_com_servico, pedido_temporal, pergunta_sobre_servico, consulta_disponibilidade",
+        "features": {
+          "tem_fluxo_ativo": false,
+          "tem_draft": false,
+          "tem_confirmacao_pendente": false,
+          "tem_pergunta": true,
+          "tem_tempo": true,
+          "tem_pedido": true,
+          "tem_indefinido": false,
+          "tem_contexto_servico": true,
+          "tem_ajuste": false,
+          "tem_cancelamento": false,
+          "tem_social": false,
+          "tem_ref_profissional": true,
+          "tem_duvida_confianca_profissional": false
+        }
+      }
+    },
+    {
+      "numero": 5,
+      "nome": "estado_antes",
+      "confirmacao_pendente": false,
+      "completo": null
+    },
+    {
+      "numero": 6,
+      "nome": "router_principal",
+      "resposta": "",
+      "status": "OK"
+    },
+    {
+      "numero": 7,
+      "nome": "prompt_gpt",
+      "status": "SKIPPED",
+      "nota": "Patch de captura removido para simplificar execu\u00e7\u00e3o"
+    },
+    {
+      "numero": 8,
+      "nome": "resposta_gpt_bruta",
+      "status": "SKIPPED",
+      "nota": "Patch de captura removido para simplificar execu\u00e7\u00e3o"
+    },
+    {
+      "numero": 9,
+      "nome": "estado_depois",
+      "confirmacao_pendente": false,
+      "completo": {
+        "actor_id": "whatsapp:55119999005",
+        "draft_agendamento": {
+          "profissional": "Bruna",
+          "data_hora": "2026-06-24T15:00:00"
+        },
+        "modo_conversa": "operacional",
+        "servico_sugerido_consulta": "corte",
+        "aguardando_confirmacao_agendamento_por_consulta": true,
+        "confianca_intencao_conversacional": 85,
+        "_updated_at": "2026-06-23T09:58:16.501101",
+        "_actor_id": "whatsapp:55119999005",
+        "tipo_ajuste_incremental": null,
+        "permissoes": [],
+        "tipo_usuario": "cliente",
+        "data_hora": "2026-06-24T15:00:00",
+        "tenant_id": "whatsapp:55119999005",
+        "_tenant_id_guard": "audit_cenario_05_gpt_3e7e159a",
+        "_schema_version": 2,
+        "objetivo_conversacional": "consultar_disponibilidade_por_servico",
+        "ultima_consulta": {
+          "data_hora": "2026-06-24T15:00:00"
+        },
+        "estado_fluxo": "aguardando_confirmacao_consulta",
+        "ultima_acao": "confirmar_agendamento_por_consulta",
+        "historico_texto": [
+          "Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! Ol\u00e1! Tudo bem? Meu fim de semana foi \u00f3timo! e queria marcar corte com a Bruna amanh\u00e3 \u00e0s 15h"
+        ],
+        "intencao_conversacional": "consulta_disponibilidade_servico",
+        "profissional_escolhido": "Bruna"
+      }
+    }
+  ],
+  "fluxo_completo": {},
+  "resultado_final": {
+    "status": "FAIL",
+    "confirmacao_pendente": false,
+    "slots_extraidos": {
+      "servico": null,
+      "profissional": null,
+      "data": null,
+      "hora": null
+    }
+  }
+}
