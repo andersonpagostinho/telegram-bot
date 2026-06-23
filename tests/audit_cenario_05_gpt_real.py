@@ -49,7 +49,7 @@ if not os.getenv("OPENAI_API_KEY"):
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join(os.getcwd(), 'firebase_credentials.json')
 sys.path.insert(0, os.getcwd())
 
-from router.principal_router import get_roteador_principal
+from router.principal_router import roteador_principal
 from services.firebase_service_async import limpar_tenant, setup_tenant_completo, obter_estado_sessao
 from utils.normalizador_humano import normalizar_mensagem
 from services.classificador_conversa import ClassificadorConversa
@@ -199,7 +199,6 @@ async def auditoria_cenario_05_gpt_real():
                 mock_bot.return_value = tenant_id
                 mock_handler.return_value = tenant_id
 
-                roteador_principal = get_roteador_principal()
                 resposta = await roteador_principal(
                     user_id=actor_id,
                     mensagem=mensagem_original,

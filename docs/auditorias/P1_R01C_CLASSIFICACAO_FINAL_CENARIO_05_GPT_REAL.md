@@ -1,24 +1,50 @@
 # P1-R01C — CLASSIFICAÇÃO FINAL CENÁRIO 05 COM GPT REAL
 
-**Status:** ⏸️ BLOQUEADO — Erro de Importação em Código  
+**Status:** ⏸️ BLOQUEADO — Dois Importadores Estruturais em INFRA-03  
 **Data:** 2026-06-23  
 **Baseline:** baseline-216-pass (69d9c9e)  
-**GPT Real:** ✅ Conectado (Smoke test PASSOU)  
+**GPT Real:** ✅ Conectado (Smoke test PASSOU — 13/13 tokens, custo $7e-06)  
+**Bloqueador 1:** ✅ RESOLVIDO — `utils/priority_utils.py:6` ImportError (firebase_async → firestore_client)  
+**Bloqueador 2:** ⏸️ DESCOBERTO — `tests/audit_cenario_05_gpt_real.py:53` ImportError (funções de teste vs. services)  
 
 ---
 
-## BLOQUEIO ENCONTRADO
+## BLOQUEADORES ENCONTRADOS E STATUS
 
-### Erro ao Executar Auditoria
+### Bloqueador 1: ✅ RESOLVIDO — ImportError em utils/priority_utils.py
 
 ```
 File: utils/priority_utils.py:6
-ImportError: cannot import name 'db' from 'services.firebase_service_async'
+Status: ✅ RESOLVIDO
+Erro original: ImportError: cannot import name 'db' from 'services.firebase_service_async'
 
-Root cause:
-- firebase_service_async.py NÃO exporta 'db'
-- Módulo usa 'client' via get_db() do firestore_client.py
-- priority_utils tentando importar 'db' que não existe
+Raiz: firebase_service_async.py não exporta 'db' (refatoração INFRA-03)
+
+Solução aplicada:
+- Linha 6: from services.firebase_service_async import db
+  ↓↓↓
++ from services.firestore_client import get_db
++ db = get_db()
+
+Padrão: Consolidação pós-INFRA-03 usa get_db() de firestore_client.py (singleton)
+Validação: ✅ py_compile passou (sintaxe correta)
+```
+
+### Bloqueador 2: ⏸️ DESCOBERTO — ImportError em audit_cenario_05_gpt_real.py
+
+```
+File: tests/audit_cenario_05_gpt_real.py:53
+Status: ⏸️ NÃO RESOLVIDO (escopo: P1-R01D é apenas priority_utils)
+Erro encontrado: ImportError: cannot import name 'limpar_tenant' from 'services.firebase_service_async'
+
+Raiz: Funções são locais em testes específicos, não em services
+  - limpar_tenant: definida em tests/p1_robustez_fluxo_conversacional_real.py:202
+  - setup_tenant_completo: definida em teste, não em services
+  - obter_estado_sessao: definida em teste, não em services
+
+Impacto: Script audit_cenario_05_gpt_real.py foi criado com suposição errada sobre INFRA-03
+
+Próximo passo: P1-R01E (refatorar audit script para usar functions corretas ou arquitetura pós-consolidação)
 ```
 
 ### Impacto
@@ -194,53 +220,70 @@ Exemplos:
 
 ## PRÓXIMAS ETAPAS RECOMENDADAS
 
-### 1. Resolver Erro de Importação (Pré-requisito)
+### FASE 1: Desbloquear (CONCLUÍDA PARCIALMENTE)
 
-```
-Bug: utils/priority_utils.py importa 'db' de firebase_service_async
-Solução: Usar get_db() de firestore_client.py
+✅ **P1-R01D: Resolver priority_utils.py** — COMPLETO
+- Bloqueador 1 resolvido
+- py_compile passou
+- Pronto para re-executar testes que usam priority_utils
 
-Impacto: Bloqueador para qualquer teste que use principal_router
-```
+⏸️ **P1-R01E: Refatorar audit_cenario_05_gpt_real.py** — PENDENTE
+- Bloqueador 2 identificado
+- Escopo: Usar functions corretas ou re-arquitetar script pós-INFRA-03
+- Opções:
+  - Opção A: Migrar funções de teste para services/firebase_service_async_test.py
+  - Opção B: Usar functions equivalentes de P1 E2E que funcionam
+  - Opção C: Simplificar audit script para chamar principal_router diretamente (sem setup/limpar tenant)
 
-### 2. Após Desbloquear: Re-executar Auditoria GPT
+### FASE 2: Coleta de Evidência (BLOQUEADA)
 
 ```bash
 python tests/audit_cenario_05_gpt_real.py
+→ resultado_audit_cenario_05_gpt_real.json
 
-Resultará em: resultado_audit_cenario_05_gpt_real.json
-Permitirá: Classificação A/B/C/D/E com 100% certeza
+Depende de: P1-R01E estar resolvido
 ```
 
-### 3. Se Classificação = A: Aplicar Patch Mínimo
+### FASE 3: Classificação com Dados Reais (AGUARDANDO)
 
+Após resultado_audit_cenario_05_gpt_real.json ser gerado:
+- JSON bruto do GPT capturado
+- Slots extraídos validados
+- Hipótese A/B/C/D/E confirmada com 100% certeza
+
+### FASE 4: Patch de Interpretação (CONDICIONAL)
+
+Se Classificação = A (GPT não extrai pedido final):
 ```python
 # Em prompts/manual_secretaria.py
 SECAO_7_5 = """
-[instrução acima]
+[instrução para lidar com mensagens longas]
 """
 ```
 
-### 4. Validar Com Regressão
+### FASE 5: Regressão (OBRIGATÓRIA)
 
 ```bash
 python tests/p1_robustez_fluxo_conversacional_real.py
 
-Cenário 05 deve passar (confirmacao_pendente = True)
-Outros cenários devem manter status
+Expectativa:
+- Cenário 05 PASS (confirmacao_pendente = True)
+- Todos outros cenários mantêm status
 ```
 
 ---
 
-## STATUS FINAL
+## STATUS FINAL (2026-06-23)
 
 | Aspecto | Status | Evidência |
 |---------|--------|-----------|
-| GPT Conectado | ✅ OK | Smoke test passou |
-| Auditoria Executada | ⏸️ Bloqueado | Erro ImportError em priority_utils |
-| Classificação | 🔄 Preliminar | Baseada em análise indireta (Hipótese A) |
-| Patch Recomendado | ✅ Pronto | prompts/manual_secretaria.py:7.5 |
-| Teste Pronto | ✅ Pronto | Aguardando desbloquio de importação |
+| GPT Conectado | ✅ OK | Smoke test passou (13 tokens, $7e-06) |
+| Bloqueador 1 (priority_utils) | ✅ RESOLVIDO | py_compile passou — padrão INFRA-03 aplicado |
+| Bloqueador 2 (audit script) | ⏸️ DETECTADO | Funções não estão em services (refatoração incompleta) |
+| Auditoria GPT Real Executada | ❌ NÃO | Bloqueado por Bloqueador 2 |
+| Classificação A/B/C/D/E | 🔄 Preliminar | Baseada em análise indireta (Hipótese A: 60%) |
+| Patch Recomendado | ✅ Pronto | prompts/manual_secretaria.py:7.5 (não aplicado por polícia) |
+| Próximo Passo | ✅ Claro | P1-R01E: Refatorar audit script |
 
 ---
 

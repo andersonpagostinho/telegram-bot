@@ -3,7 +3,9 @@ import json
 import logging
 import re
 from datetime import datetime, timezone
-from services.firebase_service_async import db
+from services.firestore_client import get_db
+
+db = get_db()
 
 logger = logging.getLogger(__name__)
 
