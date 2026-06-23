@@ -118,12 +118,12 @@ async def main():
     resultado["etapas"]["env_var"] = env_status
 
     if env_status["presente"]:
-        print(f"  ✓ OPENAI_API_KEY presente")
+        print(f"  [OK] OPENAI_API_KEY presente")
         print(f"  - Prefixo: {env_status['prefixo']}")
         print(f"  - Tamanho: {env_status['tamanho_chars']} chars")
         print(f"  - Origem: {env_status['origem_provavel']}\n")
     else:
-        print(f"  ✗ OPENAI_API_KEY NÃO CONFIGURADA")
+        print(f"  [ERRO] OPENAI_API_KEY NAO CONFIGURADA")
         print(f"  - Bloqueio: Não é possível continuar\n")
 
         resultado["status"] = "BLOQUEADO"
@@ -143,16 +143,16 @@ async def main():
     resultado["etapas"]["conexao_gpt"] = gpt_status
 
     if gpt_status["sucesso"]:
-        print(f"  ✓ CONEXÃO ESTABELECIDA")
+        print(f"  [OK] CONEXAO ESTABELECIDA")
         print(f"  - Modelo: {gpt_status['modelo']}")
         print(f"  - Resposta: {gpt_status['resposta']}")
         print(f"  - Tokens usados: {gpt_status['tokens_usados']['total']}")
         print(f"  - Custo estimado: ${gpt_status['custo_estimado_usd']}\n")
 
         resultado["status"] = "SUCESSO"
-        resultado["motivo"] = "Conexão com OpenAI estabelecida com sucesso"
+        resultado["motivo"] = "Conexao com OpenAI estabelecida com sucesso"
     else:
-        print(f"  ✗ CONEXÃO FALHOU")
+        print(f"  [ERRO] CONEXAO FALHOU")
         print(f"  - Erro: {gpt_status['erro']}")
         print(f"  - Tipo: {gpt_status['tipo_erro']}\n")
 
@@ -168,7 +168,7 @@ async def main():
     with open(output_file, 'w') as f:
         json.dump(resultado, f, indent=2)
 
-    print(f"✓ Resultado salvo em: {output_file}\n")
+    print(f"[OK] Resultado salvo em: {output_file}\n")
 
     # PRÓXIMAS ETAPAS
     if resultado["status"] == "SUCESSO":

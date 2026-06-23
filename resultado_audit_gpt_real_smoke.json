@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-06-23T08:35:57.862800",
+  "teste": "smoke_gpt_real",
+  "ambiente": "local",
+  "etapas": {
+    "env_var": {
+      "presente": true,
+      "tamanho_chars": 164,
+      "prefixo": "sk-proj-Rb...",
+      "origem_provavel": "API Key v2 (sk-proj-...)"
+    },
+    "conexao_gpt": {
+      "sucesso": true,
+      "modelo": "gpt-3.5-turbo-0125",
+      "resposta": "ok",
+      "tokens_usados": {
+        "prompt": 12,
+        "completion": 1,
+        "total": 13
+      },
+      "custo_estimado_usd": 7e-06
+    }
+  },
+  "status": "SUCESSO",
+  "motivo": "Conexao com OpenAI estabelecida com sucesso"
+}
