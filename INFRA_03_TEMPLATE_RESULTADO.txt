@@ -1,0 +1,71 @@
+================================================================================
+INFRA-03: VALIDAÇÃO DE CONSOLIDAÇÃO GLOBAL FIRESTORE CLIENT
+================================================================================
+
+Data: 2026-06-22
+Objetivo: Eliminar acúmulo de conexões gRPC causando timeout ao shutdown
+Solução: Consolidar 7 pontos independentes em singleton único
+
+================================================================================
+CRITÉRIOS DE SUCESSO
+================================================================================
+
+[  ] Validação sintática: 10/10 arquivos compilam (CONCLUÍDO)
+[  ] Imports órfãos: 0 referências órfãs a firebase_config.db (CONCLUÍDO)
+[  ] P1 E2E Identidade: 14/14 PASS (AGUARDANDO)
+[  ] P1 E2E Operacional: 14/14 PASS (AGUARDANDO)
+[  ] P1 E2E Individual: 14/14 PASS (AGUARDANDO)
+[  ] P0 Regressão: 174/174 PASS (AGUARDANDO)
+[  ] Sem timeout gRPC: Nenhum grpc_wait_for_shutdown_with_timeout() (AGUARDANDO)
+
+================================================================================
+CONSOLIDAÇÃO IMPLEMENTADA
+================================================================================
+
+ARQUIVOS ALTERADOS: 10
+
+Patches principais (7):
+  1. config/firebase_config.py:32 — Removido db = firestore.client()
+  2. services/firebase_service.py:35 — Substituído por get_db()
+  3. services/session_service.py:8 — Substituído por get_db()
+  4. flask_app.py:21 — Substituído por get_db()
+  5. handlers/bot.py:589 — Substituído por get_db()
+  6. services/gpt_service.py:1117 — Substituído por get_db()
+  7. services/gpt_service.py:2597 — Substituído por get_db()
+
+Imports corrigidos (3):
+  8. services/firebase_service_async.py:3 — Removido import inútil
+  9. test_fetch_tasks.py:1 — Atualizado para get_db()
+  10. test_save_task.py:1 — Atualizado para get_db()
+
+Validação: ✅ 10/10 compilam com sucesso
+
+================================================================================
+RESULTADOS DE TESTES (A ATUALIZAR)
+================================================================================
+
+[Aguardando execução]
+
+P1 E2E Identidade: ??? (14 testes esperados)
+P1 E2E Operacional: ??? (14 testes esperados)
+P1 E2E Individual: ??? (14 testes esperados)
+P0 Regressão: ??? (174 testes esperados)
+
+Total P1: ???/42
+Total P0: ???/174
+
+================================================================================
+VERIFICAÇÃO gRPC (A ATUALIZAR)
+================================================================================
+
+Timeout grpc_wait_for_shutdown_with_timeout(): ???
+Encerramento limpo: ???
+
+================================================================================
+STATUS FINAL
+================================================================================
+
+[AGUARDANDO RESULTADOS DOS TESTES]
+
+Próximo: Executar P1 E2E (3 variações) → P0 Regressão → Gerar relatório final
+

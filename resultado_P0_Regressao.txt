@@ -1,0 +1,70 @@
+=== P0 Regressao ===
+
+Exit code: 0
+Duracao: 24.2s
+
+STDOUT:
+5 cenários passaram
+
+[BATERIA 3] p0_real_confirmacao_pendente_completo.py
+           Cenários esperados: 17
+
+  [OK] 17/17 cenários passaram
+
+[BATERIA 4] p0_real_mudanca_contexto_completo.py
+           Cenários esperados: 25
+
+  [OK] 25/25 cenários passaram
+
+[BATERIA 5] p0_real_multi_entidades_completo.py
+           Cenários esperados: 15
+
+  [OK] 15/15 cenários passaram
+
+[BATERIA 6] p0_real_ajuste_incremental_avancado.py
+           Cenários esperados: 20
+
+  [OK] 20/20 cenários passaram
+
+[BATERIA 7] p0_real_notificacoes_e2e.py
+           Cenários esperados: 20
+
+  [OK] 20/20 cenários passaram
+
+[BATERIA 8] p0_real_admin_dono_completo.py
+           Cenários esperados: 25
+
+  [OK] 25/25 cenários passaram
+
+[BATERIA 9] p0_real_profissional_completo.py
+           Cenários esperados: 30
+
+  [OK] 30/30 cenários passaram
+
+[FASE 3] Gerando relatório consolidado...
+
+[OK] Resultado salvo em: resultado_p0_regressao_completa.json
+
+================================================================================
+RESUMO FINAL
+================================================================================
+
+Total de baterias:      9/9
+Total de cenários:      174/174
+
+[OK]  1. p0_bateria_real_fluxo_completo_conflito_a_criacao.py —   7/  7
+[OK]  2. p0_bateria_real_cancelamento_completo.py           —  15/ 15
+[OK]  3. p0_real_confirmacao_pendente_completo.py           —  17/ 17
+[OK]  4. p0_real_mudanca_contexto_completo.py               —  25/ 25
+[OK]  5. p0_real_multi_entidades_completo.py                —  15/ 15
+[OK]  6. p0_real_ajuste_incremental_avancado.py             —  20/ 20
+[OK]  7. p0_real_notificacoes_e2e.py                        —  20/ 20
+[OK]  8. p0_real_admin_dono_completo.py                     —  25/ 25
+[OK]  9. p0_real_profissional_completo.py                   —  30/ 30
+
+================================================================================
+[SUCESSO] REGRESSÃO COMPLETA: 174/174 PASS
+================================================================================
+
+
+STDERR:

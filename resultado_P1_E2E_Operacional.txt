@@ -1,0 +1,25 @@
+=== P1 E2E Operacional ===
+
+Exit code: 0
+Duracao: 7.4s
+
+STDOUT:
+os': 40, 'ativo': True, 'criado_por': 'whatsapp:11900000001'}
+[DOC] Documento encontrado em Clientes/teste_onboarding_operacional_tenant/Configuracao/dados_negocio: {'criado_em': '2026-06-23T10:21:57.475582+00:00', 'agenda_padrao': {'quarta': {'inicio': '08:00', 'fim': '18:00'}, 'sabado': {'inicio': '08:00', 'fim': '18:00'}, 'sexta': {'inicio': '08:00', 'fim': '18:00'}, 'domingo': {'inicio': 'FECHADO', 'fim': 'FECHADO'}, 'segunda': {'inicio': '08:00', 'fim': '18:00'}, 'quinta': {'inicio': '08:00', 'fim': '18:00'}, 'terca': {'inicio': '08:00', 'fim': '18:00'}}, 'segmento': 'Salão de beleza', 'nome_negocio': 'Salão da Maria', 'endereco': 'Rua João Baroni, 550', 'atualizado_em': '2026-06-23T10:21:57.977569+00:00'}
+[DOC] Documento encontrado em Clientes/teste_onboarding_operacional_tenant/Clientes/whatsapp:11955555555: {'origem': 'primeiro_contato', 'criado_em': '2026-06-23T10:21:59.106941+00:00', 'ultimo_contato_em': '2026-06-23T10:21:59.106941+00:00', 'actor_id': 'whatsapp:11955555555', 'tenant_id': 'teste_onboarding_operacional_tenant', 'identificador': '11955555555', 'primeiro_contato_em': '2026-06-23T10:21:59.106941+00:00', 'criado_por': 'sistema_autodeteccao', 'canal': 'whatsapp', 'nome_detectado': '', 'ativo': True}
+[DOC] Documento encontrado em Clientes/teste_onboarding_operacional_tenant/Eventos/whatsapp:11955555555_2026-06-25_10:00: {'criado_em': '2026-06-23T10:21:59.295123+00:00', 'profissional_id': 'carla', 'hora': '10:00', 'cliente_id': 'whatsapp:11955555555', 'duracao_minutos': 40, 'data': '2026-06-25', 'criado_por': 'sistema_autoagendamento', 'profissional_nome': 'Carla', 'status': 'confirmado', 'servico': 'Corte feminino'}
+[PASS] Cenario 20: P0 continua funcionando após instalação
+
+================================================================================
+RESULTADO FINAL: 20/20 PASS
+================================================================================
+
+[OK] Resultado salvo em: tests/resultado_p1_e2e_onboarding_operacional_completo.json
+
+
+
+STDERR:
+C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\google\cloud\firestore_v1\base_collection.py:303: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\services\identidade_service.py:387: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  .where("ativo", "==", True)

@@ -1,0 +1,162 @@
+================================================================================
+STATUS VALIDACAO POS INFRA-04 — CREDENCIAIS FIREBASE RESTAURADAS
+================================================================================
+
+Data: 2026-06-22
+Hora agendamento wakeup: ~23:01 UTC (próximo: ~00:01 UTC)
+
+================================================================================
+O QUE JÁ FOI FEITO
+================================================================================
+
+✅ INFRA-03: Consolidacao Firestore Client
+   - 10 arquivos alterados (7 patches + 3 imports corrigidos)
+   - 7 clientes Firestore → 1 singleton
+   - Compilacao: 10/10 OK
+   - Status: IMPLEMENTADO
+
+✅ INFRA-04: Diagnostico Firebase Credentials
+   - Problema: FIREBASE_CREDENTIALS truncada (2047 chars)
+   - Solucao: GOOGLE_APPLICATION_CREDENTIALS com arquivo
+   - Status: DIAGNOSTICO COMPLETO
+
+✅ Autenticacao Firestore
+   - GOOGLE_APPLICATION_CREDENTIALS: $(pwd)/firebase_credentials.json
+   - get_db() funciona
+   - Status: OK
+
+✅ P1 E2E Identidade
+   - Teste: p1_e2e_onboarding_identidade_real.py
+   - Exit code: 0
+   - Resultado: PASS (com timeout gRPC ao shutdown)
+   - Status: COMPLETO
+
+⏳ P1 E2E Operacional
+   - Teste: p1_e2e_onboarding_operacional_completo_real.py
+   - Status: EM EXECUCAO (14 testes)
+
+⏳ P1 E2E Individual
+   - Teste: p1_e2e_onboarding_individual_real.py
+   - Status: EM EXECUCAO (14 testes)
+
+⏳ P0 Regressao
+   - Teste: runner_p0_regressao_completa.py
+   - Status: EM EXECUCAO (174 testes)
+
+================================================================================
+COMO FOI INICIADO
+================================================================================
+
+Executado script: executar_validacao_completa.py
+
+Este script:
+1. Roda 4 testes em sequencia (P1 x3, depois P0)
+2. Captura exit code de cada teste
+3. Detecta presenca de gRPC timeout em stderr
+4. Registra duracao total
+5. Salva resultados em validacao_resultados.json
+6. Imprime resumo final
+
+Timeout de execucao: 1 hora (suites podem levar 60-120 min)
+Wakeup agendado: ~60 min
+
+================================================================================
+O QUE ESTA PENDENTE
+================================================================================
+
+⏳ FASE 1: Testes em execucao
+   - P1 Operacional: ~14 min
+   - P1 Individual: ~14 min
+   - P0 Regressao: ~30-60 min
+   Total esperado: 60-90 min
+
+⏳ FASE 2: Quando acordar
+   1. Verificar validacao_resultados.json
+   2. Processar com processar_resultados_validacao.py
+   3. Gerar tabela final em docs/auditorias/VALIDACAO_POS_INFRA_04_CREDENCIAIS_FIREBASE.md
+   4. Se P1 42/42 OK e P0 174/174 OK:
+      → Rodar python tests/p1_robustez_fluxo_conversacional_real.py (cenario 06)
+   5. Se gRPC persiste apenas no shutdown:
+      → Abrir INFRA-05 como item separado (graceful shutdown)
+
+================================================================================
+CRITERIO DE SUCESSO
+================================================================================
+
+✅ P1 E2E: 42/42 PASS (3 x 14 testes)
+   - Identidade: ✅ JA PASSOU
+   - Operacional: ⏳ Aguardando
+   - Individual: ⏳ Aguardando
+
+✅ P0 Regressao: 174/174 PASS
+   - Status: ⏳ Aguardando
+
+✅ gRPC timeout:
+   - Se exit code = 0 e testes PASS: classificar como "shutdown warning"
+   - Se exit code != 0: classificar como bloqueio
+   - Se timeout ocorre DURANTE testes: bloqueio
+   - Se timeout ocorre APOS testes: warning apenas
+
+✅ Cenario 06:
+   - Rodar SOMENTE se P1 + P0 OK
+   - Objetivo: Validar fluxo confirmacao pos-consolidacao INFRA-03
+   - Separar qualquer problema de gRPC em INFRA-05
+
+================================================================================
+ARQUIVOS CRIADOS
+================================================================================
+
+✅ docs/auditorias/INFRA_03_CONSOLIDACAO_GLOBAL_FIRESTORE_CLIENT.md
+   - Status de consolidacao
+   - 10 arquivos alterados
+   - Impacto tecnico
+
+✅ docs/auditorias/INFRA_04_DIAGNOSTICO_FIREBASE_CREDENTIALS.md
+   - Problema: Truncamento (2047 chars)
+   - Solucao: GOOGLE_APPLICATION_CREDENTIALS
+   - Opcoes de remediacao
+
+✅ docs/auditorias/VALIDACAO_POS_INFRA_04_CREDENCIAIS_FIREBASE.md
+   - Template para resultados
+   - Sera preenchido apos testes
+
+✅ executar_validacao_completa.py
+   - Script principal de testes
+   - Gera validacao_resultados.json
+
+✅ processar_resultados_validacao.py
+   - Script de processamento de resultados
+   - Gera resumo final
+
+================================================================================
+PROXIMOS PASSOS APOS ACORDAR
+================================================================================
+
+1. Verificar se executar_validacao_completa.py completou
+   - Procurar: validacao_resultados.json
+
+2. Se arquivo existe:
+   - Processar com processar_resultados_validacao.py
+   - Ler exit codes, tempos, status
+
+3. Atualizar: docs/auditorias/VALIDACAO_POS_INFRA_04_CREDENCIAIS_FIREBASE.md
+   - Adicionar tabela final
+   - Resultado de cada suite
+   - Presenca de gRPC timeout
+   - Classificacao de cada um
+
+4. Se P1 42/42 e P0 174/174:
+   - Rodar: python tests/p1_robustez_fluxo_conversacional_real.py
+   - Registrar resultado de cenario 06
+   - Decidir se precisa INFRA-05 para gRPC shutdown
+
+5. Gerar relatorio final
+
+================================================================================
+
+Status: VALIDACAO EM PROGRESSO
+
+Próximo evento: Wakeup ~00:01 UTC (em ~60 min)
+           ou: Task completion notification se testes terminarem antes
+
+================================================================================

@@ -6,20 +6,29 @@ import firebase_admin
 from firebase_admin import firestore
 import os
 
+# [INFRA-02 PATCH] Cache singleton do cliente Firestore
+# Evita acúmulo de conexões gRPC ao reutilizar um único cliente
+_firestore_client = None
+
 
 def get_db():
     """
     Obtém cliente Firestore, inicializando Firebase uma única vez se necessário.
 
+    [INFRA-02 PATCH] Agora reutiliza a mesma instância de cliente para evitar
+    acúmulo de conexões gRPC que causam timeout no shutdown.
+
     Esta função é thread-safe e pode ser chamada múltiplas vezes sem risco de
     dupla inicialização (firebase_admin valida automaticamente).
 
     Returns:
-        firestore.client() - Cliente Firestore pronto para usar
+        firestore.client() - Cliente Firestore pronto para usar (REUTILIZADO)
 
     Raises:
         ValueError: Se Firebase não conseguir inicializar
     """
+    global _firestore_client
+
     try:
         # Verificar se app já está inicializado
         firebase_admin.get_app()
@@ -27,7 +36,11 @@ def get_db():
         # Firebase não inicializado, tentar inicializar
         _inicializar_firebase()
 
-    return firestore.client()
+    # [INFRA-02] Retornar cliente em cache em vez de criar novo
+    if _firestore_client is None:
+        _firestore_client = firestore.client()
+
+    return _firestore_client
 
 
 def _inicializar_firebase():

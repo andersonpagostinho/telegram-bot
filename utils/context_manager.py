@@ -1,70 +1,22 @@
 # utils/context_manager.py
-from services.firebase_service_async import atualizar_dado_em_path, buscar_dado_em_path
-from utils.normalizador_humano import limpar_sinais_humanos
+# [PATCH P0-MIGRACAO]: Proxy para handlers.context_manager
+# Este arquivo mantido APENAS para compatibilidade com código existente
+# Todos os imports antigos de utils.context_manager agora delegam para handlers.context_manager
 
+from handlers.context_manager import (
+    salvar_contexto_temporario,
+    carregar_contexto_temporario,
+    atualizar_contexto,
+    limpar_contexto,
+    verificar_fim_fluxo_e_limpar
+)
+
+# Legacy compatibility
 CONTEXT_PATH_TEMPLATE = "Clientes/{user_id}/MemoriaTemporaria/contexto"
 
-# 🔄 Salvar contexto completo (ou atualizar)
-async def salvar_contexto_temporario(user_id: str, contexto: dict):
-    path = CONTEXT_PATH_TEMPLATE.format(user_id=user_id)
-    return await atualizar_dado_em_path(path, contexto)  # merge=True
+async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
+    """[PATCH P0] Limpeza de contexto de agendamento com suporte multi-tenant.
 
-# 🔍 Carregar contexto salvo
-async def carregar_contexto_temporario(user_id: str):
-    path = CONTEXT_PATH_TEMPLATE.format(user_id=user_id)
-    return await buscar_dado_em_path(path)
-
-# 🧠 Atualiza histórico apenas se for diferente da última entrada
-async def atualizar_contexto(user_id: str, nova_interacao: dict):
-    contexto = await carregar_contexto_temporario(user_id) or {}
-    historico = contexto.setdefault("historico", [])
-
-    if not historico or historico[-1] != nova_interacao:
-        historico.append(nova_interacao)
-        contexto["historico"] = historico[-5:]  # mantém só os últimos 5
-        await salvar_contexto_temporario(user_id, contexto)
-
-    return contexto
-
-async def limpar_contexto(user_id: str):
-    await salvar_contexto_temporario(user_id, {"historico": []})
-    return True
-
-# 🧹 Limpa apenas o contexto relacionado a agendamento
-async def limpar_contexto_agendamento(user_id: str):
-    contexto = await carregar_contexto_temporario(user_id) or {}
-
-    contexto.update({
-        "estado_fluxo": "idle",
-        "draft_agendamento": {},
-        "aguardando_confirmacao_agendamento": False,
-        "dados_confirmacao_agendamento": None,
-
-        "data_hora": None,
-        "servico": None,
-        "profissional_escolhido": None,
-        "ultima_opcao_profissionais": [],
-
-        "sugestoes": [],
-        "alternativa_profissional": None,
-
-        "evento_criado": False,
-        "ultima_acao": None,
-        "ultima_intencao": None,
-        "dados_anteriores": None,
-        "hora_confirmada": None,
-
-        "pergunta_amanha_mesmo_horario": False,
-        "data_hora_pendente": None,
-        "ultima_consulta": None,
-
-        "objetivo_conversacional": None,
-        "intencao_conversacional": None,
-        "modo_conversa": None,
-    })
-
-    contexto = limpar_sinais_humanos(contexto)
-
-    await salvar_contexto_temporario(user_id, contexto)
-    print("🧹 Contexto de agendamento limpo com sucesso.")
-    return True
+    Delega para handlers.context_manager.limpar_contexto() que já faz a limpeza correta.
+    """
+    return await limpar_contexto(user_id, tenant_id=tenant_id)

@@ -1,0 +1,50 @@
+[
+  {
+    "teste": "P1 E2E Identidade",
+    "arquivo": "tests/p1_e2e_onboarding_identidade_real.py",
+    "exit_code": 0,
+    "duracao_s": 11.107167,
+    "resultado_funcional": "PASS",
+    "grpc_timeout": false,
+    "grpc_quando": "N/A",
+    "classificacao": "PASS",
+    "stdout_linhas": 256,
+    "stderr_linhas": 4
+  },
+  {
+    "teste": "P1 E2E Operacional",
+    "arquivo": "tests/p1_e2e_onboarding_operacional_completo_real.py",
+    "exit_code": 0,
+    "duracao_s": 7.365043,
+    "resultado_funcional": "PASS",
+    "grpc_timeout": false,
+    "grpc_quando": "N/A",
+    "classificacao": "PASS",
+    "stdout_linhas": 141,
+    "stderr_linhas": 4
+  },
+  {
+    "teste": "P1 E2E Individual",
+    "arquivo": "tests/p1_e2e_onboarding_individual_real.py",
+    "exit_code": 0,
+    "duracao_s": 4.197189,
+    "resultado_funcional": "PASS",
+    "grpc_timeout": false,
+    "grpc_quando": "N/A",
+    "classificacao": "PASS",
+    "stdout_linhas": 60,
+    "stderr_linhas": 0
+  },
+  {
+    "teste": "P0 Regressao",
+    "arquivo": "tests/runner_p0_regressao_completa.py",
+    "exit_code": 0,
+    "duracao_s": 24.240057,
+    "resultado_funcional": "PASS",
+    "grpc_timeout": false,
+    "grpc_quando": "N/A",
+    "classificacao": "PASS",
+    "stdout_linhas": 89,
+    "stderr_linhas": 0
+  }
+]

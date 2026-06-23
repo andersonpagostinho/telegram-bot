@@ -1,0 +1,54 @@
+=== P1 E2E Identidade ===
+
+Exit code: 0
+Duracao: 11.1s
+
+STDOUT:
+elereiro'} (tipo: <class 'dict'>)
+   - timestamp_inicio: 2026-06-23T07:21:53.281737 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_tenant_cenario_12/Sessoes/whatsapp:11999999999
+  [PASS] Onboarding retomado sem perda de dados
+
+[CENÁRIO 13] Troca de contexto durante onboarding...
+  [PASS] Onboarding continuou após interrupção
+
+[CENÁRIO 14] Cliente não contamina onboarding dono...
+[SAVE] Tentando salvar dados em: Clientes/teste_tenant_cenario_02/Sessoes/whatsapp:11999999999
+   - estado_fluxo: onboarding_dono (tipo: <class 'str'>)
+   - etapa: dados_negocio (tipo: <class 'str'>)
+   - draft: {'nome_negocio': 'Salão Maria'} (tipo: <class 'dict'>)
+[OK] Dados salvos (merge) em: Clientes/teste_tenant_cenario_02/Sessoes/whatsapp:11999999999
+[SAVE] Tentando salvar dados em: Clientes/teste_tenant_cenario_02/Sessoes/whatsapp:11955555555
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - identificador: 11955555555 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_tenant_cenario_02/Sessoes/whatsapp:11955555555
+  [PASS] Cliente não contaminou onboarding do dono
+
+[CENÁRIO 15] Regressão P0 após onboarding...
+[SAVE] Tentando salvar dados em: Clientes/teste_tenant_cenario_02/Eventos/evento_p0_regressao
+   - cliente: whatsapp:11977777777 (tipo: <class 'str'>)
+   - profissional: carla (tipo: <class 'str'>)
+   - servico: corte_escova (tipo: <class 'str'>)
+   - data_hora: 2026-06-27T10:00:00 (tipo: <class 'str'>)
+   - duracao: 60 (tipo: <class 'int'>)
+   - status: criado (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_tenant_cenario_02/Eventos/evento_p0_regressao
+  [PASS] P0 continua funcionando após onboarding
+
+================================================================================
+SUMARIO
+================================================================================
+
+Total: 15
+PASS:  15/15
+FAIL:  0/15
+
+[OK] Relatorio salvo em: tests/resultado_p1_e2e_onboarding_identidade.json
+
+
+STDERR:
+C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\google\cloud\firestore_v1\base_collection.py:303: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\services\identidade_service.py:387: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  .where("ativo", "==", True)

@@ -166,7 +166,9 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     
     # --- 1.5) confirmação pendente de agendamento ---
     # 🔧 PATCH MT-07: Usar v2 para isolamento multi-tenant
-    ctx_tmp = await carregar_contexto_temporario_v2(tenant_id, user_id) or {}
+    # LOTE 5B: Corrigir ordem de parâmetros (dono_id primeiro, depois user_id)
+    dono_id = await obter_id_dono(user_id)
+    ctx_tmp = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
     print(
     "🧪 [BOT-CTX]",
     {
@@ -583,8 +585,10 @@ async def meus_dados(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from services.firestore_client import get_db
     user_id = str(update.message.from_user.id)
-    db = firestore.client()
+    # [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente
+    db = get_db()
 
     ID_DONO = OWNER_ID  # usa o mesmo
 

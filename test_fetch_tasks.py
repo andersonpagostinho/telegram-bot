@@ -1,6 +1,7 @@
-from config.firebase_config import db
+from services.firestore_client import get_db
 
 def buscar_tarefas():
+    db = get_db()
     tarefas_ref = db.collection("Tarefas").stream()
     tarefas = [tarefa.to_dict() for tarefa in tarefas_ref]
     

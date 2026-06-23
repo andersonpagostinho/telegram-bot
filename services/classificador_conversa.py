@@ -284,6 +284,18 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     t = normalizar_txt(texto)
     f = extrair_features_conversa(t, ctx)
 
+    # 🔒 RESPECT LOTE_3B: Se LOTE_3B já setou intenção P0 determinística, respeitá-la
+    # (LOTE_3B é mais preciso que classificador genérico)
+    intencao_p0_pre_existente = ctx.get("intencao_conversacional")
+    if intencao_p0_pre_existente in ["confirmacao_agendamento", "negacao_confirmacao_agendamento"]:
+        return {
+            "intencao_conversacional": intencao_p0_pre_existente,
+            "tipo_ajuste_incremental": None,
+            "confianca": 95,  # Alta confiança porque LOTE_3B já validou
+            "features": f,
+            "motivo": "respeitando_lote_3b"
+        }
+
     # =====================================================
     # 🔥 NEGAÇÃO / DESISTÊNCIA EM CONFIRMAÇÃO PENDENTE
     # GPT/classificador interpreta; router executa.

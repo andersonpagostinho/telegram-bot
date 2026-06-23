@@ -1113,10 +1113,9 @@ async def processar_com_gpt_com_acao(
             print("🧪 [GPT_ROUTE] CALL_1_END", flush=True)
 
             # custo (somente se resposta existe)
-            try:
-                firestore_client = firestore.Client()
-            except TypeError:
-                firestore_client = firestore.client()
+            # [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente
+            from services.firestore_client import get_db
+            firestore_client = get_db()
 
             await registrar_custo_gpt(resposta, "gpt-4o", uid, firestore_client)
 
@@ -2594,7 +2593,9 @@ async def processar_com_gpt_com_acao(
 
             print("🧪 [GPT_ROUTE] CALL_2_END", flush=True)
 
-            firestore_client = firestore.client()
+            # [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente
+            from services.firestore_client import get_db
+            firestore_client = get_db()
             await registrar_custo_gpt(resposta, "gpt-4o", user_id, firestore_client)
 
             try:

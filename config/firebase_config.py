@@ -29,4 +29,4 @@ except json.JSONDecodeError:
 # Inicializar o Firebase
 cred = credentials.Certificate(firebase_json_path)
 firebase_admin.initialize_app(cred)
-db = firestore.client()
+# [INFRA-03] Removido: db = firestore.client() (cliente desnecessário, usar get_db() de firestore_client.py)

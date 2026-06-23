@@ -1,0 +1,142 @@
+================================================================================
+INFRA-04: DIAGNÓSTICO COMPLETO — FIREBASE_CREDENTIALS TRUNCADA
+================================================================================
+
+PROBLEMA IDENTIFICADO
+=====================
+
+FIREBASE_CREDENTIALS tem EXATAMENTE 2047 caracteres (truncada)
+  └─ Limite PowerShell: ~2048 chars
+  └─ Terminação: "...gle.com/o/" (incompleta)
+  └─ Erro JSON: "Unterminated string starting at char 2016"
+  └─ Causa: Truncamento nativo do PowerShell
+
+STATUS ATUAL
+============
+
+✅ INFRA-03 Consolidação: COMPLETA
+   - 7 pontos Firestore unificados em 1 singleton
+   - 10 arquivos alterados com sucesso
+   - Compilação: 10/10 OK
+   - Imports órfãos: corrigidos
+
+❌ Testes E2E: BLOQUEADOS
+   - P1 E2E Identidade: não consegue conectar ao Firestore
+   - P1 E2E Operacional: não consegue conectar ao Firestore
+   - P1 E2E Individual: não consegue conectar ao Firestore
+   - P0 Regressão: não consegue conectar ao Firestore
+
+⏸ INFRA-04 Diagnóstico: COMPLETO
+   - Causa raiz: Truncamento PowerShell
+   - Solução: Usar GOOGLE_APPLICATION_CREDENTIALS com arquivo
+   - Script de ajuda: restore_firebase_credentials.ps1
+
+DOCUMENTAÇÃO
+============
+
+✅ docs/auditorias/INFRA_04_DIAGNOSTICO_FIREBASE_CREDENTIALS.md
+   - Tabela de diagnóstico completa
+   - 5 estratégias de autenticação testadas
+   - 3 opções de solução (A, B, C)
+   - Análise de causa raiz
+   - Próximos passos
+
+✅ restore_firebase_credentials.ps1
+   - Script interativo para restaurar credenciais
+   - Opção A: Usar GOOGLE_APPLICATION_CREDENTIALS (recomendado)
+   - Opção B: Usar Base64
+   - Opção C: Restaurar JSON completa
+
+PRÓXIMOS PASSOS (Seu Trabalho)
+===============================
+
+1. RESTAURAR CREDENCIAIS FIREBASE
+
+   Opção A (RECOMENDADA):
+   ----------------------
+   a) Colocar arquivo firebase_credentials.json no diretório raiz
+      (Ou localizar caminho completo da credencial)
+
+   b) Executar:
+      $env:GOOGLE_APPLICATION_CREDENTIALS = "C:\caminho\firebase_credentials.json"
+
+   c) Validar:
+      python tests/validacao_firebase_auth.py
+
+      Esperado:
+      [TESTE 4] Verificar GOOGLE_APPLICATION_CREDENTIALS...
+        [OK] Arquivo existe
+        [OK] JSON válido
+      [SUCESSO] Firebase autenticado e funcional!
+
+2. RETOMAR VALIDAÇÃO INFRA-03
+
+   Após credenciais OK, executar em sequência:
+
+   a) P1 E2E Identidade:
+      python tests/p1_e2e_onboarding_identidade_real.py
+      Esperado: 14/14 PASS
+
+   b) P1 E2E Operacional:
+      python tests/p1_e2e_onboarding_operacional_completo_real.py
+      Esperado: 14/14 PASS
+
+   c) P1 E2E Individual:
+      python tests/p1_e2e_onboarding_individual_real.py
+      Esperado: 14/14 PASS
+
+   d) P0 Regressão:
+      python tests/runner_p0_regressao_completa.py
+      Esperado: 174/174 PASS
+
+3. VERIFICAR NÃO HÁ TIMEOUT gRPC
+
+   Ao final de cada teste, verificar:
+   - Nenhuma mensagem de "grpc_wait_for_shutdown_with_timeout"
+   - Encerramento limpo (exit code 0)
+
+CRITÉRIOS DE SUCESSO
+====================
+
+✅ Consolidação INFRA-03: Completa
+✅ Validação Sintática: 10/10 OK
+✅ P1 E2E Identidade: 14/14 PASS
+✅ P1 E2E Operacional: 14/14 PASS
+✅ P1 E2E Individual: 14/14 PASS
+✅ P0 Regressão: 174/174 PASS
+✅ Sem timeout gRPC ao shutdown
+✅ Total P1: 42/42 PASS
+✅ Total P0: 174/174 PASS
+
+BLOQUEIO ATUAL
+==============
+
+Credenciais truncadas impedem execução de testes E2E
+  └─ Configuração de ambiente (não produto)
+  └─ Será resolvido após restauração de credenciais
+  └─ Consolidação INFRA-03 já está pronta para validação
+
+ARQUIVOS ENTREGUES
+===================
+
+✅ docs/auditorias/INFRA_03_CONSOLIDACAO_GLOBAL_FIRESTORE_CLIENT.md
+   - Status de consolidação completa
+   - Análise estática concluída
+   - Pronta para testes quando credenciais forem restauradas
+
+✅ docs/auditorias/INFRA_04_DIAGNOSTICO_FIREBASE_CREDENTIALS.md
+   - Tabela de diagnóstico completa
+   - Causa raiz identificada
+   - Soluções documentadas
+   - Próximos passos claros
+
+✅ restore_firebase_credentials.ps1
+   - Script de ajuda para restauração
+
+================================================================================
+
+Resumo: INFRA-03 implementada com sucesso. Bloqueio por credenciais Firebase
+truncada (INFRA-04) diagnosticado. Próxima ação: restaurar credenciais e
+retomar testes E2E.
+
+================================================================================

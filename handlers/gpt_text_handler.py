@@ -77,9 +77,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if contexto_memoria:
             for chave in ["profissional_escolhido", "servico", "data_hora"]:
                 contexto_memoria.pop(chave, None)
-            # P0-002: Add guard rail
-            contexto_memoria["_tenant_id_guard"] = dono_id
-            await atualizar_dado_em_path(f"Clientes/{user_id}/MemoriaTemporaria/contexto", contexto_memoria)
+            await salvar_contexto_temporario(user_id, contexto_memoria, tenant_id=dono_id)
 
     # 🔍 Verificação rápida para perguntas diretas sobre eventos
     texto_baixo = texto.lower()
@@ -307,9 +305,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # [SAVE] Salva somente se NAO for intencao de listar todos os profissionais
     if memoria_inicial and not intencao_listar_profissionais:
         print(f"[SAVE] Salvando memoria inicial: {memoria_inicial}")
-        # P0-002: Add guard rail
-        memoria_inicial["_tenant_id_guard"] = dono_id
-        await atualizar_dado_em_path(f"Clientes/{user_id}/MemoriaTemporaria/contexto", memoria_inicial)
+        await salvar_contexto_temporario(user_id, memoria_inicial, tenant_id=dono_id)
 
         # [BRAIN] Interpreta inteligentemente a data/hora se nao foi reconhecida antes
         if not memoria_inicial.get("data_hora"):
@@ -317,9 +313,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
             nova_data_hora = interpretar_e_salvar_data_hora(texto)
             if nova_data_hora:
                 memoria_contexto["data_hora"] = nova_data_hora.isoformat()
-                # P0-002: Add guard rail
-                memoria_contexto["_tenant_id_guard"] = dono_id
-                await atualizar_dado_em_path(f"Clientes/{user_id}/MemoriaTemporaria/contexto", memoria_contexto)
+                await salvar_contexto_temporario(user_id, memoria_contexto, tenant_id=dono_id)
                 print(f"📅 Data/hora interpretada e salva: {nova_data_hora}")
 
     usuario = {
@@ -459,9 +453,10 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # 💾 Salva profissional escolhido se detectado
         prof_detectado = resultado.get("dados", {}).get("profissional")
         if prof_detectado:
-            await atualizar_dado_em_path(
-                f"Clientes/{user_id}/MemoriaTemporaria/contexto",
-                {"profissional_escolhido": prof_detectado}
+            await salvar_contexto_temporario(
+                user_id,
+                {"profissional_escolhido": prof_detectado},
+                tenant_id=dono_id
             )
             print(f"💾 Profissional detectado salvo: {prof_detectado}")
 

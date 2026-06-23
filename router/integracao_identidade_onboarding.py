@@ -26,7 +26,7 @@ from services.onboarding_dono_service import (
     obter_pergunta_etapa,
 )
 from services.firebase_service_async import obter_id_dono
-from utils.contexto_temporario import salvar_contexto_temporario
+from utils.contexto_temporario import salvar_contexto_temporario_v2 as salvar_contexto_temporario
 
 
 async def resolver_ator_e_validar_guard(
@@ -269,7 +269,7 @@ async def processar_fluxo_identidade_onboarding(
             "onboarding_etapa": resultado_guard.get("onboarding_etapa"),
         })
 
-        await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+        await salvar_contexto_temporario(tenant_id, user_id, ctx)
 
         proxima_pergunta = resultado_guard.get("onboarding_pergunta", "Qual é o nome do seu negócio?")
 
@@ -286,10 +286,10 @@ async def processar_fluxo_identidade_onboarding(
             "estado_fluxo": "idle"
         })
 
-        await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+        await salvar_contexto_temporario(tenant_id, user_id, ctx)
 
         print(f"[OK] Cliente criado automaticamente: {resultado_guard.get('actor_id')}", flush=True)
 
     # Passo 3: Continuar no fluxo P0 normal
-    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    await salvar_contexto_temporario(tenant_id, user_id, ctx)
     return None

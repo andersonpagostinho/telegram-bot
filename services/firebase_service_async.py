@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from google.cloud.firestore_v1 import AsyncClient
-from config.firebase_config import db  # Firebase já inicializado
 import os
 
 # [OK] Define a variável de ambiente se ainda não estiver definida

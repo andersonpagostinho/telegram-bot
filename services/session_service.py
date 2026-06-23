@@ -1,11 +1,13 @@
 from firebase_admin import firestore
 from datetime import datetime, timedelta
 from utils.contexto_temporario import salvar_contexto_temporario
-from services.firebase_service_async import obter_id_dono  # [P2-MIGRACAO-LOTE1-OC2]
+from services.firebase_service_async import obter_id_dono
+from services.firestore_client import get_db
 import pytz
 import asyncio
 
-db = firestore.client()
+# [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente
+db = get_db()
 
 # Tempo de expiração de sessão (em minutos)
 SESSION_TTL_MINUTES = 30

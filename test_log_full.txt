@@ -1,0 +1,672 @@
+
+======================================================================
+BATERIA P1: ROBUSTEZ DE FLUXO CONVERSACIONAL (13 CENÁRIOS)
+======================================================================
+
+
+[CENÁRIO 01] tenant_id ÚNICO: teste_fluxo_p1_df1bb3ef
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_df1bb3ef
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_df1bb3ef
+[CENÁRIO 01] Router REAL será chamado: roteador_principal()
+[CENÁRIO 01] Apenas context.bot.send_message() será mockado
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_df1bb3ef/Configuracao/info
+   - tenant_id: teste_fluxo_p1_df1bb3ef (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:28.508209+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_df1bb3ef/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_df1bb3ef/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_df1bb3ef/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_df1bb3ef/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_df1bb3ef/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_df1bb3ef/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_df1bb3ef/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_df1bb3ef/Atores/whatsapp:55119999001
+   - actor_id: whatsapp:55119999001 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_df1bb3ef (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:28.935483+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_df1bb3ef/Atores/whatsapp:55119999001
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999001/MemoriaTemporaria/contexto | tenant_id=whatsapp:55119999001 | user_id=whatsapp:55119999001
+[DIAG_CARREGAR] lido_legado: existe=False | estado_fluxo=None | cancelamento_pendente=None
+🚨 [CTX VAZIO DETECTADO LEGADO] path=Clientes/whatsapp:55119999001/MemoriaTemporaria/contexto
+[DIAG] [SAVE SESSAO v2] path=Clientes/whatsapp:55119999001/Sessoes/whatsapp:55119999001 | tenant=whatsapp:55119999001 | actor=whatsapp:55119999001
+[SESSION_STORE] write_path=Clientes/whatsapp:55119999001/Sessoes/whatsapp:55119999001 | tenant=whatsapp:55119999001 | actor=whatsapp:55119999001
+[OK] Dados atualizados (merge) em: Clientes/whatsapp:55119999001/Sessoes/whatsapp:55119999001
+[PASS] 01. Ruído pessoal longo não operacional
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_47d21e7a
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_47d21e7a
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_47d21e7a/Configuracao/info
+   - tenant_id: teste_fluxo_p1_47d21e7a (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:31.975528+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_47d21e7a/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_47d21e7a/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_47d21e7a/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_47d21e7a/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_47d21e7a/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_47d21e7a/Atores/whatsapp:55119999002
+   - actor_id: whatsapp:55119999002 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_47d21e7a (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:32.099422+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_47d21e7a/Atores/whatsapp:55119999002
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999002/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_47d21e7a | user_id=whatsapp:55119999002
+[DIAG_CARREGAR] lido_legado: existe=False | estado_fluxo=None | cancelamento_pendente=None
+🚨 [CTX VAZIO DETECTADO LEGADO] path=Clientes/whatsapp:55119999002/MemoriaTemporaria/contexto
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002
+🔧 [ADMIN] entrada | texto='Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?'
+🔧 [ADMIN] nenhuma intenção admin detectada
+[CLASSIFICADOR_FIX] consulta_disponibilidade=True
+ [CLASSIFICADOR CONTEXTO] {'modo_conversa': 'operacional', 'confianca': 100, 'motivo': 'contexto_servico, pedido_com_servico, pedido_temporal, pergunta_sobre_servico, consulta_disponibilidade', 'features': {'tem_fluxo_ativo': False, 'tem_draft': False, 'tem_confirmacao_pendente': False, 'tem_pergunta': True, 'tem_tempo': True, 'tem_pedido': True, 'tem_indefinido': False, 'tem_contexto_servico': True, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': False, 'tem_duvida_confianca_profissional': False}}
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo=None
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?'
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: False | tipo=<class 'NoneType'>
+ [INTENÇÃO CONVERSACIONAL] {'intencao_conversacional': 'consulta_disponibilidade_servico', 'confianca': 85, 'features': {'tem_fluxo_ativo': False, 'tem_draft': False, 'tem_confirmacao_pendente': False, 'tem_pergunta': True, 'tem_tempo': True, 'tem_pedido': True, 'tem_indefinido': False, 'tem_contexto_servico': True, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': False, 'tem_duvida_confianca_profissional': False}}
+[TARGET] [OBJETIVO CONVERSACIONAL] consultar_disponibilidade_por_servico
+🧠 [INTERPRETADOR CONVERSACIONAL] {'intencao': 'indefinida', 'objetivo': None, 'tipo_ajuste': None, 'entidades': {}, 'confianca': 40, 'motivo': 'fallback_inicial'}
+🔒 [GPT BLOQUEADO] intencao_atual=consulta_disponibilidade_servico | estado_fluxo=None
+[TEST] [CTX ANTES SAVE CLASSIFICADOR] {'intencao': 'consulta_disponibilidade_servico', 'tipo_ajuste': None, 'objetivo': 'consultar_disponibilidade_por_servico'}
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002
+ [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao=None | estado=None
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🧪 [B-INICIO] texto=Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser? | estado_fluxo=None | modo_escolha_horario=None | horarios_sugeridos=None | data_hora=None | draft=None
+🧪 [ANTES IF ESCOLHA] cond1=None | cond2=False | estado_fluxo_raw=None
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+[PARSER] texto_original='Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?'
+[PARSER] texto_reduzido='amanhã'
+[PARSER] parsed_original=None
+[PARSER] parsed_reduzido=2026-06-23 21:38:32.759337
+[PARSER] fonte_parse=reduzido
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🧠 [CLASSIFICADOR CONVERSA] {'tipo': 'agendamento_cliente', 'nivel_negocio': 4, 'nivel_pessoal': 0, 'nivel_comando_interno': 0, 'servico_detectado': 'corte', 'profissional_detectado': None, 'motivo': 'sinais suficientes de atendimento'}
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🛡 [CONSULTA PURA] serviço detectado='corte', mas não entra em ctx['servico'] nem draft_agendamento
+[PARSER] texto_original='Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?'
+[PARSER] texto_reduzido='amanhã'
+[PARSER] parsed_original=None
+[PARSER] parsed_reduzido=2026-06-23 21:38:32.833190
+[PARSER] fonte_parse=reduzido
+ [MESCLAR] texto= Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?
+ [MESCLAR] dt_detectado= 2026-06-23 21:38:32.833190
+🧠 [DATA_SEM_HORA] sem hora anterior válida | iso=2026-06-23T00:00:00
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999002/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_47d21e7a | user_id=whatsapp:55119999002
+[DIAG_CARREGAR] lido_legado: existe=False | estado_fluxo=None | cancelamento_pendente=None
+🚨 [CTX VAZIO DETECTADO LEGADO] path=Clientes/whatsapp:55119999002/MemoriaTemporaria/contexto
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+ BLOCO DATA COMPLEXA EXECUTOU 
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🛡 [CONSULTA PURA] serviço detectado='corte', mas não entra em ctx['servico'] nem draft_agendamento
+[PARSER] texto_original='Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?'
+[PARSER] texto_reduzido='amanhã'
+[PARSER] parsed_original=None
+[PARSER] parsed_reduzido=2026-06-23 21:38:32.947530
+[PARSER] fonte_parse=reduzido
+ [MESCLAR] texto= Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?
+ [MESCLAR] dt_detectado= 2026-06-23 21:38:32.947530
+🧠 [DATA_SEM_HORA] sem hora anterior válida | iso=2026-06-23T00:00:00
+🧪 [CHECK AUTO_PROF POS-EXTRACAO] data_hora=2026-06-23T00:00:00 | servico=None | prof=None | prof_indiferente=None
+🛡 [AUTO-PROF BLOQUEADO] consulta pura não pode virar agendamento
+ [SLOTS CENTRALIZADOS] ctx= {'tenant_id': 'whatsapp:55119999002', 'intencao_conversacional': 'consulta_disponibilidade_servico', 'confianca_intencao_conversacional': 85, 'modo_conversa': 'operacional', 'tipo_ajuste_incremental': None, 'objetivo_conversacional': 'consultar_disponibilidade_por_servico', 'historico_texto': ['Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?'], 'data': '2026-06-23', 'data_hora': '2026-06-23T00:00:00', 'hora_confirmada': False, 'data_sem_hora': True, 'ultima_consulta': {'data_hora': '2026-06-23T00:00:00'}, 'draft_agendamento': {'data': '2026-06-23', 'data_hora': '2026-06-23T00:00:00'}}
+🛡 [CONSULTA PURA] resolver_proximo_passo_real bloqueado — não perguntar data/hora
+ [ANTES GPT] proximo_passo= coletar_dado_faltante
+ [ANTES GPT] proximo_passo_real= None
+ [ANTES GPT] slots_extraidos= {'data_hora': '2026-06-23T00:00:00', 'servico': None, 'profissional': None}
+ ANTES DO CHAMAR_GPT_COM_CONTEXTO 
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+[PARSER] texto_original='Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?'
+[PARSER] texto_reduzido='amanhã'
+[PARSER] parsed_original=None
+[PARSER] parsed_reduzido=2026-06-23 21:38:32.960549
+[PARSER] fonte_parse=reduzido
+ [CONSULTA PURA RESPONDIDA SEM GPT] pulando GPT
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_47d21e7a/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+ [CONSULTA PURA] resposta_texto='Sim, fazemos corte! 😊
+
+Gostaria de agendar?'
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002 | tenant=teste_fluxo_p1_47d21e7a | actor=whatsapp:55119999002
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_47d21e7a/Sessoes/whatsapp:55119999002
+ [CONSULTA PURA ESTADO SALVO] aguardando_confirmacao_agendamento_por_consulta=True | servico='corte'
+[FAIL] 02. Pessoal + agendamento misturado - Agendamento não foi extraído corretamente
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_8b54963e
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_8b54963e
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_8b54963e/Configuracao/info
+   - tenant_id: teste_fluxo_p1_8b54963e (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:33.520109+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_8b54963e/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_8b54963e/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_8b54963e/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_8b54963e/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_8b54963e/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_8b54963e/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_8b54963e/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_8b54963e/Atores/whatsapp:55119999003
+   - actor_id: whatsapp:55119999003 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_8b54963e (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:33.616404+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_8b54963e/Atores/whatsapp:55119999003
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999003/MemoriaTemporaria/contexto | tenant_id=whatsapp:55119999003 | user_id=whatsapp:55119999003
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=onboarding_dono | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=whatsapp:55119999003 | esperado=whatsapp:55119999003 | match=True
+[CTX_LEGADO_COMPAT] | path=Clientes/whatsapp:55119999003/MemoriaTemporaria/contexto | tenant_id=whatsapp:55119999003 | guard_validado
+[DIAG_CARREGAR] retornando_legado: estado_fluxo=onboarding_dono | cancelamento_pendente=False
+[LOAD_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path=Clientes/whatsapp:55119999003/MemoriaTemporaria/contexto
+[DIAG] [SAVE SESSAO v2] path=Clientes/whatsapp:55119999003/Sessoes/whatsapp:55119999003 | tenant=whatsapp:55119999003 | actor=whatsapp:55119999003
+[SESSION_STORE] write_path=Clientes/whatsapp:55119999003/Sessoes/whatsapp:55119999003 | tenant=whatsapp:55119999003 | actor=whatsapp:55119999003
+[OK] Dados atualizados (merge) em: Clientes/whatsapp:55119999003/Sessoes/whatsapp:55119999003
+[PASS] 03. Ambiguidade sem contexto
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_de5fc827
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_de5fc827
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_de5fc827/Configuracao/info
+   - tenant_id: teste_fluxo_p1_de5fc827 (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:34.324173+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_de5fc827/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_de5fc827/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_de5fc827/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_de5fc827/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_de5fc827/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_de5fc827/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_de5fc827/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_de5fc827/Atores/whatsapp:55119999004
+   - actor_id: whatsapp:55119999004 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_de5fc827 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:34.452223+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_de5fc827/Atores/whatsapp:55119999004
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_de5fc827/Sessoes/whatsapp:55119999004
+   - ultima_profissional: Bruna (tipo: <class 'str'>)
+   - ultimo_servico: corte (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_de5fc827/Sessoes/whatsapp:55119999004
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999004/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_de5fc827 | user_id=whatsapp:55119999004
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=onboarding_dono | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_47f5a21a | esperado=teste_fluxo_p1_de5fc827 | match=False
+🚨 [CTX_LEGADO_TENANT_MISMATCH] CRÍTICO | path=Clientes/whatsapp:55119999004/MemoriaTemporaria/contexto | tenant mismatch: esperado=teste_fluxo_p1_de5fc827 | armazenado=teste_fluxo_p1_47f5a21a, leitura RECUSADA
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_de5fc827/Sessoes/whatsapp:55119999004 | tenant=teste_fluxo_p1_de5fc827 | actor=whatsapp:55119999004
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_de5fc827/Sessoes/whatsapp:55119999004 | tenant=teste_fluxo_p1_de5fc827 | actor=whatsapp:55119999004
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_de5fc827/Sessoes/whatsapp:55119999004
+🔧 [ADMIN] entrada | texto='marca com a mesma profissional'
+🔧 [ADMIN] nenhuma intenção admin detectada
+ [CLASSIFICADOR CONTEXTO] {'modo_conversa': 'neutro', 'confianca': 0, 'motivo': 'sem_composicao_suficiente', 'features': {'tem_fluxo_ativo': False, 'tem_draft': False, 'tem_confirmacao_pendente': False, 'tem_pergunta': False, 'tem_tempo': False, 'tem_pedido': False, 'tem_indefinido': False, 'tem_contexto_servico': False, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': True, 'tem_duvida_confianca_profissional': False}}
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo=None
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='marca com a mesma profissional'
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: False | tipo=<class 'NoneType'>
+ [NEOEVE NEUTRA] sem fluxo ativo
+[FAIL] 04. Ambiguidade com contexto anterior - Contexto não foi utilizado
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_78461221
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_78461221
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_78461221/Configuracao/info
+   - tenant_id: teste_fluxo_p1_78461221 (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:35.109931+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_78461221/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_78461221/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_78461221/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_78461221/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_78461221/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_78461221/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_78461221/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_78461221/Atores/whatsapp:55119999005
+   - actor_id: whatsapp:55119999005 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_78461221 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:35.217976+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_78461221/Atores/whatsapp:55119999005
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999005/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_78461221 | user_id=whatsapp:55119999005
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=aguardando_confirmacao_consulta | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_07018e0d | esperado=teste_fluxo_p1_78461221 | match=False
+🚨 [CTX_LEGADO_TENANT_MISMATCH] CRÍTICO | path=Clientes/whatsapp:55119999005/MemoriaTemporaria/contexto | tenant mismatch: esperado=teste_fluxo_p1_78461221 | armazenado=teste_fluxo_p1_07018e0d, leitura RECUSADA
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005
+🔧 [ADMIN] entrada | texto='Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! e queria marcar corte com a Bruna amanhã às 15h'
+🔧 [ADMIN] nenhuma intenção admin detectada
+[CLASSIFICADOR_FIX] consulta_disponibilidade=True
+ [CLASSIFICADOR CONTEXTO] {'modo_conversa': 'operacional', 'confianca': 100, 'motivo': 'contexto_servico, pedido_com_servico, pedido_temporal, pergunta_sobre_servico, consulta_disponibilidade', 'features': {'tem_fluxo_ativo': False, 'tem_draft': False, 'tem_confirmacao_pendente': False, 'tem_pergunta': True, 'tem_tempo': True, 'tem_pedido': True, 'tem_indefinido': False, 'tem_contexto_servico': True, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': True, 'tem_duvida_confianca_profissional': False}}
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo=None
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! e queria marcar corte com a Bruna amanhã às 15h'
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: False | tipo=<class 'NoneType'>
+ [INTENÇÃO CONVERSACIONAL] {'intencao_conversacional': 'consulta_disponibilidade_servico', 'confianca': 85, 'features': {'tem_fluxo_ativo': False, 'tem_draft': False, 'tem_confirmacao_pendente': False, 'tem_pergunta': True, 'tem_tempo': True, 'tem_pedido': True, 'tem_indefinido': False, 'tem_contexto_servico': True, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': True, 'tem_duvida_confianca_profissional': False}}
+[TARGET] [OBJETIVO CONVERSACIONAL] consultar_disponibilidade_por_servico
+🧠 [INTERPRETADOR CONVERSACIONAL] {'intencao': 'indefinida', 'objetivo': None, 'tipo_ajuste': None, 'entidades': {}, 'confianca': 40, 'motivo': 'fallback_inicial'}
+🔒 [GPT BLOQUEADO] intencao_atual=consulta_disponibilidade_servico | estado_fluxo=None
+[TEST] [CTX ANTES SAVE CLASSIFICADOR] {'intencao': 'consulta_disponibilidade_servico', 'tipo_ajuste': None, 'objetivo': 'consultar_disponibilidade_por_servico'}
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005
+ [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao=None | estado=None
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🧪 [B-INICIO] texto=Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! e queria marcar corte com a Bruna amanhã às 15h | estado_fluxo=None | modo_escolha_horario=None | horarios_sugeridos=None | data_hora=None | draft=None
+🧪 [ANTES IF ESCOLHA] cond1=None | cond2=False | estado_fluxo_raw=None
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+[PARSER] fonte_parse=manual_hoje_amanha resultado=2026-06-23 15:00:00
+[PARSER] fonte_parse=manual_hoje_amanha resultado=2026-06-23 15:00:00
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🧠 [CLASSIFICADOR CONVERSA] {'tipo': 'agendamento_cliente', 'nivel_negocio': 8, 'nivel_pessoal': 0, 'nivel_comando_interno': 0, 'servico_detectado': 'corte', 'profissional_detectado': 'Bruna', 'motivo': 'sinais suficientes de atendimento'}
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🛡 [CONSULTA PURA] serviço detectado='corte', mas não entra em ctx['servico'] nem draft_agendamento
+[PARSER] fonte_parse=manual_hoje_amanha resultado=2026-06-23 15:00:00
+ [MESCLAR] texto= Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! e queria marcar corte com a Bruna amanhã às 15h
+ [MESCLAR] dt_detectado= 2026-06-23 15:00:00
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999005/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_78461221 | user_id=whatsapp:55119999005
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=aguardando_confirmacao_consulta | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_07018e0d | esperado=teste_fluxo_p1_78461221 | match=False
+🚨 [CTX_LEGADO_TENANT_MISMATCH] CRÍTICO | path=Clientes/whatsapp:55119999005/MemoriaTemporaria/contexto | tenant mismatch: esperado=teste_fluxo_p1_78461221 | armazenado=teste_fluxo_p1_07018e0d, leitura RECUSADA
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+ BLOCO DATA COMPLEXA EXECUTOU 
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+🛡 [CONSULTA PURA] serviço detectado='corte', mas não entra em ctx['servico'] nem draft_agendamento
+[PARSER] fonte_parse=manual_hoje_amanha resultado=2026-06-23 15:00:00
+ [MESCLAR] texto= Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! e queria marcar corte com a Bruna amanhã às 15h
+ [MESCLAR] dt_detectado= 2026-06-23 15:00:00
+🧪 [CHECK AUTO_PROF POS-EXTRACAO] data_hora=2026-06-23T15:00:00 | servico=None | prof=Bruna | prof_indiferente=None
+🛡 [AUTO-PROF BLOQUEADO] consulta pura não pode virar agendamento
+ [SLOTS CENTRALIZADOS] ctx= {'tenant_id': 'whatsapp:55119999005', 'intencao_conversacional': 'consulta_disponibilidade_servico', 'confianca_intencao_conversacional': 85, 'modo_conversa': 'operacional', 'tipo_ajuste_incremental': None, 'objetivo_conversacional': 'consultar_disponibilidade_por_servico', 'historico_texto': ['Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! e queria marcar corte com a Bruna amanhã às 15h'], 'profissional_escolhido': 'Bruna', 'data_hora': '2026-06-23T15:00:00', 'ultima_consulta': {'data_hora': '2026-06-23T15:00:00'}, 'draft_agendamento': {'profissional': 'Bruna', 'data_hora': '2026-06-23T15:00:00'}}
+🛡 [CONSULTA PURA] resolver_proximo_passo_real bloqueado — não perguntar data/hora
+ [ANTES GPT] proximo_passo= perguntar_servico
+ [ANTES GPT] proximo_passo_real= None
+ [ANTES GPT] slots_extraidos= {'data_hora': '2026-06-23T15:00:00', 'servico': None, 'profissional': 'Bruna'}
+ ANTES DO CHAMAR_GPT_COM_CONTEXTO 
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+[PARSER] fonte_parse=manual_hoje_amanha resultado=2026-06-23 15:00:00
+[PARSER] fonte_parse=manual_hoje_amanha resultado=2026-06-23 15:00:00
+ [CONSULTA PURA RESPONDIDA SEM GPT] pulando GPT
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_78461221/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+ [CONSULTA PURA] resposta_texto='Sim, fazemos corte! 😊
+
+Gostaria de agendar?'
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005 | tenant=teste_fluxo_p1_78461221 | actor=whatsapp:55119999005
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_78461221/Sessoes/whatsapp:55119999005
+ [CONSULTA PURA ESTADO SALVO] aguardando_confirmacao_agendamento_por_consulta=True | servico='corte'
+[FAIL] 05. Mensagem longa com pedido no final - Pedido final não foi detectado
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_0eb30d62
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_0eb30d62
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/Configuracao/info
+   - tenant_id: teste_fluxo_p1_0eb30d62 (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:36.268776+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/Atores/whatsapp:55119999006
+   - actor_id: whatsapp:55119999006 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_0eb30d62 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:36.356274+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Atores/whatsapp:55119999006
+[OK] Cliente whatsapp:55119999006 salvo com sucesso.
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/Configuracao/agenda_funcionamento
+   - agenda_padrao: {'segunda': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'terca': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'quarta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'quinta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'sexta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'sabado': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'domingo': {'aberto': False}} (tipo: <class 'dict'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Configuracao/agenda_funcionamento
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/configuracao/agenda_funcionamento
+   - agenda_padrao: {'segunda': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'terca': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'quarta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'quinta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'sexta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'sabado': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'domingo': {'aberto': False}} (tipo: <class 'dict'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/configuracao/agenda_funcionamento
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006
+   - draft_agendamento: {'servico': 'corte', 'profissional': 'Bruna', 'data_hora': '2026-06-23T14:00:00'} (tipo: <class 'dict'>)
+   - dados_confirmacao_agendamento: {'servico': 'corte', 'profissional': 'Bruna', 'data_hora': '2026-06-23T14:00:00'} (tipo: <class 'dict'>)
+   - confirmacao_pendente: True (tipo: <class 'bool'>)
+   - aguardando_confirmacao_agendamento: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006
+[SAVE] Tentando salvar dados em: Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto
+   - _tenant_id_guard: teste_fluxo_p1_0eb30d62 (tipo: <class 'str'>)
+   - draft_agendamento: {'servico': 'corte', 'profissional': 'Bruna', 'data_hora': '2026-06-23T14:00:00'} (tipo: <class 'dict'>)
+   - dados_confirmacao_agendamento: {'servico': 'corte', 'profissional': 'Bruna', 'data_hora': '2026-06-23T14:00:00'} (tipo: <class 'dict'>)
+   - confirmacao_pendente: True (tipo: <class 'bool'>)
+   - aguardando_confirmacao_agendamento: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_0eb30d62 | user_id=whatsapp:55119999006
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=confirmacao_pendente | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_0eb30d62 | esperado=teste_fluxo_p1_0eb30d62 | match=True
+[CTX_LEGADO_COMPAT] | path=Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_0eb30d62 | guard_validado
+[DIAG_CARREGAR] retornando_legado: estado_fluxo=confirmacao_pendente | cancelamento_pendente=False
+[LOAD_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path=Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto
+[LOTE_3E_CONFIRMACAO_EARLY] Confirmação detectada: pode deixar. li tudo. sim, pode confirmar esse hor
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006
+[LOTE_3E_CONFIRMACAO] Confirmacao detectada
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006
+🔧 [ADMIN] entrada | texto='Pode deixar. Li tudo. Sim, pode confirmar esse horário. Obrigado!'
+🔧 [ADMIN] nenhuma intenção admin detectada
+ [CLASSIFICADOR CONTEXTO] {'modo_conversa': 'operacional', 'confianca': 100, 'motivo': 'fluxo_ativo, draft_existente, confirmacao_pendente', 'features': {'tem_fluxo_ativo': True, 'tem_draft': True, 'tem_confirmacao_pendente': True, 'tem_pergunta': True, 'tem_tempo': False, 'tem_pedido': True, 'tem_indefinido': False, 'tem_contexto_servico': False, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': False, 'tem_duvida_confianca_profissional': False}}
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo=confirmacao_pendente
+ [INTENÇÃO CONVERSACIONAL] {'intencao_conversacional': 'confirmacao_agendamento', 'tipo_ajuste_incremental': None, 'confianca': 95, 'features': {'tem_fluxo_ativo': True, 'tem_draft': True, 'tem_confirmacao_pendente': True, 'tem_pergunta': True, 'tem_tempo': False, 'tem_pedido': True, 'tem_indefinido': False, 'tem_contexto_servico': False, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': False, 'tem_duvida_confianca_profissional': False}, 'motivo': 'respeitando_lote_3b'}
+[TARGET] [OBJETIVO CONVERSACIONAL] None
+🧠 [INTERPRETADOR CONVERSACIONAL] {'intencao': 'negacao_confirmacao_agendamento', 'objetivo': 'encerrar_fluxo_agendamento', 'tipo_ajuste': None, 'entidades': {}, 'confianca': 90, 'motivo': 'negacao_durante_confirmacao'}
+🔒 [GPT BLOQUEADO] intencao_atual=confirmacao_agendamento | estado_fluxo=confirmacao_pendente
+[TEST] [CTX ANTES SAVE CLASSIFICADOR] {'intencao': 'confirmacao_agendamento', 'tipo_ajuste': None, 'objetivo': None}
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006
+🧪 [AUDIT-CONF:BLOCO_PENDENTE_ENTRADA] texto='Pode deixar. Li tudo. Sim, pode confirmar esse horário. Obrigado!' | estado_fluxo=confirmacao_pendente | aguardando_confirmacao_agendamento=True | profissional_escolhido=None | servico=None | data_hora=None | ultima_opcao_profissionais=None
+🧪 [AUDIT-CONF:BLOCO_PENDENTE_ENTRADA:DRAFT] profissional=Bruna | servico=corte | data_hora=2026-06-23T14:00:00 | modo_prechecagem=None
+🧪 [AUDIT-CONF:BLOCO_PENDENTE_ENTRADA:DADOS_CONF] profissional=Bruna | servico=corte | data_hora=2026-06-23T14:00:00 | duracao=None | descricao=Corte com Bruna
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006
+ [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto
+🪵 Ação recebida: 'criar_evento'
+🔁 Ação recebida: criar_evento
+📦 Dados: {'profissional': 'Bruna', 'servico': 'corte', 'data_hora': '2026-06-23T14:00:00', 'duracao': 30, 'descricao': 'Corte com Bruna', 'confirmado': True, 'status': 'confirmado'}
+[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: user_id='whatsapp:55119999006'
+[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: acao='criar_evento'
+[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: dados_keys=['profissional', 'servico', 'data_hora', 'duracao', 'descricao', 'confirmado', 'status']
+[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: profissional='Bruna'
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_0eb30d62 | user_id=whatsapp:55119999006
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=confirmacao_pendente | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_0eb30d62 | esperado=teste_fluxo_p1_0eb30d62 | match=True
+[CTX_LEGADO_COMPAT] | path=Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_0eb30d62 | guard_validado
+[DIAG_CARREGAR] retornando_legado: estado_fluxo=confirmacao_pendente | cancelamento_pendente=False
+[LOAD_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path=Clientes/whatsapp:55119999006/MemoriaTemporaria/contexto
+[DOC] Documento encontrado em Clientes/teste_fluxo_p1_0eb30d62/Profissionais/bruna: {'expediente': {'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'seg': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}}, 'nome': 'Bruna', 'servicos': ['corte', 'escova'], 'telefone': '11988888888', 'ativo': True}
+⚙️ Executando add_evento_por_gpt
+[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: dados_keys=['profissional', 'servico', 'data_hora', 'duracao', 'descricao', 'confirmado', 'status']
+[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: profissional='Bruna'
+[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: servico='corte'
+[DIAG] [LOAD SESSAO v2] path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | source=novo | tenant=teste_fluxo_p1_0eb30d62 | actor=whatsapp:55119999006
+[SESSION_STORE] read_path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | write_path=Clientes/teste_fluxo_p1_0eb30d62/Sessoes/whatsapp:55119999006 | same_path=True
+⚙️ Confirmado pelo chamador (confirmado=True): pulando gate de confirmação
+🧪 [JANELA] cfg_salao keys=['agenda_padrao']
+🧪 [JANELA] agenda_padrao_salao={'quarta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'sabado': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'sexta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'domingo': {'aberto': False}, 'segunda': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'quinta': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}, 'terca': {'aberto': True, 'inicio': '08:00', 'fim': '18:00'}}
+🧪 [JANELA] excecoes_salao={}
+🧪 [JANELA] regra_salao_final={'aberto': False, 'inicio': None, 'fim': None, 'origem': 'agenda_padrao_salao'}
+🧪 AGENDA JANELA REAL: {'aberto': False, 'inicio': None, 'fim': None, 'origem': 'agenda_padrao_salao', 'tipo': None, 'motivo': None}
+[FAIL] 06. Confirmação embutida em parágrafo - Confirmação não foi processada
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_95dc17bb
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_95dc17bb
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_95dc17bb/Configuracao/info
+   - tenant_id: teste_fluxo_p1_95dc17bb (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:37.464852+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_95dc17bb/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_95dc17bb/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_95dc17bb/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_95dc17bb/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_95dc17bb/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_95dc17bb/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_95dc17bb/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_95dc17bb/Atores/whatsapp:55119999007
+   - actor_id: whatsapp:55119999007 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_95dc17bb (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:37.575897+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_95dc17bb/Atores/whatsapp:55119999007
+[SAVE] Tentando salvar dados em: Clientes/whatsapp:55119999007/MemoriaTemporaria/contexto
+   - _tenant_id_guard: teste_fluxo_p1_95dc17bb (tipo: <class 'str'>)
+   - draft_agendamento: {'servico': 'corte', 'profissional': 'Bruna', 'data_hora': 'amanhã 14:00'} (tipo: <class 'dict'>)
+   - dados_confirmacao_agendamento: {'servico': 'corte', 'profissional': 'Bruna', 'data_hora': 'amanhã 14:00'} (tipo: <class 'dict'>)
+   - confirmacao_pendente: True (tipo: <class 'bool'>)
+   - aguardando_confirmacao_agendamento: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/whatsapp:55119999007/MemoriaTemporaria/contexto
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999007/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_95dc17bb | user_id=whatsapp:55119999007
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=idle | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_95dc17bb | esperado=teste_fluxo_p1_95dc17bb | match=True
+[CTX_LEGADO_COMPAT] | path=Clientes/whatsapp:55119999007/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_95dc17bb | guard_validado
+[DIAG_CARREGAR] retornando_legado: estado_fluxo=idle | cancelamento_pendente=False
+[LOAD_CTX_LEGADO] [AVISO] NAO MULTI-TENANT | path=Clientes/whatsapp:55119999007/MemoriaTemporaria/contexto
+[LOTE_3E_NEGACAO_EARLY] Negação detectada: entendi tudo que você explicou, mas não quero mais
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_95dc17bb/Sessoes/whatsapp:55119999007 | tenant=teste_fluxo_p1_95dc17bb | actor=whatsapp:55119999007
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_95dc17bb/Sessoes/whatsapp:55119999007 | tenant=teste_fluxo_p1_95dc17bb | actor=whatsapp:55119999007
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_95dc17bb/Sessoes/whatsapp:55119999007
+[LOTE_3E_NEGACAO] Desistencia detectada
+[PASS] 07. Negação embutida em parágrafo
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_5104e9b0
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_5104e9b0
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_5104e9b0/Configuracao/info
+   - tenant_id: teste_fluxo_p1_5104e9b0 (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:38.209415+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_5104e9b0/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_5104e9b0/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_5104e9b0/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_5104e9b0/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_5104e9b0/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_5104e9b0/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_5104e9b0/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_5104e9b0/Atores/whatsapp:55119999008
+   - actor_id: whatsapp:55119999008 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_5104e9b0 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:38.328666+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_5104e9b0/Atores/whatsapp:55119999008
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_5104e9b0/Sessoes/whatsapp:55119999008
+   - fluxo_ativo: agendamento (tipo: <class 'str'>)
+   - servico: corte (tipo: <class 'str'>)
+   - profissional: Bruna (tipo: <class 'str'>)
+   - aguardando: data_hora (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_5104e9b0/Sessoes/whatsapp:55119999008
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999008/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_5104e9b0 | user_id=whatsapp:55119999008
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=onboarding_dono | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_784ad1cc | esperado=teste_fluxo_p1_5104e9b0 | match=False
+🚨 [CTX_LEGADO_TENANT_MISMATCH] CRÍTICO | path=Clientes/whatsapp:55119999008/MemoriaTemporaria/contexto | tenant mismatch: esperado=teste_fluxo_p1_5104e9b0 | armazenado=teste_fluxo_p1_784ad1cc, leitura RECUSADA
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_5104e9b0/Sessoes/whatsapp:55119999008 | tenant=teste_fluxo_p1_5104e9b0 | actor=whatsapp:55119999008
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_5104e9b0/Sessoes/whatsapp:55119999008 | tenant=teste_fluxo_p1_5104e9b0 | actor=whatsapp:55119999008
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_5104e9b0/Sessoes/whatsapp:55119999008
+🔧 [ADMIN] entrada | texto='amanhã 15h'
+🔧 [ADMIN] nenhuma intenção admin detectada
+ [CLASSIFICADOR CONTEXTO] {'modo_conversa': 'neutro', 'confianca': 0, 'motivo': 'sem_composicao_suficiente', 'features': {'tem_fluxo_ativo': False, 'tem_draft': False, 'tem_confirmacao_pendente': False, 'tem_pergunta': False, 'tem_tempo': True, 'tem_pedido': False, 'tem_indefinido': False, 'tem_contexto_servico': False, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': False, 'tem_duvida_confianca_profissional': False}}
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo=None
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='amanhã 15h'
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: False | tipo=<class 'NoneType'>
+ [NEOEVE NEUTRA] sem fluxo ativo
+[FAIL] 08. Mensagem muito curta com contexto ativo - Contexto não foi utilizado para completar
+  [CLEANUP] Limpando tenant: teste_fluxo_p1_2f95a0b3
+  [CLEANUP] ✓ Tenant e contextos legados limpos: teste_fluxo_p1_2f95a0b3
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_2f95a0b3/Configuracao/info
+   - tenant_id: teste_fluxo_p1_2f95a0b3 (tipo: <class 'str'>)
+   - nome_negocio: Salão Teste (tipo: <class 'str'>)
+   - telefone: 11999999999 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:39.056274+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_2f95a0b3/Configuracao/info
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_2f95a0b3/Profissionais/bruna
+   - nome: Bruna (tipo: <class 'str'>)
+   - telefone: 11988888888 (tipo: <class 'str'>)
+   - servicos: ['corte', 'escova'] (tipo: <class 'list'>)
+   - expediente: {'seg': {'inicio': '09:00', 'fim': '18:00'}, 'ter': {'inicio': '09:00', 'fim': '18:00'}, 'qua': {'inicio': '09:00', 'fim': '18:00'}, 'qui': {'inicio': '09:00', 'fim': '18:00'}, 'sex': {'inicio': '09:00', 'fim': '18:00'}} (tipo: <class 'dict'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_2f95a0b3/Profissionais/bruna
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_2f95a0b3/ServicosNegocio/corte
+   - nome: Corte (tipo: <class 'str'>)
+   - duracao_padrao: 30 (tipo: <class 'int'>)
+   - preco: 50.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_2f95a0b3/ServicosNegocio/corte
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_2f95a0b3/ServicosNegocio/escova
+   - nome: Escova (tipo: <class 'str'>)
+   - duracao_padrao: 45 (tipo: <class 'int'>)
+   - preco: 80.0 (tipo: <class 'float'>)
+   - ativo: True (tipo: <class 'bool'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_2f95a0b3/ServicosNegocio/escova
+[SAVE] Tentando salvar dados em: Clientes/teste_fluxo_p1_2f95a0b3/Atores/whatsapp:55119999009
+   - actor_id: whatsapp:55119999009 (tipo: <class 'str'>)
+   - tipo_usuario: cliente (tipo: <class 'str'>)
+   - nome: Cliente Teste (tipo: <class 'str'>)
+   - canal: whatsapp (tipo: <class 'str'>)
+   - tenant_id: teste_fluxo_p1_2f95a0b3 (tipo: <class 'str'>)
+   - data_criacao: 2026-06-23T00:38:39.178027+00:00 (tipo: <class 'str'>)
+[OK] Dados salvos (merge) em: Clientes/teste_fluxo_p1_2f95a0b3/Atores/whatsapp:55119999009
+ [principal_router] Arquivo carregado
+[DIAG_CARREGAR] path_legado=Clientes/whatsapp:55119999009/MemoriaTemporaria/contexto | tenant_id=teste_fluxo_p1_2f95a0b3 | user_id=whatsapp:55119999009
+[DIAG_CARREGAR] lido_legado: existe=True | estado_fluxo=onboarding_dono | cancelamento_pendente=False
+[DIAG_CARREGAR] guard_validacao: guard_tenant=teste_fluxo_p1_4a2bd6a2 | esperado=teste_fluxo_p1_2f95a0b3 | match=False
+🚨 [CTX_LEGADO_TENANT_MISMATCH] CRÍTICO | path=Clientes/whatsapp:55119999009/MemoriaTemporaria/contexto | tenant mismatch: esperado=teste_fluxo_p1_2f95a0b3 | armazenado=teste_fluxo_p1_4a2bd6a2, leitura RECUSADA
+[DIAG] [SAVE SESSAO v2] path=Clientes/teste_fluxo_p1_2f95a0b3/Sessoes/whatsapp:55119999009 | tenant=teste_fluxo_p1_2f95a0b3 | actor=whatsapp:55119999009
+[SESSION_STORE] write_path=Clientes/teste_fluxo_p1_2f95a0b3/Sessoes/whatsapp:55119999009 | tenant=teste_fluxo_p1_2f95a0b3 | actor=whatsapp:55119999009
+[OK] Dados atualizados (merge) em: Clientes/teste_fluxo_p1_2f95a0b3/Sessoes/whatsapp:55119999009
+🔧 [ADMIN] entrada | texto='oi qria marca um coti c a brna amnha 3 hr'
+🔧 [ADMIN] nenhuma intenção admin detectada
+ [CLASSIFICADOR CONTEXTO] {'modo_conversa': 'neutro', 'confianca': 0, 'motivo': 'sem_composicao_suficiente', 'features': {'tem_fluxo_ativo': False, 'tem_draft': False, 'tem_confirmacao_pendente': False, 'tem_pergunta': False, 'tem_tempo': False, 'tem_pedido': False, 'tem_indefinido': False, 'tem_contexto_servico': False, 'tem_ajuste': False, 'tem_cancelamento': False, 'tem_social': False, 'tem_ref_profissional': False, 'tem_duvida_confianca_profissional': False}}
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo=None
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='oi qria marca um coti c a brna amnha 3 hr'
+ [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: False | tipo=<class 'NoneType'>
+ [NEOEVE NEUTRA] sem fluxo ativo
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1782175230.380015   23144 init.cc:232] grpc_wait_for_shutdown_with_timeout() timed out.

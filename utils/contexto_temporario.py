@@ -51,6 +51,7 @@ async def salvar_sessao_temporaria(actor_id: str, contexto: dict, tenant_id: str
     atual["_schema_version"] = 2
 
     print(f"[DIAG] [SAVE SESSAO v2] path={path} | tenant={tenant_id} | actor={actor_id}", flush=True)
+    print(f"[SESSION_STORE] write_path={path} | tenant={tenant_id} | actor={actor_id}", flush=True)
 
     return await atualizar_dado_em_path(path, atual)
 
@@ -84,6 +85,7 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
     data_novo = await buscar_dado_em_path(path_novo)
     if data_novo:
         print(f"[DIAG] [LOAD SESSAO v2] path={path_novo} | source=novo | tenant={tenant_id} | actor={actor_id}", flush=True)
+        print(f"[SESSION_STORE] read_path={path_novo} | write_path={path_novo} | same_path=True", flush=True)
         return data_novo
 
     # 2️⃣ Fallback legado com validação STRICT (PATCH P0.3)
@@ -120,6 +122,7 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
     data_migrada["_migrado_em"] = datetime.now().isoformat()
 
     await atualizar_dado_em_path(path_novo, data_migrada)
+    print(f"[SESSION_STORE] read_path={path_legado} → migrado para write_path={path_novo} | same_path=False (mas migrado)", flush=True)
 
     return data_migrada
 

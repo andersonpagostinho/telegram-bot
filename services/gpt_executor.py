@@ -167,6 +167,51 @@ async def _listar_profissionais_validos_para_servico(dono_id: str, servico: str)
     return validos
 
 
+async def executar_acao_gpt_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE, acao: str, dados: dict):
+    """
+    Wrapper que normaliza o retorno de executar_acao_gpt para sempre ser dict.
+
+    Contrato:
+    - executar_acao_gpt retorna bool ou dict (histórico misto)
+    - Este wrapper normaliza para dict sempre
+
+    Retorno normalizado:
+    {
+        "ok": bool,           # True se sucesso, False se falha
+        "acao": str,          # Nome da ação executada
+        "resultado": any,     # Resultado específico da ação
+        "erro": str | None,   # Mensagem de erro se houver
+        "tipo_erro": str | None  # Tipo/classe do erro
+    }
+    """
+    resultado = await executar_acao_gpt(update, context, acao, dados)
+
+    # Se já é dict (exc block), garantir que tem chave "ok"
+    if isinstance(resultado, dict):
+        if "ok" not in resultado:
+            resultado["ok"] = resultado.get("sucesso", True)
+        return resultado
+
+    # Se é bool, normalizar para dict
+    if isinstance(resultado, bool):
+        return {
+            "ok": resultado,
+            "acao": acao,
+            "resultado": resultado,
+            "erro": None if resultado else "executar_acao_gpt_retornou_false",
+            "tipo_erro": None if resultado else "retorno_false"
+        }
+
+    # Fallback: algo inesperado
+    return {
+        "ok": False,
+        "acao": acao,
+        "resultado": resultado,
+        "erro": f"tipo_retorno_inesperado: {type(resultado).__name__}",
+        "tipo_erro": "tipo_retorno_desconhecido"
+    }
+
+
 async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, acao: str, dados: dict):
     try:
         print(f"🪵 Ação recebida: {repr(acao)}")  # DEBUG extra
@@ -717,4 +762,10 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 await update.message.reply_text(f"❌ Erro interno: {e}")
         except Exception:
             pass
-        return True
+        return {
+            "ok": False,
+            "erro": str(e),
+            "tipo_erro": "exception_executar_acao_gpt",
+            "acao": acao,
+            "resultado": None
+        }

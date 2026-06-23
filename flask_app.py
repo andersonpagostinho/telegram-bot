@@ -3,6 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import os
 import json
+from services.firestore_client import get_db
 
 app = Flask(__name__)
 
@@ -18,7 +19,8 @@ if not firebase_admin._apps:
     cred = credentials.Certificate(cred_info)
     firebase_admin.initialize_app(cred)
 
-db = firestore.client()
+# [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente
+db = get_db()
 
 @app.route("/test_firebase")
 def test_firebase():

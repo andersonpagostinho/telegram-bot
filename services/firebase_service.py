@@ -2,7 +2,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import os
 import json
-from datetime import datetime, timedelta  # 🔹 Adicionado para salvar_cliente funcionar corretamente
+from datetime import datetime, timedelta
+from services.firestore_client import get_db
 
 # ✅ Carregar credenciais do Firebase diretamente da variável de ambiente
 # 🔹 Primeiro, tentamos carregar a variável de ambiente (Render)
@@ -31,8 +32,8 @@ if not firebase_admin._apps:
 else:
     print("⚠️ Firebase já estava inicializado!")
 
-# 🔹 Conectar ao Firestore
-db = firestore.client()
+# [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente
+db = get_db()
 
 # ✅ Função genérica para salvar um documento em qualquer coleção
 def salvar_dados(colecao, dados):

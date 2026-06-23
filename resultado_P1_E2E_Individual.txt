@@ -1,0 +1,21 @@
+=== P1 E2E Individual ===
+
+Exit code: 0
+Duracao: 4.2s
+
+STDOUT:
+arding_individual_tenant/Profissionais/maria_silva: {'criado_em': '2026-06-23T10:22:03.784581+00:00', 'actor_id': 'whatsapp:11900000001', 'identificador': '11900000001', 'criado_por': 'whatsapp:11900000001', 'canal': 'whatsapp', 'nome': 'Maria Silva', 'servicos': [], 'automatico': True, 'ativo': True}
+[DOC] Documento encontrado em Clientes/teste_onboarding_individual_tenant/Configuracao/dados_negocio: {'agenda_padrao': {'domingo': {'inicio': 'FECHADO', 'fim': 'FECHADO'}, 'segunda': {'inicio': '08:00', 'fim': '18:00'}}, 'endereco': 'Rua Joao Baroni, 550', 'dono_atende_clientes': True, 'segmento': 'Salao de beleza', 'estrutura_operacional': 'individual', 'nome_negocio': 'Salao da Maria', 'atualizado_em': '2026-06-23T10:22:03.264979+00:00'}
+[DOC] Documento encontrado em Clientes/teste_onboarding_individual_tenant/Clientes/whatsapp:11955555555: {'origem': 'primeiro_contato', 'criado_em': '2026-06-23T10:22:04.108789+00:00', 'ultimo_contato_em': '2026-06-23T10:22:04.108789+00:00', 'actor_id': 'whatsapp:11955555555', 'tenant_id': 'teste_onboarding_individual_tenant', 'identificador': '11955555555', 'primeiro_contato_em': '2026-06-23T10:22:04.108789+00:00', 'criado_por': 'sistema_autodeteccao', 'canal': 'whatsapp', 'nome_detectado': 'João', 'ativo': True}
+[DOC] Documento encontrado em Clientes/teste_onboarding_individual_tenant/Eventos/whatsapp:11955555555_2026-06-25_10:00: {'criado_em': '2026-06-23T10:22:04.161015+00:00', 'profissional_id': 'maria_silva', 'hora': '10:00', 'cliente_id': 'whatsapp:11955555555', 'duracao_minutos': 40, 'data': '2026-06-25', 'criado_por': 'sistema_autoagendamento', 'profissional_nome': 'Maria Silva', 'status': 'confirmado', 'servico': 'Corte feminino'}
+[PASS] Cenario 7: Regressao P0
+
+================================================================================
+RESULTADO FINAL: 7/7 PASS
+================================================================================
+
+[OK] Resultado salvo em: tests/resultado_p1_e2e_onboarding_individual.json
+
+
+
+STDERR:
