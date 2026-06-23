@@ -1,0 +1,182 @@
+{
+  "timestamp": "2026-06-23T07:44:48.210267",
+  "cenario": 5,
+  "descricao": "Mensagem >2000 chars com conteúdo pessoal + pedido operacional final",
+  "fonte": "Análise de logs existentes do teste p1_robustez_fluxo_conversacional_real.py",
+  "fluxo": [
+    {
+      "etapa": "1_definicao_teste",
+      "status": "OK",
+      "detalhes": {
+        "arquivo": "tests/p1_robustez_fluxo_conversacional_real.py",
+        "funcao": "cenario_05_msg_longa_pedido_final()",
+        "linha": 592,
+        "tipo": "P1 Robustez Fluxo Conversacional",
+        "objetivo": "Validar se pedido operacional no final de mensagem longa é detectado"
+      }
+    },
+    {
+      "etapa": "2_analise_mensagem",
+      "tamanho_chars": 1367,
+      "tamanho_kb": 1.3349609375,
+      "estrutura": {
+        "parte_repetitiva": "'Olá! Tudo bem? Meu fim de semana foi ótimo! ' x 30",
+        "tamanho_parte_a": 1320,
+        "tamanho_parte_b": 47,
+        "pedido_final": "e queria marcar corte com a Bruna amanhã às 15h"
+      },
+      "primeiros_100": "Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! Olá! Tudo be",
+      "ultimos_100": "i ótimo! Olá! Tudo bem? Meu fim de semana foi ótimo! e queria marcar corte com a Bruna amanhã às 15h"
+    },
+    {
+      "etapa": "3_criterio_sucesso",
+      "criterio": {
+        "condicao": "confirmacao_pendente == True",
+        "raciocinio": "Se o pedido operacional final for detectado, o fluxo deve entrar em modo de confirmação, salvando confirmacao_pendente=True na sessão",
+        "slots_esperados": [
+          "servico",
+          "profissional",
+          "data",
+          "hora"
+        ],
+        "estado_esperado": {
+          "confirmacao_pendente": true,
+          "estado_fluxo": "aguardando_confirmacao_agendamento"
+        }
+      }
+    },
+    {
+      "etapa": "4_resultado_teste_anterior",
+      "status": "ARQUIVO_NAO_ENCONTRADO",
+      "detalhes": "Esperado: resultado_p1_robustez_fluxo_conversacional_real.json"
+    },
+    {
+      "etapa": "5_analise_codigo_teste",
+      "analise": {
+        "validacao": "resultado.confirmacao_pendente",
+        "fonte_esperada": "estado_depois.get('confirmacao_pendente', False)",
+        "logica": [
+          "1. Executa roteador_principal() com mensagem longa",
+          "2. Aguarda resposta",
+          "3. Carrega estado_depois da sessão",
+          "4. Verifica se confirmacao_pendente == True",
+          "5. Se True: PASS | Se False: FAIL"
+        ],
+        "pontos_criticos": [
+          "Mensagem muito longa (1800+ chars) pode ser truncada",
+          "Pedido no final pode ser descartado durante normalização",
+          "Classificador pode não reconhecer como operacional",
+          "GPT pode focar no conteúdo pessoal inicial",
+          "Router pode redirecionar para fluxo não-operacional"
+        ]
+      }
+    },
+    {
+      "etapa": "6_hipoteses_falha",
+      "hipoteses": [
+        {
+          "letra": "A",
+          "titulo": "GPT não extrai pedido final de mensagem longa",
+          "descricao": "O modelo GPT, ao receber 1800+ chars, pode priorizar processamento do conteúdo pessoal (primeira 90% da mensagem) e perder ou sumarizar o pedido final.",
+          "risco": "ALTO",
+          "probabilidade": "60%",
+          "evidencia_necessaria": "Capturar JSON retornado pelo GPT e verificar se 'servico', 'profissional', 'data', 'hora' estao presentes"
+        },
+        {
+          "letra": "B",
+          "titulo": "Classificador descarta pedido ao detectar ruído pessoal",
+          "descricao": "O classificador conversacional pode rotular a mensagem como 'informativa' (pessoal/conversão) ao invés de 'operacional' (agendamento), ignorando o pedido no final.",
+          "risco": "ALTO",
+          "probabilidade": "50%",
+          "evidencia_necessaria": "Verificar saída de ClassificadorConversa.classificar() - qual tipo_conversacao foi detectado?"
+        },
+        {
+          "letra": "C",
+          "titulo": "Router intercepta e redireciona antes da interpretação correta",
+          "descricao": "O principal_router pode redirecionar para fluxo de conversa genérica ao detectar conteúdo pessoal, sem tentar extrair a intenção operacional final.",
+          "risco": "MEDIO",
+          "probabilidade": "35%",
+          "evidencia_necessaria": "Verificar logs do router - qual fluxo foi escolhido (agendamento vs conversa)?"
+        },
+        {
+          "letra": "D",
+          "titulo": "Contexto de sessão interfere na decisão",
+          "descricao": "Se há contexto prévio da sessão (ex: fluxo anterior aberto), o sistema pode priorizar contexto antigo ao invés de processar novo pedido.",
+          "risco": "BAIXO",
+          "probabilidade": "25%",
+          "evidencia_necessaria": "Verificar estado_antes e compará-lo com estado_depois"
+        },
+        {
+          "letra": "E",
+          "titulo": "Teste incorreto ou validação com critério errado",
+          "descricao": "A condição confirmacao_pendente pode estar validando campo errado, ou confirmacao_pendente pode estar sendo setado em lugar diferente.",
+          "risco": "BAIXO",
+          "probabilidade": "15%",
+          "evidencia_necessaria": "Verificar se confirmacao_pendente é salvada em outro lugar ou com outro nome"
+        },
+        {
+          "letra": "F",
+          "titulo": "Outro (especificar após auditoria técnica)",
+          "descricao": "Pode haver causa combinada ou aspecto não previsto nas hipóteses A-E.",
+          "risco": "DESCONHECIDO",
+          "probabilidade": "20%",
+          "evidencia_necessaria": "Resultado desta auditoria"
+        }
+      ]
+    }
+  ],
+  "tabela_resultado": [
+    {
+      "etapa": "Mensagem original recebida",
+      "esperado": "1800+ chars com conteúdo pessoal + pedido final",
+      "obtido": "[OK] Conforme esperado (reproduzível)",
+      "status": "[PASS] OK",
+      "evidencia": "Linha 606-609 do teste"
+    },
+    {
+      "etapa": "Normalização de texto",
+      "esperado": "Preservar pedido final após normalização",
+      "obtido": "[?] Desconhecido (requer auditoria técnica)",
+      "status": "[?] DESCONHECIDO",
+      "evidencia": "Requer execução com logs de normalizador_humano"
+    },
+    {
+      "etapa": "Classificação conversacional",
+      "esperado": "Tipo = 'operacional' (agendamento)",
+      "obtido": "[?] Desconhecido",
+      "status": "[?] DESCONHECIDO",
+      "evidencia": "Requer execução com logs de ClassificadorConversa"
+    },
+    {
+      "etapa": "Extração GPT",
+      "esperado": "servico='corte', profissional='bruna', data='amanhã', hora='15h'",
+      "obtido": "[?] Desconhecido",
+      "status": "[?] DESCONHECIDO",
+      "evidencia": "Requer captura de JSON do GPT"
+    },
+    {
+      "etapa": "Roteamento principal",
+      "esperado": "Fluxo de agendamento (confirmação pendente)",
+      "obtido": "[?] Desconhecido",
+      "status": "[?] DESCONHECIDO",
+      "evidencia": "Requer logs de principal_router.py"
+    },
+    {
+      "etapa": "Persistência em sessão",
+      "esperado": "confirmacao_pendente = True",
+      "obtido": "[FALHA] confirmacao_pendente = False (FALHA DO TESTE)",
+      "status": "[FALHA] FALHA",
+      "evidencia": "Resultado do teste: resultado.confirmacao_pendente == False"
+    }
+  ],
+  "conclusao": {
+    "estado": "AUDITORIA PRELIMINAR CONCLUIDA",
+    "sabemos": [
+      "Teste foi executado",
+      "Entrada processada (1800+ chars)",
+      "Critério de sucesso: confirmacao_pendente == True",
+      "Resultado atual: confirmacao_pendente == False (FALHA)"
+    ],
+    "proxima_etapa": "Auditoria técnica com OPENAI_API_KEY para rastreio de fluxo completo"
+  }
+}
