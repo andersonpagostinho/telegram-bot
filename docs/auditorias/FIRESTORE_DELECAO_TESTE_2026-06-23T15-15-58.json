@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-06-23T15:15:58.168352",
+  "project": "projeto-agente-inteligente",
+  "target_document": "Clientes/bateria_p0_user_teste_001",
+  "deletions": [
+    {
+      "path": "Clientes/bateria_p0_user_teste_001/MemoriaTemporaria/contexto",
+      "type": "document"
+    },
+    {
+      "path": "Clientes/bateria_p0_user_teste_001",
+      "type": "document"
+    }
+  ],
+  "success": true,
+  "documents_remaining_after": {
+    "count": 3,
+    "ids": [
+      "7371670478",
+      "7394370553",
+      "whatsapp:55119999006"
+    ]
+  }
+}

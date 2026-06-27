@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-06-27T20:40:22.694782",
+  "scope": "Clientes/ only",
+  "execution_mode": "DRY_RUN_AUDIT_ONLY",
+  "preserve_tenants": [
+    "7371670478",
+    "7394370553",
+    "whatsapp:55119999006"
+  ],
+  "phantom_docs_root": [],
+  "phantom_docs_in_subcols": [],
+  "real_docs_with_phantom_subdocs": [],
+  "summary": {
+    "total_root_docs_scanned": 3,
+    "total_phantom_docs_root": 0,
+    "total_phantom_docs_in_subcols": 0,
+    "total_subdocs_scanned": 279
+  }
+}

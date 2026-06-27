@@ -1,0 +1,796 @@
+{
+  "timestamp": "2026-06-23T15:32:24.421796",
+  "orphaned_documents": [
+    {
+      "id": "cliente_limpa_a",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            "contexto"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cliente_limpa_b",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            "contexto"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cliente_mesmo_id",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            "contexto"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cliente_p0_real_A",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            "contexto"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cliente_p0_real_B",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            "contexto"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desconhecido",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            "contexto"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_a_59f6a70b",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_59f6a70b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_a_82c62727",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_82c62727"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_a_9c748d98",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_9c748d98"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_a_c587b377",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_c587b377"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_a_f6d12d49",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_f6d12d49"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_agenda_teste_a",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "AgendaLocks",
+          "document_count": 68,
+          "documents": [
+            "bruna_1730_1800",
+            "bruna_20260618_135000",
+            "bruna_20260618_140000",
+            "bruna_20260618_141000",
+            "bruna_20260618_142000",
+            "bruna_20260618_145000",
+            "bruna_20260618_150000",
+            "bruna_20260618_151000",
+            "bruna_20260618_152000",
+            "bruna_20260618_163000"
+          ]
+        },
+        {
+          "name": "Eventos",
+          "document_count": 51,
+          "documents": [
+            "ac01_ev1_006896",
+            "ac01_ev1_0e500bd4",
+            "ac01_ev1_268a5a62",
+            "ac01_ev1_309408",
+            "ac01_ev1_43feedb0",
+            "ac01_ev1_591439",
+            "ac01_ev1_964506",
+            "ac01_ev1_97d87c2c",
+            "ac01_ev1_9f3a1eec",
+            "ac01_ev2_591439"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_agenda_teste_b",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Eventos",
+          "document_count": 1,
+          "documents": [
+            "evento_ac13_dono_b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_b_59f6a70b",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_59f6a70b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_b_82c62727",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_82c62727"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_b_9c748d98",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_9c748d98"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_b_f6d12d49",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_compartilhado_f6d12d49"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_fluxo_teste_a",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "AgendaLocks",
+          "document_count": 309,
+          "documents": [
+            "amanda_20260620_090000",
+            "amanda_20260620_091000",
+            "amanda_20260620_092000",
+            "amanda_20260620_093000",
+            "amanda_20260620_094000",
+            "amanda_20260620_095000",
+            "amanda_20260620_170000",
+            "amanda_20260620_171000",
+            "amanda_20260620_172000",
+            "amanda_20260620_200000"
+          ]
+        },
+        {
+          "name": "Eventos",
+          "document_count": 79,
+          "documents": [
+            "evt_bloqueador_fc12_0a4386c5",
+            "evt_bloqueador_fc12_4c51ae83",
+            "evt_bloqueador_fc12_865b3387",
+            "evt_bloqueador_fc12_883e4c01",
+            "evt_bloqueador_fc12_9eac3400",
+            "evt_bloqueador_fc12_9f6b4b89",
+            "evt_bloqueador_fc12_b65a23ac",
+            "evt_fc01_25302553",
+            "evt_fc01_43ff825e",
+            "evt_fc01_7d86fa13"
+          ]
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 133,
+          "documents": [
+            "admin_action_265a7f83",
+            "admin_action_5f473800",
+            "admin_action_61929f5e",
+            "admin_action_8daf836d",
+            "admin_action_9cb756b7",
+            "admin_action_e705c42d",
+            "admin_action_ef7e751f",
+            "admin_action_f32bc8eb",
+            "cli_fc01_218c4f5f",
+            "cli_fc01_25302553"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_p0_real_A",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Eventos",
+          "document_count": 2,
+          "documents": [
+            "evento_mt04_a",
+            "evento_mt05_novo_a"
+          ]
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_mt07_mesmo_id"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_p0_real_B",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Eventos",
+          "document_count": 2,
+          "documents": [
+            "evento_mt04_b",
+            "evento_mt05_novo_b"
+          ]
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_mt07_mesmo_id"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_test_123",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "user_test_7371670478"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_59f6a70b",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_59f6a70b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_59f6a70b_02",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_59f6a70b_02"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_59f6a70b_04",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_59f6a70b_04"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_59f6a70b_ag01",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Eventos",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_59f6a70b_ag01_evento_001"
+          ]
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_59f6a70b_ag01"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_82c62727",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_82c62727"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_82c62727_02",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_82c62727_02"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_82c62727_04",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_82c62727_04"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_82c62727_ag01",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Eventos",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_82c62727_ag01_evento_001"
+          ]
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_82c62727_ag01"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_9c748d98",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_9c748d98"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_9c748d98_02",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_9c748d98_02"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_9c748d98_04",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_9c748d98_04"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_9c748d98_ag01",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Eventos",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_9c748d98_ag01_evento_001"
+          ]
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_9c748d98_ag01"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_c587b377",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_c587b377"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_c587b377_02",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_c587b377_02"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_c587b377_04",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_c587b377_04"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dono_teste_c587b377_ag01",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Eventos",
+          "document_count": 1,
+          "documents": [
+            "cliente_teste_c587b377_ag01_evento_001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bateria_p0_dono_teste",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "bateria_p0_user_teste_001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audit_06_724aba09",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Atores",
+          "document_count": 1,
+          "documents": [
+            "whatsapp:55119999006"
+          ]
+        },
+        {
+          "name": "Configuracao",
+          "document_count": 1,
+          "documents": [
+            "info"
+          ]
+        },
+        {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            "contexto"
+          ]
+        },
+        {
+          "name": "Profissionais",
+          "document_count": 1,
+          "documents": [
+            "bruna"
+          ]
+        },
+        {
+          "name": "ServicosNegocio",
+          "document_count": 1,
+          "documents": [
+            "corte"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audit_cenario_05_gpt_3e7e159a",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Atores",
+          "document_count": 1,
+          "documents": [
+            "whatsapp:55119999005"
+          ]
+        },
+        {
+          "name": "Configuracao",
+          "document_count": 1,
+          "documents": [
+            "info"
+          ]
+        },
+        {
+          "name": "Profissionais",
+          "document_count": 1,
+          "documents": [
+            "bruna"
+          ]
+        },
+        {
+          "name": "ServicosNegocio",
+          "document_count": 2,
+          "documents": [
+            "corte",
+            "escova"
+          ]
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1,
+          "documents": [
+            "whatsapp:55119999005"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audit_cenario_05_gpt_63486548",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Atores",
+          "document_count": 1,
+          "documents": [
+            "whatsapp:55119999005"
+          ]
+        },
+        {
+          "name": "Configuracao",
+          "document_count": 1,
+          "documents": [
+            "info"
+          ]
+        },
+        {
+          "name": "Profissionais",
+          "document_count": 1,
+          "documents": [
+            "bruna"
+          ]
+        },
+        {
+          "name": "ServicosNegocio",
+          "document_count": 2,
+          "documents": [
+            "corte",
+            "escova"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audit_cenario_05_gpt_9e1a396a",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Atores",
+          "document_count": 1,
+          "documents": [
+            "whatsapp:55119999005"
+          ]
+        },
+        {
+          "name": "Configuracao",
+          "document_count": 1,
+          "documents": [
+            "info"
+          ]
+        },
+        {
+          "name": "Profissionais",
+          "document_count": 1,
+          "documents": [
+            "bruna"
+          ]
+        },
+        {
+          "name": "ServicosNegocio",
+          "document_count": 2,
+          "documents": [
+            "corte",
+            "escova"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audit_cenario_05_gpt_d24428a8",
+      "parent_exists": false,
+      "subcollections": [
+        {
+          "name": "Atores",
+          "document_count": 1,
+          "documents": [
+            "whatsapp:55119999005"
+          ]
+        },
+        {
+          "name": "Configuracao",
+          "document_count": 1,
+          "documents": [
+            "info"
+          ]
+        },
+        {
+          "name": "Profissionais",
+          "document_count": 1,
+          "documents": [
+            "bruna"
+          ]
+        },
+        {
+          "name": "ServicosNegocio",
+          "document_count": 2,
+          "documents": [
+            "corte",
+            "escova"
+          ]
+        }
+      ]
+    }
+  ],
+  "orphaned_subcollections": [],
+  "statistics": {
+    "total_orphaned_docs": 43,
+    "total_orphaned_subcollections": 68,
+    "total_orphaned_documents_in_subcols": 709
+  }
+}

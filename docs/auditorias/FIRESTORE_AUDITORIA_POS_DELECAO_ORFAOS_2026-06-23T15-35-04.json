@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-06-23T15:35:04.858353",
+  "documents_in_clientes": [
+    "7371670478",
+    "7394370553",
+    "whatsapp:55119999006"
+  ],
+  "orphaned_documents_found": 0,
+  "validation": {
+    "all_tests_passed": true,
+    "documents_count_correct": true,
+    "correct_documents_present": true,
+    "no_orphaned_docs": true
+  }
+}

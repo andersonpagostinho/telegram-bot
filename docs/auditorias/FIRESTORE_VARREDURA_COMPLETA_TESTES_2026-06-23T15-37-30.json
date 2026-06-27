@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-06-23T15:37:30.482546",
+  "search_prefixes": [
+    "teste_",
+    "teste_fluxo_p1_",
+    "audit_",
+    "bateria_",
+    "cliente_",
+    "dono_",
+    "debug_",
+    "tmp_"
+  ],
+  "documents_found": [],
+  "statistics": {
+    "total_found": 0,
+    "real_documents": 0,
+    "orphaned_documents": 0,
+    "total_subcollections": 0,
+    "total_documents_in_subcols": 0
+  }
+}

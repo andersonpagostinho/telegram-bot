@@ -1,0 +1,20 @@
+{
+  "status": "em_progresso",
+  "timestamp": "2026-06-23T20:11:30",
+  "lote_1": {
+    "status": "COMPLETO",
+    "tenants_deletados": 10,
+    "docs_deletados": 0,
+    "validacao": "pendente (quota exceeded ao validar)",
+    "arquivo_resultado": "FIRESTORE_CLEANUP_LOTE_1_2026-06-23.json"
+  },
+  "lote_2": {
+    "status": "aguardando_quota",
+    "motivo": "Firestore quota exceeded (429)",
+    "proxima_tentativa": "apos 5 minutos",
+    "inicio_estimado": "20:16:30"
+  },
+  "total_planejado": 1203,
+  "lotes_planejados": 121,
+  "lotes_completos": 1
+}

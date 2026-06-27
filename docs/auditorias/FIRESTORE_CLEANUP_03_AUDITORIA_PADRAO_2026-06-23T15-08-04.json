@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-06-23T15:08:04.103060",
+  "project": "projeto-agente-inteligente",
+  "collection": "Clientes",
+  "total_documents": 4,
+  "real_documents": [
+    {
+      "id": "whatsapp:55119999006",
+      "created_at": "2026-06-22T23:53:27.788862+00:00",
+      "updated_at": "2026-06-22T23:53:27.788862+00:00"
+    }
+  ],
+  "test_documents": [
+    {
+      "id": "7371670478",
+      "created_at": "2026-02-16T23:03:23.243656+00:00",
+      "updated_at": "2026-02-16T23:03:23.243656+00:00"
+    },
+    {
+      "id": "7394370553",
+      "created_at": "2025-03-19T16:51:46.617410+00:00",
+      "updated_at": "2025-05-07T20:17:20.147747+00:00"
+    },
+    {
+      "id": "bateria_p0_user_teste_001",
+      "created_at": "2026-06-20T01:56:35.702999+00:00",
+      "updated_at": "2026-06-20T01:56:35.702999+00:00"
+    }
+  ],
+  "uncertain_documents": []
+}

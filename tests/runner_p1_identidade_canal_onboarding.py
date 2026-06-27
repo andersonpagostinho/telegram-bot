@@ -534,9 +534,13 @@ if __name__ == "__main__":
 
     # Executar testes
     import subprocess
+    import sys
+    from pathlib import Path
+
+    script_dir = Path(__file__).parent.resolve()
     resultado = subprocess.run(
-        ["python", "-m", "pytest", __file__, "-v", "-s"],
-        cwd="/".join(__file__.split("/")[:-1])
+        [sys.executable, "-m", "pytest", str(Path(__file__).resolve()), "-v", "-s"],
+        cwd=str(script_dir)
     )
 
     exit(resultado.returncode)

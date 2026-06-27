@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-06-23T15:16:40.263748",
+  "audit_type": "post_cleanup_verification",
+  "documents": [
+    {
+      "id": "7371670478",
+      "created_at": "2026-02-16T23:03:23.243656+00:00",
+      "updated_at": "2026-02-16T23:03:23.243656+00:00",
+      "data_keys": [
+        "proximoPagamento",
+        "estilo",
+        "planosAtivos",
+        "tipo_negocio",
+        "modo_uso",
+        "nome",
+        "dataAssinatura",
+        "id_negocio",
+        "pagamentoAtivo",
+        "tipo_usuario",
+        "email"
+      ],
+      "subcollections_count": 2
+    },
+    {
+      "id": "7394370553",
+      "created_at": "2025-03-19T16:51:46.617410+00:00",
+      "updated_at": "2025-05-07T20:17:20.147747+00:00",
+      "data_keys": [
+        "proximoPagamento",
+        "estilo",
+        "estilo_mensagem",
+        "eventos",
+        "modo_uso",
+        "tipo_usuario",
+        "planosAtivos",
+        "tipo_negocio",
+        "tipoNegocio",
+        "calendar_id",
+        "nome",
+        "id_negocio",
+        "pagamentoAtivo",
+        "email_credentials",
+        "email",
+        "dataAssinatura"
+      ],
+      "subcollections_count": 11
+    },
+    {
+      "id": "whatsapp:55119999006",
+      "created_at": "2026-06-22T23:53:27.788862+00:00",
+      "updated_at": "2026-06-22T23:53:27.788862+00:00",
+      "data_keys": [
+        "nome",
+        "pagamentoAtivo",
+        "planosAtivos",
+        "canal"
+      ],
+      "subcollections_count": 4
+    }
+  ],
+  "total_documents": 3,
+  "validation": {
+    "all_real_docs_present": true,
+    "test_doc_deleted": true,
+    "total_as_expected": true,
+    "status": "PASSED"
+  }
+}

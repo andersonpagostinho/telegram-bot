@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-06-23T15:38:18.160683",
+  "method": "deep_scan_through_real_doc_subcollections",
+  "orphaned_documents_found": [
+    {
+      "id": "teste_fluxo_p1_03ce2799",
+      "exists": false,
+      "subcollections": [
+        {
+          "name": "Atores",
+          "document_count": 1
+        },
+        {
+          "name": "Configuracao",
+          "document_count": 1
+        },
+        {
+          "name": "Profissionais",
+          "document_count": 1
+        },
+        {
+          "name": "ServicosNegocio",
+          "document_count": 2
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1
+        }
+      ],
+      "total_documents_in_subcols": 6
+    }
+  ],
+  "statistics": {
+    "total_orphaned_found": 1,
+    "total_orphaned_subcollections": 5,
+    "total_orphaned_documents_in_subcols": 6
+  }
+}

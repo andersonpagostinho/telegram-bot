@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-06-27T20:21:25.136433",
+  "total_clientes": 3,
+  "total_subcols": 18,
+  "total_docs_in_subcols": 279,
+  "total_tests": 3,
+  "clientes": {
+    "7371670478": {
+      "id": "7371670478",
+      "subcole\u00e7\u00f5es": {
+        "MemoriaTemporaria": {
+          "name": "MemoriaTemporaria",
+          "total_docs": 1,
+          "test_docs": []
+        },
+        "NotificacoesAgendadas": {
+          "name": "NotificacoesAgendadas",
+          "total_docs": 30,
+          "test_docs": []
+        }
+      }
+    },
+    "7394370553": {
+      "id": "7394370553",
+      "subcole\u00e7\u00f5es": {
+        "AgendaLocks": {
+          "name": "AgendaLocks",
+          "total_docs": 8,
+          "test_docs": []
+        },
+        "Atores": {
+          "name": "Atores",
+          "total_docs": 1,
+          "test_docs": []
+        },
+        "ClienteProfiles": {
+          "name": "ClienteProfiles",
+          "total_docs": 1,
+          "test_docs": []
+        },
+        "Contatos": {
+          "name": "Contatos",
+          "total_docs": 1,
+          "test_docs": []
+        },
+        "EmailsProcessados": {
+          "name": "EmailsProcessados",
+          "total_docs": 23,
+          "test_docs": []
+        },
+        "Eventos": {
+          "name": "Eventos",
+          "total_docs": 33,
+          "test_docs": [
+            "TEST_PERSISTENCIA_cancelamento_bruna_2026-06-17_1000",
+            "test_bruna_2026-06-29_14:00",
+            "test_bruna_2026-06-29_14:40"
+          ]
+        },
+        "MemoriaTemporaria": {
+          "name": "MemoriaTemporaria",
+          "total_docs": 1,
+          "test_docs": []
+        },
+        "NotificacoesAgendadas": {
+          "name": "NotificacoesAgendadas",
+          "total_docs": 145,
+          "test_docs": []
+        },
+        "Profissionais": {
+          "name": "Profissionais",
+          "total_docs": 6,
+          "test_docs": []
+        },
+        "Sessoes": {
+          "name": "Sessoes",
+          "total_docs": 1,
+          "test_docs": []
+        },
+        "Tarefas": {
+          "name": "Tarefas",
+          "total_docs": 15,
+          "test_docs": []
+        },
+        "configuracao": {
+          "name": "configuracao",
+          "total_docs": 3,
+          "test_docs": []
+        }
+      }
+    },
+    "whatsapp:55119999006": {
+      "id": "whatsapp:55119999006",
+      "subcole\u00e7\u00f5es": {
+        "AgendaLocks": {
+          "name": "AgendaLocks",
+          "total_docs": 6,
+          "test_docs": []
+        },
+        "Atores": {
+          "name": "Atores",
+          "total_docs": 1,
+          "test_docs": []
+        },
+        "Eventos": {
+          "name": "Eventos",
+          "total_docs": 2,
+          "test_docs": []
+        },
+        "MemoriaTemporaria": {
+          "name": "MemoriaTemporaria",
+          "total_docs": 1,
+          "test_docs": []
+        }
+      }
+    }
+  }
+}

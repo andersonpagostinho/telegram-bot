@@ -57,6 +57,7 @@ from utils.contexto_temporario import (
 from services.gpt_executor import executar_acao_gpt
 from utils.contexto_temporario import limpar_contexto_agendamento
 from router.principal_router import eh_gatilho_agendar
+from services.whitelist_service import verificar_com_whitelist
 
 
 # 👉 Se esses não existirem no seu repo, comente este import e os CommandHandler lá embaixo
@@ -131,6 +132,30 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     # 🧵 Resolver tenant_id (dono do negócio)
     tenant_id = await obter_id_dono(user_id)
     print(f"[TENANT_FIX] actor_id={user_id} | tenant_id={tenant_id} | função=tratar_mensagens_gerais", flush=True)
+
+    # 🔒 MEC-03: VERIFICAR WHITELIST CLASSE A
+    permitida, detalhes_bloqueio = await verificar_com_whitelist(
+        mensagem=msg_text,
+        actor_id=user_id,
+        tenant_id=tenant_id,
+        registrar_bloqueio=True
+    )
+
+    if not permitida and detalhes_bloqueio:
+        # Mensagem bloqueada por Whitelist
+        motivo = detalhes_bloqueio.get("motivo", "Mensagem não permitida")
+        categoria_esperada = detalhes_bloqueio.get("categoria_esperada", "Whitelist Classe A")
+
+        msg_resposta = (
+            f"⏸️ Bot em modo resposta manual.\n\n"
+            f"Esperando confirmações, cancelamentos ou comandos administrativos.\n"
+            f"(Categoria: {categoria_esperada})"
+        )
+
+        print(f"[WHITELIST-BLOQUEIO] user_id={user_id} | motivo={motivo}", flush=True)
+
+        await update.message.reply_text(msg_resposta)
+        raise ApplicationHandlerStop
 
     # 🔥 🚨 NOVO: NÃO intercepta se for intenção de agendamento
     if eh_gatilho_agendar(mensagem):

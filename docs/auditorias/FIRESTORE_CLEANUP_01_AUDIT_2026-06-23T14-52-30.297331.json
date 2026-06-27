@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-06-23T14:52:30.297331",
+  "prefixes_checked": [
+    "teste_fluxo_p1_",
+    "teste_",
+    "debug_",
+    "tmp_"
+  ],
+  "total_test_tenants": 5,
+  "details_by_prefix": {
+    "teste_": {
+      "count": 5,
+      "samples": [
+        {
+          "id": "teste_tenant_a_11",
+          "created_at": "2026-06-23T10:21:52.831485+00:00",
+          "updated_at": "2026-06-23T10:21:52.831485+00:00",
+          "subcollections_count": 2,
+          "data_keys": [],
+          "size_estimate": 2
+        },
+        {
+          "id": "teste_tenant_b_11",
+          "created_at": "2026-06-23T10:21:53.236598+00:00",
+          "updated_at": "2026-06-23T10:21:53.236598+00:00",
+          "subcollections_count": 2,
+          "data_keys": [],
+          "size_estimate": 2
+        },
+        {
+          "id": "teste_tenant_cenario_01",
+          "created_at": "2026-06-23T10:21:49.501633+00:00",
+          "updated_at": "2026-06-23T10:21:49.501633+00:00",
+          "subcollections_count": 2,
+          "data_keys": [],
+          "size_estimate": 2
+        }
+      ],
+      "total_samples": 5
+    }
+  },
+  "execution_mode": "dry-run",
+  "firestore_path": "Clientes/",
+  "deletion_result": {
+    "status": "skipped",
+    "reason": "Use --confirm-delete para executar delecao real"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-23T14:59:02.857578",
+  "project": "projeto-agente-inteligente",
+  "collection": "Clientes",
+  "prefixes_checked": [
+    "teste_",
+    "teste_fluxo_p1_",
+    "debug_",
+    "tmp_"
+  ],
+  "results_by_prefix": {},
+  "total_documents": 0,
+  "all_documents": []
+}

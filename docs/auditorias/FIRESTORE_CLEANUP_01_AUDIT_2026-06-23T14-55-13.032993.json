@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-06-23T14:55:13.032993",
+  "prefixes_checked": [
+    "teste_fluxo_p1_",
+    "teste_",
+    "debug_",
+    "tmp_"
+  ],
+  "total_test_tenants": 0,
+  "details_by_prefix": {},
+  "execution_mode": "dry-run",
+  "firestore_path": "Clientes/",
+  "deletion_result": {
+    "status": "skipped",
+    "reason": "Use --confirm-delete para executar delecao real"
+  }
+}

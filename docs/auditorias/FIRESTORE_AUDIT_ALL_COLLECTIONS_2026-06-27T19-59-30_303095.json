@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-06-27T19:59:30.303095",
+  "total_test_documents": 0,
+  "total_test_collections": 0,
+  "collections_analyzed": 0,
+  "collections_found": {},
+  "execution_mode": "dry-run",
+  "error": "403 Cloud Firestore API has not been used in project agendabot-450219 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=agendabot-450219 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry. [reason: \"SERVICE_DISABLED\"\ndomain: \"googleapis.com\"\nmetadata {\n  key: \"service\"\n  value: \"firestore.googleapis.com\"\n}\nmetadata {\n  key: \"serviceTitle\"\n  value: \"Cloud Firestore API\"\n}\nmetadata {\n  key: \"containerInfo\"\n  value: \"agendabot-450219\"\n}\nmetadata {\n  key: \"consumer\"\n  value: \"projects/agendabot-450219\"\n}\nmetadata {\n  key: \"activationUrl\"\n  value: \"https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=agendabot-450219\"\n}\n, locale: \"en-US\"\nmessage: \"Cloud Firestore API has not been used in project agendabot-450219 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=agendabot-450219 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.\"\n, links {\n  description: \"Google developers console API activation\"\n  url: \"https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=agendabot-450219\"\n}\n]"
+}

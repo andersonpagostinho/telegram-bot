@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-06-23T14:45:41.856497",
+  "prefixes_checked": [
+    "teste_fluxo_p1_",
+    "teste_",
+    "debug_",
+    "tmp_"
+  ],
+  "total_test_tenants": 0,
+  "details_by_prefix": {},
+  "execution_mode": "dry-run",
+  "firestore_path": "Clientes/",
+  "error": "object of type 'generator' has no len()",
+  "deletion_result": {
+    "status": "skipped",
+    "reason": "Use --confirm-delete para executar delecao real"
+  }
+}

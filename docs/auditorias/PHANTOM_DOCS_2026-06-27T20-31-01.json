@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-27T20:31:01.812757",
+  "total_documents_scanned": 3,
+  "phantom_documents_found": 1,
+  "phantom_docs": [
+    {
+      "path": "Clientes/7371670478/NotificacoesAgendadas/1029981f-df82-49d3-af94-31171a399cde",
+      "doc_id": "1029981f-df82-49d3-af94-31171a399cde",
+      "subcol": "NotificacoesAgendadas",
+      "parent": "7371670478",
+      "has_data": false
+    }
+  ]
+}

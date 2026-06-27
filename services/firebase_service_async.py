@@ -1,13 +1,48 @@
 from datetime import datetime, timedelta
 from google.cloud.firestore_v1 import AsyncClient
+from google.oauth2 import service_account
+from google.cloud import firestore as fs
+import firebase_admin
+from firebase_admin import credentials, firestore
 import os
+import json
 
-# [OK] Define a variável de ambiente se ainda não estiver definida
-if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "firebase_credentials.json"
+# ============================================================================
+# [INIT] Inicializar cliente Firestore com credenciais (padrão backup)
+# ============================================================================
 
-# [INIT] Cliente assíncrono do Firestore
-client = AsyncClient()
+PROJECT_ID = "projeto-agente-inteligente"
+
+# [PRODUCAO] Ler credenciais de variável de ambiente Render
+firebase_json_str = os.getenv("FIREBASE_CREDENTIALS")
+
+if not firebase_json_str:
+    raise ValueError("❌ Variável FIREBASE_CREDENTIALS não encontrada!")
+
+# Se a variável for um JSON completo (e não um caminho)
+try:
+    firebase_json = json.loads(firebase_json_str)
+    firebase_json_path = "firebase_credentials.json"
+
+    # Criar um arquivo temporário
+    with open(firebase_json_path, "w") as f:
+        json.dump(firebase_json, f)
+
+    print(f"✅ Arquivo Firebase criado: {firebase_json_path}", flush=True)
+
+except json.JSONDecodeError:
+    firebase_json_path = firebase_json_str  # Assume que é um caminho válido
+    print(f"[INFO] Usando arquivo Firebase: {firebase_json_path}", flush=True)
+
+# Inicializar o Firebase
+try:
+    cred = credentials.Certificate(firebase_json_path)
+    firebase_admin.initialize_app(cred)
+    client = firestore.client()
+    print(f"✅ Firestore inicializado com sucesso!", flush=True)
+except Exception as e:
+    print(f"❌ Erro ao inicializar Firestore: {e}", flush=True)
+    raise
 
 # [LOOP] Utilitário para navegar até o path
 def get_ref_from_path(path: str):

@@ -1,0 +1,129 @@
+{
+  "timestamp": "2026-06-27T20:34:16.783222",
+  "execution_mode": "DRY_RUN_ONLY",
+  "preserve_clientes": [
+    "7371670478",
+    "7394370553",
+    "whatsapp:55119999006"
+  ],
+  "items_to_delete": {
+    "test_documents_in_clientes": [],
+    "phantom_documents": [
+      {
+        "path": "Clientes/7371670478/NotificacoesAgendadas/1029981f-df82-49d3-af94-31171a399cde",
+        "type": "subdoc_fantasma",
+        "parent_cliente": "7371670478"
+      }
+    ],
+    "test_collections": [
+      {
+        "name": "teste_collection",
+        "document_count": 1
+      },
+      {
+        "name": "teste_diagnostico_1782176458",
+        "document_count": 10
+      },
+      {
+        "name": "testes",
+        "document_count": 3
+      }
+    ],
+    "test_docs_in_other_collections": [
+      {
+        "path": "teste_collection/3pUWHpWNM47sexugPA9n",
+        "doc_id": "3pUWHpWNM47sexugPA9n",
+        "collection": "teste_collection"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_0",
+        "doc_id": "doc_0",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_1",
+        "doc_id": "doc_1",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_2",
+        "doc_id": "doc_2",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_3",
+        "doc_id": "doc_3",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_4",
+        "doc_id": "doc_4",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_5",
+        "doc_id": "doc_5",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_6",
+        "doc_id": "doc_6",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_7",
+        "doc_id": "doc_7",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_8",
+        "doc_id": "doc_8",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "teste_diagnostico_1782176458/doc_9",
+        "doc_id": "doc_9",
+        "collection": "teste_diagnostico_1782176458"
+      },
+      {
+        "path": "testes/KhVWvxalSvJmfZ0UyLJ4",
+        "doc_id": "KhVWvxalSvJmfZ0UyLJ4",
+        "collection": "testes"
+      },
+      {
+        "path": "testes/primeiro_teste",
+        "doc_id": "primeiro_teste",
+        "collection": "testes"
+      },
+      {
+        "path": "testes/tHBNzdrl8safYDpA0781",
+        "doc_id": "tHBNzdrl8safYDpA0781",
+        "collection": "testes"
+      }
+    ]
+  },
+  "summary": {
+    "total_test_docs": 0,
+    "total_phantom_docs": 1,
+    "total_test_collections": 3,
+    "total_items_to_delete": 0,
+    "safety_checks": [
+      {
+        "check": "Clientes/7371670478 nao foi marcado para deletar (nivel raiz)",
+        "result": true
+      },
+      {
+        "check": "Clientes/7394370553 nao foi marcado para deletar (nivel raiz)",
+        "result": true
+      },
+      {
+        "check": "Modo DRY_RUN ativo (nao deleta nada)",
+        "result": true
+      },
+      {
+        "check": "Relatorio JSON salvo para auditoria",
+        "result": true
+      }
+    ]
+  }
+}

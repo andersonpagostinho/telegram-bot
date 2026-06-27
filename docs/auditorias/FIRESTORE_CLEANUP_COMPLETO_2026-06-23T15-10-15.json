@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-06-23T15:10:15.946750",
+  "project": "projeto-agente-inteligente",
+  "root_collections": {
+    "teste_collection": {
+      "doc_count": 1,
+      "docs": [
+        "3pUWHpWNM47sexugPA9n"
+      ]
+    },
+    "teste_diagnostico_1782176458": {
+      "doc_count": 10,
+      "docs": [
+        "doc_0",
+        "doc_1",
+        "doc_2",
+        "doc_3",
+        "doc_4",
+        "doc_5",
+        "doc_6",
+        "doc_7",
+        "doc_8",
+        "doc_9"
+      ]
+    },
+    "testes": {
+      "doc_count": 3,
+      "docs": [
+        "KhVWvxalSvJmfZ0UyLJ4",
+        "primeiro_teste",
+        "tHBNzdrl8safYDpA0781"
+      ]
+    }
+  },
+  "cliente_docs": {
+    "bateria_p0_user_teste_001": {
+      "status": "test_document"
+    }
+  },
+  "subcollections": {}
+}

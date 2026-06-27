@@ -1,0 +1,1072 @@
+{
+  "timestamp": "2026-06-23T15:12:36.286709",
+  "project": "projeto-agente-inteligente",
+  "collection": "Clientes",
+  "root_documents": [
+    {
+      "id": "7371670478",
+      "created_at": "2026-02-16T23:03:23.243656+00:00",
+      "updated_at": "2026-02-16T23:03:23.243656+00:00",
+      "data_keys": [
+        "proximoPagamento",
+        "estilo",
+        "planosAtivos",
+        "tipo_negocio",
+        "modo_uso",
+        "nome",
+        "dataAssinatura",
+        "id_negocio",
+        "pagamentoAtivo",
+        "tipo_usuario",
+        "email"
+      ],
+      "data_size_bytes": 289,
+      "subcollections": {
+        "MemoriaTemporaria": {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            {
+              "id": "contexto",
+              "created_at": "2026-02-16T00:10:34.333147+00:00",
+              "updated_at": "2026-06-20T03:09:30.912016+00:00",
+              "data_keys": [
+                "_tenant_id_guard",
+                "estado_fluxo",
+                "ultima_acao",
+                "aguardando_confirmacao_agendamento",
+                "confianca_intencao_conversacional",
+                "_updated_at",
+                "aguardando_confirmacao_cancelamento"
+              ],
+              "data_size_bytes": 268
+            }
+          ]
+        },
+        "NotificacoesAgendadas": {
+          "name": "NotificacoesAgendadas",
+          "document_count": 30,
+          "documents": [
+            {
+              "id": "1029981f-df82-49d3-af94-31171a399cde",
+              "created_at": "2026-06-07T03:13:40.515173+00:00",
+              "updated_at": "2026-06-20T00:47:25.187486+00:00",
+              "data_keys": [],
+              "data_size_bytes": 0
+            },
+            {
+              "id": "120cda04-96eb-4780-b9fa-2cf08ef7b70d",
+              "created_at": "2026-06-09T23:19:09.476989+00:00",
+              "updated_at": "2026-06-09T23:19:09.476989+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "164666de-6191-40ed-813d-d6c4a69208a1",
+              "created_at": "2026-06-03T23:13:08.287549+00:00",
+              "updated_at": "2026-06-04T22:40:07.879288+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 381
+            },
+            {
+              "id": "2403e0a4-dab0-40ea-8c86-eb7eb5c4f07f",
+              "created_at": "2026-06-20T03:07:21.231102+00:00",
+              "updated_at": "2026-06-20T03:07:21.231102+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "28b0e151-5d20-45f0-bd10-a3d5da924ec4",
+              "created_at": "2026-05-30T21:44:34.333631+00:00",
+              "updated_at": "2026-06-02T15:49:24.368747+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 382
+            },
+            {
+              "id": "360083d3-574b-4e53-83ef-7f7f8e75e7b1",
+              "created_at": "2026-06-20T00:21:50.924840+00:00",
+              "updated_at": "2026-06-20T00:21:50.924840+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 365
+            },
+            {
+              "id": "42ab1c0b-d269-4af2-8bed-190cb6f3872c",
+              "created_at": "2026-06-03T23:13:08.059458+00:00",
+              "updated_at": "2026-06-04T22:40:08.377077+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 413
+            },
+            {
+              "id": "457e44d1-6372-4811-824c-740c6c527bc6",
+              "created_at": "2026-06-09T13:14:52.247533+00:00",
+              "updated_at": "2026-06-09T23:20:11.808583+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 382
+            },
+            {
+              "id": "47dba674-c273-4a2c-9184-02b1acb0a457",
+              "created_at": "2026-06-09T18:51:23.109638+00:00",
+              "updated_at": "2026-06-09T23:20:12.347085+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 382
+            },
+            {
+              "id": "58274f25-abde-47cd-9cfb-9900eea1017b",
+              "created_at": "2026-06-19T21:30:50.653720+00:00",
+              "updated_at": "2026-06-19T21:30:50.653720+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 365
+            },
+            {
+              "id": "5eb3483b-321a-45d5-bb56-dd78e00d6799",
+              "created_at": "2026-06-02T20:44:02.473407+00:00",
+              "updated_at": "2026-06-03T23:14:09.951629+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 413
+            },
+            {
+              "id": "63453219-7381-4435-a14f-81d72b9ac2a1",
+              "created_at": "2026-06-17T02:21:30.207482+00:00",
+              "updated_at": "2026-06-17T02:21:30.207482+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 369
+            },
+            {
+              "id": "6ab9e93e-4800-4547-b60c-2024fe420332",
+              "created_at": "2026-06-20T00:01:43.818764+00:00",
+              "updated_at": "2026-06-20T00:01:43.818764+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "6b4c31a2-4232-4c81-bbd6-f0f15cb188fe",
+              "created_at": "2026-05-30T21:44:34.106588+00:00",
+              "updated_at": "2026-06-02T15:49:24.909215+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 415
+            },
+            {
+              "id": "6b9e8b07-2055-4a31-b13c-a9872c44623c",
+              "created_at": "2026-06-09T23:19:09.256382+00:00",
+              "updated_at": "2026-06-09T23:19:09.256382+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 365
+            },
+            {
+              "id": "6c605d08-9340-4ce5-b902-cd52b3b21555",
+              "created_at": "2026-06-20T01:08:13.625369+00:00",
+              "updated_at": "2026-06-20T01:08:13.625369+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "77d082a4-d9c0-43a8-a44e-7c6d34f32a7e",
+              "created_at": "2026-06-07T03:11:29.744389+00:00",
+              "updated_at": "2026-06-09T23:20:12.885720+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 382
+            },
+            {
+              "id": "936ef36b-87e9-4393-ac8b-caf11e879faf",
+              "created_at": "2026-06-20T00:51:55.178570+00:00",
+              "updated_at": "2026-06-20T00:51:55.178570+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "975a32d4-889b-4de5-a870-c54ae494d308",
+              "created_at": "2026-06-20T00:00:57.535870+00:00",
+              "updated_at": "2026-06-20T00:00:57.535870+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "9c007f65-7d63-4f28-b90d-d2c90618f44c",
+              "created_at": "2026-06-20T03:09:15.309892+00:00",
+              "updated_at": "2026-06-20T03:09:15.309892+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 365
+            },
+            {
+              "id": "ae0ef047-9716-454b-a5aa-a67f2fe3bb25",
+              "created_at": "2026-06-20T03:09:17.140327+00:00",
+              "updated_at": "2026-06-20T03:09:17.140327+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "bb66b95c-abbb-4ec5-aefb-7cf0e7bb66bf",
+              "created_at": "2026-06-20T00:21:52.623287+00:00",
+              "updated_at": "2026-06-20T00:21:52.623287+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "bbfc73a0-5306-4238-952f-922751d1ea8d",
+              "created_at": "2026-06-19T21:30:52.312113+00:00",
+              "updated_at": "2026-06-19T21:30:52.312113+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "ca09d7de-30bd-4893-92db-4ba60be0d36a",
+              "created_at": "2026-06-17T01:39:28.277086+00:00",
+              "updated_at": "2026-06-17T01:39:28.277086+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 333
+            },
+            {
+              "id": "d58ab564-fd64-448f-899d-8c197d0883a3",
+              "created_at": "2026-06-17T01:39:26.126709+00:00",
+              "updated_at": "2026-06-17T01:39:26.126709+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 365
+            },
+            {
+              "id": "de48b0af-1597-40a8-9f45-b5da5fb49415",
+              "created_at": "2026-06-20T03:07:19.441157+00:00",
+              "updated_at": "2026-06-20T03:07:19.441157+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "avisado",
+                "origem_user"
+              ],
+              "data_size_bytes": 365
+            },
+            {
+              "id": "e689a386-ec08-4c5c-ad23-cc478e853428",
+              "created_at": "2026-05-31T02:40:36.527885+00:00",
+              "updated_at": "2026-06-02T15:49:25.430872+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 382
+            },
+            {
+              "id": "e6dec67a-e961-4ddd-b9c3-29b9fe8acdfa",
+              "created_at": "2026-05-31T02:40:36.312717+00:00",
+              "updated_at": "2026-06-02T15:49:25.973692+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 415
+            },
+            {
+              "id": "ed0c0945-3c93-4854-8456-139a5431e2dd",
+              "created_at": "2026-06-02T20:44:02.707511+00:00",
+              "updated_at": "2026-06-03T23:14:10.593175+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 381
+            },
+            {
+              "id": "eea30058-092c-4c88-a539-bb08f4dff1c2",
+              "created_at": "2026-06-09T19:20:13.417089+00:00",
+              "updated_at": "2026-06-09T23:20:13.418250+00:00",
+              "data_keys": [
+                "criado_em",
+                "mensagem",
+                "descricao",
+                "enviado_em",
+                "data_hora",
+                "destinatario",
+                "canal",
+                "minutos_antes",
+                "alvo_evento",
+                "status",
+                "origem_user",
+                "avisado"
+              ],
+              "data_size_bytes": 382
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7394370553",
+      "created_at": "2025-03-19T16:51:46.617410+00:00",
+      "updated_at": "2025-05-07T20:17:20.147747+00:00",
+      "data_keys": [
+        "proximoPagamento",
+        "estilo",
+        "estilo_mensagem",
+        "eventos",
+        "modo_uso",
+        "tipo_usuario",
+        "planosAtivos",
+        "tipo_negocio",
+        "tipoNegocio",
+        "calendar_id",
+        "nome",
+        "id_negocio",
+        "pagamentoAtivo",
+        "email_credentials",
+        "email",
+        "dataAssinatura"
+      ],
+      "data_size_bytes": 1212,
+      "subcollections": {
+        "AgendaLocks": {
+          "name": "AgendaLocks",
+          "document_count": 8,
+          "documents": [
+            {
+              "id": "bruna_20260620_100000",
+              "created_at": "2026-06-19T21:30:48.838359+00:00",
+              "updated_at": "2026-06-19T21:30:50.196805+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            },
+            {
+              "id": "bruna_20260620_101000",
+              "created_at": "2026-06-19T21:30:49.237511+00:00",
+              "updated_at": "2026-06-19T21:30:50.420626+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            },
+            {
+              "id": "bruna_20260620_110000",
+              "created_at": "2026-06-20T00:21:49.115922+00:00",
+              "updated_at": "2026-06-20T00:21:50.483761+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            },
+            {
+              "id": "bruna_20260620_111000",
+              "created_at": "2026-06-20T00:21:49.565107+00:00",
+              "updated_at": "2026-06-20T00:21:50.695511+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            },
+            {
+              "id": "bruna_20260622_100000",
+              "created_at": "2026-06-20T03:07:17.404551+00:00",
+              "updated_at": "2026-06-20T03:07:18.981421+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            },
+            {
+              "id": "bruna_20260622_101000",
+              "created_at": "2026-06-20T03:07:17.847203+00:00",
+              "updated_at": "2026-06-20T03:07:19.200753+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            },
+            {
+              "id": "bruna_20260622_102000",
+              "created_at": "2026-06-20T03:09:13.479041+00:00",
+              "updated_at": "2026-06-20T03:09:14.864050+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            },
+            {
+              "id": "bruna_20260622_103000",
+              "created_at": "2026-06-20T03:09:13.903144+00:00",
+              "updated_at": "2026-06-20T03:09:15.085261+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 265
+            }
+          ]
+        },
+        "ClienteProfiles": {
+          "name": "ClienteProfiles",
+          "document_count": 1,
+          "documents": [
+            {
+              "id": "7371670478",
+              "created_at": "2026-06-17T01:39:26.744522+00:00",
+              "updated_at": "2026-06-20T03:09:15.941055+00:00",
+              "data_keys": [
+                "criado_em",
+                "tenant_id",
+                "tendencias",
+                "cliente_id",
+                "historico",
+                "eventos_processados",
+                "nome",
+                "versao",
+                "email",
+                "atualizado_em"
+              ],
+              "data_size_bytes": 1203
+            }
+          ]
+        },
+        "Contatos": {
+          "name": "Contatos",
+          "document_count": 1,
+          "documents": [
+            {
+              "id": "anderson_agostinho",
+              "created_at": "2025-04-26T19:39:09.020694+00:00",
+              "updated_at": "2025-04-26T19:39:09.020694+00:00",
+              "data_keys": [
+                "nome",
+                "email"
+              ],
+              "data_size_bytes": 71
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bateria_p0_user_teste_001",
+      "created_at": "2026-06-20T01:56:35.702999+00:00",
+      "updated_at": "2026-06-20T01:56:35.702999+00:00",
+      "data_keys": [
+        "nome",
+        "id_negocio",
+        "tipo_usuario",
+        "email"
+      ],
+      "data_size_bytes": 125,
+      "subcollections": {
+        "MemoriaTemporaria": {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            {
+              "id": "contexto",
+              "created_at": "2026-06-20T01:39:23.937506+00:00",
+              "updated_at": "2026-06-23T10:22:09.221503+00:00",
+              "data_keys": [
+                "aguardando_confirmacao_agendamento",
+                "draft_agendamento",
+                "_tenant_id_guard",
+                "ultima_acao",
+                "estado_fluxo"
+              ],
+              "data_size_bytes": 295
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "whatsapp:55119999006",
+      "created_at": "2026-06-22T23:53:27.788862+00:00",
+      "updated_at": "2026-06-22T23:53:27.788862+00:00",
+      "data_keys": [
+        "nome",
+        "pagamentoAtivo",
+        "planosAtivos",
+        "canal"
+      ],
+      "data_size_bytes": 102,
+      "subcollections": {
+        "AgendaLocks": {
+          "name": "AgendaLocks",
+          "document_count": 6,
+          "documents": [
+            {
+              "id": "bruna_20260622_180000",
+              "created_at": "2026-06-22T21:10:16.965459+00:00",
+              "updated_at": "2026-06-22T21:10:17.202079+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 259
+            },
+            {
+              "id": "bruna_20260622_181000",
+              "created_at": "2026-06-22T21:10:17.008211+00:00",
+              "updated_at": "2026-06-22T21:10:17.225078+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 259
+            },
+            {
+              "id": "bruna_20260622_182000",
+              "created_at": "2026-06-22T21:10:17.052524+00:00",
+              "updated_at": "2026-06-22T21:10:17.253441+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 259
+            },
+            {
+              "id": "bruna_20260622_183000",
+              "created_at": "2026-06-22T21:10:17.107224+00:00",
+              "updated_at": "2026-06-22T21:10:17.277203+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 259
+            },
+            {
+              "id": "bruna_20260623_140000",
+              "created_at": "2026-06-22T21:12:01.081494+00:00",
+              "updated_at": "2026-06-22T21:12:01.226369+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 259
+            },
+            {
+              "id": "bruna_20260623_141000",
+              "created_at": "2026-06-22T21:12:01.122852+00:00",
+              "updated_at": "2026-06-22T21:12:01.252319+00:00",
+              "data_keys": [
+                "profissional",
+                "timestamp_lock",
+                "evento_id",
+                "expira_em",
+                "status",
+                "bucket",
+                "timestamp_confirmacao"
+              ],
+              "data_size_bytes": 259
+            }
+          ]
+        },
+        "Atores": {
+          "name": "Atores",
+          "document_count": 1,
+          "documents": [
+            {
+              "id": "whatsapp:55119999006",
+              "created_at": "2026-06-22T00:01:28.024591+00:00",
+              "updated_at": "2026-06-22T00:01:28.024591+00:00",
+              "data_keys": [
+                "permissoes",
+                "criado_em",
+                "actor_id",
+                "tenant_id",
+                "identificador",
+                "canal",
+                "criado_por",
+                "nome",
+                "email",
+                "tipo_usuario",
+                "atualizado_em",
+                "ativo"
+              ],
+              "data_size_bytes": 425
+            }
+          ]
+        },
+        "Eventos": {
+          "name": "Eventos",
+          "document_count": 2,
+          "documents": [
+            {
+              "id": "none_bruna_2026-06-22_18:00",
+              "created_at": "2026-06-22T21:10:17.170841+00:00",
+              "updated_at": "2026-06-22T21:10:17.170841+00:00",
+              "data_keys": [
+                "criado_em",
+                "profissional",
+                "hora_fim",
+                "confirmado",
+                "cliente_id",
+                "link",
+                "cliente_nome",
+                "data",
+                "hora_inicio",
+                "status",
+                "confirmado_em",
+                "servico"
+              ],
+              "data_size_bytes": 324
+            },
+            {
+              "id": "none_bruna_2026-06-23_14:00",
+              "created_at": "2026-06-22T21:12:01.188433+00:00",
+              "updated_at": "2026-06-22T21:12:01.188433+00:00",
+              "data_keys": [
+                "criado_em",
+                "profissional",
+                "hora_fim",
+                "confirmado",
+                "cliente_id",
+                "link",
+                "cliente_nome",
+                "data",
+                "hora_inicio",
+                "status",
+                "confirmado_em",
+                "servico"
+              ],
+              "data_size_bytes": 324
+            }
+          ]
+        },
+        "MemoriaTemporaria": {
+          "name": "MemoriaTemporaria",
+          "document_count": 1,
+          "documents": [
+            {
+              "id": "contexto",
+              "created_at": "2026-06-22T00:01:28.083214+00:00",
+              "updated_at": "2026-06-23T10:23:46.180627+00:00",
+              "data_keys": [
+                "actor_id",
+                "draft_agendamento",
+                "modo_conversa",
+                "interpretacao_conversacional",
+                "onboarding_etapa",
+                "aguardando_confirmacao_agendamento",
+                "tipo_usuario",
+                "confianca_intencao_conversacional",
+                "tipo_ajuste_incremental",
+                "draft_confirmacao",
+                "permissoes",
+                "tenant_id",
+                "estado_fluxo",
+                "_tenant_id_guard",
+                "canal",
+                "objetivo_conversacional",
+                "intencao_conversacional",
+                "confirmacao_pendente",
+                "historico_texto",
+                "dados_confirmacao_agendamento"
+              ],
+              "data_size_bytes": 1277
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "statistics": {
+    "total_root_docs": 4,
+    "total_subcollections": 10,
+    "total_documents_in_subcollections": 52,
+    "total_data_bytes": 1728
+  }
+}

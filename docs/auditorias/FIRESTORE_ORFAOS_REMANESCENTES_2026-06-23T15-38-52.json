@@ -1,0 +1,74 @@
+{
+  "timestamp": "2026-06-23T15:38:52.690521",
+  "orphaned_documents": [
+    {
+      "id": "teste_fluxo_p1_03ce2799",
+      "exists": false,
+      "subcollections": [
+        {
+          "name": "Atores",
+          "document_count": 1
+        },
+        {
+          "name": "Configuracao",
+          "document_count": 1
+        },
+        {
+          "name": "Profissionais",
+          "document_count": 1
+        },
+        {
+          "name": "ServicosNegocio",
+          "document_count": 2
+        },
+        {
+          "name": "Sessoes",
+          "document_count": 1
+        }
+      ],
+      "total_documents_in_subcols": 6
+    },
+    {
+      "id": "audit_06_724aba09",
+      "exists": false,
+      "subcollections": [],
+      "total_documents_in_subcols": 0
+    },
+    {
+      "id": "audit_cenario_05_gpt_3e7e159a",
+      "exists": false,
+      "subcollections": [],
+      "total_documents_in_subcols": 0
+    },
+    {
+      "id": "cliente_limpa_a",
+      "exists": false,
+      "subcollections": [],
+      "total_documents_in_subcols": 0
+    },
+    {
+      "id": "cliente_limpa_b",
+      "exists": false,
+      "subcollections": [],
+      "total_documents_in_subcols": 0
+    },
+    {
+      "id": "dono_fluxo_teste_a",
+      "exists": false,
+      "subcollections": [],
+      "total_documents_in_subcols": 0
+    },
+    {
+      "id": "bateria_p0_dono_teste",
+      "exists": false,
+      "subcollections": [],
+      "total_documents_in_subcols": 0
+    }
+  ],
+  "statistics": {
+    "total": 7,
+    "with_subcollections": 1,
+    "total_subcollections": 5,
+    "total_documents_in_subcols": 6
+  }
+}

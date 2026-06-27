@@ -1,0 +1,754 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.9, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\ANDERSON\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\tests
+plugins: anyio-4.8.0, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 9 items
+
+runner_p1_identidade_canal_onboarding.py::test_01_dono_primeiro_acesso_cria_tenant_e_ator [AVISO] Erro ao limpar tenant teste_tenant_maria_001: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[ERRO] Resolver ator: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+FAILED
+runner_p1_identidade_canal_onboarding.py::test_02_dono_incompleto_onboarding [CLEANUP] Tenant teste_tenant_maria_001 limpo
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[OK] Onboarding iniciado para tenant teste_tenant_maria_001
+[OK] Etapa avançada para: segmento (tenant: teste_tenant_maria_001)
+[OK] Etapa avançada para: endereco (tenant: teste_tenant_maria_001)
+[PASS] Cenário 2: Onboarding incompleto OK
+[CLEANUP] Tenant teste_tenant_maria_001 limpo
+PASSED
+runner_p1_identidade_canal_onboarding.py::test_03_cliente_novo_criacao_automatica [CLEANUP] Tenant teste_tenant_maria_001 limpo
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[OK] Ator CLIENTE criado automaticamente: whatsapp:11988888888 (tenant: teste_tenant_maria_001)
+[PASS] Cenário 3: Cliente novo automático OK
+[CLEANUP] Tenant teste_tenant_maria_001 limpo
+PASSED
+runner_p1_identidade_canal_onboarding.py::test_04_cliente_nao_vira_dono [CLEANUP] Tenant teste_tenant_maria_001 limpo
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[OK] Ator CLIENTE criado automaticamente: whatsapp:11988888888 (tenant: teste_tenant_maria_001)
+[PASS] Cenário 4: Cliente isolado de dono OK
+[CLEANUP] Tenant teste_tenant_maria_001 limpo
+PASSED
+runner_p1_identidade_canal_onboarding.py::test_05_profissional_criado_pelo_dono [CLEANUP] Tenant teste_tenant_maria_001 limpo
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[OK] Ator PROFISSIONAL criado: whatsapp:11977777777 (tenant: teste_tenant_maria_001)
+[PASS] Cenário 5: Profissional criado OK
+[AVISO] Erro ao limpar tenant teste_tenant_maria_001: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+PASSED
+runner_p1_identidade_canal_onboarding.py::test_06_multitenant_isolamento [AVISO] Erro ao limpar tenant teste_tenant_maria_001: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+[AVISO] Erro ao limpar tenant teste_tenant_joao_002: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_joao_002)
+[ERRO] Resolver ator: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+[ERRO] Resolver ator: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+FAILED
+runner_p1_identidade_canal_onboarding.py::test_07_sessao_sem_cataloogo [AVISO] Erro ao limpar tenant teste_tenant_maria_001: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[OK] Onboarding iniciado para tenant teste_tenant_maria_001
+[ERRO] Avançar etapa onboarding: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+FAILED
+runner_p1_identidade_canal_onboarding.py::test_08_onboarding_minimo_completo [AVISO] Erro ao limpar tenant teste_tenant_maria_001: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+[OK] Ator DONO criado: whatsapp:11999999999 (tenant: teste_tenant_maria_001)
+[OK] Onboarding iniciado para tenant teste_tenant_maria_001
+[ERRO] Avançar etapa onboarding: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+FAILED
+runner_p1_identidade_canal_onboarding.py::test_09_regressao_p0_fluxo_agendamento [PASS] Cenário 9: Regressão P0 sanidade OK
+PASSED
+
+================================== FAILURES ===================================
+_______________ test_01_dono_primeiro_acesso_cria_tenant_e_ator _______________
+
+tenant_teste_1 = 'teste_tenant_maria_001'
+
+    @pytest.mark.asyncio
+    async def test_01_dono_primeiro_acesso_cria_tenant_e_ator(tenant_teste_1):
+        """
+        Quando dono acessa pela primeira vez:
+        \u2705 Cria novo tenant
+        \u2705 Cria Ator com tipo_usuario=dono
+        \u2705 Inicia onboarding
+        """
+        limpar_tenant(tenant_teste_1)
+    
+        canal = "whatsapp"
+        identificador = "11999999999"
+        nome_dono = "Maria Silva"
+        email_dono = "maria@email.com"
+    
+        # ACT: Normalizar e criar ator dono
+        actor_id = normalizar_actor_id(canal, identificador)
+        assert actor_id == "whatsapp:11999999999", f"actor_id esperado 'whatsapp:11999999999', obtido '{actor_id}'"
+    
+        ator_criado = await criar_ator_dono(
+            tenant_id=tenant_teste_1,
+            canal=canal,
+            identificador=identificador,
+            nome=nome_dono,
+            email=email_dono
+        )
+    
+        # ASSERT: Ator dono criado
+        assert ator_criado["tipo_usuario"] == "dono"
+        assert ator_criado["actor_id"] == actor_id
+        assert ator_criado["tenant_id"] == tenant_teste_1
+        assert ator_criado["ativo"] == True
+        assert "permissoes" in ator_criado
+        assert "admin" in ator_criado["permissoes"]
+    
+        # ACT: Resolver ator (verificar persistência)
+        ator_resolv = await resolver_ator_por_canal(tenant_teste_1, canal, identificador)
+>       assert ator_resolv is not None, "Ator não foi persistido"
+E       AssertionError: Ator não foi persistido
+E       assert None is not None
+
+runner_p1_identidade_canal_onboarding.py:143: AssertionError
+_______________________ test_06_multitenant_isolamento ________________________
+
+tenant_teste_1 = 'teste_tenant_maria_001'
+tenant_teste_2 = 'teste_tenant_joao_002'
+
+    @pytest.mark.asyncio
+    async def test_06_multitenant_isolamento(tenant_teste_1, tenant_teste_2):
+        """
+        Quando mesma canal/identificador usado em tenants diferentes:
+        \u2705 Dados n\xe3o se misturam
+        \u2705 Tenant A isolado de Tenant B
+        \u2705 actor_id resolve para tenant correto
+        """
+        limpar_tenant(tenant_teste_1)
+        limpar_tenant(tenant_teste_2)
+    
+        # Setup: Mesmo número em tenants diferentes (Maria e João)
+        canal = "whatsapp"
+        identificador = "11999999999"  # Mesmo número
+    
+        # ACT: Criar dono em Tenant A (Maria)
+        await criar_ator_dono(tenant_teste_1, canal, identificador, "Maria", "maria@email.com")
+    
+        # ACT: Criar dono em Tenant B (João) com mesmo número
+        await criar_ator_dono(tenant_teste_2, canal, identificador, "João", "joao@email.com")
+    
+        # ACT: Resolver em Tenant A
+        ator_a = await resolver_ator_por_canal(tenant_teste_1, canal, identificador)
+        # ACT: Resolver em Tenant B
+        ator_b = await resolver_ator_por_canal(tenant_teste_2, canal, identificador)
+    
+        # ASSERT: Diferentes, apesar do mesmo canal/identificador
+>       assert ator_a["tenant_id"] == tenant_teste_1
+               ^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+runner_p1_identidade_canal_onboarding.py:394: TypeError
+________________________ test_07_sessao_sem_cataloogo _________________________
+
+args = (database: "projects/projeto-agente-inteligente/databases/(default)"
+documents: "projects/projeto-agente-inteligente/databases/(default)/documents/Clientes/teste_tenant_maria_001/Configuracao/negocio"
+,)
+kwargs = {'metadata': [('google-cloud-resource-prefix', 'projects/projeto-agente-inteligente/databases/(default)'), ('x-goog-re...ault%29'), ('x-goog-api-client', 'gl-python/3.12.9 grpc/1.70.0 gax/2.24.1 gapic/2.20.0')], 'timeout': 33.8873131275177}
+
+    @functools.wraps(callable_)
+    def error_remapped_callable(*args, **kwargs):
+        try:
+            result = callable_(*args, **kwargs)
+            # Auto-fetching the first result causes PubSub client's streaming pull
+            # to hang when re-opening the stream, thus we need examine the hacky
+            # hidden flag to see if pre-fetching is disabled.
+            # https://github.com/googleapis/python-pubsub/issues/93#issuecomment-630762257
+            prefetch_first = getattr(callable_, "_prefetch_first_result_", True)
+>           return _StreamingResponseIterator(
+                result, prefetch_first_result=prefetch_first
+            )
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\grpc_helpers.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\grpc_helpers.py:92: in __init__
+    self._stored_first_result = next(self._wrapped)
+                                ^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\grpc\_channel.py:543: in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <_MultiThreadedRendezvous of RPC that terminated with:
+	status = StatusCode.RESOURCE_EXHAUSTED
+	details = "Quota excee...1:836::200a%5D:443 {grpc_message:"Quota exceeded.", grpc_status:8, created_time:"2026-06-23T20:38:33.7504769+00:00"}"
+>
+
+    def _next(self) -> Any:
+        with self._state.condition:
+            if self._state.code is None:
+                event_handler = _event_handler(
+                    self._state, self._response_deserializer
+                )
+                self._state.due.add(cygrpc.OperationType.receive_message)
+                operating = self._call.operate(
+                    (cygrpc.ReceiveMessageOperation(_EMPTY_FLAGS),),
+                    event_handler,
+                )
+                if not operating:
+                    self._state.due.remove(cygrpc.OperationType.receive_message)
+            elif self._state.code is grpc.StatusCode.OK:
+                raise StopIteration()
+            else:
+                raise self
+    
+            def _response_ready():
+                return self._state.response is not None or (
+                    cygrpc.OperationType.receive_message not in self._state.due
+                    and self._state.code is not None
+                )
+    
+            _common.wait(self._state.condition.wait, _response_ready)
+            if self._state.response is not None:
+                response = self._state.response
+                self._state.response = None
+                return response
+            elif cygrpc.OperationType.receive_message not in self._state.due:
+                if self._state.code is grpc.StatusCode.OK:
+                    raise StopIteration()
+                elif self._state.code is not None:
+>                   raise self
+E                   grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+E                   	status = StatusCode.RESOURCE_EXHAUSTED
+E                   	details = "Quota exceeded."
+E                   	debug_error_string = "UNKNOWN:Error received from peer ipv6:%5B2800:3f0:4001:836::200a%5D:443 {grpc_message:"Quota exceeded.", grpc_status:8, created_time:"2026-06-23T20:38:33.7504769+00:00"}"
+E                   >
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\grpc\_channel.py:969: _MultiThreadedRendezvous
+
+The above exception was the direct cause of the following exception:
+
+target = functools.partial(<function _wrap_stream_errors.<locals>.error_remapped_callable at 0x0000018AC6BCAAC0>, database: "pr...-inteligente/databases/%28default%29'), ('x-goog-api-client', 'gl-python/3.12.9 grpc/1.70.0 gax/2.24.1 gapic/2.20.0')])
+predicate = <function if_exception_type.<locals>.if_exception_type_predicate at 0x0000018AC59A5C60>
+sleep_generator = <generator object exponential_sleep_generator at 0x0000018AC6B11000>
+timeout = 300.0, on_error = None
+exception_factory = <function build_retry_error at 0x0000018AC57932E0>
+kwargs = {}
+
+    def retry_target(
+        target: Callable[[], _R],
+        predicate: Callable[[Exception], bool],
+        sleep_generator: Iterable[float],
+        timeout: float | None = None,
+        on_error: Callable[[Exception], None] | None = None,
+        exception_factory: Callable[
+            [list[Exception], RetryFailureReason, float | None],
+            tuple[Exception, Exception | None],
+        ] = build_retry_error,
+        **kwargs,
+    ):
+        """Call a function and retry if it fails.
+    
+        This is the lowest-level retry helper. Generally, you'll use the
+        higher-level retry helper :class:`Retry`.
+    
+        Args:
+            target(Callable): The function to call and retry. This must be a
+                nullary function - apply arguments with `functools.partial`.
+            predicate (Callable[Exception]): A callable used to determine if an
+                exception raised by the target should be considered retryable.
+                It should return True to retry or False otherwise.
+            sleep_generator (Iterable[float]): An infinite iterator that determines
+                how long to sleep between retries.
+            timeout (Optional[float]): How long to keep retrying the target.
+                Note: timeout is only checked before initiating a retry, so the target may
+                run past the timeout value as long as it is healthy.
+            on_error (Optional[Callable[Exception]]): If given, the on_error
+                callback will be called with each retryable exception raised by the
+                target. Any error raised by this function will *not* be caught.
+            exception_factory: A function that is called when the retryable reaches
+                a terminal failure state, used to construct an exception to be raised.
+                It takes a list of all exceptions encountered, a retry.RetryFailureReason
+                enum indicating the failure cause, and the original timeout value
+                as arguments. It should return a tuple of the exception to be raised,
+                along with the cause exception if any. The default implementation will raise
+                a RetryError on timeout, or the last exception encountered otherwise.
+            deadline (float): DEPRECATED: use ``timeout`` instead. For backward
+                compatibility, if specified it will override ``timeout`` parameter.
+    
+        Returns:
+            Any: the return value of the target function.
+    
+        Raises:
+            ValueError: If the sleep generator stops yielding values.
+            Exception: a custom exception specified by the exception_factory if provided.
+                If no exception_factory is provided:
+                    google.api_core.RetryError: If the timeout is exceeded while retrying.
+                    Exception: If the target raises an error that isn't retryable.
+        """
+    
+        timeout = kwargs.get("deadline", timeout)
+    
+        deadline = time.monotonic() + timeout if timeout is not None else None
+        error_list: list[Exception] = []
+    
+        for sleep in sleep_generator:
+            try:
+>               result = target()
+                         ^^^^^^^^
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_unary.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\timeout.py:130: in func_with_timeout
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+args = (database: "projects/projeto-agente-inteligente/databases/(default)"
+documents: "projects/projeto-agente-inteligente/databases/(default)/documents/Clientes/teste_tenant_maria_001/Configuracao/negocio"
+,)
+kwargs = {'metadata': [('google-cloud-resource-prefix', 'projects/projeto-agente-inteligente/databases/(default)'), ('x-goog-re...ault%29'), ('x-goog-api-client', 'gl-python/3.12.9 grpc/1.70.0 gax/2.24.1 gapic/2.20.0')], 'timeout': 33.8873131275177}
+
+    @functools.wraps(callable_)
+    def error_remapped_callable(*args, **kwargs):
+        try:
+            result = callable_(*args, **kwargs)
+            # Auto-fetching the first result causes PubSub client's streaming pull
+            # to hang when re-opening the stream, thus we need examine the hacky
+            # hidden flag to see if pre-fetching is disabled.
+            # https://github.com/googleapis/python-pubsub/issues/93#issuecomment-630762257
+            prefetch_first = getattr(callable_, "_prefetch_first_result_", True)
+            return _StreamingResponseIterator(
+                result, prefetch_first_result=prefetch_first
+            )
+        except grpc.RpcError as exc:
+>           raise exceptions.from_grpc_error(exc) from exc
+E           google.api_core.exceptions.ResourceExhausted: 429 Quota exceeded.
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\grpc_helpers.py:174: ResourceExhausted
+
+The above exception was the direct cause of the following exception:
+
+tenant_teste_1 = 'teste_tenant_maria_001'
+
+    @pytest.mark.asyncio
+    async def test_07_sessao_sem_cataloogo(tenant_teste_1):
+        """
+        Quando onboarding progride:
+        \u2705 Estado fluxo armazenado em Sessoes
+        \u2705 Dados permanentes em Configuracao/negocio
+        \u2705 Sess\xe3o N\xc3O cont\xe9m profissionais, servi\xe7os, agenda completa
+        \u2705 Sess\xe3o apenas: actor_id, tenant_id, estado_fluxo, etapa_atual
+        """
+        limpar_tenant(tenant_teste_1)
+    
+        actor_id = normalizar_actor_id("whatsapp", "11999999999")
+        await criar_ator_dono(tenant_teste_1, "whatsapp", "11999999999", "Maria", "maria@email.com")
+    
+        # ACT: Iniciar onboarding
+        await iniciar_onboarding_dono(tenant_teste_1, actor_id, "Maria", "maria@email.com")
+    
+        # ACT: Avançar etapas (vários campos salvos)
+>       await avancar_etapa_onboarding(tenant_teste_1, "nome_negocio", "Salão da Maria")
+
+runner_p1_identidade_canal_onboarding.py:427: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\services\onboarding_dono_service.py:175: in avancar_etapa_onboarding
+    proxima_etapa = await asyncio.to_thread(atualizar)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\services\onboarding_dono_service.py:138: in atualizar
+    config_doc = config_ref.get()
+                 ^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\cloud\firestore_v1\document.py:403: in get
+    response_iter = self._client._firestore_api.batch_get_documents(
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\cloud\firestore_v1\services\firestore\client.py:1154: in batch_get_documents
+    response = rpc(
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\gapic_v1\method.py:131: in __call__
+    return wrapped_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_unary.py:293: in retry_wrapped_func
+    return retry_target(
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_unary.py:153: in retry_target
+    _retry_error_helper(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+exc = ResourceExhausted('Quota exceeded.'), deadline = 37537.703
+next_sleep = 46.95503002124303
+error_list = [ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ...]
+predicate_fn = <function if_exception_type.<locals>.if_exception_type_predicate at 0x0000018AC59A5C60>
+on_error_fn = None
+exc_factory_fn = <function build_retry_error at 0x0000018AC57932E0>
+original_timeout = 300.0
+
+    def _retry_error_helper(
+        exc: Exception,
+        deadline: float | None,
+        next_sleep: float,
+        error_list: list[Exception],
+        predicate_fn: Callable[[Exception], bool],
+        on_error_fn: Callable[[Exception], None] | None,
+        exc_factory_fn: Callable[
+            [list[Exception], RetryFailureReason, float | None],
+            tuple[Exception, Exception | None],
+        ],
+        original_timeout: float | None,
+    ):
+        """
+        Shared logic for handling an error for all retry implementations
+    
+        - Raises an error on timeout or non-retryable error
+        - Calls on_error_fn if provided
+        - Logs the error
+    
+        Args:
+           - exc: the exception that was raised
+           - deadline: the deadline for the retry, calculated as a diff from time.monotonic()
+           - next_sleep: the next sleep interval
+           - error_list: the list of exceptions that have been raised so far
+           - predicate_fn: takes `exc` and returns true if the operation should be retried
+           - on_error_fn: callback to execute when a retryable error occurs
+           - exc_factory_fn: callback used to build the exception to be raised on terminal failure
+           - original_timeout_val: the original timeout value for the retry (in seconds),
+               to be passed to the exception factory for building an error message
+        """
+        error_list.append(exc)
+        if not predicate_fn(exc):
+            final_exc, source_exc = exc_factory_fn(
+                error_list,
+                RetryFailureReason.NON_RETRYABLE_ERROR,
+                original_timeout,
+            )
+            raise final_exc from source_exc
+        if on_error_fn is not None:
+            on_error_fn(exc)
+        if deadline is not None and time.monotonic() + next_sleep > deadline:
+            final_exc, source_exc = exc_factory_fn(
+                error_list,
+                RetryFailureReason.TIMEOUT,
+                original_timeout,
+            )
+>           raise final_exc from source_exc
+E           google.api_core.exceptions.RetryError: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_base.py:221: RetryError
+_____________________ test_08_onboarding_minimo_completo ______________________
+
+args = (database: "projects/projeto-agente-inteligente/databases/(default)"
+documents: "projects/projeto-agente-inteligente/databases/(default)/documents/Clientes/teste_tenant_maria_001/Configuracao/negocio"
+,)
+kwargs = {'metadata': [('google-cloud-resource-prefix', 'projects/projeto-agente-inteligente/databases/(default)'), ('x-goog-re...ases/%28default%29'), ('x-goog-api-client', 'gl-python/3.12.9 grpc/1.70.0 gax/2.24.1 gapic/2.20.0')], 'timeout': 300.0}
+
+    @functools.wraps(callable_)
+    def error_remapped_callable(*args, **kwargs):
+        try:
+            result = callable_(*args, **kwargs)
+            # Auto-fetching the first result causes PubSub client's streaming pull
+            # to hang when re-opening the stream, thus we need examine the hacky
+            # hidden flag to see if pre-fetching is disabled.
+            # https://github.com/googleapis/python-pubsub/issues/93#issuecomment-630762257
+            prefetch_first = getattr(callable_, "_prefetch_first_result_", True)
+>           return _StreamingResponseIterator(
+                result, prefetch_first_result=prefetch_first
+            )
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\grpc_helpers.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\grpc_helpers.py:92: in __init__
+    self._stored_first_result = next(self._wrapped)
+                                ^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\grpc\_channel.py:543: in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <_MultiThreadedRendezvous of RPC that terminated with:
+	status = StatusCode.RESOURCE_EXHAUSTED
+	details = "Quota excee...1:836::200a%5D:443 {grpc_message:"Quota exceeded.", grpc_status:8, created_time:"2026-06-23T20:48:44.9404728+00:00"}"
+>
+
+    def _next(self) -> Any:
+        with self._state.condition:
+            if self._state.code is None:
+                event_handler = _event_handler(
+                    self._state, self._response_deserializer
+                )
+                self._state.due.add(cygrpc.OperationType.receive_message)
+                operating = self._call.operate(
+                    (cygrpc.ReceiveMessageOperation(_EMPTY_FLAGS),),
+                    event_handler,
+                )
+                if not operating:
+                    self._state.due.remove(cygrpc.OperationType.receive_message)
+            elif self._state.code is grpc.StatusCode.OK:
+                raise StopIteration()
+            else:
+                raise self
+    
+            def _response_ready():
+                return self._state.response is not None or (
+                    cygrpc.OperationType.receive_message not in self._state.due
+                    and self._state.code is not None
+                )
+    
+            _common.wait(self._state.condition.wait, _response_ready)
+            if self._state.response is not None:
+                response = self._state.response
+                self._state.response = None
+                return response
+            elif cygrpc.OperationType.receive_message not in self._state.due:
+                if self._state.code is grpc.StatusCode.OK:
+                    raise StopIteration()
+                elif self._state.code is not None:
+>                   raise self
+E                   grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+E                   	status = StatusCode.RESOURCE_EXHAUSTED
+E                   	details = "Quota exceeded."
+E                   	debug_error_string = "UNKNOWN:Error received from peer ipv6:%5B2800:3f0:4001:836::200a%5D:443 {grpc_message:"Quota exceeded.", grpc_status:8, created_time:"2026-06-23T20:48:44.9404728+00:00"}"
+E                   >
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\grpc\_channel.py:969: _MultiThreadedRendezvous
+
+The above exception was the direct cause of the following exception:
+
+target = functools.partial(<function _wrap_stream_errors.<locals>.error_remapped_callable at 0x0000018AC6AD4680>, database: "pr...-inteligente/databases/%28default%29'), ('x-goog-api-client', 'gl-python/3.12.9 grpc/1.70.0 gax/2.24.1 gapic/2.20.0')])
+predicate = <function if_exception_type.<locals>.if_exception_type_predicate at 0x0000018AC59A5C60>
+sleep_generator = <generator object exponential_sleep_generator at 0x0000018AC6C42500>
+timeout = 300.0, on_error = None
+exception_factory = <function build_retry_error at 0x0000018AC57932E0>
+kwargs = {}
+
+    def retry_target(
+        target: Callable[[], _R],
+        predicate: Callable[[Exception], bool],
+        sleep_generator: Iterable[float],
+        timeout: float | None = None,
+        on_error: Callable[[Exception], None] | None = None,
+        exception_factory: Callable[
+            [list[Exception], RetryFailureReason, float | None],
+            tuple[Exception, Exception | None],
+        ] = build_retry_error,
+        **kwargs,
+    ):
+        """Call a function and retry if it fails.
+    
+        This is the lowest-level retry helper. Generally, you'll use the
+        higher-level retry helper :class:`Retry`.
+    
+        Args:
+            target(Callable): The function to call and retry. This must be a
+                nullary function - apply arguments with `functools.partial`.
+            predicate (Callable[Exception]): A callable used to determine if an
+                exception raised by the target should be considered retryable.
+                It should return True to retry or False otherwise.
+            sleep_generator (Iterable[float]): An infinite iterator that determines
+                how long to sleep between retries.
+            timeout (Optional[float]): How long to keep retrying the target.
+                Note: timeout is only checked before initiating a retry, so the target may
+                run past the timeout value as long as it is healthy.
+            on_error (Optional[Callable[Exception]]): If given, the on_error
+                callback will be called with each retryable exception raised by the
+                target. Any error raised by this function will *not* be caught.
+            exception_factory: A function that is called when the retryable reaches
+                a terminal failure state, used to construct an exception to be raised.
+                It takes a list of all exceptions encountered, a retry.RetryFailureReason
+                enum indicating the failure cause, and the original timeout value
+                as arguments. It should return a tuple of the exception to be raised,
+                along with the cause exception if any. The default implementation will raise
+                a RetryError on timeout, or the last exception encountered otherwise.
+            deadline (float): DEPRECATED: use ``timeout`` instead. For backward
+                compatibility, if specified it will override ``timeout`` parameter.
+    
+        Returns:
+            Any: the return value of the target function.
+    
+        Raises:
+            ValueError: If the sleep generator stops yielding values.
+            Exception: a custom exception specified by the exception_factory if provided.
+                If no exception_factory is provided:
+                    google.api_core.RetryError: If the timeout is exceeded while retrying.
+                    Exception: If the target raises an error that isn't retryable.
+        """
+    
+        timeout = kwargs.get("deadline", timeout)
+    
+        deadline = time.monotonic() + timeout if timeout is not None else None
+        error_list: list[Exception] = []
+    
+        for sleep in sleep_generator:
+            try:
+>               result = target()
+                         ^^^^^^^^
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_unary.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\timeout.py:130: in func_with_timeout
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+args = (database: "projects/projeto-agente-inteligente/databases/(default)"
+documents: "projects/projeto-agente-inteligente/databases/(default)/documents/Clientes/teste_tenant_maria_001/Configuracao/negocio"
+,)
+kwargs = {'metadata': [('google-cloud-resource-prefix', 'projects/projeto-agente-inteligente/databases/(default)'), ('x-goog-re...ases/%28default%29'), ('x-goog-api-client', 'gl-python/3.12.9 grpc/1.70.0 gax/2.24.1 gapic/2.20.0')], 'timeout': 300.0}
+
+    @functools.wraps(callable_)
+    def error_remapped_callable(*args, **kwargs):
+        try:
+            result = callable_(*args, **kwargs)
+            # Auto-fetching the first result causes PubSub client's streaming pull
+            # to hang when re-opening the stream, thus we need examine the hacky
+            # hidden flag to see if pre-fetching is disabled.
+            # https://github.com/googleapis/python-pubsub/issues/93#issuecomment-630762257
+            prefetch_first = getattr(callable_, "_prefetch_first_result_", True)
+            return _StreamingResponseIterator(
+                result, prefetch_first_result=prefetch_first
+            )
+        except grpc.RpcError as exc:
+>           raise exceptions.from_grpc_error(exc) from exc
+E           google.api_core.exceptions.ResourceExhausted: 429 Quota exceeded.
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\grpc_helpers.py:174: ResourceExhausted
+
+The above exception was the direct cause of the following exception:
+
+tenant_teste_1 = 'teste_tenant_maria_001'
+
+    @pytest.mark.asyncio
+    async def test_08_onboarding_minimo_completo(tenant_teste_1):
+        """
+        Quando onboarding atinge mínimo:
+        \u2705 Todos 8 campos obrigat\xf3rios preenchidos
+        \u2705 validar_onboarding_minimo retorna True
+        \u2705 Sistema pode receber pedido de agendamento real
+        """
+        limpar_tenant(tenant_teste_1)
+    
+        actor_id = normalizar_actor_id("whatsapp", "11999999999")
+        await criar_ator_dono(tenant_teste_1, "whatsapp", "11999999999", "Maria", "maria@email.com")
+        await iniciar_onboarding_dono(tenant_teste_1, actor_id, "Maria", "maria@email.com")
+    
+        # ACT: Preencher todos os 8 campos obrigatórios
+        campos = [
+            ("nome_negocio", "Salão da Maria"),
+            ("segmento", "Salão de Cabelo"),
+            ("endereco", "Rua A, 123"),
+            ("agenda_padrao", "9:00-18:00"),
+            ("primeiro_profissional", "Bruna"),
+            ("canal_primeiro_profissional", "11977777777"),
+            ("primeiro_servico", "Corte"),
+            ("duracao_primeiro_servico", "30")
+        ]
+    
+        for campo, valor in campos:
+>           await avancar_etapa_onboarding(tenant_teste_1, campo, valor)
+
+runner_p1_identidade_canal_onboarding.py:475: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\services\onboarding_dono_service.py:175: in avancar_etapa_onboarding
+    proxima_etapa = await asyncio.to_thread(atualizar)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\services\onboarding_dono_service.py:138: in atualizar
+    config_doc = config_ref.get()
+                 ^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\cloud\firestore_v1\document.py:403: in get
+    response_iter = self._client._firestore_api.batch_get_documents(
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\cloud\firestore_v1\services\firestore\client.py:1154: in batch_get_documents
+    response = rpc(
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\gapic_v1\method.py:131: in __call__
+    return wrapped_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_unary.py:293: in retry_wrapped_func
+    return retry_target(
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_unary.py:153: in retry_target
+    _retry_error_helper(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+exc = ResourceExhausted('Quota exceeded.'), deadline = 38114.968
+next_sleep = 41.55626595206318
+error_list = [ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ResourceExhausted('Quota exceeded.'), ...]
+predicate_fn = <function if_exception_type.<locals>.if_exception_type_predicate at 0x0000018AC59A5C60>
+on_error_fn = None
+exc_factory_fn = <function build_retry_error at 0x0000018AC57932E0>
+original_timeout = 300.0
+
+    def _retry_error_helper(
+        exc: Exception,
+        deadline: float | None,
+        next_sleep: float,
+        error_list: list[Exception],
+        predicate_fn: Callable[[Exception], bool],
+        on_error_fn: Callable[[Exception], None] | None,
+        exc_factory_fn: Callable[
+            [list[Exception], RetryFailureReason, float | None],
+            tuple[Exception, Exception | None],
+        ],
+        original_timeout: float | None,
+    ):
+        """
+        Shared logic for handling an error for all retry implementations
+    
+        - Raises an error on timeout or non-retryable error
+        - Calls on_error_fn if provided
+        - Logs the error
+    
+        Args:
+           - exc: the exception that was raised
+           - deadline: the deadline for the retry, calculated as a diff from time.monotonic()
+           - next_sleep: the next sleep interval
+           - error_list: the list of exceptions that have been raised so far
+           - predicate_fn: takes `exc` and returns true if the operation should be retried
+           - on_error_fn: callback to execute when a retryable error occurs
+           - exc_factory_fn: callback used to build the exception to be raised on terminal failure
+           - original_timeout_val: the original timeout value for the retry (in seconds),
+               to be passed to the exception factory for building an error message
+        """
+        error_list.append(exc)
+        if not predicate_fn(exc):
+            final_exc, source_exc = exc_factory_fn(
+                error_list,
+                RetryFailureReason.NON_RETRYABLE_ERROR,
+                original_timeout,
+            )
+            raise final_exc from source_exc
+        if on_error_fn is not None:
+            on_error_fn(exc)
+        if deadline is not None and time.monotonic() + next_sleep > deadline:
+            final_exc, source_exc = exc_factory_fn(
+                error_list,
+                RetryFailureReason.TIMEOUT,
+                original_timeout,
+            )
+>           raise final_exc from source_exc
+E           google.api_core.exceptions.RetryError: Timeout of 300.0s exceeded, last exception: 429 Quota exceeded.
+
+..\..\..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\api_core\retry\retry_base.py:221: RetryError
+============================== warnings summary ===============================
+runner_p1_identidade_canal_onboarding.py::test_05_profissional_criado_pelo_dono
+  C:\Users\ANDERSON\AppData\Local\Programs\Python\Python312\Lib\site-packages\google\cloud\firestore_v1\base_collection.py:303: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+    return query.where(field_path, op_string, value)
+
+runner_p1_identidade_canal_onboarding.py::test_05_profissional_criado_pelo_dono
+  C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\services\identidade_service.py:324: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+    .where("nome", "==", nome)
+
+runner_p1_identidade_canal_onboarding.py::test_05_profissional_criado_pelo_dono
+  C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\services\identidade_service.py:354: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+    .where("ativo", "==", True)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED runner_p1_identidade_canal_onboarding.py::test_01_dono_primeiro_acesso_cria_tenant_e_ator
+FAILED runner_p1_identidade_canal_onboarding.py::test_06_multitenant_isolamento
+FAILED runner_p1_identidade_canal_onboarding.py::test_07_sessao_sem_cataloogo
+FAILED runner_p1_identidade_canal_onboarding.py::test_08_onboarding_minimo_completo
+============ 4 failed, 5 passed, 3 warnings in 3469.81s (0:57:49) =============
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1782247730.527222   28880 init.cc:232] grpc_wait_for_shutdown_with_timeout() timed out.
+
+================================================================================
+BATERIA P1: Identidade por Canal + Onboarding Automático do Dono
+================================================================================
+

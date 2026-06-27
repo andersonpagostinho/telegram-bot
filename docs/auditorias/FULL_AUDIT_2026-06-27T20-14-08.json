@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-06-27T20:14:08.334154",
+  "projeto": "projeto-agente-inteligente",
+  "total_collections": 13,
+  "test_collections": 3,
+  "total_test_docs": 0,
+  "collections": {
+    "teste_collection": {
+      "is_test_collection": true,
+      "total_docs": 1,
+      "test_doc_ids": []
+    },
+    "teste_diagnostico_1782176458": {
+      "is_test_collection": true,
+      "total_docs": 10,
+      "test_doc_ids": []
+    },
+    "testes": {
+      "is_test_collection": true,
+      "total_docs": 3,
+      "test_doc_ids": []
+    }
+  }
+}

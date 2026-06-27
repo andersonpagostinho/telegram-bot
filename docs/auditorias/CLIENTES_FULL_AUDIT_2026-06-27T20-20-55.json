@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-27T20:20:55.958560",
+  "collection": "Clientes",
+  "total_documents": 3,
+  "test_documents": 0,
+  "all_document_ids": [
+    "7371670478",
+    "7394370553",
+    "whatsapp:55119999006"
+  ],
+  "test_document_ids": [],
+  "detailed": [
+    {
+      "id": "7371670478",
+      "created": "2026-02-16T23:03:23.243656+00:00",
+      "updated": "2026-02-16T23:03:23.243656+00:00",
+      "fields": [
+        "proximoPagamento",
+        "estilo",
+        "planosAtivos",
+        "tipo_negocio",
+        "modo_uso",
+        "nome",
+        "dataAssinatura",
+        "id_negocio",
+        "pagamentoAtivo",
+        "tipo_usuario",
+        "email"
+      ]
+    },
+    {
+      "id": "7394370553",
+      "created": "2025-03-19T16:51:46.617410+00:00",
+      "updated": "2025-05-07T20:17:20.147747+00:00",
+      "fields": [
+        "proximoPagamento",
+        "estilo",
+        "estilo_mensagem",
+        "eventos",
+        "modo_uso",
+        "tipo_usuario",
+        "planosAtivos",
+        "tipo_negocio",
+        "tipoNegocio",
+        "calendar_id",
+        "nome",
+        "id_negocio",
+        "pagamentoAtivo",
+        "email_credentials",
+        "email",
+        "dataAssinatura"
+      ]
+    },
+    {
+      "id": "whatsapp:55119999006",
+      "created": "2026-06-22T23:53:27.788862+00:00",
+      "updated": "2026-06-22T23:53:27.788862+00:00",
+      "fields": [
+        "nome",
+        "pagamentoAtivo",
+        "planosAtivos",
+        "canal"
+      ]
+    }
+  ]
+}

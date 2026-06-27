@@ -1,0 +1,18 @@
+{
+  "total_test_docs": 4,
+  "total_test_cols": 3,
+  "total_docs": 1364,
+  "paths_by_type": {
+    "test_docs": [
+      "Clientes/7394370553/Eventos/TEST_PERSISTENCIA_cancelamento_bruna_2026-06-17_1000",
+      "Clientes/7394370553/Eventos/test_bruna_2026-06-29_14:00",
+      "Clientes/7394370553/Eventos/test_bruna_2026-06-29_14:40",
+      "testes/primeiro_teste"
+    ],
+    "test_cols": [
+      "teste_collection",
+      "teste_diagnostico_1782176458",
+      "testes"
+    ]
+  }
+}

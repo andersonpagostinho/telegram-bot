@@ -1,0 +1,233 @@
+{
+  "timestamp": "2026-06-23T15:34:03.694689",
+  "allowlist_count": 43,
+  "protected_tenants": [
+    "7371670478",
+    "whatsapp:55119999006",
+    "7394370553"
+  ],
+  "deletions": [
+    {
+      "id": "cliente_limpa_a",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "cliente_limpa_b",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "cliente_mesmo_id",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "cliente_p0_real_A",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "cliente_p0_real_B",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "desconhecido",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_a_59f6a70b",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_a_82c62727",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_a_9c748d98",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_a_c587b377",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_a_f6d12d49",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_agenda_teste_a",
+      "subcollections_count": 2,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_agenda_teste_b",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_b_59f6a70b",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_b_82c62727",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_b_9c748d98",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_b_f6d12d49",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_fluxo_teste_a",
+      "subcollections_count": 3,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_p0_real_A",
+      "subcollections_count": 2,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_p0_real_B",
+      "subcollections_count": 2,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_test_123",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_59f6a70b",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_59f6a70b_02",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_59f6a70b_04",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_59f6a70b_ag01",
+      "subcollections_count": 2,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_82c62727",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_82c62727_02",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_82c62727_04",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_82c62727_ag01",
+      "subcollections_count": 2,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_9c748d98",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_9c748d98_02",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_9c748d98_04",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_9c748d98_ag01",
+      "subcollections_count": 2,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_c587b377",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_c587b377_02",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_c587b377_04",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "dono_teste_c587b377_ag01",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "bateria_p0_dono_teste",
+      "subcollections_count": 1,
+      "status": "deleted"
+    },
+    {
+      "id": "audit_06_724aba09",
+      "subcollections_count": 5,
+      "status": "deleted"
+    },
+    {
+      "id": "audit_cenario_05_gpt_3e7e159a",
+      "subcollections_count": 5,
+      "status": "deleted"
+    },
+    {
+      "id": "audit_cenario_05_gpt_63486548",
+      "subcollections_count": 4,
+      "status": "deleted"
+    },
+    {
+      "id": "audit_cenario_05_gpt_9e1a396a",
+      "subcollections_count": 4,
+      "status": "deleted"
+    },
+    {
+      "id": "audit_cenario_05_gpt_d24428a8",
+      "subcollections_count": 4,
+      "status": "deleted"
+    }
+  ],
+  "errors": [],
+  "statistics": {
+    "documents_processed": 43,
+    "subcollections_deleted": 68,
+    "documents_in_subcols_deleted": 709,
+    "protected_docs_protected": 0
+  }
+}
