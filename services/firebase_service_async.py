@@ -13,36 +13,81 @@ import json
 
 PROJECT_ID = "projeto-agente-inteligente"
 
-# [PRODUCAO] Ler credenciais de variável de ambiente Render
+# [PRODUCAO] Ler credenciais de variável de ambiente
 firebase_json_str = os.getenv("FIREBASE_CREDENTIALS")
 
 if not firebase_json_str:
-    raise ValueError("❌ Variável FIREBASE_CREDENTIALS não encontrada!")
+    raise ValueError("[ERROR] Variavel FIREBASE_CREDENTIALS nao encontrada!")
 
-# Se a variável for um JSON completo (e não um caminho)
-try:
-    firebase_json = json.loads(firebase_json_str)
-    firebase_json_path = "firebase_credentials.json"
+firebase_json_path = None
 
-    # Criar um arquivo temporário
-    with open(firebase_json_path, "w") as f:
-        json.dump(firebase_json, f)
+# Estratégia 1: Verificar se é um JSON (começa com {)
+if firebase_json_str.strip().startswith("{"):
+    try:
+        firebase_json = json.loads(firebase_json_str)
+        firebase_json_path = "firebase_credentials.json"
 
-    print(f"✅ Arquivo Firebase criado: {firebase_json_path}", flush=True)
+        # Criar um arquivo temporário
+        with open(firebase_json_path, "w") as f:
+            json.dump(firebase_json, f)
 
-except json.JSONDecodeError:
-    firebase_json_path = firebase_json_str  # Assume que é um caminho válido
-    print(f"[INFO] Usando arquivo Firebase: {firebase_json_path}", flush=True)
+        print(f"[OK] Arquivo Firebase criado como JSON: {firebase_json_path}", flush=True)
 
-# Inicializar o Firebase
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"[WARN] Falha ao fazer parse de JSON: {type(e).__name__}: {str(e)[:100]}", flush=True)
+        # Se falhou, não tentar mais como JSON
+        firebase_json_path = None
+else:
+    # Estratégia 2: É um caminho de arquivo (não começa com {)
+    firebase_json_path = firebase_json_str
+    print(f"[INFO] Variavel FIREBASE_CREDENTIALS parece ser um caminho", flush=True)
+
+# Estratégia 3: Se ainda não temos path, tentar resolver como arquivo no projeto
+if not firebase_json_path:
+    # Tentar como arquivo no diretório do projeto
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_path = os.path.join(project_root, "firebase_credentials.json")
+
+    if os.path.exists(default_path):
+        firebase_json_path = default_path
+        print(f"[INFO] Usando arquivo padrao do projeto: {firebase_json_path}", flush=True)
+    else:
+        raise FileNotFoundError(f"[ERROR] Nao foi possivel encontrar credenciais Firebase")
+
+# Estratégia 4: Resolver caminho relativo se necessário
+if not os.path.isabs(firebase_json_path):
+    if not os.path.exists(firebase_json_path):
+        # Tenta no diretório do projeto (pai de services/)
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        firebase_json_path = os.path.join(project_root, os.path.basename(firebase_json_str))
+        print(f"[INFO] Resolvendo caminho relativo: {firebase_json_path}", flush=True)
+
+if not os.path.exists(firebase_json_path):
+    raise FileNotFoundError(f"[ERROR] Arquivo Firebase nao encontrado: {firebase_json_path}")
+
+print(f"[OK] Arquivo Firebase validado: {firebase_json_path}", flush=True)
+
+# Validar que temos um caminho válido
+if not firebase_json_path or not os.path.exists(firebase_json_path):
+    raise FileNotFoundError(f"[ERROR] Arquivo Firebase nao encontrado: {firebase_json_path}")
+
+# [FIX-ASYNC] Definir GOOGLE_APPLICATION_CREDENTIALS para que AsyncClient() encontre credenciais
+if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = firebase_json_path
+    print(f"[INFO] GOOGLE_APPLICATION_CREDENTIALS definido: {firebase_json_path}", flush=True)
+
+# Inicializar o Firebase Admin SDK (para funções que precisam de contexto admin)
 try:
     cred = credentials.Certificate(firebase_json_path)
     firebase_admin.initialize_app(cred)
-    client = firestore.client()
-    print(f"✅ Firestore inicializado com sucesso!", flush=True)
-except Exception as e:
-    print(f"❌ Erro ao inicializar Firestore: {e}", flush=True)
-    raise
+except ValueError:
+    # Firebase já inicializado em outro lugar
+    pass
+
+# [FIX-ASYNC] Usar AsyncClient em vez de firestore.client() (sync)
+# AsyncClient() usa GOOGLE_APPLICATION_CREDENTIALS que acabamos de definir
+client = AsyncClient()
+print(f"[OK] Firestore inicializado com sucesso!", flush=True)
 
 # [LOOP] Utilitário para navegar até o path
 def get_ref_from_path(path: str):

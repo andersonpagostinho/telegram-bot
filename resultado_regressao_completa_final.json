@@ -1,0 +1,98 @@
+{
+  "timestamp": "2026-06-27T22:10:22.241469-03:00",
+  "p1": {
+    "esperados": 3,
+    "passaram": 3,
+    "falharam": 0,
+    "testes": [
+      {
+        "arquivo": "p1_e2e_onboarding_identidade_real.py",
+        "tipo": "P1",
+        "sucesso": true,
+        "exit_code": 0
+      },
+      {
+        "arquivo": "p1_e2e_onboarding_individual_real.py",
+        "tipo": "P1",
+        "sucesso": true,
+        "exit_code": 0
+      },
+      {
+        "arquivo": "p1_e2e_onboarding_operacional_completo_real.py",
+        "tipo": "P1",
+        "sucesso": true,
+        "exit_code": 0
+      }
+    ]
+  },
+  "p0": {
+    "esperados": 174,
+    "passaram": 174,
+    "falharam": 0,
+    "baterias": [
+      {
+        "arquivo": "p0_bateria_real_fluxo_completo_conflito_a_criacao.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 7
+      },
+      {
+        "arquivo": "p0_bateria_real_cancelamento_completo.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 15
+      },
+      {
+        "arquivo": "p0_real_confirmacao_pendente_completo.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 17
+      },
+      {
+        "arquivo": "p0_real_mudanca_contexto_completo.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 25
+      },
+      {
+        "arquivo": "p0_real_multi_entidades_completo.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 15
+      },
+      {
+        "arquivo": "p0_real_ajuste_incremental_avancado.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 20
+      },
+      {
+        "arquivo": "p0_real_notificacoes_e2e.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 20
+      },
+      {
+        "arquivo": "p0_real_admin_dono_completo.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 25
+      },
+      {
+        "arquivo": "p0_real_profissional_completo.py",
+        "tipo": "P0",
+        "sucesso": true,
+        "exit_code": 0,
+        "cenarios_esperados": 30
+      }
+    ]
+  }
+}

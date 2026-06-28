@@ -10,7 +10,7 @@ load_dotenv(override=True)
 firebase_json_str = os.getenv("FIREBASE_CREDENTIALS")
 
 if not firebase_json_str:
-    raise ValueError("❌ Variável FIREBASE_CREDENTIALS não encontrada!")
+    raise ValueError("[ERROR] Variavel FIREBASE_CREDENTIALS nao encontrada!")
 
 # Se a variável for um JSON completo (e não um caminho)
 try:

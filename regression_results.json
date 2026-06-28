@@ -1,0 +1,92 @@
+{
+  "timestamp": "2026-06-27 21:06:54",
+  "p1_results": {
+    "tests/p1_e2e_onboarding_identidade_real.py": {
+      "file": "tests/p1_e2e_onboarding_identidade_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/p1_e2e_onboarding_individual_real.py": {
+      "file": "tests/p1_e2e_onboarding_individual_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/p1_e2e_onboarding_operacional_completo_real.py": {
+      "file": "tests/p1_e2e_onboarding_operacional_completo_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/p1_robustez_entrada_gpt_real.py": {
+      "file": "tests/p1_robustez_entrada_gpt_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/p1_robustez_fluxo_conversacional_real.py": {
+      "file": "tests/p1_robustez_fluxo_conversacional_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "",
+      "stderr": "\\\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\\\n07/dJPgMF9UlKRKDpTPTKiVM\\\\n-----END PRIVATE KEY-----\\\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/'\n"
+    }
+  },
+  "p0_results": {
+    "tests/runner_p0_e2e_firestore_real.py": {
+      "file": "tests/runner_p0_e2e_firestore_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "fQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n[ERRO] Falha ao inicializar Firestore: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n\n[ERRO] Falha na execu\u00e7\u00e3o: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/runner_p0_agenda_critica_real.py": {
+      "file": "tests/runner_p0_agenda_critica_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/runner_p0_multitenant_real.py": {
+      "file": "tests/runner_p0_multitenant_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/runner_p0_persistencia_real.py": {
+      "file": "tests/runner_p0_persistencia_real.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    },
+    "tests/runner_p0_resiliencia_operacional_real.py": {
+      "file": "tests/runner_p0_resiliencia_operacional_real.py",
+      "exit_code": 0,
+      "passed": true,
+      "stdout": "",
+      "stderr": ""
+    },
+    "tests/p0_real_notificacoes_e2e.py": {
+      "file": "tests/p0_real_notificacoes_e2e.py",
+      "exit_code": 1,
+      "passed": false,
+      "stdout": "KYiWG9pP\\ns/TbXqbSVZWvp9THa63ZRYGK2iwJsd3x0rdKL2Bl6aXVhsHFVGz4NrHh+4XtlMI4\\nFza1rvfcuSb4A98pEeZOOi+bwYmLPwOrWiIt6FdRAoGBALO4a1xeckBXWu/Mhty0\\nmoTuG5ak7hT2HT+4xA2zdmNqmD7KZf1bLpgYbJ1d1spgnszScevHdqWo6eMJthHJ\\nM1RifQzB6p8WYLVuIYNnZJR6z+9MjEJdZMKV/m/mRT8lfQcGp7Jz8wWtmz0sTF5L\\n07/dJPgMF9UlKRKDpTPTKiVM\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"firebase-adminsdk-fbsvc@projeto-agente-inteligente.iam.gserviceaccount.com\",\"client_id\":\"117111453696086643559\",\"auth_uri\":\"https://accounts.google.com/o/\n",
+      "stderr": "odule>\n    print(f\"\\u274c Erro ao inicializar Firestore: {e}\", flush=True)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ANDERSON\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u274c' in position 0: character maps to <undefined>\n"
+    }
+  },
+  "summary": {
+    "p1_total": 5,
+    "p1_passed": 0,
+    "p1_failed": 5,
+    "p0_total": 6,
+    "p0_passed": 1,
+    "p0_failed": 5
+  }
+}
