@@ -152,19 +152,22 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
 
     # ⏸️ SEG-05B MEC-03: DETECTAR /PAUSAR E /RETOMAR
     from services.mec03_override_service import processar_comando_pausar, processar_comando_retomar
-    from utils.pattern_matcher import eh_comando
+    from utils.pattern_matcher import eh_comando, extrair_comando
 
-    if eh_comando(msg_text, "/pausar"):
-        sucesso, msg_pausar = await processar_comando_pausar(user_id, tenant_id)
-        await update.message.reply_text(msg_pausar, parse_mode="Markdown")
-        print(f"[MEC-03] /pausar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
-        raise ApplicationHandlerStop
+    if eh_comando(msg_text):
+        comando = extrair_comando(msg_text)
 
-    if eh_comando(msg_text, "/retomar"):
-        sucesso, msg_retomar = await processar_comando_retomar(user_id, tenant_id)
-        await update.message.reply_text(msg_retomar, parse_mode="Markdown")
-        print(f"[MEC-03] /retomar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
-        raise ApplicationHandlerStop
+        if comando == "pausar":
+            sucesso, msg_pausar = await processar_comando_pausar(user_id, tenant_id)
+            await update.message.reply_text(msg_pausar, parse_mode="Markdown")
+            print(f"[MEC-03] /pausar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
+            raise ApplicationHandlerStop
+
+        if comando == "retomar":
+            sucesso, msg_retomar = await processar_comando_retomar(user_id, tenant_id)
+            await update.message.reply_text(msg_retomar, parse_mode="Markdown")
+            print(f"[MEC-03] /retomar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
+            raise ApplicationHandlerStop
 
     # ⏸️ SEG-05B MEC-03: VERIFICAR RESPONDER_AUTOMATICAMENTE ANTES DE CHAMAR GPT
     from services.governanca_service import carregar_governanca

@@ -1,5 +1,5 @@
 {
-  "data_execucao": "2026-06-28T00:31:36.902240",
+  "data_execucao": "2026-06-28T00:44:40.885116",
   "ambiente": "FIREBASE_REAL",
   "fase": "VALIDACAO_BATERIA_15_COMPLETA",
   "cenarios_totais": 15,
@@ -190,8 +190,8 @@
       "status": "PASSOU",
       "etapas": {
         "idempotencia": {
-          "primeiro_cancelado_em": "2026-06-28T00:31:39.329855",
-          "segundo_cancelado_em": "2026-06-28T00:31:39.375182",
+          "primeiro_cancelado_em": "2026-06-28T00:44:43.193113",
+          "segundo_cancelado_em": "2026-06-28T00:44:43.236480",
           "status_final": "cancelado",
           "sem_erro": true
         }
