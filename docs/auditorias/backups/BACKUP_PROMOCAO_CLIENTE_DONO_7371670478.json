@@ -1,0 +1,179 @@
+{
+  "timestamp": "2026-06-28T01:29:03.172639",
+  "actor_id": "7371670478",
+  "tenant_correto": "7394370553",
+  "documentos": [
+    {
+      "caminho": "Clientes/7371670478",
+      "tipo": "documento",
+      "existe": true,
+      "dados": {
+        "proximoPagamento": "2026-03-18",
+        "estilo": "",
+        "planosAtivos": [
+          "secretaria"
+        ],
+        "tipo_negocio": "",
+        "modo_uso": "atendimento_cliente",
+        "nome": "Anderson Agostinho",
+        "dataAssinatura": "2026-02-16",
+        "id_negocio": "7394370553",
+        "pagamentoAtivo": true,
+        "tipo_usuario": "cliente",
+        "email": ""
+      }
+    },
+    {
+      "caminho": "Clientes/7371670478/Atores",
+      "tipo": "colecao",
+      "existe": true,
+      "documentos": [
+        {
+          "id": "whatsapp:7371670478",
+          "dados": {
+            "permissoes": [
+              "admin",
+              "ler",
+              "escrever",
+              "deletar"
+            ],
+            "criado_em": "2026-06-28T03:02:22.005959+00:00",
+            "actor_id": "whatsapp:7371670478",
+            "tenant_id": "7371670478",
+            "identificador": "7371670478",
+            "canal": "whatsapp",
+            "criado_por": "sistema",
+            "nome": "Proprietário",
+            "email": "nao_informado@sistema.local",
+            "tipo_usuario": "dono",
+            "atualizado_em": "2026-06-28T03:02:22.005959+00:00",
+            "ativo": true
+          }
+        }
+      ]
+    },
+    {
+      "caminho": "Clientes/7394370553/Atores",
+      "tipo": "colecao",
+      "existe": true,
+      "documentos": [
+        {
+          "id": "whatsapp:7371670478",
+          "dados": {
+            "permissoes": [
+              "admin",
+              "ler",
+              "escrever",
+              "deletar"
+            ],
+            "criado_em": "2026-06-25T09:21:15.559727+00:00",
+            "actor_id": "whatsapp:7371670478",
+            "tenant_id": "7394370553",
+            "identificador": "7371670478",
+            "canal": "whatsapp",
+            "criado_por": "sistema",
+            "nome": "Proprietário",
+            "email": "nao_informado@sistema.local",
+            "tipo_usuario": "dono",
+            "atualizado_em": "2026-06-25T09:21:15.559727+00:00",
+            "ativo": true
+          }
+        }
+      ]
+    },
+    {
+      "caminho": "Clientes/7394370553/Sessoes",
+      "tipo": "colecao",
+      "existe": true,
+      "documentos": [
+        {
+          "id": "7371670478",
+          "dados": {
+            "agendamentos": [
+              {
+                "profissional": "Bruna",
+                "horario": "10:20",
+                "servico": "Corte"
+              },
+              {
+                "profissional": "Carla",
+                "horario": "11:00",
+                "servico": "Escova"
+              }
+            ],
+            "onboarding_etapa": "nome_negocio",
+            "ajuste_causa_conflito": true,
+            "confianca_intencao_conversacional": 85,
+            "incompativel": true,
+            "pergunta_pendente": "qual endereco?",
+            "tipo_usuario": "dono",
+            "profissional": "Bruna",
+            "duracao": 30,
+            "informacao_pedida": "Qual é o preço do corte?",
+            "tenant_id": "7394370553",
+            "_tenant_id_guard": "7394370553",
+            "ultima_acao": "contexto_limpo",
+            "horarios": [],
+            "tem_conflito": true,
+            "data_pendente": true,
+            "estado_fluxo": "onboarding_dono",
+            "horario": "09:40",
+            "atendimentos": [
+              {
+                "cliente": "eu",
+                "servico": "Corte",
+                "data": "2026-06-29"
+              },
+              {
+                "cliente": "filha",
+                "servico": "Escova",
+                "data": "2026-06-29"
+              }
+            ],
+            "opcoes_horario": [
+              "09:20",
+              "10:20",
+              "11:20"
+            ],
+            "actor_id": "whatsapp:7371670478",
+            "aguardando_confirmacao_agendamento": false,
+            "servicos": [
+              "Corte",
+              "Escova",
+              "Hidratação"
+            ],
+            "_updated_at": "2026-06-28T01:09:11.723324",
+            "_actor_id": "7371670478",
+            "aguardando_confirmacao_cancelamento": false,
+            "permissoes": [],
+            "contexto_versao": "v2",
+            "profissionais": [],
+            "_schema_version": 2,
+            "servicos_horarios": [
+              {
+                "horario": "10:00",
+                "servico": "Corte"
+              },
+              {
+                "horario": "14:00",
+                "servico": "Hidratação"
+              }
+            ],
+            "data": "2026-06-29"
+          }
+        }
+      ]
+    },
+    {
+      "caminho": "Clientes/7371670478/MemoriaTemporaria",
+      "tipo": "colecao",
+      "existe": true,
+      "documentos": [
+        {
+          "id": "contexto",
+          "dados": {}
+        }
+      ]
+    }
+  ]
+}

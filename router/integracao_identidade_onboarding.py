@@ -21,6 +21,7 @@ from services.identidade_service import (
     roteador_por_tipo_usuario,
 )
 from services.onboarding_dono_service import (
+    iniciar_onboarding_dono,
     validar_onboarding_minimo,
     pegar_etapa_onboarding,
     obter_pergunta_etapa,
@@ -74,11 +75,14 @@ async def resolver_ator_e_validar_guard(
         }
 
     # Passo 1: Resolver ator existente
+    print(f"[AUDIT] resolver_ator_e_validar_guard: procurando ator em Clientes/{tenant_id}/Atores/{actor_id}", flush=True)
     ator_existente = await resolver_ator_por_canal(
         tenant_id=tenant_id,
         canal=canal,
         identificador=identificador
     )
+
+    print(f"[AUDIT] ator_existente encontrado? {bool(ator_existente)}", flush=True)
 
     if ator_existente:
         # Ator encontrado — validar tipo_usuario
@@ -141,31 +145,84 @@ async def resolver_ator_e_validar_guard(
         }
 
     else:
-        # Ator não encontrado — aplicar regra determinística
-        # Se tenant NÃO tem dono: primeiro actor_id vira DONO
-        # Se tenant TEM dono: actor_id vira CLIENTE automático
+        # Ator não encontrado — PONTO 2: Nova lógica com guards
+        # P0 CRÍTICO (2026-06-28): Bloquear promoção automática cliente→dono
+        # Nunca criar dono apenas porque tenant_tem_dono()==False
+
+        print(f"[AUDIT] Ator não encontrado. Verificando papel do actor...", flush=True)
+        print(f"[GUARD] user_id={user_id}, tenant_id={tenant_id}, actor_id={actor_id}", flush=True)
+
+        # Guard 1: Verificar se há indicação de papel do ator
+        # Fontes confiáveis: modo_uso, tipo_usuario, id_negocio
+        eh_dono_explicito = (
+            tenant_id == user_id  # Caso raro: user_id é usado como tenant
+        )
+
+        print(f"[GUARD] eh_dono_explicito = {eh_dono_explicito}", flush=True)
 
         # Verificar se tenant possui dono
         tem_dono = await tenant_tem_dono(tenant_id)
+        print(f"[AUDIT] tenant_tem_dono({tenant_id}) = {tem_dono}", flush=True)
 
-        if not tem_dono:
-            # Primeiro acesso do tenant — criar DONO
+        if not eh_dono_explicito and not tem_dono:
+            # ⚠️ NOVO: Não crear dono automaticamente
+            # Criar cliente por padrão (fallback seguro)
+            print(f"[BLOQUEIO] Papel do actor ambíguo. Criando como CLIENTE (fallback seguro).", flush=True)
+
+            try:
+                ator_novo = await criar_ator_cliente_automatico(
+                    tenant_id=tenant_id,
+                    canal=canal,
+                    identificador=identificador,
+                    nome_detectado=""
+                )
+
+                return {
+                    "sucesso": True,
+                    "tipo_usuario": "cliente",
+                    "actor_id": actor_id,
+                    "ator": ator_novo,
+                    "requer_onboarding": False,
+                    "proxima_acao": "normal",
+                    "note": "Cliente criado (ambiguidade de papel: bloqueada promoção automática para dono)"
+                }
+            except Exception as e:
+                print(f"[ERRO] Falha ao criar cliente fallback: {e}", flush=True)
+                return {
+                    "sucesso": False,
+                    "tipo_usuario": None,
+                    "error": f"Falha ao criar cliente: {e}",
+                    "proxima_acao": "falha_segura"
+                }
+
+        elif eh_dono_explicito and not tem_dono:
+            # Caso explícito: actor é dono (user_id == tenant_id)
+            # Seguro criar dono
+            print(f"[ONBOARDING] Criar dono explícito: user_id==tenant_id={tenant_id}", flush=True)
+
             try:
                 ator_novo = await criar_ator_dono(
                     tenant_id=tenant_id,
                     canal=canal,
                     identificador=identificador,
-                    nome="Proprietário",  # Nome padrão até onboarding
+                    nome="Proprietário",
                     email="nao_informado@sistema.local"
                 )
 
-                # Iniciar onboarding
+                print(f"[ONBOARDING] Inicializando estrutura em Firestore para tenant {tenant_id}", flush=True)
+                await iniciar_onboarding_dono(
+                    tenant_id=tenant_id,
+                    actor_id=actor_id,
+                    dono_nome="Proprietário",
+                    dono_email="nao_informado@sistema.local"
+                )
+
                 try:
                     etapa_info = await pegar_etapa_onboarding(tenant_id)
                     proxima_etapa = etapa_info.get("etapa_atual", "nome_negocio") if etapa_info else "nome_negocio"
                     proxima_pergunta = obter_pergunta_etapa(proxima_etapa)
                 except Exception as e:
-                    print(f"[AVISO] Erro ao iniciar onboarding: {e}", flush=True)
+                    print(f"[AVISO] Erro ao obter etapa onboarding: {e}", flush=True)
                     proxima_etapa = "nome_negocio"
                     proxima_pergunta = "Qual é o nome do seu negócio?"
 
@@ -178,7 +235,7 @@ async def resolver_ator_e_validar_guard(
                     "onboarding_etapa": proxima_etapa,
                     "onboarding_pergunta": proxima_pergunta,
                     "proxima_acao": "onboarding",
-                    "note": "Primeiro acesso: DONO criado e onboarding iniciado"
+                    "note": "Dono criado (papel explícito: user_id==tenant_id)"
                 }
             except Exception as e:
                 print(f"[ERRO] Falha ao criar dono: {e}", flush=True)
@@ -188,14 +245,16 @@ async def resolver_ator_e_validar_guard(
                     "error": f"Falha ao criar dono: {e}",
                     "proxima_acao": "falha_segura"
                 }
+
         else:
-            # Tenant já tem dono — criar CLIENTE automático
+            # Tenant já tem dono OU papel é ambíguo
+            # Criar CLIENTE automático
             try:
                 ator_novo = await criar_ator_cliente_automatico(
                     tenant_id=tenant_id,
                     canal=canal,
                     identificador=identificador,
-                    nome_detectado=""  # Será preenchido durante onboarding
+                    nome_detectado=""
                 )
 
                 return {
@@ -232,6 +291,7 @@ async def processar_fluxo_identidade_onboarding(
 
     Se retornar None, continua no fluxo P0 normal.
     """
+    print(f"[IDENTIDADE] processar_fluxo_identidade_onboarding ENTRADA | tenant={tenant_id} | user={user_id}", flush=True)
     ctx = ctx or {}
 
     # Resolver ator e validar guard

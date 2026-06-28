@@ -244,8 +244,11 @@ async def processar_resposta_onboarding_dono(
         dict com handled=True e resposta, ou None se não está em onboarding
     """
 
+    print(f"[ONBOARDING] processar_resposta_onboarding_dono ENTRADA | tenant={tenant_id} | user={user_id} | estado_fluxo={ctx.get('estado_fluxo')}", flush=True)
+
     # Guard: está em onboarding?
     if ctx.get("estado_fluxo") != "onboarding_dono":
+        print(f"[ONBOARDING] SAÍDA: estado_fluxo != onboarding_dono (retorna None)", flush=True)
         return None
 
     try:
@@ -259,10 +262,12 @@ async def processar_resposta_onboarding_dono(
             }
 
         etapa_atual = etapa_info.get("etapa_atual")
-        print(f"[ONBOARDING] Processando resposta para etapa: {etapa_atual}")
+        print(f"[ONBOARDING] etapa_atual={etapa_atual}", flush=True)
+        print(f"[ONBOARDING] resposta_recebida='{texto_usuario}'", flush=True)
 
         # Guard: validar resposta
         validacao = validar_campo_onboarding(etapa_atual, texto_usuario)
+        print(f"[ONBOARDING] validacao={validacao}", flush=True)
         if not validacao.get("valido"):
             # Resposta inválida — pedir novamente
             pergunta = obter_pergunta_etapa(etapa_atual)
@@ -273,6 +278,7 @@ async def processar_resposta_onboarding_dono(
             }
 
         # Avançar etapa (salva e retorna próxima)
+        print(f"[ONBOARDING] avancar_etapa_onboarding CHAMADO com campo={etapa_atual}", flush=True)
         resultado_avanço = await avancar_etapa_onboarding(
             tenant_id=tenant_id,
             campo=etapa_atual,
@@ -282,7 +288,8 @@ async def processar_resposta_onboarding_dono(
         proxima_etapa = resultado_avanço.get("etapa_atual")
         proximo_passo = resultado_avanço.get("proximo_passo")
 
-        print(f"[ONBOARDING] Etapa {etapa_atual} completa → próxima: {proxima_etapa}")
+        print(f"[ONBOARDING] proxima_etapa={proxima_etapa}", flush=True)
+        print(f"[ONBOARDING] Etapa {etapa_atual} completa → próxima: {proxima_etapa}", flush=True)
 
         # Guard: verificar se completou onboarding mínimo
         if proxima_etapa == "completo":
@@ -312,6 +319,7 @@ async def processar_resposta_onboarding_dono(
         await salvar_contexto_temporario(user_id, ctx)
 
         # Retornar próxima pergunta
+        print(f"[ONBOARDING] retorno: handled=True, resposta='{proximo_passo[:50]}...'", flush=True)
         return {
             "handled": True,
             "resposta": proximo_passo

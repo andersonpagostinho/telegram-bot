@@ -60,11 +60,12 @@ async def iniciar_onboarding_dono(tenant_id: str, actor_id: str, dono_nome: str,
             "dono_email": dono_email
         }
 
+        print(f"[ONBOARDING] iniciar_onboarding_dono: salvando em Clientes/{tenant_id}/Configuracao/negocio", flush=True)
         await asyncio.to_thread(
             lambda: get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").set(config_data)
         )
 
-        print(f"[OK] Onboarding iniciado para tenant {tenant_id}")
+        print(f"[OK] Onboarding iniciado para tenant {tenant_id}", flush=True)
 
         return {
             "tenant_id": tenant_id,
