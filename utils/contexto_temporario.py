@@ -280,7 +280,7 @@ async def carregar_contexto_temporario(user_id: str, tenant_id: str = None):
     print(f"[DIAG_CARREGAR] lido_legado: existe={bool(data)} | estado_fluxo={data.get('estado_fluxo') if data else None} | cancelamento_pendente={bool(data.get('cancelamento_pendente')) if data else None}", flush=True)
 
     if not data:
-        print(f"🚨 [CTX VAZIO DETECTADO LEGADO] path={path}", flush=True)
+        print(f"[CTX VAZIO DETECTADO LEGADO] path={path}", flush=True)
         return None
 
     # 🔥 PATCH P0.1: Bloquear leitura sem tenant_id
