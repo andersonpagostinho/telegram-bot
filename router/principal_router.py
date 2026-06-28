@@ -9,7 +9,7 @@ from handlers.confirmacao_pendente_handler import resolver_confirmacao_pendente
 from services.gpt_executor import executar_acao_gpt, executar_acao_gpt_resultado
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional
-from services.onboarding_service import processar_onboarding_endereco_dono
+from services.onboarding_service import processar_onboarding_endereco_dono, processar_resposta_onboarding_dono
 from services.gpt_service import (
     processar_com_gpt_com_acao as chamar_gpt_com_contexto,
     gerar_resposta_p1,
@@ -3695,6 +3695,22 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
         # Garantia multi-tenant: SOMENTE dono dispara onboarding
         if str(user_id) == str(dono_id_onboarding):
+            # Primeiro: processar resposta do novo fluxo onboarding_dono
+            resultado_novo_onboarding = await processar_resposta_onboarding_dono(
+                user_id=user_id,
+                tenant_id=dono_id_onboarding,
+                texto_usuario=texto_usuario,
+                ctx=ctx,
+                context=context,
+            )
+
+            if resultado_novo_onboarding is not None:
+                if resultado_novo_onboarding.get("acao") == "send_stop":
+                    resposta = resultado_novo_onboarding.get("resposta", "")
+                    return await _send_and_stop(context, user_id, resposta)
+                return resultado_novo_onboarding
+
+            # Se não foi onboarding novo, tentar endereço (sistema antigo)
             resultado_onboarding = await processar_onboarding_endereco_dono(
                 user_id=user_id,
                 dono_id=dono_id_onboarding,

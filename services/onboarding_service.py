@@ -8,6 +8,14 @@ Serviço de Onboarding — Coleta de dados obrigatórios no primeiro acesso
 import re
 import json
 from utils.contexto_temporario import salvar_contexto_temporario
+from services.onboarding_dono_service import (
+    pegar_etapa_onboarding,
+    avancar_etapa_onboarding,
+    validar_campo_onboarding,
+    obter_pergunta_etapa,
+    marcar_onboarding_completo,
+    validar_onboarding_minimo
+)
 
 # Simulação de Firestore (será mockado nos testes)
 _firestore_data = {}
@@ -214,3 +222,104 @@ async def salvar_endereco_negocio(tenant_id: str, endereco: dict):
     except Exception as e:
         print(f"️ [ONBOARDING] Erro ao salvar endereço: {e}", flush=True)
         return False
+
+
+async def processar_resposta_onboarding_dono(
+    user_id: str,
+    tenant_id: str,
+    texto_usuario: str,
+    ctx: dict,
+    context
+):
+    """
+    Processa respostas durante onboarding do dono.
+
+    Fluxo:
+    1. Detecta se está em onboarding_dono
+    2. Obtém etapa atual e valida resposta
+    3. Avança etapa em Firestore
+    4. Retorna próxima pergunta ou marca como completo
+
+    Retorna:
+        dict com handled=True e resposta, ou None se não está em onboarding
+    """
+
+    # Guard: está em onboarding?
+    if ctx.get("estado_fluxo") != "onboarding_dono":
+        return None
+
+    try:
+        # Obter etapa atual
+        etapa_info = await pegar_etapa_onboarding(tenant_id)
+        if not etapa_info:
+            print(f"[ERRO] Não conseguiu obter etapa onboarding para {tenant_id}")
+            return {
+                "handled": True,
+                "resposta": "Erro ao processar onboarding. Tente novamente."
+            }
+
+        etapa_atual = etapa_info.get("etapa_atual")
+        print(f"[ONBOARDING] Processando resposta para etapa: {etapa_atual}")
+
+        # Guard: validar resposta
+        validacao = validar_campo_onboarding(etapa_atual, texto_usuario)
+        if not validacao.get("valido"):
+            # Resposta inválida — pedir novamente
+            pergunta = obter_pergunta_etapa(etapa_atual)
+            mensagem_erro = f"⚠️ Resposta inválida. {validacao.get('motivo', '')}\n\n{pergunta}"
+            return {
+                "handled": True,
+                "resposta": mensagem_erro
+            }
+
+        # Avançar etapa (salva e retorna próxima)
+        resultado_avanço = await avancar_etapa_onboarding(
+            tenant_id=tenant_id,
+            campo=etapa_atual,
+            valor=texto_usuario
+        )
+
+        proxima_etapa = resultado_avanço.get("etapa_atual")
+        proximo_passo = resultado_avanço.get("proximo_passo")
+
+        print(f"[ONBOARDING] Etapa {etapa_atual} completa → próxima: {proxima_etapa}")
+
+        # Guard: verificar se completou onboarding mínimo
+        if proxima_etapa == "completo":
+            # Tentar marcar como completo
+            validacao_minima = await validar_onboarding_minimo(tenant_id)
+            if validacao_minima.get("valido"):
+                await marcar_onboarding_completo(tenant_id)
+                ctx.update({
+                    "estado_fluxo": "idle",
+                    "onboarding_etapa": None
+                })
+                await salvar_contexto_temporario(user_id, ctx)
+
+                return {
+                    "handled": True,
+                    "resposta": "🎉 Parabéns! Seu negócio está pronto para receber agendamentos."
+                }
+            else:
+                # Ainda faltam campos — continuar
+                missing = validacao_minima.get("faltando", [])
+                print(f"[ONBOARDING] Faltando campos: {missing}")
+
+        # Atualizar contexto com próxima etapa
+        ctx.update({
+            "onboarding_etapa": proxima_etapa
+        })
+        await salvar_contexto_temporario(user_id, ctx)
+
+        # Retornar próxima pergunta
+        return {
+            "handled": True,
+            "resposta": proximo_passo
+        }
+
+    except Exception as e:
+        print(f"[ERRO] Processar resposta onboarding: {e}", flush=True)
+        return {
+            "handled": True,
+            "resposta": f"Erro ao processar: {str(e)}"
+        }
