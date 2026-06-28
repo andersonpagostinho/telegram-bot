@@ -1,0 +1,1 @@
+C:\Users\ANDERSON\AppData\Local\Programs\Python\Python312\python.exe: can't open file 'C:\\Users\\ANDERSON\\iCloudDrive\\Projeto Mercado Digital\\Agente Bot\\NeoEve - Empresarial\\tests\\runner_regressao_completa.py': [Errno 2] No such file or directory

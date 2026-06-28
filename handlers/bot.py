@@ -133,29 +133,98 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     tenant_id = await obter_id_dono(user_id)
     print(f"[TENANT_FIX] actor_id={user_id} | tenant_id={tenant_id} | função=tratar_mensagens_gerais", flush=True)
 
-    # 🔒 MEC-03: VERIFICAR WHITELIST CLASSE A
-    permitida, detalhes_bloqueio = await verificar_com_whitelist(
-        mensagem=msg_text,
-        actor_id=user_id,
+    # 📊 F1-01: AVALIAR TRANSIÇÃO DE LEAD_STATUS (DETERMINÍSTICO)
+    from services.lead_status_service import avaliar_transicao_deterministica, atualizar_lead_status
+
+    novo_status = await avaliar_transicao_deterministica(
+        cliente_actor_id=user_id,
         tenant_id=tenant_id,
-        registrar_bloqueio=True
+        mensagem=msg_text
     )
 
-    if not permitida and detalhes_bloqueio:
-        # Mensagem bloqueada por Whitelist
-        motivo = detalhes_bloqueio.get("motivo", "Mensagem não permitida")
-        categoria_esperada = detalhes_bloqueio.get("categoria_esperada", "Whitelist Classe A")
-
-        msg_resposta = (
-            f"⏸️ Bot em modo resposta manual.\n\n"
-            f"Esperando confirmações, cancelamentos ou comandos administrativos.\n"
-            f"(Categoria: {categoria_esperada})"
+    if novo_status:
+        await atualizar_lead_status(
+            cliente_actor_id=user_id,
+            tenant_id=tenant_id,
+            novo_status=novo_status,
+            motivo=f"mensagem_deterministica: {novo_status}"
         )
 
-        print(f"[WHITELIST-BLOQUEIO] user_id={user_id} | motivo={motivo}", flush=True)
+    # ⏸️ SEG-05B MEC-03: DETECTAR /PAUSAR E /RETOMAR
+    from services.mec03_override_service import processar_comando_pausar, processar_comando_retomar
+    from utils.pattern_matcher import eh_comando
 
-        await update.message.reply_text(msg_resposta)
+    if eh_comando(msg_text, "/pausar"):
+        sucesso, msg_pausar = await processar_comando_pausar(user_id, tenant_id)
+        await update.message.reply_text(msg_pausar, parse_mode="Markdown")
+        print(f"[MEC-03] /pausar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
         raise ApplicationHandlerStop
+
+    if eh_comando(msg_text, "/retomar"):
+        sucesso, msg_retomar = await processar_comando_retomar(user_id, tenant_id)
+        await update.message.reply_text(msg_retomar, parse_mode="Markdown")
+        print(f"[MEC-03] /retomar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
+        raise ApplicationHandlerStop
+
+    # ⏸️ SEG-05B MEC-03: VERIFICAR RESPONDER_AUTOMATICAMENTE ANTES DE CHAMAR GPT
+    from services.governanca_service import carregar_governanca
+
+    gov_data = await carregar_governanca(user_id, tenant_id)
+    responder_auto = gov_data.get("responder_automaticamente", True)
+    print(f"[MEC-03-BLOQUEIO] user_id={user_id} | responder_automaticamente={responder_auto}", flush=True)
+
+    if not responder_auto:
+        # Contato está pausado → verificar whitelist para permitir alguns comandos
+        permitida, detalhes_bloqueio = await verificar_com_whitelist(
+            mensagem=msg_text,
+            actor_id=user_id,
+            tenant_id=tenant_id,
+            registrar_bloqueio=True
+        )
+
+        if not permitida and detalhes_bloqueio:
+            # Mensagem bloqueada (fora da whitelist)
+            motivo = detalhes_bloqueio.get("motivo", "Mensagem não permitida")
+            categoria_esperada = detalhes_bloqueio.get("categoria_esperada", "Whitelist Classe A")
+
+            msg_resposta = (
+                f"⏸️ Você pausou as respostas automáticas.\n\n"
+                f"Atualmente, apenas comandos administrativos são permitidos.\n"
+                f"Use `/retomar` para voltar ao atendimento normal."
+            )
+
+            print(f"[MEC-03-BLOQUEIO-ATIVO] user_id={user_id} | motivo={motivo}", flush=True)
+
+            await update.message.reply_text(msg_resposta)
+            raise ApplicationHandlerStop
+
+        # Se passou na whitelist, continua o fluxo (mas o GPT não será chamado normalmente)
+        print(f"[MEC-03-PERMITIDO-WHITELIST] user_id={user_id} | mensagem permitida", flush=True)
+
+    # 🔒 VERIFICAÇÃO DE WHITELIST ORIGINAL (apenas se responder_auto=True)
+    if responder_auto:
+        permitida, detalhes_bloqueio = await verificar_com_whitelist(
+            mensagem=msg_text,
+            actor_id=user_id,
+            tenant_id=tenant_id,
+            registrar_bloqueio=True
+        )
+
+        if not permitida and detalhes_bloqueio:
+            # Mensagem bloqueada por Whitelist
+            motivo = detalhes_bloqueio.get("motivo", "Mensagem não permitida")
+            categoria_esperada = detalhes_bloqueio.get("categoria_esperada", "Whitelist Classe A")
+
+            msg_resposta = (
+                f"⏸️ Bot em modo resposta manual.\n\n"
+                f"Esperando confirmações, cancelamentos ou comandos administrativos.\n"
+                f"(Categoria: {categoria_esperada})"
+            )
+
+            print(f"[WHITELIST-BLOQUEIO] user_id={user_id} | motivo={motivo}", flush=True)
+
+            await update.message.reply_text(msg_resposta)
+            raise ApplicationHandlerStop
 
     # 🔥 🚨 NOVO: NÃO intercepta se for intenção de agendamento
     if eh_gatilho_agendar(mensagem):

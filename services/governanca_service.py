@@ -44,7 +44,7 @@ async def carregar_governanca(actor_id: str, tenant_id: str) -> Dict[str, Any]:
 
     try:
         path = f"Clientes/{tenant_id}/Governanca/{actor_id}"
-        doc = await db.collection("Clientes").document(tenant_id).collection("Governanca").document(actor_id).get()
+        doc = db.collection("Clientes").document(tenant_id).collection("Governanca").document(actor_id).get()
 
         if doc.exists:
             data = doc.to_dict()
@@ -128,7 +128,7 @@ async def salvar_governanca(
 
         # Salvar em Firestore
         path = f"Clientes/{tenant_id}/Governanca/{actor_id}"
-        await db.collection("Clientes").document(tenant_id).collection("Governanca").document(actor_id).set(novo_documento)
+        db.collection("Clientes").document(tenant_id).collection("Governanca").document(actor_id).set(novo_documento)
 
         # Registrar auditoria se houve mudança
         if responder_automaticamente is not None:
@@ -222,7 +222,7 @@ async def registrar_auditoria(
 
         # Salvar em AuditoriaGovernanca
         path = f"Clientes/{tenant_id}/AuditoriaGovernanca/{evento_id}"
-        await db.collection("Clientes").document(tenant_id).collection("AuditoriaGovernanca").document(evento_id).set(documento)
+        db.collection("Clientes").document(tenant_id).collection("AuditoriaGovernanca").document(evento_id).set(documento)
 
         return True
 
@@ -250,14 +250,14 @@ async def obter_auditoria_ator(actor_id: str, tenant_id: str, limit: int = 10) -
 
     try:
         path = f"Clientes/{tenant_id}/AuditoriaGovernanca"
-        docs = await db.collection("Clientes").document(tenant_id).collection("AuditoriaGovernanca")\
+        docs = db.collection("Clientes").document(tenant_id).collection("AuditoriaGovernanca")\
             .where("actor_id_afetado", "==", actor_id)\
             .order_by("timestamp", direction="DESCENDING")\
             .limit(limit)\
             .stream()
 
         auditoria = []
-        async for doc in docs:
+        for doc in docs:
             auditoria.append(doc.to_dict())
 
         return auditoria

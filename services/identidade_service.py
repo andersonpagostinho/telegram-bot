@@ -177,7 +177,14 @@ async def criar_ator_cliente_automatico(tenant_id: str, canal: str, identificado
             "ativo": True,
             "tenant_id": tenant_id,
             "primeiro_contato_em": now,
-            "ultimo_contato_em": now
+            "ultimo_contato_em": now,
+            # F1-01: Lead status determinístico
+            "lead_status": "novo",
+            "lead_status_updated_at": now,
+            "primeira_interacao": now,
+            "ultima_interacao": now,
+            "ultimo_atendimento": None,
+            "total_agendamentos": 0
         }
 
         await asyncio.to_thread(
