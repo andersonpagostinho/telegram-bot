@@ -135,9 +135,12 @@ async def salvar_sessao(tenant_id, actor_id, sessao_data):
 # CENÁRIOS
 # ============================================================================
 
-async def cenario_01_dono_primeiro_acesso_inicia_onboarding(result: TestResult):
+async def cenario_01_cliente_primeiro_acesso(result: TestResult):
     """
-    Cenário 1: Dono primeiro acesso inicia onboarding
+    Cenário 1: Cliente primeiro acesso (fallback seguro)
+
+    SPEC 2026-06-28: Primeiro acesso comum = CLIENTE, nunca DONO.
+    Dono só nasce por onboarding administrativo explícito.
     """
     tenant_id = "teste_onboarding_operacional_tenant"
     await limpar_tenant(tenant_id)
@@ -146,7 +149,7 @@ async def cenario_01_dono_primeiro_acesso_inicia_onboarding(result: TestResult):
     identificador = "11900000001"
     user_id = normalizar_actor_id(canal, identificador)
 
-    # ACT
+    # ACT: Actor desconhecido fala em canal
     estado_antes = await obter_estado_tenant(tenant_id)
 
     resultado_fluxo = await processar_fluxo_identidade_onboarding(
@@ -159,32 +162,29 @@ async def cenario_01_dono_primeiro_acesso_inicia_onboarding(result: TestResult):
 
     estado_depois = await obter_estado_tenant(tenant_id)
 
-    # VALIDAÇÃO
+    # VALIDAÇÃO: Esperado CLIENTE (fallback seguro)
     passou = True
     motivo = ""
 
     if not estado_depois.get("Atores", {}).get(user_id):
         passou = False
-        motivo = "Ator dono não foi criado"
+        motivo = "Ator não foi criado"
 
     ator_data = estado_depois.get("Atores", {}).get(user_id, {})
-    if ator_data.get("tipo_usuario") != "dono":
+    if ator_data.get("tipo_usuario") != "cliente":
         passou = False
-        motivo = f"tipo_usuario esperado 'dono', obtido '{ator_data.get('tipo_usuario')}'"
-
-    # Nota: Cenario 1 valida apenas criacao do ator dono
-    # (sessao pode nao estar disponivel imediatamente no teste)
+        motivo = f"tipo_usuario esperado 'cliente' (spec 2026-06-28), obtido '{ator_data.get('tipo_usuario')}'"
 
     result.registro(
         1,
-        "Dono primeiro acesso inicia onboarding",
+        "Cliente primeiro acesso (fallback seguro)",
         passou,
         motivo,
         {
             "tenant_id": tenant_id,
             "actor_id": user_id,
             "tipo_usuario": ator_data.get("tipo_usuario"),
-            "ator_criado": ator_data.get("tipo_usuario") == "dono"
+            "ator_criado": ator_data.get("tipo_usuario") == "cliente"
         }
     )
 
@@ -972,10 +972,23 @@ async def main():
 
     result = TestResult()
 
-    # Cenário 1
-    tenant_id, dono_id = await cenario_01_dono_primeiro_acesso_inicia_onboarding(result)
+    # Cenário 1: Cliente primeiro acesso (fallback seguro)
+    tenant_id, cliente_id = await cenario_01_cliente_primeiro_acesso(result)
 
-    # Cenários 2-10 (onboarding)
+    # Setup: Criar DONO explicitamente para onboarding (representa pairing administrativo)
+    canal = "whatsapp"
+    identificador_dono = "11900000010"  # Diferente do cliente_id
+    dono_id = normalizar_actor_id(canal, identificador_dono)
+
+    await criar_ator_dono(
+        tenant_id=tenant_id,
+        canal=canal,
+        identificador=identificador_dono,
+        nome="Dono Operacional",
+        email="dono@operacional.local"
+    )
+
+    # Cenários 2-10 (onboarding com dono explícito)
     await cenario_02_coleta_nome_negocio(result, tenant_id, dono_id)
     await cenario_03_coleta_segmento(result, tenant_id, dono_id)
     await cenario_04_coleta_endereco(result, tenant_id, dono_id)
