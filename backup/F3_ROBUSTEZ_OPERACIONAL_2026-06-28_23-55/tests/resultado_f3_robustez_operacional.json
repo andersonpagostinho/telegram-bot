@@ -1,0 +1,570 @@
+================================================================================
+{
+  "f3_robustez": {
+    "tipo": "agregador_completo",
+    "cenarios_total": 39,
+    "cenarios_pass": 39,
+    "cenarios_todo": 0,
+    "suites_total": 8,
+    "status": "estrutura_parcial",
+    "ordem_implementacao": [
+      "F3C (6) + F3-GPT-BOUNDARY (4)",
+      "F3D (5)",
+      "F3B (4)",
+      "F3A (5)",
+      "F3E (5)",
+      "F3F (5)"
+    ],
+    "detalhes": [
+      {
+        "suite": "F3A — Input Validation",
+        "total": 5,
+        "pass": 5,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "Entrada vazia",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "entrada_processada": "vazio",
+              "sessao_preservada": true,
+              "fluxo": "aguardando_profissional"
+            }
+          },
+          {
+            "num": 2,
+            "nome": "Emoji/pontuação curta",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "ruidos_testados": [
+                "👍",
+                "?",
+                "...",
+                "kkk",
+                "ok"
+              ],
+              "sessao_preservada": true,
+              "draft": "escova"
+            }
+          },
+          {
+            "num": 3,
+            "nome": "Não-texto (áudio/imagem/etc)",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "tipos_testados": [
+                "audio",
+                "image",
+                "sticker",
+                "document"
+              ],
+              "texto_extraido": null,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 4,
+            "nome": "Mensagem muito longa",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "entrada_original": 10000,
+              "entrada_limitada": 5000,
+              "limite_aplicado": 5000,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 5,
+            "nome": "Unicode/acentos/caixa",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "variacoes_testadas": [
+                "NÃO TENHO PREFERÊNCIA",
+                "nao tenho preferencia",
+                "qualqûer uma",
+                "QUALQUER UMA"
+              ],
+              "normalizadas": [
+                "nao tenho preferencia",
+                "nao tenho preferencia"
+              ],
+              "sessao_preservada": true,
+              "fluxo": "aguardando_profissional"
+            }
+          }
+        ]
+      },
+      {
+        "suite": "F3B — Identidade/Tenant",
+        "total": 4,
+        "pass": 4,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "Mesmo actor em dois tenants",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "tenant_a_servico": "corte",
+              "tenant_b_servico": "escova",
+              "isolado": true
+            }
+          },
+          {
+            "num": 2,
+            "nome": "Cliente tenta ação admin",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "tipo_usuario": "cliente",
+              "permissoes": [
+                "ler",
+                "agendamento"
+              ],
+              "tem_admin": false,
+              "bloqueado": true
+            }
+          },
+          {
+            "num": 3,
+            "nome": "Profissional tenant diferente",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "prof_tenant_a": "f3b_tenant_a_001",
+              "evento_tenant_b": "f3b_tenant_b_002",
+              "isolado": true
+            }
+          },
+          {
+            "num": 4,
+            "nome": "Actor ID adulterado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "actor_real_preservado": true,
+              "adulterado_ignorado": true,
+              "servico_correto": "hidratacao"
+            }
+          }
+        ]
+      },
+      {
+        "suite": "F3C — Sessão/Draft/Confirmação",
+        "total": 6,
+        "pass": 6,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "Draft corrompido detectado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "draft_keys": [
+                "hora",
+                "_tenant_id_guard",
+                "estado_fluxo",
+                "data",
+                "_schema_version",
+                "_updated_at",
+                "_actor_id"
+              ]
+            }
+          },
+          {
+            "num": 2,
+            "nome": "Confirmação draft errado detectado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "draft_servico": "escova"
+            }
+          },
+          {
+            "num": 3,
+            "nome": "Sessão parcial recuperada",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "campos_salvos": [
+                "_updated_at",
+                "servico",
+                "_schema_version",
+                "_tenant_id_guard",
+                "_actor_id",
+                "data"
+              ]
+            }
+          },
+          {
+            "num": 4,
+            "nome": "Confirmação duplicada detectada",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "confirmacoes": 2
+            }
+          },
+          {
+            "num": 5,
+            "nome": "Timestamp inválido tratado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "timestamp_armazenado": "data_invalida_12345"
+            }
+          },
+          {
+            "num": 6,
+            "nome": "Profissional indiferente preservado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "profissional_indiferente": true,
+              "estado_fluxo": "aguardando_profissional",
+              "servico": "corte"
+            }
+          }
+        ]
+      },
+      {
+        "suite": "F3D — Agenda/Conflito/Concorrência",
+        "total": 5,
+        "pass": 5,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "Dois clientes mesmo slot",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "evento_1_ok": true,
+              "evento_2_ok": false,
+              "erro_evento_2": "lock_existente"
+            }
+          },
+          {
+            "num": 2,
+            "nome": "Disponibilidade alterada",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "evento_bloqueio_ok": true,
+              "cliente_bloqueado": true,
+              "erro_tipo": "lock_existente"
+            }
+          },
+          {
+            "num": 3,
+            "nome": "Profissional desativado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "evento_criado": true,
+              "profissional": "Carlos",
+              "nota": "Validação de profissional é responsabilidade anterior (GPT/contexto)"
+            }
+          },
+          {
+            "num": 4,
+            "nome": "Serviço removido",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "evento_criado": true,
+              "servico": "servico_inexistente",
+              "nota": "Validação de serviço é responsabilidade anterior"
+            }
+          },
+          {
+            "num": 5,
+            "nome": "Evento cancelado libera slot",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "evento_original_criado": true,
+              "evento_original_cancelado": true,
+              "locks_limpos": true,
+              "evento_novo_criado": true,
+              "slot_liberado": true
+            }
+          }
+        ]
+      },
+      {
+        "suite": "F3E — Catálogo Inconsistente",
+        "total": 5,
+        "pass": 5,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "Serviço inexistente",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "servico_tentado": "servico_fantasia_xyz",
+              "servico_valido": false,
+              "sessao_preservada": true,
+              "evento_criado": true
+            }
+          },
+          {
+            "num": 2,
+            "nome": "Profissional inexistente",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "profissional_tentado": "Profissional_Inexistente",
+              "profissional_valido": false,
+              "sessao_preservada": true,
+              "evento_criado": true
+            }
+          },
+          {
+            "num": 3,
+            "nome": "Profissional desativado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "profissional": "Carla",
+              "profissional_valido": false,
+              "evento_criado": true,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 4,
+            "nome": "Serviço removido após draft",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "servico_draft": "limpeza",
+              "servico_valido": false,
+              "evento_criado": true,
+              "sessao_preservada": true,
+              "revalidacao": "motor"
+            }
+          },
+          {
+            "num": 5,
+            "nome": "Duração inválida (zero/ausente/negativa)",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "duracao_zero_criado": false,
+              "duracao_ausente_criado": false,
+              "duracao_negativa_criado": false,
+              "sessao_preservada": true,
+              "nenhuma_duracao_invalida_criada": true
+            }
+          }
+        ]
+      },
+      {
+        "suite": "F3F — Falhas Externas",
+        "total": 5,
+        "pass": 5,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "Firestore leitura timeout",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "erro": "TimeoutError",
+              "sessao_preservada": true,
+              "sem_crash": true
+            }
+          },
+          {
+            "num": 2,
+            "nome": "Firestore gravacao erro",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "erro": "write timeout",
+              "evento_criado": false,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 3,
+            "nome": "GPT interpretacao erro",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "erro": "GPT unavailable",
+              "interpretacao": false,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 4,
+            "nome": "GPT JSON invalido",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "erro": "JSON decode error",
+              "valido": false,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 5,
+            "nome": "Evento persistencia falha",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "erro": "commit failed",
+              "persistido": false,
+              "sessao_preservada": true
+            }
+          }
+        ]
+      },
+      {
+        "suite": "F3G — Datas/Horários/Timezone",
+        "total": 5,
+        "pass": 5,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "Data impossível",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "datas_testadas": [
+                "30/02/2026",
+                "29/02/2026",
+                "31/04/2026",
+                "31/11/2025"
+              ],
+              "todas_invalidas": true,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 2,
+            "nome": "Horário inválido",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "horarios_testados": [
+                "25:00",
+                "-1:00",
+                "99:99",
+                "14:61",
+                "14:-5"
+              ],
+              "todos_invalidos": true,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 3,
+            "nome": "Evento no passado",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "casos_testados": 3,
+              "todos_no_passado": true,
+              "sessao_preservada": true
+            }
+          },
+          {
+            "num": 4,
+            "nome": "Timezone UTC/SaoPaulo",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "evento_persistido": true,
+              "timestamp_iso_correto": true,
+              "hora_local_preservada": "16:30",
+              "sessao_preservada": true,
+              "timezone": "America/Sao_Paulo"
+            }
+          },
+          {
+            "num": 5,
+            "nome": "Meia-noite transição",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "cenario_1_23_55": "2026-06-29 ✓",
+              "cenario_2_00_05": "2026-06-30 ✓",
+              "ambas_corretas": true,
+              "sessao_preservada": true
+            }
+          }
+        ]
+      },
+      {
+        "suite": "F3-GPT-BOUNDARY — Contrato",
+        "total": 4,
+        "pass": 4,
+        "todo": 0,
+        "cenarios": [
+          {
+            "num": 1,
+            "nome": "GPT interpreta sem executar",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "tipo_resposta": "preenchimento_slot",
+              "estado_fluxo": "aguardando_profissional",
+              "servico_preservado": "corte"
+            }
+          },
+          {
+            "num": 2,
+            "nome": "GPT não consulta catálogo",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "gpt_fields": [
+                "slot",
+                "tipo_resposta",
+                "valor"
+              ]
+            }
+          },
+          {
+            "num": 3,
+            "nome": "GPT não cria evento",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "servico_preservado": "manicure",
+              "evento_criado_por_gpt": false
+            }
+          },
+          {
+            "num": 4,
+            "nome": "Fluxo continua aguardando",
+            "status": "PASS",
+            "motivo": "",
+            "dados": {
+              "estado_fluxo": "aguardando_profissional",
+              "draft_preservado": {
+                "servico": "hidratacao"
+              },
+              "resposta_gpt_registrada": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

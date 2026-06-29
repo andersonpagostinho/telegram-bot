@@ -228,13 +228,15 @@ async def cenario_01_primeiro_acesso_dono(result: TestResult):
         # Verificar que ator foi criado
         ator_data = resultado_depois["Atores"].get("whatsapp:11999999999")
         assert ator_data is not None, "Ator não foi criado"
-        assert ator_data.get("tipo_usuario") == "dono", "tipo_usuario não é dono"
+        # SPEC CORRIGIDA (2026-06-28): Primeiro acesso COMUM = CLIENTE, não DONO
+        # Dono só nasce por fluxo explícito de onboarding administrativo
+        assert ator_data.get("tipo_usuario") == "cliente", "tipo_usuario deve ser cliente em primeiro acesso comum"
         assert ator_data.get("canal") == "whatsapp", "canal incorreto"
 
         # Resultado
         result.tenant_id = tenant_id
         result.actor_id = actor_id_normalizado
-        result.tipo_usuario = "dono"
+        result.tipo_usuario = "cliente"
         result.canal = canal
         result.mensagem = mensagem
         result.estado_antes = resultado_antes
@@ -242,10 +244,10 @@ async def cenario_01_primeiro_acesso_dono(result: TestResult):
         result.validacoes = {
             "actor_id_normalizado": actor_id_normalizado == "whatsapp:11999999999",
             "ator_criado": ator_data is not None,
-            "tipo_usuario_correto": ator_data.get("tipo_usuario") == "dono" if ator_data else False,
+            "tipo_usuario_correto": ator_data.get("tipo_usuario") == "cliente" if ator_data else False,
         }
 
-        result.set_pass("Primeiro acesso do dono validado com sucesso")
+        result.set_pass("Primeiro acesso comum como cliente validado (especificação 2026-06-28)")
         return True
 
     except Exception as e:

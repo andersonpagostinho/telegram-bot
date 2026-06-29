@@ -1,0 +1,23 @@
+- [Protocolo Evidência Testes](feedback_protocolo_evidencia.md) — Só declarar PASS com evidência primária (2026-06-23)
+- [FIRESTORE-CLEANUP-01](firestore_cleanup_01_resultado.md) — Auditoria e limpeza 2026-06-23, 5 deletados, validado
+- [FIRESTORE-CLEANUP-02](firestore_cleanup_02_auditoria_completa.md) — Auditoria completa 2026-06-23, 0 documentos teste, Firestore 100% limpo
+- [Auditoria Clientes Completa](firestore_auditoria_clientes_completa.md) — 2026-06-23, 4 docs (3 reais + 1 teste), 10 subcoleções, 52 subdocs, 1.69 KB
+- [Limpeza Final Firestore](firestore_limpeza_final.md) — 2026-06-23 15:15-15:16, bateria_p0_user_teste_001 deletado, 3 reais preservados, validado
+- [NeoEve Critical Rules](project_neoeve_rules.md) — Regras críticas e processo obrigatório
+- [Aprendizado P0: Prioridade de Dados](aprendizado_p0_prioridade_dados.md) — Mensagem atual > contexto antigo (2026-06-02)
+- [Bug P0: Rajada Data+Hora em Confirmação](bug_p0_rajada_data_hora.md) — Data em msg1 + hora em msg2 quebra fluxo (2026-06-09)
+- [FASE 4: Aprovada Final](fase_4_aprovada_final.md) — 13/13 testes passando em 3 execuções, patch RO-04 implementado (2026-06-19)
+- [FASE 1 Tier 1: Concluída](fase_1_tier1_resultado.md) — 17 migradas, 0 residuais, P0 174/174 PASS (2026-06-21)
+- [FASE 2 Tier 2: Auditoria](fase_2_tier2_auditoria.md) — 11 críticas mapeadas, 4 lotes planejados (2026-06-21)
+- [P1 Onboarding Dono](fase_p1_onboarding_dono.md) — Deterministic first-access rule: first actor becomes DONO, P1 E2E 15/15, P0 174/174 (2026-06-21)
+- [LOTE 4A: Contexto Path Corrigido](LOTE_4A_contexto_path_corrigido.md) — Teste salvava em {tenant_id}, router carregava de {user_id} (2026-06-22)
+- [F1-01 Baseline Validado](fase_1_baseline_validado.md) — Estado do Lead, 8/8 testes Firebase, P0 174/174, P1 35+/42, gate 5/5 (2026-06-28)
+- [F1-02 Baseline Validado](fase_2_backlog_comercial_validado.md) — Backlog Comercial, 9/9 testes Firebase, P0 174/174, P1 35+/42 (2026-06-28)
+- [F1-03 Baseline Validado](fase_3_retorno_pendente_validado.md) — Retorno Pendente, 9/9 testes Firebase, P0 174/174, F1-01 8/8, F1-02 9/9 (2026-06-28)
+- [F1-04 Baseline Validado](fase_4_reativacao_manual_validado.md) — Reativação Manual, 11/11 testes Firebase, P0 174/174, F1-01/02/03 OK (2026-06-28)
+- [BUG P0 SEG-05B Corrigido](bug_p0_seg05b_corrigido.md) — TypeError eh_comando(), /pausar /retomar, P0 174/174 (2026-06-28)
+- [BUG P0 Promoção Cliente→Dono](bug_p0_promocao_cliente_dono.md) — Cliente 7371670478 criado como DONO em 2 tenants, causa raiz: obter_id_dono() fallback (2026-06-28)
+- [F3A Input Validation](f3a_input_validation_concluido.md) — 5 cenários, 5/5 PASS, entrada vazia/emoji/longa/unicode robusta (2026-06-28)
+- [F3E Catálogo Inconsistente](f3e_catalogo_inconsistente_concluido.md) — 5 cenários, 5/5 PASS, serviço/prof inválido/removido (2026-06-28)
+- [F3F Falhas Externas](f3f_falhas_externas_concluido.md) — 5 cenários, 5/5 PASS, timeout/erro/invalido/commit fallha (2026-06-28)
+- [F3G Datas/Horários/Timezone](f3g_datas_horarios_timezone_concluido.md) — 5 cenários, 5/5 PASS, data/hora/timezone determinístico (2026-06-28)

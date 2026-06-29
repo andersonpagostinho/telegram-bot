@@ -3,7 +3,7 @@
 
 from services.session_service import pegar_sessao
 from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt
-from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario, salvar_contexto_temporario_v2
+from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario, salvar_contexto_temporario_v2, carregar_contexto_temporario_v2
 from utils.context_manager import atualizar_contexto, limpar_contexto_agendamento
 from handlers.confirmacao_pendente_handler import resolver_confirmacao_pendente
 from services.gpt_executor import executar_acao_gpt, executar_acao_gpt_resultado
@@ -3357,7 +3357,16 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         dono_id = str(user_id)
         print(f"[TENANT_FALLBACK] obter_id_dono retornou None, usando user_id como fallback | user_id={user_id}")
 
-    ctx = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
+    # P0 FIX (2026-06-28): Sessão V2 não deve ser sobrescrita por legado
+    # 1. Se context.user_data já tem contexto (carregado pelo handler), usar esse
+    # 2. Se não, carregar V2 (não legado que pode estar vazio/divergente)
+    ctx = {}
+    if context and hasattr(context, 'user_data') and context.user_data:
+        ctx = context.user_data
+        print(f"[CTX_HANDLER] Usando contexto carregado pelo handler | keys={list(ctx.keys())}", flush=True)
+    else:
+        # Carregar V2 se handler não carregou
+        ctx = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
 
     # =========================================================
     # LOTE 3E: RESOLVER CONFIRMACAO/NEGACAO PENDENTE (EARLY)
@@ -9164,7 +9173,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # ✅ (H) Chamada normal ao GPT (com contexto do dono)
     # =========================================================
-    contexto = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
+    # P0 FIX: Usar V2 ao invés de legado (linha 9176)
+    contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
     contexto["usuario"] = {"user_id": user_id, "id_negocio": dono_id}
 
     profissionais_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
@@ -10048,7 +10058,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # 🔥 PROTEÇÃO CRÍTICA
     if not isinstance(ctx, dict):
         print(f" ctx inválido — abortando sobrescrita", flush=True)
-        ctx = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
+        # P0 FIX: Usar V2 ao invés de legado (linha 10060)
+        ctx = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
 
     print(" [SLOTS CENTRALIZADOS] ctx=", ctx, flush=True)
 
@@ -11382,7 +11393,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                     if data_base_iso:
                         contexto_update["data_hora"] = data_base_iso
 
-                    ctx_atual = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
+                    # P0 FIX: Usar V2 ao invés de legado (linha 11394)
+                    ctx_atual = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
 
                     # 🔥 NÃO deixar perder estado de escolha de horário
                     if ctx_atual.get("estado_fluxo") == "aguardando_escolha_horario":
