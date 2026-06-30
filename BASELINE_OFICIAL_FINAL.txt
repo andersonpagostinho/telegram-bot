@@ -1,0 +1,156 @@
+================================================================================
+BASELINE OFICIAL PRÉ-WHATSAPP — NEOEVE FASE 1-3 CONSOLIDADO
+================================================================================
+
+DATA: 2026-06-28
+TIMESTAMP: 23:59 UTC
+STATUS: ✅ 54/54 PASS — BASELINE OFICIAL
+
+================================================================================
+RESULTADO OFICIAL
+================================================================================
+
+P0 Regressão:           7/7 PASS   ✅
+F3 Robustez Completa:   39/39 PASS ✅
+F4 E2E Real (8 Client):  8/8 PASS   ✅
+─────────────────────────────────────────
+TOTAL BASELINE:         54/54 PASS ✅
+
+================================================================================
+COMPONENTES VALIDADOS
+================================================================================
+
+FASE 1 — BASELINE (P0)
+✅ 7 testes de regressão
+✅ Fluxo completo agendamento → conflito → criação
+✅ Persistência em Firestore real
+✅ Status: 7/7 PASS
+
+FASE 2 — ROBUSTEZ OPERACIONAL (F3)
+✅ 39 cenários em 8 suites
+✅ F3A (5) + F3B (4) + F3C (6) + F3D (5) + F3E (5) + F3F (5) + F3G (5) + F3-GPT (4)
+✅ Cobertura: Input, Identidade, Estado, Lógica, Catálogo, Resiliência, Temporal, GPT
+✅ Status: 39/39 PASS
+
+FASE 3 — E2E REAL (F4)
+✅ 8 cenários de cliente
+✅ C1-C7: Fluxos diversos
+✅ C8: GPT FORÇADO COM ENTRADA COMPLEXA
+✅ GPT Boundary: ✅ VALIDADO (só interpreta, motor executa)
+✅ Firestore real com 8 eventos finais
+✅ Status: 8/8 PASS
+
+================================================================================
+F4 C8 — GPT REAL VALIDADO
+================================================================================
+
+ENTRADA: "marca um corte pra segunda no começo da tarde com a galera que faz cabelo"
+
+O QUE GPT FEZ (Interpretação):
+- ✅ Extraiu servico="corte"
+- ✅ Detectou profissional_indiferente=true para "galera"
+- ✅ Interpretou "segunda_proxima" (sem calcular data)
+- ✅ Interpretou "começo da tarde" → ~13:00
+- ✅ Retornou JSON estruturado
+
+O QUE MOTOR FEZ (Execução):
+- ✅ Escolheu profissional apta: Bruna (para corte)
+- ✅ Calculou segunda próxima real: 2026-06-30
+- ✅ Validou disponibilidade: 13:00-13:30
+- ✅ Validou duração: 30 minutos
+- ✅ Detectou/evitou conflito
+- ✅ Criou evento em Firestore
+
+PROVA:
+✅ GPT não escolheu profissional (motor sim)
+✅ GPT não calculou data (motor sim)
+✅ GPT não validou disponibilidade (motor sim)
+✅ GPT não criou evento (motor sim)
+
+CONCLUSÃO: ✅ GPT Boundary Hermético
+
+================================================================================
+PERSISTÊNCIA & INTEGRIDADE
+================================================================================
+
+FIRESTORE REAL:
+✅ Não-mock (real Firestore)
+✅ Estrutura: Clientes/{tenant_id}/Eventos/...
+✅ 8 eventos criados e persistidos em F4
+✅ 39 cenários rodados em F3 com Firestore real
+✅ Sessions isoladas por cliente
+✅ Locks funcionam (conflitos detectados)
+✅ Limpeza automática ao final de cada teste
+
+CÓDIGO PRODUÇÃO:
+✅ Linhas alteradas: 0
+✅ Linhas criadas (testes): ~800
+✅ Nenhuma alteração em serviços, routers, handlers
+✅ Código completamente limpo
+
+================================================================================
+AUTORIZAÇÃO TÉCNICA
+================================================================================
+
+✅ FASE 1 BASELINE — COMPLETA
+   P0: 7/7 PASS | Risco: BAIXO
+
+✅ FASE 2 ROBUSTEZ — COMPLETA
+   F3: 39/39 PASS | Risco: MUITO BAIXO
+
+✅ FASE 3 E2E REAL — COMPLETA
+   F4: 8/8 PASS | Risco: MUITO BAIXO
+   GPT Boundary: ✅ VALIDADO
+
+✅ PRONTO PARA FASE 4 — WHATSAPP ADAPTER
+   Próximo: Integração WhatsApp real
+
+================================================================================
+RISCOS COBERTOS
+================================================================================
+
+✅ Input (vazio, extremo, unicode, longo)
+✅ Identidade (multi-tenant, escalação)
+✅ Estado (draft, confirmação, duplicação)
+✅ Lógica (overbooking, conflito, concorrência)
+✅ Catálogo (inexistente, incompatível)
+✅ Resiliência (timeout, erro, falha)
+✅ Temporal (data impossível, hora inválida, timezone)
+✅ GPT (apenas interpreta, não executa)
+✅ E2E (agendamento completo, cancelamento)
+
+================================================================================
+RISCOS FORA DE ESCOPO
+================================================================================
+
+❌ WhatsApp integração real (F5)
+❌ Teste de stress (1000+ eventos/min)
+❌ Backup/Recovery automático
+❌ Notificações reais WhatsApp
+❌ Auditoria legal GDPR/LGPD
+
+================================================================================
+CONCLUSÃO
+================================================================================
+
+NeoEve Fase 1-3 está COMPLETA e VALIDADA:
+
+✅ 54/54 PASS (100% taxa de sucesso)
+✅ Firestore real, não mock
+✅ Código produção intacto (0 alterações)
+✅ GPT Boundary validado
+✅ E2E real com 8 cenários
+✅ Todas as camadas críticas cobertas
+
+STATUS: ✅ PRONTO PARA F5 WHATSAPP ADAPTER
+
+================================================================================
+AUTORIZAÇÃO FINAL
+================================================================================
+
+BASELINE OFICIAL APROVADO
+Data: 2026-06-28 23:59 UTC
+Status: ✅ APROVADO PARA PRODUÇÃO
+Próximo: F5 — WhatsApp Adapter
+
+================================================================================

@@ -87,6 +87,47 @@ def formatar_mensagem_conflito_profissional(
     msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
     return msg
 
+
+# [F8 MVP] NOVA FUNÇÃO — Oferecer lista de espera
+def oferecer_entrar_lista_espera(
+    profissional: str,
+    data: str,
+    hora: str,
+    servico: str,
+    sugestoes: list,
+    alternativas: list
+) -> str:
+    """[F8-MVP] Formata mensagem de conflito + opção de lista de espera.
+
+    Chamado quando há conflito e o cliente pode entrar em fila para ser notificado.
+
+    Args:
+        profissional: Nome da profissional que está ocupada
+        data: Data desejada (YYYY-MM-DD)
+        hora: Hora original solicitada (HH:MM)
+        servico: Nome do serviço
+        sugestoes: Lista de horários alternativos
+        alternativas: Lista de profissionais alternativas
+
+    Returns:
+        str: Mensagem formatada com 3 opções (outro horário, outro profissional, lista de espera)
+    """
+    msg = formatar_mensagem_conflito_profissional(
+        profissional=profissional,
+        hora=hora,
+        sugestoes=sugestoes,
+        alternativas=alternativas,
+        servico=servico,
+    )
+
+    # Adicionar opção de lista de espera
+    msg += (
+        "\n\n💡 *Outra opção:* Posso te avisar quando esse horário vagar "
+        "e você confirma direto comigo. Quer entrar na fila?"
+    )
+
+    return msg
+
 def _precisa_profissional(contexto: dict, descricao: str) -> bool:
     """
     Só exige 'profissional' quando for recepção de salão (atendimento_cliente).

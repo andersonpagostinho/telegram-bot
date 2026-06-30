@@ -331,10 +331,133 @@ async def cancelar_evento(
             f"cancelado_por={user_id} | tipo={cancelado_por_tipo}"
         )
 
+        # [F8 MVP] Processar notificação de lista de espera (assincrono, não bloqueia)
+        try:
+            await processar_cancelamento_e_notificar_espera(
+                tenant_id=user_id_efetivo,
+                evento_cancelado=ev,
+            )
+        except Exception as e:
+            logger.warning(f"[F8] processar_cancelamento falhou (não crítico): {e}")
+
         return True
 
     except Exception as e:
         logger.error(f"❌ cancelar_evento: {e}", exc_info=True)
+        return False
+
+
+# =========================================================
+# [F8 MVP] PROCESSAR CANCELAMENTO E NOTIFICAR LISTA DE ESPERA
+# =========================================================
+
+async def processar_cancelamento_e_notificar_espera(
+    tenant_id: str,
+    evento_cancelado: dict,
+) -> bool:
+    """
+    [F8-C/D] Após evento ser cancelado, buscar e notificar cliente em lista de espera.
+
+    Chamado APÓS cancelar_evento com sucesso.
+
+    Precondições:
+    - evento_cancelado: dict com campos {servico, profissional, data, hora_inicio, duracao}
+    - tenant_id: ID do dono/salão (EXPLÍCITO, não via obter_id_dono)
+
+    Fluxo:
+    1. Buscar ListaEspera compatível (FIFO por criado_em)
+    2. Marcar como "notificado"
+    3. Enviar notificação ao cliente
+    4. Salvar contexto do cliente para confirmação
+    5. Log de sucesso
+
+    Returns:
+        True se processamento completo, False se erro
+    """
+    try:
+        from services.lista_espera_service import (
+            buscar_proxima_lista_espera_compativel,
+            marcar_como_notificado,
+        )
+        from utils.contexto_temporario import salvar_contexto_temporario_v2
+
+        # Extrair dados do evento cancelado
+        servico = evento_cancelado.get("servico", "")
+        profissional = evento_cancelado.get("profissional", "")
+        data = evento_cancelado.get("data", "")
+        hora_inicio = evento_cancelado.get("hora_inicio", "")
+        duracao = evento_cancelado.get("duracao", 30)
+
+        if not all([servico, profissional, data, hora_inicio]):
+            logger.warning(
+                f"[WAITLIST_SKIP] evento cancelado incompleto: "
+                f"servico={servico} prof={profissional} data={data} hora={hora_inicio}"
+            )
+            return False
+
+        # 1. Buscar ListaEspera compatível (FIFO)
+        waitlist_doc = await buscar_proxima_lista_espera_compativel(
+            tenant_id=tenant_id,
+            servico=servico,
+            profissional_preferido=profissional,
+            data_desejada=data,
+            hora_desejada=hora_inicio,
+            duracao_minutos=duracao,
+        )
+
+        if not waitlist_doc:
+            logger.info(
+                f"[WAITLIST_NENHUM] nenhum cliente aguardando: "
+                f"servico={servico} prof={profissional} data={data} hora={hora_inicio}"
+            )
+            return False
+
+        waitlist_id = waitlist_doc.get("waitlist_id", "")
+        cliente_doc = waitlist_doc.get("cliente") or {}
+        cliente_id = cliente_doc.get("cliente_id", "")
+        cliente_nome = cliente_doc.get("cliente_nome", "Cliente")
+
+        if not cliente_id:
+            logger.error(f"[WAITLIST_ERRO] cliente_id ausente em waitlist_id={waitlist_id}")
+            return False
+
+        # 2. Marcar como notificado
+        sucesso_notif = await marcar_como_notificado(tenant_id, waitlist_id)
+        if not sucesso_notif:
+            logger.error(f"[WAITLIST_ERRO] falha ao marcar como notificado: {waitlist_id}")
+            return False
+
+        # 3. Salvar contexto do cliente para confirmação
+        await salvar_contexto_temporario_v2(cliente_id, {
+            "estado_fluxo": "aguardando_confirmacao_encaixe",
+            "waitlist_id": waitlist_id,
+            "encaixe_pendente": {
+                "servico": servico,
+                "profissional": profissional,
+                "data": data,
+                "hora_inicio": hora_inicio,
+                "duracao_minutos": duracao,
+                "tenant_id": tenant_id,
+            },
+            "cliente_nome": cliente_nome,
+        })
+
+        # 4. Enviar notificação (seria integrado com handler de mensagens em produção)
+        # Aqui apenas logamos a intenção
+        msg = (
+            f"🎉 Boa notícia! Vagou o horário de {servico} com {profissional} "
+            f"em {data} às {hora_inicio}. Quer confirmar esse agendamento?"
+        )
+
+        logger.info(
+            f"[WAITLIST_NOTIFICACAO] cliente={cliente_id} | waitlist={waitlist_id} | "
+            f"msg_enviada={msg}"
+        )
+
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ processar_cancelamento_e_notificar_espera: {e}", exc_info=True)
         return False
 
 

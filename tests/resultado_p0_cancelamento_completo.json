@@ -1,5 +1,5 @@
 {
-  "data_execucao": "2026-06-28T20:35:37.560093",
+  "data_execucao": "2026-06-30T17:58:28.146580",
   "ambiente": "FIREBASE_REAL",
   "fase": "VALIDACAO_BATERIA_15_COMPLETA",
   "cenarios_totais": 15,
@@ -18,10 +18,10 @@
           "termo": "Cancelar com a Bruna na segunda",
           "candidatos_encontrados": 2,
           "eventos_ids": [
-            "test_bruna_2026-06-29_14:00",
-            "test_bruna_2026-06-29_14:40"
+            "test_bruna_2026-07-06_14:00",
+            "test_bruna_2026-07-06_14:40"
           ],
-          "mensagem": "Encontrei mais de um. Qual deseja cancelar?\n1) Corte com Bruna — 2026-06-29 às 14:00\n2) Escova com B"
+          "mensagem": "Encontrei mais de um. Qual deseja cancelar?\n1) Corte com Bruna — 2026-07-06 às 14:00\n2) Escova com B"
         },
         "validacao": {
           "profissional_extraido": true,
@@ -89,7 +89,7 @@
           "pode_confirmar": true
         },
         "confirmacao": {
-          "evento_id": "test_bruna_2026-06-29_14:00",
+          "evento_id": "test_bruna_2026-07-06_14:00",
           "status_antes": "confirmado",
           "status_depois": "cancelado",
           "tem_cancelado_por": true,
@@ -104,7 +104,7 @@
       "status": "PASSOU",
       "etapas": {
         "estado_antes": {
-          "evento_id": "test_bruna_2026-06-29_14:40",
+          "evento_id": "test_bruna_2026-07-06_14:40",
           "status": "confirmado",
           "tem_cancelado_por": false
         },
@@ -164,7 +164,7 @@
       "status": "PASSOU",
       "etapas": {
         "busca": {
-          "evento_pendente_id": "test_pendente_2026-07-01_16:00",
+          "evento_pendente_id": "test_pendente_2026-07-03_16:00",
           "candidatos_totais": 9,
           "evento_pendente_encontrado": false
         }
@@ -190,8 +190,8 @@
       "status": "PASSOU",
       "etapas": {
         "idempotencia": {
-          "primeiro_cancelado_em": "2026-06-28T20:35:39.971019",
-          "segundo_cancelado_em": "2026-06-28T20:35:40.009156",
+          "primeiro_cancelado_em": "2026-06-30T17:58:31.027943",
+          "segundo_cancelado_em": "2026-06-30T17:58:31.072236",
           "status_final": "cancelado",
           "sem_erro": true
         }
@@ -246,7 +246,7 @@
       "status": "PASSOU",
       "etapas": {
         "auditoria_evento": {
-          "evento_id": "test_bruna_2026-06-29_14:00",
+          "evento_id": "test_bruna_2026-07-06_14:00",
           "cancelado_por_presente": true,
           "cancelado_em_presente": true,
           "confirmacao_presente": true,
