@@ -21,6 +21,12 @@ const __dirname = dirname(__filename);
 // Determinar diretório de sessão a partir de env ou fallback
 const SESSION_DIR = process.env.WHATSAPP_SESSION_DIR || resolve(__dirname, "../data/whatsapp-session");
 
+// Configuração da ponte com NeoEve
+const WHATSAPP_NEOEVE_NUMBER = process.env.WHATSAPP_NEOEVE_NUMBER || "5519994443694";
+const WHATSAPP_TEST_TENANT_ID = process.env.WHATSAPP_TEST_TENANT_ID || "7394370553";
+const WHATSAPP_BRIDGE_URL = process.env.WHATSAPP_BRIDGE_URL || "http://localhost:10000/whatsapp/incoming";
+const WHATSAPP_BRIDGE_TIMEOUT_MS = parseInt(process.env.WHATSAPP_BRIDGE_TIMEOUT_MS || "15000", 10);
+
 // Logger com pino-pretty
 const logger = pino(
   {
@@ -40,6 +46,71 @@ const log = logger.child({ module: "whatsapp-adapter" });
 // ============================================================================
 // FUNÇÕES AUXILIARES
 // ============================================================================
+
+/**
+ * Extrair número de telefone do JID do WhatsApp
+ * Formato: 551999444369@s.whatsapp.net → 551999444369
+ */
+function extrair_actor_id(jid) {
+  const match = jid.match(/^(\d+)@/);
+  return match ? match[1] : jid;
+}
+
+/**
+ * Enviar mensagem para ponte NeoEve
+ */
+async function enviar_para_ponte(texto, actorId, sock, sender) {
+  const payload = {
+    canal: "whatsapp",
+    tenant_id: WHATSAPP_TEST_TENANT_ID,
+    neoeve_number: WHATSAPP_NEOEVE_NUMBER,
+    actor_id: actorId,
+    texto: texto,
+  };
+
+  log.info(`[BRIDGE] Enviando para ${WHATSAPP_BRIDGE_URL}`, payload);
+
+  try {
+    const response = await fetch(WHATSAPP_BRIDGE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      timeout: WHATSAPP_BRIDGE_TIMEOUT_MS,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    log.info(`[BRIDGE_RESPONSE] Recebida resposta:`, data);
+
+    // Enviar resposta de volta ao WhatsApp
+    if (data.resposta) {
+      await sock.sendMessage(sender, { text: data.resposta });
+      log.info(`[MESSAGE_SENT] Resposta do núcleo enviada para ${sender}`);
+    } else {
+      log.warn(`[BRIDGE_RESPONSE] Sem campo 'resposta' na resposta`);
+    }
+
+    return data;
+  } catch (error) {
+    log.error(`[BRIDGE_ERROR] Falha ao conectar com ponte: ${error.message}`);
+
+    // Enviar mensagem de fallback ao usuário
+    const fallback = "Estou com instabilidade agora. Pode tentar novamente em alguns segundos?";
+    try {
+      await sock.sendMessage(sender, { text: fallback });
+      log.info(`[FALLBACK_SENT] Mensagem de fallback enviada para ${sender}`);
+    } catch (sendError) {
+      log.error(`[FALLBACK_ERROR] Falha ao enviar fallback: ${sendError.message}`);
+    }
+
+    return null;
+  }
+}
 
 async function connectToWhatsApp() {
   // Garantir que o diretório de sessão existe
@@ -149,19 +220,16 @@ async function connectToWhatsApp() {
     // ====================================================================
     // PROCESSAR MENSAGEM DE TEXTO
     // ====================================================================
-    log.info(`[MESSAGE_RECEIVED] De: ${senderName} | Texto: "${textContent}"`);
+    log.info(`[MESSAGE_RECEIVED] De: ${senderName} (${sender}) | Texto: "${textContent}"`);
 
     // ====================================================================
-    // RESPONDER COM FIXO POR ENQUANTO
+    // EXTRAIR ACTOR_ID E ENVIAR PARA PONTE
     // ====================================================================
-    const responseText = "Oi, sou a NeoEve.";
+    const actorId = extrair_actor_id(sender);
+    log.info(`[ACTOR_ID] Extraído: ${actorId}`);
 
-    try {
-      await sock.sendMessage(sender, { text: responseText });
-      log.info(`[MESSAGE_SENT] Para: ${senderName} | Resposta enviada`);
-    } catch (error) {
-      log.error(`[ERROR_SEND] Falha ao enviar para ${senderName}: ${error.message}`);
-    }
+    // Enviar para ponte NeoEve (não responder fixo)
+    await enviar_para_ponte(textContent, actorId, sock, sender);
   });
 
   // ========================================================================
