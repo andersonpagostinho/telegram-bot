@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import pino from "pino";
 import pretty from "pino-pretty";
 import { existsSync, mkdirSync } from "fs";
+import qrcode from "qrcode-terminal";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -148,7 +149,13 @@ async function connectToWhatsApp() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      log.warn(`[QR_CODE] Escaneie o código acima para autenticar`);
+      log.warn(`[QR_CODE] Escaneie o QR Code abaixo para autenticar`);
+      // Gerar e imprimir QR Code no terminal
+      try {
+        qrcode.generate(qr, { small: true });
+      } catch (error) {
+        log.error(`[QR_CODE_ERROR] Erro ao gerar QR Code: ${error.message}`);
+      }
     }
 
     if (connection === "connecting") {
@@ -156,16 +163,17 @@ async function connectToWhatsApp() {
     }
 
     if (connection === "open") {
-      log.info(`[CONNECTION] ✅ Conectado ao WhatsApp Web`);
+      log.info(`[CONNECTION] Conectado ao WhatsApp Web`);
       log.info(`[STATUS] Pronto para receber mensagens`);
     }
 
     if (connection === "close") {
       if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
         // Reconectar se não for logout intencional
+        log.info(`[CONNECTION] Reconectando em 3s...`);
         setTimeout(connectToWhatsApp, 3000);
       } else {
-        log.warn(`[CONNECTION] ❌ Desconectado (logout)`);
+        log.warn(`[CONNECTION] Desconectado (logout)`);
       }
     }
   });
