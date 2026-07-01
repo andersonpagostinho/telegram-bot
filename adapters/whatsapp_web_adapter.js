@@ -241,13 +241,11 @@ async function connectToWhatsApp() {
   });
 
   // ========================================================================
-  // EVENT: Presença
+  // EVENT: Presença (não crítico para Marco 2A — desabilitado)
   // ========================================================================
-  sock.ev.on("presence.update", (presenceUpdates) => {
-    for (const { from, type } of presenceUpdates) {
-      log.debug(`[PRESENCE] ${from} está ${type}`);
-    }
-  });
+  // Nota: Evento presence.update não é essencial para funcionalidade de
+  // mensagens. Desabilitado para evitar crashes. Pode ser implementado
+  // em versões futuras com tratamento defensivo se necessário.
 
   return sock;
 }
