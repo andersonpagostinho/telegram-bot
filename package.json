@@ -1,13 +1,12 @@
 {
   "name": "neoeve-whatsapp-web",
   "version": "0.1.0",
-  "description": "WhatsApp Web Adapter for NeoEve using Baileys",
+  "description": "WhatsApp Web Adapter for NeoEve using Baileys (EXPERIMENTAL_DESATIVADO)",
   "main": "adapters/whatsapp_web_adapter.js",
   "type": "module",
   "scripts": {
     "whatsapp:dev": "node adapters/whatsapp_web_adapter.js",
-    "whatsapp:start": "node adapters/whatsapp_web_adapter.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "whatsapp:start": "node adapters/whatsapp_web_adapter.js"
   },
   "keywords": [
     "whatsapp",

@@ -1,7 +1,18 @@
 """
+DESATIVADO TEMPORARIAMENTE
+
 Handler para ponte WhatsApp Adapter → NeoEve Core
 
-Responsabilidades:
+Motivo: bloqueio do número de testes pelo WhatsApp.
+
+Este arquivo contém a lógica de integração com o adapter WhatsApp.
+Está preservado para futuro reuso quando uma estratégia oficial
+for definida (Cloud API ou outro canal aprovado).
+
+Para reativar manualmente, execute:
+  npm run whatsapp:dev
+
+Responsabilidades (quando ativo):
 1. Receber requisição POST de /whatsapp/incoming
 2. Extrair actor_id, tenant_id, texto
 3. Chamar principal_router para processar

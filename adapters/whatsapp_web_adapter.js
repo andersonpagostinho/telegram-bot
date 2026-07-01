@@ -1,5 +1,29 @@
 #!/usr/bin/env node
 
+/*
+ * DESATIVADO TEMPORARIAMENTE
+ *
+ * Motivo: bloqueio do número de testes (+55 19 99444-3694) pelo WhatsApp
+ *         durante a autenticação com Baileys.
+ *
+ * Status: Código preservado. Reativação manual somente via:
+ *         npm run whatsapp:dev
+ *
+ * Próximos passos:
+ *   1. Definir estratégia oficial (Cloud API ou outro canal aprovado)
+ *   2. Validar novo número de testes
+ *   3. Reativar via npm run whatsapp:dev
+ *
+ * Arquivos relacionados (todos preservados):
+ *   - adapters/whatsapp_web_adapter.js (este arquivo)
+ *   - handlers/whatsapp_bridge_handler.py
+ *   - docs/whatsapp/WHATSAPP_WEB_ADAPTER_TESTE.md
+ *   - docs/whatsapp/WHATSAPP_BRIDGE_MARCO_2A.md
+ *   - package.json (contém dependências)
+ *
+ * Branch preservada: whatsapp-web-adapter-render
+ */
+
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,

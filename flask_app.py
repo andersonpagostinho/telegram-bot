@@ -1,3 +1,23 @@
+"""
+DESATIVADO TEMPORARIAMENTE
+
+Motivo: bloqueio do número de testes (+55 19 99444-3694) pelo WhatsApp.
+
+A integração com Baileys (WhatsApp Web) foi desativada até que uma
+estratégia oficial seja definida (Cloud API ou outro canal aprovado).
+
+Para reativar manualmente, execute:
+  npm run whatsapp:dev
+
+Arquivos relacionados (preservados, não deletados):
+  - adapters/whatsapp_web_adapter.js
+  - handlers/whatsapp_bridge_handler.py
+  - docs/whatsapp/
+  - package.json (com qrcode-terminal, baileys)
+
+Branch preservada: whatsapp-web-adapter-render
+"""
+
 from flask import Flask, jsonify, request
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -7,7 +27,8 @@ import logging
 import asyncio
 from pathlib import Path
 from services.firestore_client import get_db
-from handlers.whatsapp_bridge_handler import processar_mensagem_whatsapp
+
+# DESATIVADO: from handlers.whatsapp_bridge_handler import processar_mensagem_whatsapp
 
 app = Flask(__name__)
 
@@ -110,55 +131,16 @@ if not firebase_admin._apps:
 db = get_db()
 
 # ============================================================================
-# ENDPOINT: POST /whatsapp/incoming
+# ENDPOINT: POST /whatsapp/incoming — DESATIVADO
 # ============================================================================
-
-@app.route("/whatsapp/incoming", methods=["POST"])
-def whatsapp_incoming():
-    """
-    Ponte WhatsApp Adapter → NeoEve Core
-
-    POST /whatsapp/incoming
-    Content-Type: application/json
-
-    Payload:
-    {
-      "canal": "whatsapp",
-      "tenant_id": "7394370553",
-      "neoeve_number": "5519994443694",
-      "actor_id": "5519999999999",
-      "texto": "oi"
-    }
-
-    Response:
-    {
-      "canal": "whatsapp",
-      "actor_id": "5519999999999",
-      "tenant_id": "7394370553",
-      "resposta": "<resposta>"
-    }
-    """
-    try:
-        payload = request.get_json()
-
-        logger.info(f"[WHATSAPP_BRIDGE] POST recebido: {payload}")
-
-        # Processar mensagem (executar em event loop)
-        resultado = asyncio.run(processar_mensagem_whatsapp(payload))
-
-        logger.info(f"[WHATSAPP_BRIDGE] Resposta: {resultado}")
-
-        return jsonify(resultado), 200
-
-    except Exception as e:
-        logger.exception(f"[WHATSAPP_BRIDGE] Erro ao processar request: {e}")
-        return (
-            jsonify({
-                "erro": str(e),
-                "resposta": "Desculpa, erro ao processar sua mensagem.",
-            }),
-            500,
-        )
+# DESATIVADO TEMPORARIAMENTE — WhatsApp Web Adapter não está ativo
+#
+# Este endpoint seria a ponte entre o adapter WhatsApp e o núcleo NeoEve.
+# Reativação manual disponível via: npm run whatsapp:dev
+#
+# @app.route("/whatsapp/incoming", methods=["POST"])
+# def whatsapp_incoming():
+#     # ... código preservado mas não executado ...
 
 
 @app.route("/test_firebase")
