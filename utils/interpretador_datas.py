@@ -237,19 +237,26 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
             return None
 
         # ✅ Se tiver "hoje" ou "amanhã" e tiver hora, monta a data manualmente
-        if ("hoje" in texto_norm or "amanh" in texto_norm) and re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm):
-            base = agora_br_aware()
-            if "amanh" in texto_norm:
-                base = base + timedelta(days=1)
+        if ("hoje" in texto_norm or "amanh" in texto_norm):
+            hora_match = re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm)
 
-            m = re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm)
-            hora = int(m.group(1))
-            minuto = int(m.group(2) or 0)
+            if hora_match:
+                # Tem hora explícita → montar com hora
+                base = agora_br_aware()
+                if "amanh" in texto_norm:
+                    base = base + timedelta(days=1)
 
-            dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
-            result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
-            print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
-            return result
+                hora = int(hora_match.group(1))
+                minuto = int(hora_match.group(2) or 0)
+
+                dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
+                result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+                print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
+                return result
+            else:
+                # Sem hora explícita → retornar None (apenas data, sem hora)
+                print(f"[PARSER] fonte_parse=data_pura (hoje/amanhã sem hora) resultado=None", flush=True)
+                return None
 
         # ✅ Detecta dia da semana isolado ou com hora, ex:
         # "quinta", "quinta feira", "na quinta", "quinta às 10"

@@ -562,6 +562,27 @@ def eh_gatilho_agendar(txt: str) -> bool:
     gatilhos = ["pode agendar", "pode marcar", "agende", "marque"]
     return any(g in t for g in gatilhos)
 
+def eh_gatilho_reagendamento(txt: str) -> bool:
+    """
+    Detecta intenção de reagendamento/remarcação.
+
+    Exemplos:
+    - "Quero mudar meu horário"
+    - "Preciso remarcar"
+    - "Posso trocar de dia?"
+    - "Quero passar para amanhã"
+    - "Tem como mudar minha manicure?"
+    """
+    t = normalizar(txt or "")
+    palavras_chave = [
+        "reagendar", "remarcar", "mudar horário", "mudar horario",
+        "alterar horário", "alterar horario", "trocar horário", "trocar horario",
+        "trocar dia", "adiantar", "adiar", "postergar", "alteração de horário",
+        "alteracao de horario", "outro horário", "outro horario", "horário diferente",
+        "horario diferente", "preciso remarcar", "quero remarcar", "quero mudar"
+    ]
+    return any(palavra in t for palavra in palavras_chave)
+
 def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     texto_lower = (texto or "").lower().strip()
 
@@ -4128,6 +4149,9 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     elif intencao_conv == "negacao_confirmacao_agendamento":
         objetivo_conversacional = "encerrar_fluxo_agendamento"
 
+    elif intencao_conv == "consultar_agendamentos_usuario":
+        objetivo_conversacional = "consultar_agendamentos_usuario"
+
     if not preservar_continuidade_data:
         ctx["objetivo_conversacional"] = objetivo_conversacional
     else:
@@ -6072,6 +6096,68 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
         return await _send_and_stop(context, user_id, txt)
 
     # =========================================================
+    # ✅ NOVO: Roteamento para Consultar Agendamentos do Usuário
+    # =========================================================
+    if ctx.get("objetivo_conversacional") == "consultar_agendamentos_usuario":
+        from services.event_service_async import buscar_eventos_por_intervalo
+        from datetime import datetime, date
+
+        # Extrair data solicitada do texto
+        data_solicitada = None
+        try:
+            dt_parsed = interpretar_data_e_hora(texto_usuario)
+            if dt_parsed:
+                data_solicitada = dt_parsed.date()
+            else:
+                # Se não conseguir parsear, usar hoje
+                data_solicitada = date.today()
+        except Exception:
+            data_solicitada = date.today()
+
+        # Buscar eventos do usuário
+        try:
+            eventos = await buscar_eventos_por_intervalo(
+                user_id=user_id,
+                dia_especifico=data_solicitada
+            )
+
+            # Formatar resposta
+            if eventos:
+                # Ordenar por hora
+                eventos_ordenados = sorted(
+                    eventos,
+                    key=lambda ev: (ev.get("data", ""), ev.get("hora_inicio", "00:00"))
+                )
+
+                lista_formatada = []
+                for ev in eventos_ordenados:
+                    servico = ev.get("servico", "Serviço")
+                    prof = ev.get("profissional", "Profissional")
+                    hora = ev.get("hora_inicio", "Horário a confirmar")
+                    lista_formatada.append(f"• {servico} com {prof} às {hora}")
+
+                msg_resposta = f"Você tem agendado para {montar_frase_data_legivel(f'{data_solicitada}T00:00:00')}:\n\n" + "\n".join(lista_formatada)
+            else:
+                data_legivel = montar_frase_data_legivel(f"{data_solicitada}T00:00:00")
+                msg_resposta = f"Você não tem agendamentos para {data_legivel}."
+
+            ctx["estado_fluxo"] = "idle"
+            ctx["objetivo_conversacional"] = None
+            ctx["intencao_conversacional"] = None
+
+            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+
+            return await _send_and_stop(context, user_id, msg_resposta)
+
+        except Exception as e:
+            print(f"❌ Erro ao consultar agendamentos: {e}", flush=True)
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Desculpe, não consegui consultar seus agendamentos no momento. Tente de novo."
+            )
+
+    # =========================================================
     # ✅ (B) SEMPRE-ON: extrair e mesclar slots (prof/serv/dt)
     # =========================================================
     try:
@@ -7531,7 +7617,7 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
     # =========================================================
     # ✅ (C) Bloqueio de data no passado -> pergunta amanhã mesmo horário
     # =========================================================
-    if ctx.get("data_hora"):
+    if ctx.get("data_hora") and not ctx.get("data_sem_hora"):
         dt_naive_existente = _dt_from_iso_naive(ctx["data_hora"])
         if dt_naive_existente and dt_naive_existente <= _agora_br_naive():
             return await _perguntar_amanha_mesmo_horario_e_bloquear(ctx["data_hora"])

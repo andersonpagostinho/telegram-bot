@@ -335,6 +335,12 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
             "features": f
         }
 
+    # ✅ NOVO: Detectar consulta dos próprios agendamentos do usuário
+    # Padrão: pergunta + tempo + posessivo (tenho, meu, agendado, marcado)
+    tem_posessivo = _tem(r"\b(tenho|meu|minha|meus|minhas|agendado|marcado|compromisso|o que tenho|qual é meu)\b", t)
+    if f["tem_pergunta"] and f["tem_tempo"] and tem_posessivo:
+        return {"intencao_conversacional": "consultar_agendamentos_usuario", "confianca": 85, "features": f}
+
     if f["tem_pergunta"] and f["tem_tempo"] and f["tem_indefinido"]:
         return {"intencao_conversacional": "consulta_disponibilidade_aberta", "confianca": 88, "features": f}
 
@@ -351,6 +357,12 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
             "confianca": 90,
             "features": f,
         }
+
+    # ✅ NOVO: Detectar consulta dos próprios agendamentos por serviço específico
+    # Padrão: pergunta + serviço + posessivo (tenho, meu, agendado)
+    tem_posessivo_servico = _tem(r"\b(tenho|meu|minha|agendado|marcado)\b", t) and f["tem_contexto_servico"]
+    if f["tem_pergunta"] and tem_posessivo_servico:
+        return {"intencao_conversacional": "consultar_agendamentos_usuario", "confianca": 85, "features": f}
 
     if f["tem_pergunta"] and f["tem_contexto_servico"]:
         return {"intencao_conversacional": "consulta_disponibilidade_servico", "confianca": 85, "features": f}
