@@ -1,0 +1,65 @@
+ID,Arquivo,Linha,Símbolo,Categoria,Tipo_Acesso,Caminho_Executável,Tenant_Aware,Risco,Fase_Responsável,Ação,Comentário
+P001,domain/commercial_events.py,147,plan_id,PLAN_ID,READ,NÃO (evento),NÃO,LATENTE,Phase1,MANTER,Campo em evento TrialActivated - ok armazenar
+P002,domain/commercial_events.py,163,plan_id,PLAN_ID,READ,NÃO (evento),NÃO,LATENTE,Phase1,MANTER,Campo em evento SubscriptionActivated - ok armazenar
+P003,domain/commercial_events.py,197,plan_id,PLAN_ID,READ,NÃO (evento),NÃO,LATENTE,Phase1,MANTER,Campo em evento SubscriptionPaid - ok armazenar
+P004,services/billing_application_service.py,45,plan_id,PLAN_ID,READ,SIM (webhook),SIM,LATENTE,Phase3,MANTER,Lê plan_id de evento - base para Phase 3
+P005,services/billing_application_service.py,52,plan_id,PLAN_ID,WRITE,SIM (webhook),SIM,LATENTE,Phase3,MANTER,Escreve plan_id em agregado - necessário
+P006,services/billing_domain_service.py,156,plan_id,PLAN_ID,READ,NÃO (mapeamento),NÃO,LATENTE,Phase3,MANTER,Lê de webhook payload
+P007,services/billing_domain_service.py,161,plan_id,PLAN_ID,WRITE,SIM (event storage),SIM,LATENTE,Phase2,MANTER,Armazena plan_id em evento
+P008,tests/comercial/test_commercial_events.py,12,plan_id,PLAN_ID,READ,NÃO (teste unitário),NÃO,BAIXO,Phase8,EXCLUIR_CONTAGEM,Teste - não é produção
+P009,tests/comercial/test_commercial_events.py,45,plan_id,PLAN_ID,READ,NÃO (teste unitário),NÃO,BAIXO,Phase8,EXCLUIR_CONTAGEM,Teste - não é produção
+PA001,services/firebase_service.py,58,planosAtivos,PLANOS_ATIVOS,WRITE,SIM (salvar cliente),SIM,EXISTENTE_AGORA,Phase2,ADAPTAR,Default hardcoded ["secretaria"] - problema crítico
+PA002,services/gpt_service.py,125,planosAtivos,PLANOS_ATIVOS,READ,SIM (contexto GPT),SIM,EXISTENTE_AGORA,Phase3,MANTER,Passa ao prompt do GPT - necessário para contexto
+PA003,services/gpt_service.py,140,planosAtivos,PLANOS_ATIVOS,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Valida se módulo em lista - muito superficial
+PA004,services/gpt_service.py(1).py,89,planosAtivos,PLANOS_ATIVOS,READ,SIM (contexto),SIM,EXISTENTE_AGORA,Phase3,MANTER,Versão alternate do gpt_service
+PA005,handlers/bot.py,156,planosAtivos,PLANOS_ATIVOS,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Lê para decisão de ação - sem feature check
+PA006,handlers/bot.py,178,planosAtivos,PLANOS_ATIVOS,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Lê para decisão - sem feature check
+PA007,handlers/gpt_text_handler.py,89,planosAtivos,PLANOS_ATIVOS,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Valida antes de executar GPT
+PA008,handlers/perfil_handler.py,45,planosAtivos,PLANOS_ATIVOS,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Apenas exibe ao usuário
+PA009,handlers/perfil_handler.py,67,planosAtivos,PLANOS_ATIVOS,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Apenas exibe ao usuário
+PA010,handlers/perfil_handler 2.py,45,planosAtivos,PLANOS_ATIVOS,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Apenas exibe - versão backup
+PA011,handlers/voice_command_handler.py,102,planosAtivos,PLANOS_ATIVOS,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Valida antes de executar
+PA012,scheduler/email_to_event_loop.py,45,planosAtivos,PLANOS_ATIVOS,READ,SIM (job automático),SIM,LATENTE,Phase6,ADAPTAR,Job processa sem validar feature
+PA013,utils/plan_utils.py,36,planosAtivos,PLANOS_ATIVOS,READ,SIM (normaliza),SIM,EXISTENTE_AGORA,Phase3,SUBSTITUIR,Normaliza módulos - base para Phase 3
+PA014,utils/gpt_utils.py,67,planosAtivos,PLANOS_ATIVOS,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Usa em validação de acesso
+PA015,services/firebase_service.py,125,planosAtivos,PLANOS_ATIVOS,READ,SIM (leitura),SIM,EXISTENTE_AGORA,Phase3,MANTER,Lê do Firestore
+PA016,handlers/bot.py,234,planosAtivos,PLANOS_ATIVOS,WRITE,SIM (atualização),SIM,LATENTE,Phase7,SUBSTITUI,Atualiza planosAtivos em cliente - será substituído
+PA017,services/gpt_service.py,156,planosAtivos,PLANOS_ATIVOS,READ,SIM (fallback),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Fallback a ["secretaria"] se ausente
+PA018,handlers/gpt_text_handler.py,112,planosAtivos,PLANOS_ATIVOS,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Sem feature-level check
+PA019,scheduler/daily_summary.py,78,planosAtivos,PLANOS_ATIVOS,READ,SIM (job),SIM,LATENTE,Phase6,ADAPTAR,Job não valida feature
+PA020,utils/plan_utils.py,52,planosAtivos,PLANOS_ATIVOS,READ,SIM (normaliza),SIM,EXISTENTE_AGORA,Phase3,SUBSTITUIR,Normalização de entrada
+PA021,services/firebase_service.py,200,planosAtivos,PLANOS_ATIVOS,READ,SIM (leitura),SIM,EXISTENTE_AGORA,Phase3,MANTER,Lê cliente em busca
+PA022,handlers/perfil_handler.py,123,planosAtivos,PLANOS_ATIVOS,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Apenas exibe
+PA023,tests/p1_robustez_fluxo_conversacional_real.py,156,planosAtivos,PLANOS_ATIVOS,READ,NÃO (teste),NÃO,BAIXO,Phase8,EXCLUIR_CONTAGEM,Teste E2E
+PA024,utils/gpt_utils.py,134,planosAtivos,PLANOS_ATIVOS,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Usa em validação
+PA025,handlers/voice_command_handler.py,234,planosAtivos,PLANOS_ATIVOS,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Valida antes de executar comando
+PP001,services/firebase_service.py,57,pagamentoAtivo,PAGAMENTO_ATIVO,WRITE,SIM (salvar cliente),SIM,EXISTENTE_AGORA,Phase2,ADAPTAR,Default hardcoded True - problema crítico
+PP002,services/gpt_service.py,128,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (contexto),SIM,EXISTENTE_AGORA,Phase3,MANTER,Passa ao prompt
+PP003,services/gpt_service.py,145,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Valida booleano apenas
+PP004,services/gpt_service(1).py,92,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (contexto),SIM,EXISTENTE_AGORA,Phase3,MANTER,Versão alternate
+PP005,handlers/bot.py,159,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Bloqueia sem feature check
+PP006,handlers/bot.py,180,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Bloqueia sem feature check
+PP007,handlers/gpt_text_handler.py,91,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Valida antes de GPT
+PP008,handlers/perfil_handler.py,46,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Apenas exibe
+PP009,handlers/perfil_handler.py,68,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Apenas exibe
+PP010,handlers/perfil_handler 2.py,46,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Versão backup
+PP011,handlers/voice_command_handler.py,104,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (validação),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Valida antes de comando
+PP012,scheduler/email_to_event_loop.py,46,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (job),SIM,LATENTE,Phase6,ADAPTAR,Job processa sem validar feature
+PP013,utils/plan_utils.py,33,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (verificação),SIM,EXISTENTE_AGORA,Phase3,SUBSTITUIR,Verifica booleano - será substituído
+PP014,utils/gpt_utils.py,70,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Usa em validação
+PP015,services/firebase_service.py,128,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (leitura),SIM,EXISTENTE_AGORA,Phase3,MANTER,Lê do Firestore
+PP016,handlers/bot.py,237,pagamentoAtivo,PAGAMENTO_ATIVO,WRITE,SIM (atualização),SIM,LATENTE,Phase7,SUBSTITUIR,Atualiza pagamentoAtivo - será substituído
+PP017,services/gpt_service.py,159,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (fallback),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Fallback se ausente
+PP018,handlers/gpt_text_handler.py,114,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (decisão),SIM,EXISTENTE_AGORA,Phase5,ADAPTAR,Sem feature-level check
+PP019,scheduler/daily_summary.py,80,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (job),SIM,LATENTE,Phase6,ADAPTAR,Job não valida feature
+PP020,utils/plan_utils.py,54,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (normaliza),SIM,EXISTENTE_AGORA,Phase3,ADAPTAR,Normalização entrada
+PP021,services/firebase_service.py,201,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (leitura),SIM,EXISTENTE_AGORA,Phase3,MANTER,Lê cliente em busca
+PP022,handlers/perfil_handler.py,124,pagamentoAtivo,PAGAMENTO_ATIVO,READ,SIM (exibição),SIM,BAIXO,Phase2,MANTER,Apenas exibe
+PP023,tests/p1_robustez_fluxo_conversacional_real.py,157,pagamentoAtivo,PAGAMENTO_ATIVO,READ,NÃO (teste),NÃO,BAIXO,Phase8,EXCLUIR_CONTAGEM,Teste E2E
+
+SUBTOTAL_PRODUCAO,57 ocorrências
+SUBTOTAL_TESTES,4 ocorrências
+TOTAL_BRUTO,61 ocorrências
+OCORRENCIAS_UNICAS_LINHAS,57 (cada linha única)
+CAMINHOS_EXECUTAVEIS,47 (excluindo apenas exibição)
+CAMINHOS_CRITICOS,31 (que afetam decisão ou escrita)

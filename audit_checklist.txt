@@ -1,0 +1,84 @@
+=== AUDITORIA DE FUNCIONALIDADES REGISTRADAS ===
+Data: 2026-08-11
+
+1. CRIAÇÃO DE AGENDAMENTO
+   - Arquivo: services/event_service_async.py
+   - Função: criar_evento, salvar_evento
+   - Status: ✅ IMPLEMENTADA
+
+2. VALIDAÇÃO DETERMINÍSTICA
+   - Arquivo: services/agenda_service.py
+   - Funções: validar_horario_funcionamento, validar_data_funcionamento
+   - Status: ✅ IMPLEMENTADA
+
+3. CONFLITO DE AGENDA
+   - Arquivo: services/event_service_async.py
+   - Função: verificar_conflito_e_sugestoes_profissional
+   - Status: ✅ IMPLEMENTADA
+
+4. EXPEDIENTE SALÃO/PROFISSIONAL
+   - Arquivo: services/agenda_service.py
+   - Funções: obter_janela_funcionamento, obter_regra_agenda_da_data
+   - Status: ✅ IMPLEMENTADA
+
+5. EXCEÇÕES DE AGENDA
+   - Arquivo: services/agenda_service.py
+   - Funções: bloquear_datas_agenda_salao, definir_janela_especial_agenda_salao
+   - Status: ✅ IMPLEMENTADA
+
+6. CANCELAMENTO
+   - Arquivo: services/event_service_async.py
+   - Função: cancelar_evento
+   - Status: ✅ IMPLEMENTADA
+
+7. LISTA DE ESPERA MVP
+   - Arquivo: services/lista_espera_service.py
+   - Funções: criar_lista_espera, buscar_proxima_lista_espera_compativel
+   - Status: ✅ IMPLEMENTADA
+
+8. ENCAIXE
+   - Arquivo: services/encaixe_service.py
+   - Funções: confirmar_reagendamento_por_opcao, etc
+   - Status: ✅ IMPLEMENTADA
+
+9. CONFIRMAÇÃO
+   - Arquivo: handlers/confirmacao_pendente_handler.py
+   - Status: ✅ IMPLEMENTADA
+
+10. LEMBRETES
+    - Arquivo: services/notificacao_service.py
+    - Status: ✅ IMPLEMENTADA
+
+11. CRM / LEAD STATUS
+    - Arquivo: services/lead_status_service.py
+    - Status: ✅ IMPLEMENTADA
+
+12. BACKLOG COMERCIAL
+    - Arquivo: services/backlog_comercial_service.py
+    - Status: ✅ IMPLEMENTADA
+
+13. RETORNO PENDENTE
+    - Arquivo: services/retorno_pendente_service.py
+    - Status: ✅ IMPLEMENTADA
+
+14. REATIVAÇÃO MANUAL
+    - Arquivo: services/reativacao_manual_service.py
+    - Status: ✅ IMPLEMENTADA
+
+15. HISTÓRICO
+    - Arquivo: Firestore Clientes/{tenant_id}/Eventos (persistência)
+    - Status: ✅ PARCIALMENTE IMPLEMENTADO
+
+16. MULTI-TENANT
+    - Arquivo: services/firebase_service_async.py
+    - Função: obter_id_dono, isolamento por tenant_id
+    - Status: ✅ IMPLEMENTADA
+
+17. SESSÃO tenant_id + actor_id
+    - Arquivo: services/session_service.py
+    - Status: ✅ IMPLEMENTADA
+
+18. MOTOR GPT → DECISÃO
+    - Arquivo: router/principal_router.py
+    - Status: ✅ IMPLEMENTADA
+

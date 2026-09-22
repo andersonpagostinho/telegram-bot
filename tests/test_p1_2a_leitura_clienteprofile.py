@@ -50,7 +50,7 @@ async def test_p1_2a_profile_loaded_for_scheduling():
         "aguardando_confirmacao_agendamento": True
     }
 
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Simular P1.2A carregando profile
     with mock.patch("services.clienteprofile_service.obter_profile", return_value=profile_mock):
@@ -61,10 +61,10 @@ async def test_p1_2a_profile_loaded_for_scheduling():
             ctx["clienteprofile"] = profile
             ctx["clienteprofile_carregado_em"] = datetime.now().isoformat()
 
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Validação
-    ctx_final = await carregar_contexto_temporario(user_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
     assert "clienteprofile" in ctx_final
     assert ctx_final["clienteprofile"] is not None
     assert ctx_final["clienteprofile"]["historico"]["total_eventos"] == 50
@@ -78,6 +78,7 @@ async def test_p1_2a_profile_loaded_for_scheduling():
 async def test_p1_2a_no_load_for_personal_conversation():
     """P1.2A: Profile não deve ser carregado para conversa pessoal"""
     user_id = "test_user_personal"
+    tenant_id = "test_tenant_personal"
 
     # Contexto pessoal (não agendamento)
     ctx = {
@@ -85,12 +86,12 @@ async def test_p1_2a_no_load_for_personal_conversation():
         "estado_fluxo": "idle"
     }
 
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Em conversa pessoal, P1.2A não é executado
     # Portanto, clienteprofile não deve estar em contexto
-    ctx_final = await carregar_contexto_temporario(user_id)
-    assert "clienteprofile" not in ctx_final or ctx_final.get("clienteprofile") is None
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
+    assert ctx_final is None or "clienteprofile" not in ctx_final or ctx_final.get("clienteprofile") is None
     print("✅ TEST 2 PASSED: Profile não carregado para pessoal")
 
 
@@ -114,7 +115,7 @@ async def test_p1_2a_error_does_not_break_flow():
         "aguardando_confirmacao_agendamento": True
     }
 
-    await salvar_contexto_temporario(user_id, ctx)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Simular erro ao carregar profile
     with mock.patch("services.clienteprofile_service.obter_profile", side_effect=Exception("Firestore erro")):
@@ -127,10 +128,11 @@ async def test_p1_2a_error_does_not_break_flow():
 
         # P1.2A trata erro e continua
         ctx["clienteprofile"] = None
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Validação: fluxo continua, draft intacto
-    ctx_final = await carregar_contexto_temporario(user_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
+    assert ctx_final is not None, "Contexto deveria ter sido salvo"
     assert ctx_final["estado_fluxo"] == "agendando"
     assert ctx_final["draft_agendamento"]["profissional"] == "Paula"
     assert ctx_final["aguardando_confirmacao_agendamento"] is True
@@ -179,6 +181,7 @@ async def test_p1_2a_gpt_context_unchanged():
 async def test_p1_2a_draft_unchanged():
     """P1.2A: Draft não deve ser preenchido com dados do profile"""
     user_id = "test_user_draft"
+    tenant_id = "test_tenant_draft"
 
     # Draft inicial (sem profile)
     draft_antes = {
@@ -201,10 +204,11 @@ async def test_p1_2a_draft_unchanged():
         "clienteprofile": profile_mock  # Profile carregado
     }
 
-    await salvar_contexto_temporario(user_id, ctx)
-    ctx_final = await carregar_contexto_temporario(user_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: draft continua com "Bruna", não foi preenchido com "Carla"
+    assert ctx_final is not None, "Contexto deveria ter sido salvo"
     assert ctx_final["draft_agendamento"]["profissional"] == "Bruna"
     assert ctx_final["draft_agendamento"] == draft_antes
     print("✅ TEST 5 PASSED: Draft unchanged by profile")
@@ -272,7 +276,7 @@ async def test_p1_2a_complete_flow():
         }
     }
 
-    await salvar_contexto_temporario(user_id, ctx_inicial)
+    await salvar_contexto_temporario(user_id, ctx_inicial, tenant_id=tenant_id)
 
     # Simular P1.2A: carregar profile
     profile_mock = {
@@ -288,10 +292,12 @@ async def test_p1_2a_complete_flow():
             ctx_inicial["clienteprofile"] = profile
             ctx_inicial["clienteprofile_carregado_em"] = datetime.now().isoformat()
 
-        await salvar_contexto_temporario(user_id, ctx_inicial)
+        await salvar_contexto_temporario(user_id, ctx_inicial, tenant_id=tenant_id)
 
     # Validação final
-    ctx_final = await carregar_contexto_temporario(user_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
+
+    assert ctx_final is not None, "Contexto deveria ter sido salvo"
 
     # ✅ Profile foi carregado
     assert "clienteprofile" in ctx_final

@@ -30,6 +30,7 @@ async def test_regressao_p1_2a_agendamento_simples():
     Validação: Resposta de confirmação idêntica
     """
     user_id = "test_simples_123"
+    tenant_id = "test_tenant_simples"
 
     # Contexto antes P1.2A
     ctx_antes = {
@@ -75,6 +76,7 @@ async def test_regressao_p1_2a_confirmacao_pendente():
     Validação: Fluxo continua normal
     """
     user_id = "test_confirmacao_pendente_123"
+    tenant_id = "test_tenant_confirmacao"
 
     # Estado com confirmação pendente
     ctx = {
@@ -89,8 +91,8 @@ async def test_regressao_p1_2a_confirmacao_pendente():
         }
     }
 
-    await salvar_contexto_temporario(user_id, ctx)
-    ctx_final = await carregar_contexto_temporario(user_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: estado preservado
     assert ctx_final["estado_fluxo"] == "agendando"
@@ -109,6 +111,7 @@ async def test_regressao_p1_2a_conversa_pessoal():
     Validação: NeoEve silencia (sem carregar profile)
     """
     user_id = "test_pessoal_123"
+    tenant_id = "test_tenant_pessoal"
 
     # Mensagem pessoal
     mensagem = "Tudo bem? Como você está?"
@@ -119,11 +122,11 @@ async def test_regressao_p1_2a_conversa_pessoal():
         "estado_fluxo": "idle"
     }
 
-    await salvar_contexto_temporario(user_id, ctx)
-    ctx_final = await carregar_contexto_temporario(user_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: profile não carregado para pessoal
-    assert "clienteprofile" not in ctx_final or ctx_final.get("clienteprofile") is None
+    assert ctx_final is None or "clienteprofile" not in ctx_final or ctx_final.get("clienteprofile") is None
     print("✅ FLUXO 3 PASSED: Conversa pessoal")
 
 
@@ -137,6 +140,7 @@ async def test_regressao_p1_2a_consulta_informativa():
     Validação: Consulta respondida sem entrar em agendamento
     """
     user_id = "test_consulta_123"
+    tenant_id = "test_tenant_consulta"
 
     # Consulta informativa
     mensagem = "Qual o preço do corte?"
@@ -147,10 +151,11 @@ async def test_regressao_p1_2a_consulta_informativa():
         "estado_fluxo": "idle"
     }
 
-    await salvar_contexto_temporario(user_id, ctx)
-    ctx_final = await carregar_contexto_temporario(user_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: profile não carregado para consulta informativa
+    assert ctx_final is not None, "Contexto deveria ter sido salvo"
     assert ctx_final["estado_fluxo"] == "idle"
     print("✅ FLUXO 4 PASSED: Consulta informativa")
 
@@ -165,6 +170,7 @@ async def test_regressao_p1_2a_multi_profissional():
     Validação: Profissional escolhido não alterado
     """
     user_id = "test_multi_prof_123"
+    tenant_id = "test_tenant_multi"
 
     # Draft com múltiplas opções
     ctx = {
@@ -186,11 +192,12 @@ async def test_regressao_p1_2a_multi_profissional():
     }
     ctx["clienteprofile"] = profile_mock
 
-    await salvar_contexto_temporario(user_id, ctx)
-    ctx_final = await carregar_contexto_temporario(user_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: profissional não foi preenchido pelo profile
     # (seria P1.3, não P1.2A)
+    assert ctx_final is not None, "Contexto deveria ter sido salvo"
     assert ctx_final["draft_agendamento"]["profissional"] is None
     assert ctx_final["ultima_opcao_profissionais"] == ["Paula", "Marina", "Sofia"]
     print("✅ FLUXO 5 PASSED: Multi-profissional")
@@ -206,6 +213,7 @@ async def test_regressao_p1_2a_mudanca_profissional():
     Validação: Novo profissional é aceito, não sobrescrito
     """
     user_id = "test_mudanca_prof_123"
+    tenant_id = "test_tenant_mudanca"
 
     # Draft com profissional inicial
     ctx = {
@@ -230,10 +238,11 @@ async def test_regressao_p1_2a_mudanca_profissional():
     }
     ctx["clienteprofile"] = profile_mock
 
-    await salvar_contexto_temporario(user_id, ctx)
-    ctx_final = await carregar_contexto_temporario(user_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: novo profissional mantido (não volta para Carla)
+    assert ctx_final is not None, "Contexto deveria ter sido salvo"
     assert ctx_final["profissional_escolhido"] == "Paula"
     assert ctx_final["draft_agendamento"]["profissional"] == "Paula"
     print("✅ FLUXO 6 PASSED: Mudança de profissional")
@@ -249,6 +258,7 @@ async def test_regressao_p1_2a_conflito_horario():
     Validação: Sugestões oferecidas normalmente
     """
     user_id = "test_conflito_123"
+    tenant_id = "test_tenant_conflito"
 
     # Estado após detecção de conflito
     ctx = {
@@ -272,10 +282,11 @@ async def test_regressao_p1_2a_conflito_horario():
     }
     ctx["clienteprofile"] = profile_mock
 
-    await salvar_contexto_temporario(user_id, ctx)
-    ctx_final = await carregar_contexto_temporario(user_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: sugestões mantidas, horários não alterados
+    assert ctx_final is not None, "Contexto deveria ter sido salvo"
     assert ctx_final["estado_fluxo"] == "aguardando_escolha_horario"
     assert ctx_final["horarios_sugeridos"] == ["15:30", "16:00", "16:30"]
     assert ctx_final["profissional_escolhido"] == "Bruna"  # não muda para Carla

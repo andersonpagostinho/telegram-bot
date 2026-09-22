@@ -1,5 +1,6 @@
 import re
 import logging
+from typing import Dict, Any
 from unidecode import unidecode
 from datetime import datetime, timedelta, date
 from pytz import timezone
@@ -11,6 +12,7 @@ from services.firebase_service_async import (
     obter_id_dono,
     buscar_dado_em_path,
     atualizar_dado_em_path,   # ✅ necessário para cancelar_evento
+    atualizar_com_operacoes_atomicas,  # ✅ necessário para alterar_agendamento atômico
 )
 from services.notificacao_service import criar_notificacao_agendada
 from services.agenda_lock_service import criar_evento_com_lock  # 🔒 PATCH P0
@@ -1203,58 +1205,263 @@ async def verificar_conflito_e_sugestoes_profissional(
     dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
     user_id_efetivo = user_id
 
-    tipo = (dados_usuario.get("tipo_usuario") or "cliente").strip().lower()
-    modo = (dados_usuario.get("modo_uso") or "").strip().lower()
+    print(
+        f"\n[DIAG_TENANT] user_id recebido: {user_id}",
+        flush=True
+    )
+    print(
+        f"[DIAG_TENANT] Documento encontrado: {bool(dados_usuario)}",
+        flush=True
+    )
 
-    if tipo == "cliente" or modo == "atendimento_cliente":
-        user_id_efetivo = await obter_id_dono(user_id)
+    # CORREÇÃO P0: Se documento tem id_negocio, é cliente → resolve tenant
+    # Se NÃO tem id_negocio, provavelmente JÁ é tenant → usa direto
+    if dados_usuario.get("id_negocio"):
+        # Cliente: tem id_negocio → usar esse como tenant
+        user_id_efetivo = dados_usuario.get("id_negocio")
+        print(
+            f"[DIAG_TENANT] Tipo: CLIENTE com id_negocio={user_id_efetivo}",
+            flush=True
+        )
+    else:
+        # Tenant ou cliente desconhecido
+        tipo = (dados_usuario.get("tipo_usuario") or "cliente").strip().lower()
+        modo = (dados_usuario.get("modo_uso") or "").strip().lower()
+
+        print(
+            f"[DIAG_TENANT] Tipo: {tipo}, Modo: {modo}",
+            flush=True
+        )
+
+        if tipo == "cliente" or modo == "atendimento_cliente":
+            # Tentar resolver como cliente
+            tenant_resolvido = await obter_id_dono(user_id)
+            if tenant_resolvido:
+                user_id_efetivo = tenant_resolvido
+                print(
+                    f"[DIAG_TENANT] Resolvido como cliente, tenant={user_id_efetivo}",
+                    flush=True
+                )
+        else:
+            print(
+                f"[DIAG_TENANT] Usando user_id como tenant direto",
+                flush=True
+            )
 
     # 3) Busca eventos e profissionais
-    eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
+    path_eventos = f"Clientes/{user_id_efetivo}/Eventos"
+    print(
+        f"\n[DIAG_BUSCA] Consultando path: {path_eventos}",
+        flush=True
+    )
+
+    eventos = await buscar_subcolecao(path_eventos) or {}
     profissionais = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Profissionais") or {}
 
     print(
-        f"[DIAG] Dados recebidos: user_id={user_id}, data={data}, hora_inicio={hora_inicio}, "
-        f"duracao_min={duracao_min}, profissional={profissional}, servico={servico}",
+        f"\n[DIAG] ========== PARAMETROS DE ENTRADA ==========",
         flush=True
     )
+    print(
+        f"[DIAG] user_id recebido: {user_id}",
+        flush=True
+    )
+    print(
+        f"[DIAG] tenant_id efetivo: {user_id_efetivo}",
+        flush=True
+    )
+    print(
+        f"[DIAG] profissional: {profissional}",
+        flush=True
+    )
+    print(
+        f"[DIAG] data: {data}",
+        flush=True
+    )
+    print(
+        f"[DIAG] hora_inicio: {hora_inicio}",
+        flush=True
+    )
+    print(
+        f"[DIAG] hora_fim: {fim_novo.strftime('%H:%M')}",
+        flush=True
+    )
+    print(
+        f"[DIAG] duracao_min: {duracao_min}",
+        flush=True
+    )
+    print(
+        f"[DIAG] Path consultado: {path_eventos}",
+        flush=True
+    )
+    print(
+        f"\n[DIAG] ========== BUSCA NO FIRESTORE ==========",
+        flush=True
+    )
+    print(
+        f"[DIAG] Total de eventos encontrados: {len(eventos)}",
+        flush=True
+    )
+    if eventos:
+        print(
+            f"[DIAG] IDs dos eventos: {list(eventos.keys())}",
+            flush=True
+        )
     print(f"[EVENTOS] Eventos existentes:\n{json.dumps(eventos, indent=2, default=str)}", flush=True)
 
     prof_norm = unidecode((profissional or "").strip().lower())
 
+    print(
+        f"\n[DIAG] ========== PROCESSAMENTO DE EVENTOS ==========",
+        flush=True
+    )
+    print(
+        f"[DIAG] Profissional normalizado (busca): {prof_norm}",
+        flush=True
+    )
+
     # 4) Ocupados do profissional (do dia todo)
     ocupados = []
+    eventos_descartados = []
+
     for eid, ev in eventos.items():
 
-        if not evento_deve_entrar_na_agenda(
+        print(f"\n[DIAG_EVENTO] Testando evento: {eid}", flush=True)
+
+        # Verificar se entra na agenda
+        entra_agenda = evento_deve_entrar_na_agenda(
             evento_id=eid,
             evento=ev,
             data_consulta=data
-        ):
+        )
+
+        if not entra_agenda:
+            motivo = "nao passou em evento_deve_entrar_na_agenda()"
             print(
-                f"🧹 [EVENTO_IGNORADO_CONFLITO] id={eid}",
+                f"[DESCARTADO] {eid}: {motivo}",
                 flush=True
             )
+            eventos_descartados.append({
+                "id": eid,
+                "motivo": motivo
+            })
             continue
 
+        # Verificar se é o mesmo evento
         if event_id and eid == event_id:
+            motivo = "é o próprio evento (ignorar na comparação)"
+            print(
+                f"[DESCARTADO] {eid}: {motivo}",
+                flush=True
+            )
+            eventos_descartados.append({
+                "id": eid,
+                "motivo": motivo
+            })
             continue
 
+        # Verificar profissional
         ev_prof = unidecode(str(ev.get("profissional", "")).strip().lower())
-        if not ev_prof or ev_prof != prof_norm:
+        if not ev_prof:
+            motivo = "profissional vazio"
+            print(
+                f"[DESCARTADO] {eid}: {motivo}",
+                flush=True
+            )
+            eventos_descartados.append({
+                "id": eid,
+                "motivo": motivo
+            })
             continue
 
+        if ev_prof != prof_norm:
+            motivo = f"profissional não corresponde ({ev_prof} != {prof_norm})"
+            print(
+                f"[DESCARTADO] {eid}: {motivo}",
+                flush=True
+            )
+            eventos_descartados.append({
+                "id": eid,
+                "motivo": motivo
+            })
+            continue
+
+        # Verificar intervalo
         ev_ini, ev_fim = _parse_event_interval(ev)
         if not ev_ini or not ev_fim:
+            motivo = "não conseguiu parsear intervalo de hora"
+            print(
+                f"[DESCARTADO] {eid}: {motivo}",
+                flush=True
+            )
+            eventos_descartados.append({
+                "id": eid,
+                "motivo": motivo
+            })
             continue
 
+        # Verificar data
         if ev_ini.date() != inicio_novo.date():
+            motivo = f"data diferente ({ev_ini.date()} != {inicio_novo.date()})"
+            print(
+                f"[DESCARTADO] {eid}: {motivo}",
+                flush=True
+            )
+            eventos_descartados.append({
+                "id": eid,
+                "motivo": motivo
+            })
             continue
 
+        # Evento considerado para conflito
+        print(
+            f"[CONSIDERADO] {eid}: {ev_prof} {ev_ini.strftime('%H:%M')}-{ev_fim.strftime('%H:%M')}",
+            flush=True
+        )
         ocupados.append((ev_ini, ev_fim))
+
+    print(
+        f"\n[DIAG] Total descartados: {len(eventos_descartados)}",
+        flush=True
+    )
+    print(
+        f"[DIAG] Total considerados para conflito: {len(ocupados)}",
+        flush=True
+    )
+    if eventos_descartados:
+        print(f"[DIAG] Motivos de descarte:", flush=True)
+        for desc in eventos_descartados:
+            print(f"  - {desc['id']}: {desc['motivo']}", flush=True)
+
+    print(
+        f"\n[DIAG] ========== VERIFICACAO DE CONFLITO ==========",
+        flush=True
+    )
+    print(
+        f"[DIAG] Intervalo solicitado: {inicio_novo.strftime('%H:%M')}-{fim_novo.strftime('%H:%M')}",
+        flush=True
+    )
+    print(
+        f"[DIAG] Duracao solicitada: {duracao_min} min",
+        flush=True
+    )
+    print(
+        f"[DIAG] Eventos ocupados para este profissional:",
+        flush=True
+    )
+    for ini, fim in ocupados:
+        print(
+            f"  - {ini.strftime('%H:%M')}-{fim.strftime('%H:%M')}",
+            flush=True
+        )
 
     cabe = verificar_encaixe_exato(inicio_novo, ocupados, duracao_min)
     conflito = not cabe
+
+    print(
+        f"[DIAG] Resultado encaixe: {'CABE' if cabe else 'CONFLITO DETECTADO'}",
+        flush=True
+    )
 
     # 🔥 SPLIT: somente se houver conflito e servico vier como lista com 2 itens
     if conflito and isinstance(servico, list) and len(servico) == 2:
@@ -1356,5 +1563,215 @@ async def verificar_conflito_e_sugestoes_profissional(
         "conflito": bool(conflito),
         "sugestoes": sugestoes,
         "profissional_alternativo": alternativos,
-        "profissionais_alternativos": alternativos,
     }
+
+
+async def alterar_agendamento(
+    user_id: str,
+    event_id: str,
+    nova_data: str,
+    nova_hora_inicio: str,
+    nova_duracao_minutos: int | None = None,
+    tenant_id: str | None = None
+) -> Dict[str, Any]:
+    """
+    Altera um agendamento confirmado MANTENDO O MESMO EVENT_ID.
+
+    P0 Reagendamento: Alteração atômica do evento com histórico.
+
+    Fluxo (CORRIGIDO - alteração, não cancelar+criar):
+    1. Validar ownership do evento original
+    2. Buscar evento original
+    3. Validar novo horário (motor de conflito)
+    4. ALTERAR evento no lugar (mesma ID)
+    5. Registrar no histórico de alterações
+    6. Retornar resultado com detalhes
+
+    Args:
+        user_id: Cliente ou dono
+        event_id: ID do evento a alterar (MANTIDO)
+        nova_data: Data no formato YYYY-MM-DD
+        nova_hora_inicio: Hora no formato HH:MM
+        nova_duracao_minutos: Duração (se None, mantém original)
+        tenant_id: Tenant (resolvido se não fornecido)
+
+    Returns:
+        {"ok": bool, "evento_id": str, "detalhes": {...}, "motivo": str}
+    """
+
+    try:
+        # ========================================
+        # ETAPA 1: RESOLVER TENANT
+        # ========================================
+        if not tenant_id:
+            dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+            tenant_id = user_id
+
+            if dados_usuario.get("id_negocio"):
+                tenant_id = dados_usuario.get("id_negocio")
+            else:
+                tipo = (dados_usuario.get("tipo_usuario") or "cliente").strip().lower()
+                modo = (dados_usuario.get("modo_uso") or "").strip().lower()
+
+                if tipo == "cliente" or modo == "atendimento_cliente":
+                    tenant_resolvido = await obter_id_dono(user_id)
+                    if tenant_resolvido:
+                        tenant_id = tenant_resolvido
+
+        # ========================================
+        # ETAPA 2: BUSCAR EVENTO ORIGINAL
+        # ========================================
+        path_evento = f"Clientes/{tenant_id}/Eventos/{event_id}"
+        evento_original = await buscar_dado_em_path(path_evento) or {}
+
+        if not evento_original:
+            return {
+                "ok": False,
+                "motivo": f"Evento {event_id} não encontrado",
+                "evento_id": event_id
+            }
+
+        # ========================================
+        # ETAPA 3: VALIDAR OWNERSHIP
+        # ========================================
+        dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+        tipo_usuario = (dados_usuario.get("tipo_usuario") or "cliente").strip().lower()
+        cliente_id_evento = evento_original.get("cliente_id")
+
+        if tipo_usuario == "cliente":
+            if cliente_id_evento != user_id:
+                return {
+                    "ok": False,
+                    "motivo": f"Você não tem permissão para alterar este evento",
+                    "evento_id": event_id
+                }
+        elif tipo_usuario == "dono":
+            tenant_evento = await obter_id_dono(cliente_id_evento)
+            if tenant_evento != tenant_id:
+                return {
+                    "ok": False,
+                    "motivo": f"Evento pertence a outro tenant",
+                    "evento_id": event_id
+                }
+        elif tipo_usuario == "profissional":
+            # Profissional só pode alterar eventos onde é o profissional
+            profissional_evento = evento_original.get("profissional", "")
+            if profissional_evento != user_id:
+                return {
+                    "ok": False,
+                    "motivo": f"Você não tem permissão para alterar este evento",
+                    "evento_id": event_id
+                }
+
+        # ========================================
+        # ETAPA 4: VALIDAR NOVO HORÁRIO (MOTOR DE CONFLITO)
+        # ========================================
+        profissional = evento_original.get("profissional", "")
+        servico = evento_original.get("servico", "")
+        duracao = nova_duracao_minutos or int(evento_original.get("duracao_minutos") or 30)
+
+        # Calcular nova hora fim
+        hora_obj = datetime.strptime(nova_hora_inicio, "%H:%M")
+        novo_fim = (hora_obj + timedelta(minutes=duracao)).time()
+        nova_hora_fim = novo_fim.strftime("%H:%M")
+
+        # Usar motor de conflito para validar (EXCLUSIVO: ignorar evento_id original)
+        validacao_conflito = await verificar_conflito_e_sugestoes_profissional(
+            user_id=tenant_id,
+            data=nova_data,
+            hora_inicio=nova_hora_inicio,
+            duracao_min=duracao,
+            profissional=profissional,
+            servico=servico,
+            event_id=event_id  # Ignora o evento sendo alterado
+        )
+
+        if validacao_conflito.get("conflito"):
+            return {
+                "ok": False,
+                "motivo": "Novo horário está em conflito",
+                "conflito": True,
+                "sugestoes": validacao_conflito.get("sugestoes", []),
+                "evento_id": event_id
+            }
+
+        # ========================================
+        # ETAPA 5: ALTERAR EVENTO NO LUGAR (ATOMICO)
+        # ========================================
+        now_iso = datetime.now(FUSO_BR).isoformat()
+
+        # Preparar histórico de alteração
+        alteracao = {
+            "timestamp": now_iso,
+            "actor_id": user_id,  # Quem alterou (cliente, dono ou profissional)
+            "anterior": {
+                "data": evento_original.get("data"),
+                "hora_inicio": evento_original.get("hora_inicio"),
+                "hora_fim": evento_original.get("hora_fim"),
+                "duracao_minutos": evento_original.get("duracao_minutos"),
+            },
+            "novo": {
+                "data": nova_data,
+                "hora_inicio": nova_hora_inicio,
+                "hora_fim": nova_hora_fim,
+                "duracao_minutos": duracao,
+            },
+            "motivo": "Reagendamento do cliente"
+        }
+
+        # Importar firestore para operações atômicas
+        from google.cloud import firestore as fb
+
+        # Atualizar evento com operação atômica
+        # Preserva event_id, altera campos específicos
+        payload_alteracao = {
+            "data": nova_data,
+            "hora_inicio": nova_hora_inicio,
+            "hora_fim": nova_hora_fim,
+            "duracao_minutos": duracao,
+            "alterado_em": now_iso,
+            "alteracao_count": fb.Increment(1),
+            "historico_alteracoes": fb.ArrayUnion([alteracao]),
+        }
+
+        try:
+            await atualizar_com_operacoes_atomicas(path_evento, payload_alteracao)
+            logger.info(
+                f"[ALTERACAO_EVENTO_SUCESSO] "
+                f"event_id={event_id} | "
+                f"nova_data={nova_data} {nova_hora_inicio}"
+            )
+        except Exception as e:
+            logger.error(f"[ALTERACAO_ATOMICA_ERRO] {str(e)}")
+            return {
+                "ok": False,
+                "motivo": f"Falha ao alterar evento: {str(e)}",
+                "evento_id": event_id
+            }
+
+        # ========================================
+        # ETAPA 6: RETORNAR RESULTADO
+        # ========================================
+        return {
+            "ok": True,
+            "evento_id": event_id,  # MESMO ID
+            "detalhes": {
+                "profissional": profissional,
+                "servico": servico,
+                "data": nova_data,
+                "hora_inicio": nova_hora_inicio,
+                "hora_fim": nova_hora_fim,
+                "duracao_minutos": duracao,
+                "confirmado": True
+            },
+            "alteracao": alteracao,
+            "motivo": "Agendamento alterado com sucesso"
+        }
+
+    except Exception as e:
+        logger.error(f"[ALTERACAO_ERRO] {str(e)}", exc_info=True)
+        return {
+            "ok": False,
+            "motivo": f"Erro ao alterar agendamento: {str(e)}",
+            "evento_id": event_id
+        }

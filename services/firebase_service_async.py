@@ -355,9 +355,39 @@ async def buscar_documento(path: str):
     return await buscar_dado_em_path(path)
 
 # [OK] Retorna o ID do dono, mesmo se for um cliente
-async def obter_id_dono(user_id: str) -> str:
+async def obter_id_dono(user_id: str) -> str | None:
+    """
+    Resolve tenant_id para um ator (usuário).
+
+    CRÍTICO: NUNCA retorna user_id como fallback silencioso.
+    Fallback silencioso permite que qualquer ator se torne "dono".
+
+    Retorna:
+    - tenant_id (str) se ator é cliente/profissional vinculado a negócio
+    - None se ator não encontrado ou não vinculado
+    """
     cliente = await buscar_cliente(user_id)
-    return cliente.get("id_negocio", user_id) if cliente else user_id
+    if cliente:
+        return cliente.get("id_negocio")
+    return None
+
+
+async def obter_id_dono_com_fallback(user_id: str) -> str:
+    """
+    Versão com fallback (USE APENAS PARA CONTEXTO NÃO-CRÍTICO).
+
+    NUNCA use em:
+    - Autenticação / Autorização / Acesso sensível / Role checks / Dashboard
+
+    USE APENAS em:
+    - Logs informativos / Formatação de mensagens / Contexto conversacional
+
+    Retorna:
+    - tenant_id se resolvido
+    - user_id como fallback (apenas para info, não para decisão)
+    """
+    tenant_id = await obter_id_dono(user_id)
+    return tenant_id if tenant_id else user_id
 
 # [OK] Buscar contatos por nome (ex: Clientes/{user_id}/Contatos)
 async def buscar_contatos_por_nome(user_id: str, nome: str):

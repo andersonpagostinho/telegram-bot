@@ -276,55 +276,132 @@ async def enviar_resumo_diario():
             return
 
         from services.event_service_async import buscar_eventos_por_intervalo
+        from services.identidade_service import buscar_profissional_por_nome
 
         clientes = await buscar_subcolecao("Clientes") or {}
         hoje = datetime.now(FUSO_BR).date()
         hoje_str = hoje.strftime("%Y-%m-%d")
 
         for user_id in clientes.keys():
-            # 👇 checa se esse documento é mesmo de DONO
-            doc_cli = await buscar_dado_em_path(f"Clientes/{user_id}")
-            tipo_usuario = (doc_cli or {}).get("tipo_usuario") or "cliente"
-            if tipo_usuario != "dono":
-                continue  # não manda resumo diário para cliente
-
-            partes_resumo = []
-
-            eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=hoje)
-            if eventos:
-                partes_resumo.append("📅 *Eventos de hoje:*\n" + "\n".join(f"• {e}" for e in eventos))
-            else:
-                partes_resumo.append("📅 Nenhum evento agendado.")
-
-            tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
-            tarefas = [t["descricao"] for t in tarefas_dict.values() if isinstance(t, dict) and t.get("descricao")]
-            if tarefas:
-                partes_resumo.append("📝 *Tarefas pendentes:*\n" + "\n".join(f"• {t}" for t in tarefas))
-            else:
-                partes_resumo.append("📝 Nenhuma tarefa registrada.")
-
-            followups_dict = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps") or {}
-            pendentes = []
-            for f in followups_dict.values():
-                if f.get("status") == "pendente":
-                    nome = f.get("nome_cliente", "Sem nome")
-                    data = f.get("data", hoje_str)
-                    if data == hoje_str:
-                        hora = f.get("hora", "08:00")
-                        pendentes.append(f"{nome} às {hora}")
-
-            if pendentes:
-                partes_resumo.append("📌 *Follow-ups de hoje:*\n" + "\n".join(f"• {p}" for p in pendentes))
-            else:
-                partes_resumo.append("📌 Nenhum follow-up para hoje.")
-
-            texto = "\n\n".join(partes_resumo)
-
             try:
-                await bot.send_message(chat_id=int(user_id), text=texto, parse_mode="Markdown")
-                logger.info(f"✅ Resumo diário enviado para {user_id}")
+                doc_cli = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+                tipo_usuario = (doc_cli or {}).get("tipo_usuario") or "cliente"
+
+                # 🎯 ROTEAMENTO POR TIPO DE USUÁRIO
+                if tipo_usuario == "dono":
+                    # =========================================================
+                    # 📋 RESUMO PARA DONO: eventos + tarefas + follow-ups
+                    # =========================================================
+                    partes_resumo = []
+
+                    # Eventos de hoje
+                    eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=hoje)
+                    if eventos:
+                        partes_resumo.append("📅 *Eventos de hoje:*\n" + "\n".join(f"• {e}" for e in eventos))
+                    else:
+                        partes_resumo.append("📅 Nenhum evento agendado.")
+
+                    # Tarefas pendentes
+                    tarefas_dict = await buscar_subcolecao(f"Clientes/{user_id}/Tarefas") or {}
+                    tarefas = [t["descricao"] for t in tarefas_dict.values() if isinstance(t, dict) and t.get("descricao")]
+                    if tarefas:
+                        partes_resumo.append("📝 *Tarefas pendentes:*\n" + "\n".join(f"• {t}" for t in tarefas))
+                    else:
+                        partes_resumo.append("📝 Nenhuma tarefa registrada.")
+
+                    # Follow-ups de hoje
+                    followups_dict = await buscar_subcolecao(f"Usuarios/{user_id}/FollowUps") or {}
+                    pendentes = []
+                    for f in followups_dict.values():
+                        if f.get("status") == "pendente":
+                            nome = f.get("nome_cliente", "Sem nome")
+                            data = f.get("data", hoje_str)
+                            if data == hoje_str:
+                                hora = f.get("hora", "08:00")
+                                pendentes.append(f"{nome} às {hora}")
+
+                    if pendentes:
+                        partes_resumo.append("📌 *Follow-ups de hoje:*\n" + "\n".join(f"• {p}" for p in pendentes))
+                    else:
+                        partes_resumo.append("📌 Nenhum follow-up para hoje.")
+
+                    texto = "\n\n".join(partes_resumo)
+
+                    try:
+                        await bot.send_message(chat_id=int(user_id), text=texto, parse_mode="Markdown")
+                        logger.info(f"✅ Resumo diário DONO enviado para {user_id}")
+                    except Exception as e:
+                        logger.error(f"Erro ao enviar resumo para DONO {user_id}: {e}")
+
+                elif tipo_usuario == "cliente":
+                    # =========================================================
+                    # 📅 RESUMO PARA CLIENTE: apenas seus agendamentos
+                    # =========================================================
+                    dono_id = await obter_id_dono(user_id)
+
+                    eventos_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos") or {}
+
+                    # Filtrar apenas eventos deste cliente
+                    eventos_cliente = []
+                    for evento_id, evento in eventos_dict.items():
+                        if isinstance(evento, dict):
+                            if evento.get("data") == hoje_str and evento.get("cliente_id") == user_id:
+                                prof = evento.get("profissional", "profissional não confirmado")
+                                hora = evento.get("hora_inicio", "horário não confirmado")
+                                desc = evento.get("descricao", "serviço")
+                                eventos_cliente.append(f"• {desc} com {prof} às {hora}")
+
+                    if eventos_cliente:
+                        texto = "📅 *Seus agendamentos de hoje:*\n" + "\n".join(eventos_cliente)
+                    else:
+                        texto = "📅 Você não tem agendamentos para hoje."
+
+                    try:
+                        await bot.send_message(chat_id=int(user_id), text=texto, parse_mode="Markdown")
+                        logger.info(f"✅ Resumo diário CLIENTE enviado para {user_id}")
+                    except Exception as e:
+                        logger.error(f"Erro ao enviar resumo para CLIENTE {user_id}: {e}")
+
+                elif tipo_usuario == "profissional":
+                    # =========================================================
+                    # 📅 RESUMO PARA PROFISSIONAL: seus agendamentos de hoje
+                    # =========================================================
+                    dono_id = await obter_id_dono(user_id)
+                    prof_nome = (doc_cli or {}).get("nome", "")
+
+                    if not prof_nome:
+                        logger.warning(f"[RESUMO_PROF] profissional {user_id} sem nome cadastrado, pulando")
+                        continue
+
+                    eventos_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos") or {}
+
+                    # Filtrar apenas eventos deste profissional
+                    eventos_prof = []
+                    for evento_id, evento in eventos_dict.items():
+                        if isinstance(evento, dict):
+                            if evento.get("data") == hoje_str and \
+                               str(evento.get("profissional", "")).lower() == prof_nome.lower():
+                                cliente = evento.get("cliente_nome", "cliente")
+                                hora = evento.get("hora_inicio", "horário não confirmado")
+                                desc = evento.get("descricao", "serviço")
+                                eventos_prof.append(f"• {desc} com {cliente} às {hora}")
+
+                    if eventos_prof:
+                        texto = f"📅 *Seus agendamentos de hoje ({prof_nome}):*\n" + "\n".join(eventos_prof)
+                    else:
+                        texto = f"📅 {prof_nome}, você não tem agendamentos para hoje."
+
+                    try:
+                        await bot.send_message(chat_id=int(user_id), text=texto, parse_mode="Markdown")
+                        logger.info(f"✅ Resumo diário PROFISSIONAL enviado para {user_id} ({prof_nome})")
+                    except Exception as e:
+                        logger.error(f"Erro ao enviar resumo para PROFISSIONAL {user_id}: {e}")
+
+                else:
+                    logger.info(f"[RESUMO] tipo_usuario desconhecido: {tipo_usuario} para {user_id}, pulando")
+
             except Exception as e:
-                logger.error(f"Erro ao enviar resumo diário para {user_id}: {e}")
+                logger.error(f"❌ Erro ao processar resumo para {user_id}: {e}")
 
     except Exception as e:
         logger.error(f"❌ Erro ao gerar/enviar resumo diário: {e}")

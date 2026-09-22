@@ -223,14 +223,14 @@ async def salvar_contexto_temporario(user_id: str, contexto: dict, tenant_id: st
     path = f"Clientes/{user_id}/MemoriaTemporaria/contexto"
 
     if not contexto:
-        print(f"🚨 [BLOCK SAVE LEGADO] contexto vazio bloqueado em {path}", flush=True)
+        print(f"[BLOCK SAVE LEGADO] contexto vazio bloqueado em {path}", flush=True)
         return False
 
-    # 🔥 PATCH P0.1: Bloquear escrita sem tenant_id
+    # PATCH P0.1: Bloquear escrita sem tenant_id
     if not tenant_id:
         stack = "".join(traceback.format_stack(limit=15))
         print(
-            f"🚨 [CTX_SAVE_BLOQUEADO_SEM_TENANT] CRÍTICO | path={path} | tenant_id não fornecido, salvamento RECUSADO\n"
+            f"[CTX_SAVE_BLOQUEADO_SEM_TENANT] CRITICO | path={path} | tenant_id nao fornecido, salvamento RECUSADO\n"
             f"STACK TRACE COMPLETO:\n{stack}",
             flush=True
         )

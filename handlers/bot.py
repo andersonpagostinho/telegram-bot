@@ -28,7 +28,7 @@ from services.cadastro_inicial_service import (
     processar_texto_cadastro,
 )
 
-from router.principal_router import roteador_principal, eh_confirmacao, eh_desistencia_fluxo
+from router.principal_router import roteador_principal, eh_confirmacao, eh_desistencia_fluxo, eh_gatilho_reagendamento
 
 from handlers.task_handler import add_task, list_tasks, clear_tasks, list_tasks_by_priority
 #from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, conectar_email
@@ -65,6 +65,15 @@ from handlers.report_handler import (
     relatorio_diario,
     relatorio_semanal,
     enviar_relatorio_email,
+)
+
+# 🆕 F9 — Dashboard do Dono (MVP sob demanda)
+from handlers.dashboard_handler import (
+    cmd_dashboard,
+    cmd_resumo_hoje,
+    cmd_resumo_semana,
+    cmd_metricas_profissionais,
+    cmd_alertas,
 )
 
 logger = logging.getLogger(__name__)
@@ -477,6 +486,291 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             await update.message.reply_text("Tudo bem, esse horário não foi confirmado.\n\nQual horário você prefere?")
             raise ApplicationHandlerStop
 
+    # --- 1.8) P0 REAGENDAMENTO CONVERSACIONAL ---
+    # Detectar intenção de reagendamento
+    if eh_gatilho_reagendamento(mensagem):
+        print(f"🔄 [P0-REAGENDAMENTO] Detectado em: {mensagem!r}", flush=True)
+
+        # Estado 1: REAGENDAMENTO_INICIADO
+        estado_fluxo_current = ctx_tmp.get("estado_fluxo", "").strip().lower()
+
+        if not estado_fluxo_current or estado_fluxo_current not in [
+            "aguardando_escolha_agendamento_reagendamento",
+            "aguardando_novo_horario_reagendamento",
+            "validando_disponibilidade_reagendamento",
+            "aguardando_escolha_horario_reagendamento",
+            "aguardando_confirmacao_reagendamento"
+        ]:
+            # Novo fluxo de reagendamento
+            print(f"[P0-REAGENDAMENTO] Iniciando novo fluxo", flush=True)
+
+            # Buscar agendamentos do usuário
+            try:
+                agendamentos = await buscar_subcolecao(
+                    f"Clientes/{tenant_id}/Eventos"
+                ) or {}
+
+                # Filtrar por cliente (se for cliente) ou por dono (se for dono)
+                agendamentos_filtrados = {}
+                role = "cliente"  # Default
+
+                # Validação de ownership
+                for evt_id, evt in agendamentos.items():
+                    if evt.get("status") != "confirmado":
+                        continue
+
+                    # Cliente só vê seus próprios eventos
+                    if evt.get("cliente_id") == user_id:
+                        agendamentos_filtrados[evt_id] = evt
+
+                if not agendamentos_filtrados:
+                    await update.message.reply_text(
+                        "Você não tem agendamentos para alterar no momento."
+                    )
+                    raise ApplicationHandlerStop
+
+                # Listar agendamentos
+                opcoes_texto = "\n".join([
+                    f"{i+1}. {evt.get('servico', 'Serviço')} - "
+                    f"{evt.get('data', '')} às {evt.get('hora_inicio', '')} "
+                    f"com {evt.get('profissional', '?')}"
+                    for i, evt in enumerate(agendamentos_filtrados.values())
+                ])
+
+                # Guardar contexto
+                ctx_tmp["estado_fluxo"] = "aguardando_escolha_agendamento_reagendamento"
+                ctx_tmp["agendamentos_para_reagendar"] = list(agendamentos_filtrados.values())
+                ctx_tmp["agendamentos_ids"] = list(agendamentos_filtrados.keys())
+                ctx_tmp["ator_reagendamento"] = {
+                    "user_id": user_id,
+                    "tenant_id": tenant_id,
+                    "role": role
+                }
+
+                await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+                await update.message.reply_text(
+                    f"Qual deles você quer alterar?\n\n{opcoes_texto}"
+                )
+                raise ApplicationHandlerStop
+
+            except Exception as e:
+                print(f"❌ [P0-REAGENDAMENTO] Erro ao listar: {e}", flush=True)
+                await update.message.reply_text("Desculpe, não consegui listar seus agendamentos.")
+                raise ApplicationHandlerStop
+
+        # Estados intermediários de reagendamento
+        raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando escolha de agendamento para reagendar ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_escolha_agendamento_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_escolha_agendamento", flush=True)
+
+        try:
+            escolha_idx = int(texto_usuario.strip()) - 1
+            agendamentos = ctx_tmp.get("agendamentos_para_reagendar", [])
+
+            if not (0 <= escolha_idx < len(agendamentos)):
+                await update.message.reply_text("Opção inválida. Escolha novamente.")
+                raise ApplicationHandlerStop
+
+            agendamento_escolhido = agendamentos[escolha_idx]
+            evento_id = ctx_tmp.get("agendamentos_ids", [])[escolha_idx]
+
+            # Guardar evento sendo alterado
+            ctx_tmp["evento_id_reagendamento"] = evento_id
+            ctx_tmp["agendamento_anterior"] = agendamento_escolhido
+            ctx_tmp["estado_fluxo"] = "aguardando_novo_horario_reagendamento"
+
+            await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+            await update.message.reply_text(
+                f"Para qual data e horário você quer mudar?\n"
+                f"(Ex: 'amanhã às 15h' ou 'quinta-feira 17:00')"
+            )
+            raise ApplicationHandlerStop
+
+        except ValueError:
+            await update.message.reply_text("Por favor, escolha um número válido.")
+            raise ApplicationHandlerStop
+        except Exception as e:
+            print(f"❌ [P0-REAGENDAMENTO] Erro ao escolher: {e}", flush=True)
+            await update.message.reply_text("Desculpe, ocorreu um erro.")
+            raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando novo horário ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_novo_horario_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_novo_horario", flush=True)
+
+        try:
+            from utils.interpretador_datas import interpretar_data_e_hora
+
+            # Interpretar data/hora
+            resultado_data = interpretar_data_e_hora(mensagem)
+
+            if not resultado_data or "erro" in resultado_data:
+                await update.message.reply_text(
+                    "Não entendi o horário. Tente novamente.\n"
+                    "(Ex: 'amanhã às 15h', 'segunda 17:30')"
+                )
+                raise ApplicationHandlerStop
+
+            nova_data = resultado_data.get("data", "")
+            nova_hora = resultado_data.get("hora", "")
+            agendamento_anterior = ctx_tmp.get("agendamento_anterior", {})
+
+            # Guardar draft
+            ctx_tmp["novo_horario"] = {
+                "data": nova_data,
+                "hora": nova_hora,
+                "duracao_minutos": agendamento_anterior.get("duracao_minutos", 30),
+                "profissional": agendamento_anterior.get("profissional", ""),
+                "servico": agendamento_anterior.get("servico", "")
+            }
+            ctx_tmp["estado_fluxo"] = "validando_disponibilidade_reagendamento"
+
+            await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+            # Validar conflito via motor (transição automática)
+            # Motor já foi chamado, agora responde
+            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+
+            validacao = await verificar_conflito_e_sugestoes_profissional(
+                user_id=tenant_id,
+                data=nova_data,
+                hora_inicio=nova_hora,
+                duracao_min=agendamento_anterior.get("duracao_minutos", 30),
+                profissional=agendamento_anterior.get("profissional", ""),
+                servico=agendamento_anterior.get("servico", ""),
+                event_id=ctx_tmp.get("evento_id_reagendamento")  # Crítico: ignora evento sendo alterado
+            )
+
+            if validacao.get("conflito"):
+                # Há conflito, oferecer alternativas
+                sugestoes = validacao.get("sugestoes", [])[:3]  # Até 3 sugestões
+                sugestoes_txt = "\n".join([f"{i+1}. {s}" for i, s in enumerate(sugestoes)])
+
+                ctx_tmp["estado_fluxo"] = "aguardando_escolha_horario_reagendamento"
+                ctx_tmp["sugestoes_reagendamento"] = sugestoes
+
+                await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+                await update.message.reply_text(
+                    f"Esse horário está ocupado. Tenho essas opções:\n\n{sugestoes_txt}\n\n"
+                    f"Qual você prefere? (1, 2 ou 3)"
+                )
+            else:
+                # Sem conflito, pedir confirmação
+                ctx_tmp["estado_fluxo"] = "aguardando_confirmacao_reagendamento"
+
+                await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+                await update.message.reply_text(
+                    f"Perfeito! Vou mudar para {nova_data} às {nova_hora}.\n"
+                    f"Confirma? (sim/não)"
+                )
+
+            raise ApplicationHandlerStop
+
+        except Exception as e:
+            print(f"❌ [P0-REAGENDAMENTO] Erro ao processar horário: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            await update.message.reply_text("Desculpe, ocorreu um erro ao processar o horário.")
+            raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando escolha de alternativa (conflito) ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_escolha_horario_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_escolha_horario", flush=True)
+
+        try:
+            escolha_idx = int(texto_usuario.strip()) - 1
+            sugestoes = ctx_tmp.get("sugestoes_reagendamento", [])
+
+            if not (0 <= escolha_idx < len(sugestoes)):
+                await update.message.reply_text("Opção inválida. Escolha novamente.")
+                raise ApplicationHandlerStop
+
+            horario_selecionado = sugestoes[escolha_idx]
+            # Extrair hora (formato: "HH:MM-HH:MM")
+            nova_hora = horario_selecionado.split("-")[0].strip()
+
+            ctx_tmp["novo_horario"]["hora"] = nova_hora
+            ctx_tmp["estado_fluxo"] = "aguardando_confirmacao_reagendamento"
+
+            await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+            await update.message.reply_text(
+                f"Perfeito! Vou mudar para {ctx_tmp['novo_horario']['data']} às {nova_hora}.\n"
+                f"Confirma? (sim/não)"
+            )
+            raise ApplicationHandlerStop
+
+        except ValueError:
+            await update.message.reply_text("Por favor, escolha um número válido.")
+            raise ApplicationHandlerStop
+        except Exception as e:
+            print(f"❌ [P0-REAGENDAMENTO] Erro ao escolher alternativa: {e}", flush=True)
+            await update.message.reply_text("Desculpe, ocorreu um erro.")
+            raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando confirmação ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_confirmacao_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_confirmacao", flush=True)
+
+        if eh_confirmacao(texto_usuario):
+            # Executar alteração
+            try:
+                from services.event_service_async import alterar_agendamento
+
+                novo_horario = ctx_tmp.get("novo_horario", {})
+                evento_id_alteracao = ctx_tmp.get("evento_id_reagendamento", "")
+                ator_info = ctx_tmp.get("ator_reagendamento", {})
+
+                resultado_alter = await alterar_agendamento(
+                    user_id=ator_info.get("user_id", user_id),
+                    event_id=evento_id_alteracao,
+                    nova_data=novo_horario.get("data", ""),
+                    nova_hora_inicio=novo_horario.get("hora", ""),
+                    nova_duracao_minutos=novo_horario.get("duracao_minutos", 30),
+                    tenant_id=tenant_id
+                )
+
+                if resultado_alter.get("ok"):
+                    # Sucesso
+                    await update.message.reply_text(
+                        f"✅ Pronto! Seu agendamento foi alterado para "
+                        f"{novo_horario.get('data', '')} às {novo_horario.get('hora', '')}."
+                    )
+
+                    # Limpar contexto
+                    await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+                else:
+                    await update.message.reply_text(
+                        f"❌ Não consegui alterar: {resultado_alter.get('motivo', 'Erro desconhecido')}"
+                    )
+                    await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+
+                raise ApplicationHandlerStop
+
+            except Exception as e:
+                print(f"❌ [P0-REAGENDAMENTO] Erro ao alterar: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                await update.message.reply_text("Desculpe, ocorreu um erro ao alterar o agendamento.")
+                await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+                raise ApplicationHandlerStop
+
+        elif eh_desistencia_fluxo(texto_usuario):
+            # Cancelar reagendamento
+            await update.message.reply_text("Certo, não vou alterar nada.")
+            await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+            raise ApplicationHandlerStop
+
+        else:
+            await update.message.reply_text("Confirme com 'sim' ou 'não'.")
+            raise ApplicationHandlerStop
+
     # --- 2) fluxo de configuração inicial (mas agora COM GATILHO) ---
     # só cai aqui se a frase indicar que o dono quer configurar
     gatilhos_config = (
@@ -769,6 +1063,17 @@ def register_handlers(application: Application):
     application.add_handler(CommandHandler(["relatorio_diario", "relatoriodiario"], relatorio_diario))
     application.add_handler(CommandHandler(["relatorio_semanal", "relatoriosemanal"], relatorio_semanal))
     application.add_handler(CommandHandler("enviar_relatorio_email", enviar_relatorio_email))
+
+    # 🆕 F9 — Dashboard do Dono (MVP)
+    # SEGURANÇA: Todos os comandos validam role (dono only)
+    application.add_handler(CommandHandler(
+        ["dashboard", "dados", "saude"],
+        cmd_dashboard
+    ))
+    application.add_handler(CommandHandler("hoje", cmd_resumo_hoje))
+    application.add_handler(CommandHandler("semana", cmd_resumo_semana))
+    application.add_handler(CommandHandler("profissionais", cmd_metricas_profissionais))
+    application.add_handler(CommandHandler("alertas", cmd_alertas))
 
     # perfil/negócio
     application.add_handler(CommandHandler(["tipo_negocio", "tiponegocio"], set_tipo_negocio))

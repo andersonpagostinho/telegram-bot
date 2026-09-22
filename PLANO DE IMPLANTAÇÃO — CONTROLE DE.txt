@@ -1,0 +1,1096 @@
+PLANO DE IMPLANTAÇÃO — CONTROLE DE PLANOS NEOEVE
+
+Versão: 1.0
+Status: Planejamento
+Objetivo: Fazer a NeoEve distinguir, liberar e limitar corretamente os planos Solo, Solo Pro, Studio, Salão e Pro, de forma determinística, multi-tenant, auditável e sem regressão na agenda.
+
+1. Objetivo da implantação
+
+Criar um sistema centralizado de autorização comercial que determine, para cada tenant:
+
+qual plano está contratado;
+qual é o estado atual da assinatura;
+quais funcionalidades estão liberadas;
+quais limites quantitativos se aplicam;
+quais operações devem ser bloqueadas;
+qual plano mínimo libera determinado recurso;
+como upgrade, downgrade, trial e cancelamento alteram o acesso;
+como todas as decisões ficam registradas no histórico.
+
+O resultado esperado é impedir situações como:
+
+cliente Solo utilizando relatórios do Salão;
+cliente Solo cadastrando vários profissionais;
+plano encerrado continuando com acesso total;
+trial liberando funcionalidades indefinidas;
+downgrade apagando profissionais ou agendas;
+dois cadastros simultâneos ultrapassando o limite;
+tenant utilizando plano ou assinatura de outro tenant;
+GPT decidindo acesso, limite ou plano.
+2. Princípios obrigatórios
+2.1 GPT não controla autorização
+
+O GPT pode interpretar frases como:
+
+“Quero cadastrar outra manicure.”
+“Quero ver meu relatório.”
+“Quero mudar para o Studio.”
+“Posso adicionar mais uma profissional?”
+
+O GPT retorna somente uma estrutura de intenção.
+
+Exemplo:
+
+{
+  "intencao": "cadastrar_profissional",
+  "profissional": {
+    "nome": "Amanda"
+  }
+}
+
+A decisão de permitir ou bloquear será sempre executada pelo motor determinístico.
+
+2.2 Fonte única de verdade
+
+O plano atual do tenant deve estar em uma assinatura central.
+
+Não utilizar como fonte definitiva:
+
+texto da sessão;
+campo livre produzido por GPT;
+parâmetros recebidos diretamente do canal;
+listas genéricas como planosAtivos;
+flags espalhadas em diferentes documentos;
+estado armazenado em memória local.
+2.3 Multi-tenant obrigatório
+
+Toda consulta de plano, assinatura, limite ou recurso deve receber explicitamente:
+
+tenant_id
+
+Toda decisão de acesso deve utilizar dados localizados exclusivamente dentro do tenant correspondente.
+
+Nunca buscar assinatura somente por:
+
+actor_id
+
+O ator identifica quem está falando. O tenant identifica de qual negócio são os dados e a assinatura.
+
+2.4 Falha fechada
+
+Quando houver:
+
+plano desconhecido;
+assinatura inexistente;
+catálogo inválido;
+erro de leitura;
+configuração inconsistente;
+ausência de tenant_id;
+
+o sistema não deve liberar recursos protegidos.
+
+A regra será:
+
+não foi possível comprovar autorização
+→ operação protegida bloqueada
+
+Isso não significa interromper indiscriminadamente a agenda. A política de contingência das operações essenciais será definida explicitamente.
+
+2.5 Preservação de dados
+
+Plano e assinatura controlam acesso, não propriedade dos dados.
+
+Upgrade, downgrade, inadimplência ou cancelamento nunca devem:
+
+apagar profissionais;
+apagar clientes;
+apagar eventos;
+apagar sessões;
+apagar histórico;
+excluir configurações automaticamente.
+3. Escopo funcional dos planos
+3.1 Matriz oficial
+Capacidade	Solo	Solo Pro	Studio	Salão	Pro
+Agendamento automático	Sim	Sim	Sim	Sim	Sim
+Confirmação automática	Sim	Sim	Sim	Sim	Sim
+Lembrete pela manhã	Sim	Sim	Sim	Sim	Sim
+Lembrete 30 minutos antes	Sim	Sim	Sim	Sim	Sim
+Encaixe/lista de espera	Sim	Sim	Sim	Sim	Sim
+Agenda em tempo real	Sim	Sim	Sim	Sim	Sim
+Link exclusivo da Eve	Sim	Sim	Sim	Sim	Sim
+Suporte por WhatsApp	Sim	Sim	Sim	Sim	Sim
+Número dedicado	Não	Sim	Sim	Sim	Sim
+Retenção automática	Não	Sim	Sim	Sim	Sim
+Preferência de horário	Não	Sim	Sim	Sim	Sim
+Relatório de ocupação	Não	Não	Não	Sim	Sim
+Onboarding acompanhado	Não	Não	Sim	Sim	Sim
+Suporte prioritário	Não	Sim	Sim	Sim	Sim
+Suporte prioritário dedicado	Não	Não	Não	Não	Sim
+Máximo de profissionais	1	1	3	6	10
+Máximo de agendas	1	1	3	6	10
+3.2 Fora do controle técnico
+
+Os seguintes textos são argumentos comerciais, não regras de autorização:
+
+“Se paga com 3 atendimentos.”
+“Menos de R$4 por dia.”
+“Agenda cheia o tempo todo.”
+“Para quem ainda está enchendo a agenda.”
+“Menos de R$2 por profissional.”
+
+Nenhum deles deve ser transformado em lógica de acesso.
+
+4. Arquitetura-alvo
+
+O fluxo de autorização deverá seguir:
+
+operação solicitada
+→ tenant_id resolvido
+→ assinatura atual carregada
+→ estado da assinatura validado
+→ plan_id validado
+→ catálogo do plano resolvido
+→ feature validada
+→ limite quantitativo validado
+→ operação executada
+→ histórico registrado
+→ resposta retornada
+
+Componentes previstos:
+
+domain/
+    plan_catalog.py
+    plan_models.py
+    plan_errors.py
+
+services/
+    subscription_service.py
+    plan_entitlement_service.py
+    plan_limit_service.py
+    plan_audit_service.py
+    plan_migration_service.py
+
+repositories/
+    subscription_repository.py
+    plan_audit_repository.py
+
+tests/
+    unit/
+    integration/
+    e2e/
+
+A estrutura exata deve respeitar a organização real do repositório. Não criar uma segunda arquitetura paralela se já existirem módulos equivalentes.
+
+5. Modelo de dados proposto
+5.1 Assinatura atual
+
+Caminho conceitual:
+
+Tenants/{tenant_id}/Assinatura/Atual
+
+Ou o equivalente já adotado no projeto.
+
+Estrutura mínima:
+
+{
+  "subscription_id": "sub_123",
+  "plan_id": "STUDIO",
+  "catalog_version": 1,
+  "status": "ATIVA",
+  "started_at": "timestamp",
+  "current_period_start": "timestamp",
+  "current_period_end": "timestamp",
+  "trial_started_at": null,
+  "trial_ends_at": null,
+  "cancel_at_period_end": false,
+  "canceled_at": null,
+  "limit_state": "NORMAL",
+  "created_at": "timestamp",
+  "updated_at": "timestamp"
+}
+5.2 Histórico de assinaturas
+Tenants/{tenant_id}/AssinaturasHistorico/{subscription_event_id}
+
+O histórico deve registrar:
+
+ativação;
+início de trial;
+conversão de trial;
+upgrade;
+downgrade;
+cancelamento agendado;
+cancelamento efetivado;
+inadimplência;
+reativação;
+alteração de período;
+entrada em estado acima do limite.
+5.3 Auditoria de autorização
+Tenants/{tenant_id}/AuditoriaPlanos/{event_id}
+
+Estrutura:
+
+{
+  "tenant_id": "tenant_123",
+  "actor_id": "actor_456",
+  "subscription_id": "sub_123",
+  "plan_id": "STUDIO",
+  "catalog_version": 1,
+  "operation": "create_professional",
+  "feature": null,
+  "resource": "professionals",
+  "decision": "DENIED",
+  "reason": "PLAN_LIMIT_REACHED",
+  "current_value": 3,
+  "limit_value": 3,
+  "correlation_id": "corr_789",
+  "created_at": "timestamp"
+}
+6. Fases da implantação
+FASE 0 — Auditoria do estado atual
+Objetivo
+
+Mapear todos os locais onde plano, pagamento, trial, módulo, profissional, agenda e relatório são tratados atualmente.
+
+Atividades
+Localizar todos os usos de:
+plan_id;
+planosAtivos;
+pagamentoAtivo;
+verificar_pagamento;
+verificar_plano;
+verificar_acesso_modulo;
+estados de billing;
+trial;
+criação de profissionais;
+criação de agendas;
+relatórios;
+lista de espera;
+retenção e retorno;
+provisionamento de número.
+Identificar:
+fontes atuais de verdade;
+campos duplicados;
+formatos inconsistentes;
+verificações permissivas;
+operações sem qualquer guard;
+jobs automáticos que não verificam plano;
+endpoints internos que poderiam contornar a autorização;
+testes existentes.
+Classificar cada ponto:
+MANTER
+ADAPTAR
+SUBSTITUIR
+DEPRECAR
+REMOVER FUTURAMENTE
+Gerar matriz:
+Operação	Arquivo/função	Verifica assinatura?	Verifica feature?	Verifica limite?	Transacional?	Ação
+Entregáveis
+AUDITORIA_CONTROLE_PLANOS_ATUAL.md
+inventário de campos e funções;
+mapa de dependências;
+lista de riscos;
+plano de compatibilidade com planosAtivos.
+Critério de aceite
+
+Nenhuma implementação começa antes de serem identificados todos os pontos críticos de criação e uso de recursos.
+
+FASE 1 — Contrato oficial dos planos
+Objetivo
+
+Transformar a oferta comercial em um contrato técnico imutável e testável.
+
+Atividades
+Definir IDs canônicos:
+SOLO
+SOLO_PRO
+STUDIO
+SALAO
+PRO
+Proibir variantes livres:
+solo-pro
+SoloPro
+solo pro
+salao_pro
+plano_studio
+
+Essas variantes podem ser aceitas apenas por uma função de normalização de entrada, nunca como valor armazenado.
+
+Criar catálogo versionado:
+PLAN_CATALOG_VERSION = 1
+Definir:
+features;
+limites;
+herança;
+plano mínimo por feature;
+metadados comerciais;
+política de assinatura.
+Criar validação de inicialização:
+todos os planos conhecidos existem;
+todos os limites são inteiros positivos;
+nenhuma feature possui valor inválido;
+nenhuma herança é circular;
+todos os planos superiores contêm os recursos prometidos;
+o catálogo resolvido é consistente.
+Entregáveis
+domain/plan_catalog.py;
+enums ou constantes;
+documentação do contrato;
+testes unitários do catálogo.
+Critério de aceite
+
+Para cada plano, o sistema consegue retornar deterministicamente:
+
+{
+  "plan_id": "STUDIO",
+  "features": {},
+  "limits": {
+    "professionals": 3,
+    "calendars": 3
+  }
+}
+FASE 2 — Modelo de assinatura e compatibilidade
+Objetivo
+
+Criar uma assinatura única por tenant sem quebrar os dados existentes.
+
+Atividades
+Definir contrato da assinatura atual.
+Implementar repositório multi-tenant.
+Implementar estados válidos:
+PENDENTE
+TRIAL
+ATIVA
+INADIMPLENTE
+CANCELAMENTO_AGENDADO
+CANCELADA
+ENCERRADA
+SUSPENSA
+Definir matriz de acesso por estado.
+
+Exemplo inicial:
+
+Estado	Operações normais	Novos recursos	Leitura de dados
+TRIAL	Sim	Conforme plano	Sim
+ATIVA	Sim	Conforme plano	Sim
+INADIMPLENTE	Política controlada	Não	Sim
+CANCELAMENTO_AGENDADO	Sim até fim do período	Conforme plano	Sim
+CANCELADA	Não	Não	Sim
+ENCERRADA	Não	Não	Sim
+SUSPENSA	Não	Não	Sim
+Criar camada temporária de compatibilidade:
+lê a assinatura nova primeiro;
+caso ausente, interpreta os dados legados;
+registra origem da decisão;
+não migra silenciosamente dados ambíguos.
+Não remover planosAtivos nesta fase.
+Entregáveis
+modelos de assinatura;
+repository;
+serviço de leitura;
+compatibilidade legada;
+testes por estado.
+Critério de aceite
+
+Cada tenant retorna exatamente uma visão consolidada de assinatura, independentemente do formato legado original.
+
+FASE 3 — Motor central de entitlements
+Objetivo
+
+Criar um único ponto de decisão para acesso e limites.
+
+Interface prevista
+get_current_subscription(tenant_id)
+get_plan_entitlements(tenant_id)
+has_feature(tenant_id, feature)
+get_limit(tenant_id, resource)
+authorize_feature(tenant_id, actor_id, feature)
+authorize_resource_creation(
+    tenant_id,
+    actor_id,
+    resource,
+    current_count
+)
+authorize_operation(tenant_id, actor_id, operation)
+Resultado padronizado
+
+Toda autorização deve retornar estrutura, não apenas True ou False.
+
+{
+  "allowed": false,
+  "reason": "PLAN_LIMIT_REACHED",
+  "plan_id": "STUDIO",
+  "required_plan": "SALAO",
+  "resource": "professionals",
+  "current": 3,
+  "limit": 3
+}
+Códigos de erro mínimos
+TENANT_REQUIRED
+SUBSCRIPTION_NOT_FOUND
+SUBSCRIPTION_NOT_ACTIVE
+UNKNOWN_PLAN
+INVALID_CATALOG
+FEATURE_NOT_AVAILABLE
+PLAN_LIMIT_REACHED
+TENANT_OVER_LIMIT
+AUTHORIZATION_INTERNAL_ERROR
+Regras
+nenhuma função recebe plano informado pelo GPT;
+nenhuma função confia em plan_id vindo do request;
+assinatura é carregada pelo tenant_id;
+toda decisão pode ser auditada;
+cache, se existir, deve ser invalidado em mudança de assinatura;
+cache nunca pode misturar tenants.
+Entregáveis
+plan_entitlement_service;
+modelos de decisão;
+códigos de erro;
+testes unitários completos.
+Critério de aceite
+
+Todos os módulos podem consultar uma única API de autorização, sem duplicar regras.
+
+FASE 4 — Limites quantitativos transacionais
+Objetivo
+
+Impedir que concorrência ou chamadas paralelas ultrapassem os limites do plano.
+
+Recursos iniciais
+profissionais ativos;
+agendas ativas;
+números dedicados;
+outros recursos futuros explicitamente limitados.
+Fluxo obrigatório para criação de profissional
+receber operação
+→ validar tenant
+→ carregar assinatura
+→ carregar limite
+→ contar profissionais ativos dentro de transação/lock
+→ comparar
+→ criar profissional
+→ atualizar contador, se houver
+→ registrar auditoria
+Concorrência
+
+Não aceitar:
+
+quantidade = contar_profissionais()
+if quantidade < limite:
+    criar_profissional()
+
+Esse padrão permite race condition.
+
+Usar uma destas estratégias, conforme a arquitetura atual:
+
+transação Firestore;
+documento contador com atualização transacional;
+lock determinístico por tenant e recurso;
+mecanismo equivalente já validado no projeto.
+Downgrade acima do limite
+
+Quando o tenant possui mais recursos que o novo plano:
+
+não apagar
+não desativar automaticamente
+marcar OVER_LIMIT
+bloquear expansão
+orientar regularização
+Entregáveis
+serviço de limites;
+proteção transacional;
+estado OVER_LIMIT;
+testes de concorrência.
+Critério de aceite
+
+Em duas tentativas simultâneas para ocupar a última vaga, apenas uma operação conclui.
+
+FASE 5 — Inserção dos guards nos recursos
+Objetivo
+
+Aplicar autorização nos pontos reais de execução.
+
+5.1 Cadastro de profissionais
+
+Guard obrigatório antes da escrita:
+
+resource = professionals
+limit = max_professionals
+5.2 Criação de agendas
+
+Guard obrigatório:
+
+resource = calendars
+limit = max_calendars
+
+Evitar contar agenda pessoal e agenda operacional de formas inconsistentes.
+
+5.3 Relatórios
+
+Feature:
+
+occupancy_reports
+
+Disponível somente em:
+
+SALAO
+PRO
+
+O guard deve existir no serviço que gera os dados, não apenas na interface.
+
+5.4 Retenção automática
+
+Features:
+
+client_reactivation
+preferred_time_suggestions
+
+Disponíveis a partir do Solo Pro.
+
+Todo job agendado deve validar:
+
+tenant
+→ assinatura
+→ estado
+→ feature
+→ elegibilidade operacional
+5.5 Encaixe automático
+
+Feature:
+
+automatic_waitlist
+
+Disponível em todos os planos.
+
+O objetivo do guard aqui é garantir que o recurso não fique acidentalmente restrito a planos superiores.
+
+5.6 Número dedicado
+
+Feature:
+
+dedicated_number
+
+Disponível a partir do Solo Pro.
+
+A autorização não significa provisionamento concluído. O fluxo será:
+
+autorizado
+→ solicitação idempotente
+→ provisionamento
+→ associação ao tenant
+→ ativação
+→ histórico
+5.7 Onboarding acompanhado
+
+Feature:
+
+assisted_onboarding
+
+Disponível a partir do Studio.
+
+Inicialmente pode representar:
+
+criação de tarefa interna;
+classificação de prioridade;
+roteiro diferenciado;
+fila de acompanhamento.
+
+Não misturar essa feature com o onboarding automático obrigatório do produto.
+
+5.8 Suporte
+
+Features:
+
+priority_support
+dedicated_priority_support
+
+Essas flags devem classificar atendimento e fila. Não devem bloquear o usuário de pedir suporte.
+
+Entregáveis
+guards aplicados;
+matriz arquivo/função/feature;
+testes de integração por recurso;
+documentação dos bloqueios.
+Critério de aceite
+
+Não existe caminho alternativo conhecido que execute um recurso protegido sem passar pelo motor de autorização.
+
+FASE 6 — Trial, upgrade, downgrade e cancelamento
+Objetivo
+
+Aplicar mudança de acesso com histórico, idempotência e preservação de dados.
+
+6.1 Trial
+
+Todo trial deve possuir:
+
+{
+  "status": "TRIAL",
+  "plan_id": "SOLO_PRO",
+  "trial_started_at": "...",
+  "trial_ends_at": "...",
+  "catalog_version": 1
+}
+
+O plano do trial deve ser definido pelo fluxo comercial, não pelo GPT.
+
+6.2 Upgrade
+
+Fluxo:
+
+solicitação
+→ validação comercial
+→ confirmação de pagamento
+→ transação de assinatura
+→ histórico
+→ invalidação de cache
+→ liberação das novas features
+→ provisionamentos necessários
+
+A operação deve ser idempotente.
+
+Repetir o mesmo evento de pagamento não pode executar dois upgrades.
+
+6.3 Downgrade
+
+Fluxo:
+
+solicitação
+→ verificar recursos atuais
+→ informar impactos
+→ agendar mudança
+→ aplicar no período correto
+→ marcar OVER_LIMIT, quando necessário
+→ preservar todos os dados
+→ bloquear expansão
+6.4 Cancelamento
+
+Distinguir:
+
+cancelamento agendado para o fim do período;
+cancelamento imediato;
+encerramento após período;
+suspensão por falha operacional;
+inadimplência.
+
+O cancelamento da assinatura não é o mesmo que cancelar agendamentos de clientes.
+
+Entregáveis
+state machine integrada;
+eventos idempotentes;
+política de mudança de plano;
+testes de transição.
+Critério de aceite
+
+Toda mudança de plano produz exatamente um novo estado válido, mantém histórico e invalida autorizações antigas.
+
+FASE 7 — Migração dos tenants existentes
+Objetivo
+
+Converter os dados atuais para a nova estrutura sem atribuir planos incorretos.
+
+Etapas
+Executar inventário dos tenants.
+Classificar cada tenant:
+plano conhecido;
+plano inferível com segurança;
+plano ausente;
+múltiplos planos;
+pagamento inconsistente;
+tenant de teste;
+tenant desativado.
+Gerar relatório de pré-migração.
+Não migrar automaticamente casos ambíguos.
+Criar modo dry-run.
+Comparar:
+estado anterior;
+plano calculado;
+assinatura proposta;
+divergências;
+riscos.
+Executar migração idempotente.
+Registrar versão da migração.
+Validar tenant por tenant.
+Manter rollback lógico.
+Política recomendada
+
+Nunca assumir PRO como fallback.
+
+Para tenant sem plano confiável:
+
+status = PENDENTE ou MIGRATION_REVIEW
+acesso protegido = bloqueado
+dados = preservados
+alerta = criado
+
+A política definitiva deve considerar os clientes reais existentes para não interromper indevidamente o serviço.
+
+Entregáveis
+script de dry-run;
+relatório de divergências;
+script idempotente;
+resultado JSON;
+procedimento de rollback.
+Critério de aceite
+
+A quantidade de tenants antes e depois é igual, nenhum dado operacional é apagado e todos os tenants migrados possuem plano conhecido.
+
+FASE 8 — Testes completos
+Objetivo
+
+Provar que o controle funciona isoladamente e integrado ao sistema real.
+
+8.1 Testes unitários do catálogo
+cinco planos reconhecidos;
+IDs normalizados;
+herança resolvida;
+features corretas;
+limites corretos;
+catálogo inválido falha;
+plano desconhecido falha fechado.
+8.2 Testes de assinatura
+trial válido;
+ativa válida;
+encerrada bloqueia;
+cancelamento agendado respeita período;
+assinatura inexistente;
+assinatura de outro tenant;
+cache invalidado após mudança.
+8.3 Matriz funcional
+Solo
+primeiro profissional: permite;
+segundo profissional: bloqueia;
+primeira agenda: permite;
+segunda agenda: bloqueia;
+agendamento: permite;
+confirmação: permite;
+lembretes: permite;
+encaixe: permite;
+retenção: bloqueia;
+preferência de horário: bloqueia;
+relatório: bloqueia;
+número dedicado: bloqueia.
+Solo Pro
+primeiro profissional: permite;
+segundo profissional: bloqueia;
+retenção: permite;
+preferência de horário: permite;
+número dedicado: permite;
+relatório: bloqueia.
+Studio
+até três profissionais: permite;
+quarto profissional: bloqueia;
+até três agendas: permite;
+quarta agenda: bloqueia;
+onboarding acompanhado: permite;
+relatório: bloqueia.
+Salão
+até seis profissionais: permite;
+sétimo profissional: bloqueia;
+relatório: permite;
+onboarding acompanhado: permite.
+Pro
+até dez profissionais: permite;
+décimo primeiro: bloqueia;
+relatório: permite;
+suporte prioritário dedicado: permite.
+8.4 Testes de concorrência
+última vaga de profissional;
+última vaga de agenda;
+upgrade simultâneo;
+downgrade durante criação;
+webhook de pagamento duplicado;
+retry após timeout;
+duas instâncias da aplicação.
+8.5 Multi-tenant
+tenant A não lê assinatura de B;
+ator de A não usa plano de B;
+cache separado;
+contadores separados;
+auditoria separada;
+número dedicado associado ao tenant correto.
+8.6 GPT boundary
+GPT tenta retornar plan_id=PRO;
+GPT tenta liberar feature;
+prompt injection solicita ignorar limite;
+texto longo altera intenção, mas não autorização;
+erro de interpretação não cria profissional;
+GPT indisponível não muda regras de plano.
+8.7 Regressão operacional
+
+Executar novamente:
+
+agendamento;
+conflito;
+sugestões;
+criação com lock;
+confirmação;
+lembretes;
+cancelamento;
+lista de espera;
+sessão;
+histórico;
+multi-tenant;
+onboarding;
+billing;
+testes P0/P1 existentes.
+Critério de aceite
+100% da matriz de planos aprovada;
+100% dos testes multi-tenant aprovados;
+100% dos testes de concorrência críticos aprovados;
+baseline operacional sem regressão;
+nenhuma operação protegida sem guard.
+FASE 9 — Observabilidade e auditoria
+Objetivo
+
+Detectar bloqueios indevidos, acessos incorretos e divergências comerciais.
+
+Métricas
+plan_access_granted_total
+plan_access_denied_total
+plan_limit_reached_total
+unknown_plan_total
+subscription_not_found_total
+tenant_over_limit_total
+plan_upgrade_total
+plan_downgrade_total
+plan_authorization_error_total
+Logs mínimos
+
+Todo log deve conter:
+
+tenant_id
+actor_id
+plan_id
+subscription_status
+operation
+decision
+reason
+correlation_id
+
+Não registrar dados sensíveis desnecessários.
+
+Alertas
+
+Criar alerta para:
+
+plano desconhecido;
+assinatura inexistente em tenant ativo;
+erro repetido de autorização;
+recurso acima do limite;
+tentativa de mistura entre tenants;
+falha na invalidação de cache;
+divergência entre billing e assinatura;
+provisionamento duplicado de número.
+Critério de aceite
+
+Uma autorização negada ou liberada pode ser explicada posteriormente por meio de logs e eventos.
+
+FASE 10 — Ativação gradual
+Objetivo
+
+Ativar as restrições sem interromper agendas existentes.
+
+Etapa 1 — Shadow mode
+
+O motor calcula a decisão, mas ainda não bloqueia.
+
+Exemplo:
+
+decisão calculada: DENIED
+comportamento real: permitido temporariamente
+evento: SHADOW_DENIAL
+
+Usar apenas durante validação controlada.
+
+Objetivos:
+
+encontrar tenants acima do limite;
+identificar plano ausente;
+detectar guards incorretos;
+medir impacto;
+comparar decisão antiga e nova.
+Etapa 2 — Bloqueio de recursos não críticos
+
+Ativar primeiro:
+
+relatórios;
+onboarding acompanhado;
+suporte prioritário;
+retenção automática;
+preferência de horário;
+provisionamento de número.
+Etapa 3 — Limites de expansão
+
+Ativar:
+
+cadastro de novos profissionais;
+criação de novas agendas;
+reativação de recursos acima do limite.
+
+Não alterar recursos já existentes.
+
+Etapa 4 — Integração completa com billing
+
+Ativar:
+
+trial;
+upgrade;
+downgrade;
+cancelamento;
+inadimplência;
+expiração.
+Etapa 5 — Remoção da compatibilidade legada
+
+Somente após:
+
+todos os tenants migrados;
+nenhum uso residual relevante;
+período de observação concluído;
+rollback validado;
+baseline verde.
+Critério de aceite
+
+A restrição entra em produção por camadas, sem desligamento abrupto do núcleo de agenda.
+
+7. Ordem técnica recomendada
+
+A ordem obrigatória será:
+
+1. Auditoria
+2. Contrato dos planos
+3. Modelo de assinatura
+4. Motor de entitlements
+5. Serviço transacional de limites
+6. Guards dos recursos
+7. Trial e mudanças de plano
+8. Migração
+9. Testes completos
+10. Shadow mode
+11. Ativação gradual
+12. Remoção do legado
+
+Não iniciar pelos bloqueios.
+
+Bloquear recursos antes de criar catálogo, assinatura consolidada e compatibilidade produziria regressões e bloqueios incorretos.
+
+8. Dependências entre fases
+Fase	Depende de
+Fase 0 — Auditoria	Nenhuma
+Fase 1 — Contrato	Auditoria
+Fase 2 — Assinatura	Contrato
+Fase 3 — Entitlements	Contrato + assinatura
+Fase 4 — Limites	Entitlements
+Fase 5 — Guards	Entitlements + limites
+Fase 6 — Mudanças de plano	Assinatura + entitlements
+Fase 7 — Migração	Modelo estabilizado
+Fase 8 — Testes	Fases 1 a 7
+Fase 9 — Observabilidade	Entitlements + guards
+Fase 10 — Ativação	Testes + observabilidade
+9. Definition of Done geral
+
+A implantação somente será considerada concluída quando:
+
+os cinco planos estiverem definidos em catálogo versionado;
+todo tenant possuir assinatura única e válida;
+features e limites forem resolvidos deterministicamente;
+plano desconhecido falhar fechado;
+nenhuma decisão crítica depender de GPT;
+criação de profissional respeitar limite transacionalmente;
+criação de agenda respeitar limite transacionalmente;
+relatórios estiverem restritos a Salão e Pro;
+retenção e preferência estiverem restritas a Solo Pro ou superior;
+número dedicado estiver restrito a Solo Pro ou superior;
+onboarding acompanhado estiver restrito a Studio ou superior;
+upgrade e downgrade forem idempotentes;
+downgrade não apagar dados;
+trial estiver vinculado a um plano;
+todas as decisões tiverem auditoria;
+isolamento multi-tenant estiver comprovado;
+matriz completa de testes estiver verde;
+regressão operacional estiver verde;
+ativação gradual tiver sido concluída;
+legado tiver sido removido ou formalmente isolado.
+10. Riscos principais
+Risco 1 — Bloquear clientes existentes
+
+Mitigação: shadow mode, migração prévia e preservação de recursos existentes.
+
+Risco 2 — Ultrapassar limites por concorrência
+
+Mitigação: transação ou lock por tenant e recurso.
+
+Risco 3 — Duplicar fontes de verdade
+
+Mitigação: assinatura atual como fonte canônica e camada legada temporária.
+
+Risco 4 — Misturar tenants
+
+Mitigação: tenant_id obrigatório em repository, service, cache, lock e auditoria.
+
+Risco 5 — GPT alterar acesso
+
+Mitigação: catálogo e assinatura nunca recebidos da interpretação GPT.
+
+Risco 6 — Plano comercial e código divergirem
+
+Mitigação: catálogo versionado, matriz aprovada e teste de contrato.
+
+Risco 7 — Downgrade destruir operação
+
+Mitigação: estado OVER_LIMIT, bloqueio de expansão e preservação dos dados.
+
+Risco 8 — Jobs automáticos ignorarem o plano
+
+Mitigação: entitlement obrigatório em cada execução por tenant.
+
+Risco 9 — Webhook duplicado alterar assinatura duas vezes
+
+Mitigação: idempotency key e histórico transacional.
+
+11. Fora do escopo desta implantação
+
+Não faz parte desta entrega inicial:
+
+cálculo financeiro de rentabilidade do plano;
+cobrança direta ao cliente final;
+criação automática de preço por uso;
+plano customizado por tenant;
+venda de módulos avulsos;
+desconto negociado;
+cupom;
+comissão;
+cobrança por profissional excedente;
+mudança automática de plano por uso;
+GPT recomendando e executando upgrade;
+painel financeiro avançado.
+
+Esses itens podem ser incorporados depois, utilizando o mesmo contrato de assinatura.
+
+12. Resultado esperado
+
+Ao final, o sistema seguirá esta cadeia:
+
+serviço solicitado
+→ tenant identificado
+→ assinatura validada
+→ plano resolvido
+→ feature verificada
+→ limite verificado
+→ conflito operacional analisado, quando aplicável
+→ operação criada de forma segura
+→ histórico registrado
+→ resposta retornada
+
+Exemplo:
+
+Dona pede para cadastrar quarta profissional
+→ tenant está no Studio
+→ Studio permite até três
+→ existem três profissionais ativos
+→ motor bloqueia
+→ nenhum documento é criado
+→ auditoria registra PLAN_LIMIT_REACHED
+→ sistema informa que o limite do Studio foi atingido
+→ pode apresentar upgrade para Salão
+
+O GPT participa somente da interpretação da mensagem e da formulação da resposta. A autorização, o limite, a escrita e o histórico permanecem determinísticos.
