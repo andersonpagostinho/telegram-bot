@@ -13,6 +13,9 @@ import sys
 import logging
 import asyncio
 import threading
+import hmac
+import hashlib
+import json
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import Application, ContextTypes
@@ -49,6 +52,8 @@ TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 8080))
 RENDER_SERVICE_NAME = os.getenv("RENDER_SERVICE_NAME", "telegram-bot-a7a7")
 WEBHOOK_URL = f"https://{RENDER_SERVICE_NAME}.onrender.com/webhook"
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
+META_APP_SECRET = os.getenv("META_APP_SECRET", "")
 
 # 🔐 token do cron externo
 CRON_TOKEN = os.environ.get("CRON_TOKEN", "supersecreto123")
@@ -57,6 +62,7 @@ CRON_TOKEN = os.environ.get("CRON_TOKEN", "supersecreto123")
 app = Flask(__name__)
 application = Application.builder().token(TOKEN).build()
 bot_loop = None  # loop global do bot
+whatsapp_processed_ids = set()  # Dedupe em memória para message IDs
 
 # Executor para rodar funções em segundo plano
 executor = ThreadPoolExecutor()
@@ -103,6 +109,86 @@ def webhook():
     except Exception as e:
         logger.error(f"🔥 Erro no webhook: {e}", exc_info=True)
         return "Erro", 500
+
+@app.route("/webhook/whatsapp", methods=["GET"])
+def whatsapp_webhook_get():
+    try:
+        hub_mode = request.args.get("hub.mode")
+        hub_verify_token = request.args.get("hub.verify_token")
+        hub_challenge = request.args.get("hub.challenge")
+
+        logger.debug(f"🔐 Validação WhatsApp - mode: {hub_mode}, token match: {hub_verify_token == WHATSAPP_VERIFY_TOKEN}")
+
+        if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
+            logger.info("✅ Webhook WhatsApp validado com sucesso")
+            return hub_challenge, 200
+        else:
+            logger.warning("❌ Falha na validação do webhook WhatsApp")
+            return "Forbidden", 403
+    except Exception as e:
+        logger.error(f"🔥 Erro na validação WhatsApp: {e}", exc_info=True)
+        return "Error", 500
+
+@app.route("/webhook/whatsapp", methods=["POST"])
+def whatsapp_webhook_post():
+    try:
+        signature = request.headers.get("X-Hub-Signature-256", "")
+        body = request.get_data(as_text=True)
+
+        if not validate_whatsapp_signature(signature, body, META_APP_SECRET):
+            logger.warning("❌ Assinatura HMAC inválida")
+            return "Forbidden", 403
+
+        data = request.get_json(force=True)
+        logger.debug(f"📬 Webhook WhatsApp recebido: {data}")
+
+        if "entry" in data and len(data["entry"]) > 0:
+            entry = data["entry"][0]
+            if "changes" in entry and len(entry["changes"]) > 0:
+                changes = entry["changes"][0]
+                value = changes.get("value", {})
+                messages = value.get("messages", [])
+
+                for msg in messages:
+                    msg_id = msg.get("id")
+
+                    if msg_id and msg_id in whatsapp_processed_ids:
+                        logger.debug(f"⏭️ Mensagem duplicada ignorada: {msg_id}")
+                        continue
+
+                    if msg_id:
+                        whatsapp_processed_ids.add(msg_id)
+
+                    from_number = msg.get("from")
+                    text_body = msg.get("text", {}).get("body", "")
+
+                    logger.info(f"📱 WhatsApp - De: {from_number}, Texto: {text_body}")
+                    # TODO: Integrar com o motor de agendamento
+
+        return "OK", 200
+    except json.JSONDecodeError as e:
+        logger.error(f"🔥 Erro ao fazer parse do JSON: {e}")
+        return "OK", 200
+    except Exception as e:
+        logger.error(f"🔥 Erro ao processar webhook WhatsApp: {e}", exc_info=True)
+        return "OK", 200
+
+def validate_whatsapp_signature(signature: str, body: str, secret: str) -> bool:
+    try:
+        if not signature.startswith("sha256="):
+            return False
+
+        hash_value = signature.split("=")[1]
+        expected_hash = hmac.new(
+            secret.encode(),
+            body.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        return hash_value == expected_hash
+    except Exception as e:
+        logger.error(f"🔥 Erro ao validar assinatura: {e}")
+        return False
 
 @app.route("/", methods=["GET"])
 def health_check():
