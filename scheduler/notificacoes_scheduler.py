@@ -410,16 +410,10 @@ async def enviar_resumo_diario():
 def start_notificacao_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
 
-    # 🔔 Notificações a cada 1 minuto
-    scheduler.add_job(
-        processar_notificacoes_agendadas,
-        "interval",
-        seconds=60,
-        coalesce=True,
-        misfire_grace_time=120,
-        id="notificacoes_intervalo_1min",
-        replace_existing=True,
-    )
+    # ⚠️ [REMOVIDO] Scheduler de notificações a cada 1 minuto
+    # Motivo: Consumo excessivo de reads no Firestore (1440 execuções/dia)
+    # Alternativa: /cron/ping (UptimeRobot) aciona processar_notificacoes_agendadas() 288 vezes/dia
+    # A função processar_notificacoes_agendadas() continua acessível via /cron/ping
 
     # 📨 Resumo diário às 08:00
     scheduler.add_job(
