@@ -13,6 +13,9 @@ import json
 
 PROJECT_ID = "projeto-agente-inteligente"
 
+# [FORÇA REBUILD 2025-09-23] Render deve pegar versão nova
+# Mudança: Suportar Base64 para evitar truncamento
+
 # [FIX-TRUNCAMENTO] Tentar Base64 primeiro (sem truncamento em variáveis env)
 firebase_json_str = None
 firebase_creds_b64 = os.getenv("FIREBASE_CREDENTIALS_B64")
