@@ -87,6 +87,40 @@ start_notificacao_scheduler()
 #    daemon=True
 #).start()
 
+# 🔍 DEBUG: Verificar credenciais (remover após diagnosticar)
+@app.route("/debug/creds", methods=["GET"])
+def debug_creds():
+    """Diagnosticar tamanho e validade de FIREBASE_CREDENTIALS_B64"""
+    import base64
+
+    b64 = os.getenv("FIREBASE_CREDENTIALS_B64", "")
+    result = {
+        "size": len(b64),
+        "expected_size": 3224,
+        "is_truncated": len(b64) < 3224,
+        "first_50": b64[:50] if b64 else "EMPTY",
+        "last_50": b64[-50:] if len(b64) > 50 else b64,
+    }
+
+    if b64:
+        try:
+            decoded = base64.b64decode(b64).decode('utf-8')
+            result["decode_ok"] = True
+            result["decoded_size"] = len(decoded)
+
+            import json
+            json_obj = json.loads(decoded)
+            result["json_valid"] = True
+            result["has_private_key"] = "private_key" in json_obj
+            result["has_project_id"] = "project_id" in json_obj
+        except Exception as e:
+            result["decode_ok"] = False
+            result["error"] = str(e)[:100]
+    else:
+        result["status"] = "NOT_DEFINED"
+
+    return jsonify(result)
+
 # 🔄 Webhook endpoint
 async def webhook_process(update: Update):
     await application.process_update(update)
