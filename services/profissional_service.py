@@ -1,6 +1,7 @@
 # services/profissional_service.py
 
-from services.firebase_service_async import buscar_subcolecao, obter_id_dono
+from services.firebase_service_async import buscar_subcolecao
+from services.identidade_service import obter_tenant_id
 from datetime import datetime, timedelta
 from services.event_service_async import evento_deve_entrar_na_agenda
 import difflib
@@ -13,8 +14,8 @@ async def buscar_profissionais_por_servico(servicos: list[str], user_id: str) ->
     Retorna um dicionário com os profissionais que oferecem TODOS os serviços listados.
     Resolve o dono primeiro, para suportar clientes falando com o bot.
     """
-    dono_id = await obter_id_dono(user_id)
-    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+    tenant_id = await obter_tenant_id(user_id)
+    profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
 
     print(f"\n📥 Serviços solicitados: {servicos}")
     print(f"👥 Profissionais cadastrados: {list(profissionais.keys())}")
@@ -48,10 +49,10 @@ async def buscar_profissionais_disponiveis_no_horario(
     Retorna os profissionais que estão disponíveis no horário e duração informados.
     Resolve o dono primeiro.
     """
-    dono_id = await obter_id_dono(user_id)
+    tenant_id = await obter_tenant_id(user_id)
 
-    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-    eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos") or {}
+    profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+    eventos = await buscar_subcolecao(f"Clientes/{tenant_id}/Eventos") or {}
 
     data_str = data.strftime("%Y-%m-%d")
     hora_inicio = datetime.strptime(f"{data_str} {hora}", "%Y-%m-%d %H:%M")
@@ -110,8 +111,8 @@ async def obter_profissional_para_evento(user_id: str, descricao_evento: str) ->
     Tenta identificar automaticamente um único profissional compatível com os serviços da descrição.
     Retorna o nome se houver apenas um compatível.
     """
-    dono_id = await obter_id_dono(user_id)
-    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+    tenant_id = await obter_tenant_id(user_id)
+    profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
     descricao_lower = descricao_evento.lower()
 
     compativeis = []
@@ -154,8 +155,8 @@ def gerar_mensagem_profissionais_disponiveis(
 
 async def listar_servicos_cadastrados(user_id: str) -> list[str]:
     """Retorna a lista de todos os serviços oferecidos pelas profissionais."""
-    dono_id = await obter_id_dono(user_id)
-    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+    tenant_id = await obter_tenant_id(user_id)
+    profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
 
     servicos = set()
     for dados in profissionais.values():
@@ -168,8 +169,8 @@ async def listar_servicos_cadastrados(user_id: str) -> list[str]:
 
 async def obter_precos_servico(user_id: str, servico: str, profissional: str | None = None):
     """Retorna o preço do ``servico`` para cada profissional ou para um profissional específico."""
-    dono_id = await obter_id_dono(user_id)
-    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+    tenant_id = await obter_tenant_id(user_id)
+    profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
     servico_lower = servico.lower()
 
     def _buscar_preco(dados: dict) -> float | str | None:
@@ -214,8 +215,8 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None
 
     if user_id:
         try:
-            dono_id = await obter_id_dono(user_id)
-            profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+            tenant_id = await obter_tenant_id(user_id)
+            profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
             for p in profissionais.values():
                 for s in p.get("servicos", []):
                     servicos_disponiveis.add(unidecode.unidecode(s.lower().strip()))
@@ -240,8 +241,8 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None
 
 
 async def consultar_todos_precos(user_id: str) -> str:
-    dono_id = await obter_id_dono(user_id)
-    profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+    tenant_id = await obter_tenant_id(user_id)
+    profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
     resposta = "📋 *Lista completa de preços:*\n"
 
     for dados in profissionais.values():
