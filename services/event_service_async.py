@@ -14,6 +14,7 @@ from services.firebase_service_async import (
     atualizar_dado_em_path,   # ✅ necessário para cancelar_evento
     atualizar_com_operacoes_atomicas,  # ✅ necessário para alterar_agendamento atômico
 )
+from services.identidade_service import obter_tenant_id
 from services.notificacao_service import criar_notificacao_agendada
 from services.agenda_lock_service import criar_evento_com_lock  # 🔒 PATCH P0
 from utils.formatters import gerar_sugestoes_de_horario
@@ -117,7 +118,7 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
             tipo = dados_usuario.get("tipo_usuario", "cliente")
             modo = dados_usuario.get("modo_uso", "")
             if tipo == "cliente" or modo == "atendimento_cliente":
-                user_id_efetivo = await obter_id_dono(user_id)
+                user_id_efetivo = await obter_tenant_id(user_id)
 
         path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
 
@@ -204,7 +205,7 @@ async def buscar_eventos_por_intervalo(
             tipo = dados_usuario.get("tipo_usuario", "cliente")
             modo = dados_usuario.get("modo_uso", "")
             if tipo == "cliente" or modo == "atendimento_cliente":
-                user_id_efetivo = await obter_id_dono(user_id)
+                user_id_efetivo = await obter_tenant_id(user_id)
 
         eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
         hoje = datetime.now().date()
@@ -276,7 +277,7 @@ async def cancelar_evento(
         modo = dados_usuario.get("modo_uso", "")
 
         if tipo_usuario == "cliente" or modo == "atendimento_cliente":
-            user_id_efetivo = await obter_id_dono(user_id)
+            user_id_efetivo = await obter_tenant_id(user_id)
 
         path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
 
@@ -484,7 +485,7 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     from utils.interpretador_datas import interpretar_data_e_hora
 
     if not tenant_id:
-        tenant_id = await obter_id_dono(user_id)
+        tenant_id = await obter_tenant_id(user_id)
 
     # Busca TODOS os eventos do tenant
     eventos = await buscar_subcolecao(f"Clientes/{tenant_id}/Eventos") or {}
@@ -670,7 +671,7 @@ async def verificar_conflito(
         modo = (dados_usuario.get("modo_uso") or "").strip().lower()
 
         if tipo == "cliente" or modo == "atendimento_cliente":
-            user_id_efetivo = await obter_id_dono(user_id)
+            user_id_efetivo = await obter_tenant_id(user_id)
 
         eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
         inicio_novo = datetime.fromisoformat(f"{data}T{hora_inicio}")
@@ -749,7 +750,7 @@ async def deletar_evento(user_id: str, event_id: str) -> bool:
             tipo = dados_usuario.get("tipo_usuario", "cliente")
             modo = dados_usuario.get("modo_uso", "")
             if tipo == "cliente" or modo == "atendimento_cliente":
-                user_id = await obter_id_dono(user_id)
+                user_id = await obter_tenant_id(user_id)
 
         await deletar_dado_em_path(f"Clientes/{user_id}/Eventos/{event_id}")
         return True
@@ -820,7 +821,7 @@ async def buscar_eventos_por_termo_avancado(user_id: str, termo: str):
         tipo = dados_usuario.get("tipo_usuario", "cliente")
         modo = dados_usuario.get("modo_uso", "")
         if tipo == "cliente" or modo == "atendimento_cliente":
-            user_id_efetivo = await obter_id_dono(user_id)
+            user_id_efetivo = await obter_tenant_id(user_id)
 
     eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
     hoje = datetime.now().date()
@@ -1235,7 +1236,7 @@ async def verificar_conflito_e_sugestoes_profissional(
 
         if tipo == "cliente" or modo == "atendimento_cliente":
             # Tentar resolver como cliente
-            tenant_resolvido = await obter_id_dono(user_id)
+            tenant_resolvido = await obter_tenant_id(user_id)
             if tenant_resolvido:
                 user_id_efetivo = tenant_resolvido
                 print(
@@ -1614,7 +1615,7 @@ async def alterar_agendamento(
                 modo = (dados_usuario.get("modo_uso") or "").strip().lower()
 
                 if tipo == "cliente" or modo == "atendimento_cliente":
-                    tenant_resolvido = await obter_id_dono(user_id)
+                    tenant_resolvido = await obter_tenant_id(user_id)
                     if tenant_resolvido:
                         tenant_id = tenant_resolvido
 

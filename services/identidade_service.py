@@ -402,3 +402,34 @@ async def tenant_tem_dono(tenant_id: str) -> bool:
     except Exception as e:
         print(f"[AVISO] Erro ao verificar dono do tenant: {e}")
         return False
+
+
+async def obter_tenant_id(actor_id: str) -> str | None:
+    """
+    Obtém tenant_id para um actor_id via índice derivado.
+
+    Lê de Clientes/_Index/Atores/{actor_id} para resolver tenant rapidamente.
+    Retorna None se não encontrado (graceful, sem exceção).
+
+    Path: Clientes/_Index/Atores/{actor_id}
+
+    Args:
+        actor_id: Identificador do ator normalizado (e.g., "whatsapp:11999999999")
+
+    Returns:
+        tenant_id string, ou None se não encontrado
+    """
+    if not actor_id:
+        return None
+
+    try:
+        doc = await asyncio.to_thread(
+            lambda: get_db().collection("Clientes").document("_Index").collection("Atores").document(actor_id).get()
+        )
+
+        if doc.exists:
+            return doc.get("tenant_id")
+        return None
+    except Exception as e:
+        print(f"[AVISO] obter_tenant_id({actor_id}): {e}")
+        return None
