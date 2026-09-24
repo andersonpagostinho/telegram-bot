@@ -181,6 +181,16 @@ def whatsapp_webhook_post():
             if "changes" in entry and len(entry["changes"]) > 0:
                 changes = entry["changes"][0]
                 value = changes.get("value", {})
+
+                # FASE 4: Extrair identidade do endpoint (phone_number_id)
+                metadata = value.get("metadata", {})
+                phone_number_id = metadata.get("phone_number_id")
+                display_phone_number = metadata.get("display_phone_number", "")
+                waba_id = metadata.get("business_account_id", "")
+
+                if phone_number_id:
+                    logger.debug(f"📞 Endpoint WhatsApp identificado: {phone_number_id}")
+
                 messages = value.get("messages", [])
 
                 for msg in messages:
@@ -197,7 +207,9 @@ def whatsapp_webhook_post():
                     text_body = msg.get("text", {}).get("body", "")
 
                     logger.info(f"📱 WhatsApp - De: {from_number}, Texto: {text_body}")
+                    logger.info(f"📞 Endpoint: {phone_number_id}, Remetente: {from_number}")
                     # TODO: Integrar com o motor de agendamento
+                    # TODO: Usar whatsapp_endpoint_service para resolver tenant_id
 
         return "OK", 200
     except json.JSONDecodeError as e:
