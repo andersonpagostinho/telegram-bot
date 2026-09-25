@@ -340,6 +340,10 @@ async def enviar_resumo_diario():
         hoje = datetime.now(FUSO_BR).date()
         hoje_str = hoje.strftime("%Y-%m-%d")
 
+        # 🔒 IDEMPOTÊNCIA: ID único para esta execução do resumo
+        processo_id = str(uuid.uuid4())
+        logger.info(f"[RESUMO-IDEMPOT] Sessão: {processo_id}")
+
         for user_id in clientes.keys():
             try:
                 doc_cli = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
@@ -350,6 +354,21 @@ async def enviar_resumo_diario():
                     # =========================================================
                     # 📋 RESUMO PARA DONO: eventos + tarefas + follow-ups
                     # =========================================================
+                    tenant_id = user_id
+                    notif_id = f"resumo_{user_id}_{hoje_str}"
+
+                    # 🔒 IDEMPOTÊNCIA: Tentar claim
+                    try:
+                        sucesso_claim, _ = await tentar_claim_notificacao(
+                            tenant_id, notif_id, processo_id
+                        )
+                        if not sucesso_claim:
+                            logger.info(f"[RESUMO-IDEMPOT] Resumo já em processamento: {user_id}")
+                            continue
+                    except Exception as e:
+                        logger.error(f"[RESUMO-IDEMPOT] Erro ao tentar claim DONO {user_id}: {e}")
+                        continue
+
                     partes_resumo = []
 
                     # Eventos de hoje
@@ -387,9 +406,27 @@ async def enviar_resumo_diario():
 
                     try:
                         await bot.send_message(chat_id=int(user_id), text=texto, parse_mode="Markdown")
+
+                        # ✅ Envio bem-sucedido → confirmar
+                        try:
+                            await confirmar_notificacao_processada(
+                                tenant_id, notif_id, processo_id
+                            )
+                        except Exception as confirm_e:
+                            logger.error(f"[RESUMO-IDEMPOT] Erro ao confirmar DONO {user_id}: {confirm_e}")
+
                         logger.info(f"✅ Resumo diário DONO enviado para {user_id}")
                     except Exception as e:
                         logger.error(f"Erro ao enviar resumo para DONO {user_id}: {e}")
+
+                        # ❌ Envio falhou → marcar erro
+                        try:
+                            await marcar_notificacao_erro(
+                                tenant_id, notif_id, processo_id,
+                                f"Envio DONO: {str(e)}"
+                            )
+                        except Exception as mark_e:
+                            logger.error(f"[RESUMO-IDEMPOT] Erro ao marcar erro DONO: {mark_e}")
 
                 elif tipo_usuario == "cliente":
                     # =========================================================
@@ -398,6 +435,21 @@ async def enviar_resumo_diario():
                     dono_id = await obter_id_dono(user_id)
                     if not dono_id:
                         logger.warning(f"[RESUMO] Usuário {user_id} sem tenant vinculado; resumo ignorado")
+                        continue
+
+                    tenant_id = dono_id
+                    notif_id = f"resumo_{user_id}_{hoje_str}"
+
+                    # 🔒 IDEMPOTÊNCIA: Tentar claim
+                    try:
+                        sucesso_claim, _ = await tentar_claim_notificacao(
+                            tenant_id, notif_id, processo_id
+                        )
+                        if not sucesso_claim:
+                            logger.info(f"[RESUMO-IDEMPOT] Resumo já em processamento: {user_id}")
+                            continue
+                    except Exception as e:
+                        logger.error(f"[RESUMO-IDEMPOT] Erro ao tentar claim CLIENTE {user_id}: {e}")
                         continue
 
                     eventos_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos") or {}
@@ -419,9 +471,27 @@ async def enviar_resumo_diario():
 
                     try:
                         await bot.send_message(chat_id=int(user_id), text=texto, parse_mode="Markdown")
+
+                        # ✅ Envio bem-sucedido → confirmar
+                        try:
+                            await confirmar_notificacao_processada(
+                                tenant_id, notif_id, processo_id
+                            )
+                        except Exception as confirm_e:
+                            logger.error(f"[RESUMO-IDEMPOT] Erro ao confirmar CLIENTE {user_id}: {confirm_e}")
+
                         logger.info(f"✅ Resumo diário CLIENTE enviado para {user_id}")
                     except Exception as e:
                         logger.error(f"Erro ao enviar resumo para CLIENTE {user_id}: {e}")
+
+                        # ❌ Envio falhou → marcar erro
+                        try:
+                            await marcar_notificacao_erro(
+                                tenant_id, notif_id, processo_id,
+                                f"Envio CLIENTE: {str(e)}"
+                            )
+                        except Exception as mark_e:
+                            logger.error(f"[RESUMO-IDEMPOT] Erro ao marcar erro CLIENTE: {mark_e}")
 
                 elif tipo_usuario == "profissional":
                     # =========================================================
@@ -436,6 +506,21 @@ async def enviar_resumo_diario():
 
                     if not prof_nome:
                         logger.warning(f"[RESUMO_PROF] profissional {user_id} sem nome cadastrado, pulando")
+                        continue
+
+                    tenant_id = dono_id
+                    notif_id = f"resumo_{user_id}_{hoje_str}"
+
+                    # 🔒 IDEMPOTÊNCIA: Tentar claim
+                    try:
+                        sucesso_claim, _ = await tentar_claim_notificacao(
+                            tenant_id, notif_id, processo_id
+                        )
+                        if not sucesso_claim:
+                            logger.info(f"[RESUMO-IDEMPOT] Resumo já em processamento: {user_id}")
+                            continue
+                    except Exception as e:
+                        logger.error(f"[RESUMO-IDEMPOT] Erro ao tentar claim PROFISSIONAL {user_id}: {e}")
                         continue
 
                     eventos_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos") or {}
@@ -458,9 +543,27 @@ async def enviar_resumo_diario():
 
                     try:
                         await bot.send_message(chat_id=int(user_id), text=texto, parse_mode="Markdown")
+
+                        # ✅ Envio bem-sucedido → confirmar
+                        try:
+                            await confirmar_notificacao_processada(
+                                tenant_id, notif_id, processo_id
+                            )
+                        except Exception as confirm_e:
+                            logger.error(f"[RESUMO-IDEMPOT] Erro ao confirmar PROFISSIONAL {user_id}: {confirm_e}")
+
                         logger.info(f"✅ Resumo diário PROFISSIONAL enviado para {user_id} ({prof_nome})")
                     except Exception as e:
                         logger.error(f"Erro ao enviar resumo para PROFISSIONAL {user_id}: {e}")
+
+                        # ❌ Envio falhou → marcar erro
+                        try:
+                            await marcar_notificacao_erro(
+                                tenant_id, notif_id, processo_id,
+                                f"Envio PROFISSIONAL: {str(e)}"
+                            )
+                        except Exception as mark_e:
+                            logger.error(f"[RESUMO-IDEMPOT] Erro ao marcar erro PROFISSIONAL: {mark_e}")
 
                 else:
                     logger.info(f"[RESUMO] tipo_usuario desconhecido: {tipo_usuario} para {user_id}, pulando")
