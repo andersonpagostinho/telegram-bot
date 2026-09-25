@@ -184,26 +184,23 @@ async def _gerar_3_horarios_livres(
 # ------------------------------------------------------------
 
 async def _descobrir_cadencia(
-    user_id: str,
-    cliente_id: str,
+    lst: List[dict],
     chave_servico: str
 ) -> Optional[int]:
     """
-    Lê o histórico do cliente + serviço, calcula intervalos em dias e retorna
-    uma cadência (mediana) se estiver entre [_CADENCIA_MIN, _CADENCIA_MAX]
-    e se houver ocorrências suficientes.
+    Calcula cadência a partir de lista de eventos pré-filtrados por (cliente_id, servico).
+    Elimina leitura redundante de Firestore reutilizando dados de checar_e_propor_recorrencias().
     """
-    # Busca TODOS os eventos (você pode otimizar p/ 180 dias, etc.)
-    eventos = await buscar_subcolecao(f"Clientes/{user_id}/Eventos") or {}
-    # filtra por cliente_id e serviço
+    # lst já contém apenas eventos para o par (cliente_id, servico_chave)
+    # Não é necessário buscar do Firestore novamente
     ocorrencias: List[datetime] = []
     chave_norm = unidecode.unidecode(chave_servico.lower())
 
-    for _id, ev in eventos.items():
+    for ev in lst:
         if not isinstance(ev, dict):
             continue
-        if str(ev.get("cliente_id") or "").strip() != str(cliente_id).strip():
-            continue
+        # cliente_id já foi filtrado em checar_e_propor_recorrencias()
+        # Validar apenas a normalização do serviço para segurança
         desc = _normalizar_servico(ev.get("descricao", ""))
         if chave_norm not in desc:
             continue
@@ -279,7 +276,7 @@ async def checar_e_propor_recorrencias(user_id: str) -> int:
         lst_ordenada.sort(key=lambda x: x[0])
         ultimo_dt, ultimo_ev = lst_ordenada[-1]
 
-        cadencia = await _descobrir_cadencia(user_id, cliente_id, servico_chave)
+        cadencia = await _descobrir_cadencia(lst, servico_chave)
         if not cadencia:
             continue
 

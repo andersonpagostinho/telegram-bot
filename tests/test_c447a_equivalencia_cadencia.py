@@ -79,6 +79,24 @@ class TestC447aEquivalenciaCadencia:
         )
         return evento_id
 
+    async def _descobrir_cadencia_filtrado(self, cliente_id: str, servico: str):
+        """Helper: carregar eventos do Firestore e chamar _descobrir_cadencia com lst filtrado"""
+        eventos = await buscar_subcolecao(f"Clientes/{self.tenant_id}/Eventos") or {}
+        lst = []
+        servico_norm = _normalizar_servico(servico)
+
+        for _id, ev in eventos.items():
+            if not isinstance(ev, dict):
+                continue
+            if str(ev.get("cliente_id") or "").strip() != str(cliente_id).strip():
+                continue
+            desc = _normalizar_servico(ev.get("descricao", ""))
+            if servico_norm not in desc:
+                continue
+            lst.append(ev)
+
+        return await _descobrir_cadencia(lst, servico)
+
     @pytest.mark.asyncio
     async def test_T1_tres_eventos_validos_cadencia_10_dias(self):
         """T1: 3 eventos válidos, cadência = 10 dias"""
@@ -105,9 +123,8 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        # Chamar _descobrir_cadencia
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        # Chamar _descobrir_cadencia (nova assinatura com lst filtrado)
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -158,8 +175,7 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -209,8 +225,7 @@ class TestC447aEquivalenciaCadencia:
             "manicure"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -259,8 +274,7 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -309,8 +323,7 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -347,8 +360,7 @@ class TestC447aEquivalenciaCadencia:
         )
 
         # Buscar com qualquer variação
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "Côrte Cabêlo"  # Buscar com acentos
         )
@@ -384,8 +396,7 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -421,8 +432,7 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -464,8 +474,7 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
@@ -497,8 +506,7 @@ class TestC447aEquivalenciaCadencia:
             "corte cabelo"
         )
 
-        cadencia = await _descobrir_cadencia(
-            self.tenant_id,
+        cadencia = await self._descobrir_cadencia_filtrado(
             self.cliente_id,
             "corte cabelo"
         )
