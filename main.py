@@ -208,8 +208,75 @@ def whatsapp_webhook_post():
 
                     logger.info(f"📱 WhatsApp - De: {from_number}, Texto: {text_body}")
                     logger.info(f"📞 Endpoint: {phone_number_id}, Remetente: {from_number}")
-                    # TODO: Integrar com o motor de agendamento
-                    # TODO: Usar whatsapp_endpoint_service para resolver tenant_id
+
+                    # ✅ PROCESSAMENTO: Resolver tenant e chamar router
+                    if not phone_number_id or not from_number or not text_body:
+                        logger.warning(f"[WA] Dados incompletos: phone_number_id={bool(phone_number_id)} from={bool(from_number)} text={bool(text_body)}")
+                        continue
+
+                    try:
+                        # ✅ Resolver tenant pelo endpoint
+                        from services.whatsapp_endpoint_service import resolver_tenant_por_endpoint
+                        tenant_id = resolver_tenant_por_endpoint(phone_number_id)
+
+                        if not tenant_id:
+                            logger.warning(f"[WA] Endpoint {phone_number_id} não registrado ou inativo")
+                            continue
+
+                        # ✅ Chamar roteador
+                        from router.principal_router import roteador_principal
+
+                        # Usar bot_loop se disponível (thread-safe)
+                        if bot_loop is not None:
+                            future = asyncio.run_coroutine_threadsafe(
+                                roteador_principal(
+                                    user_id=from_number,
+                                    mensagem=text_body,
+                                    update=None,
+                                    context=None
+                                ),
+                                bot_loop
+                            )
+                            try:
+                                resposta = future.result(timeout=30)
+                            except Exception as router_e:
+                                logger.error(f"[WA] Erro no roteador: {router_e}")
+                                resposta = "Desculpa, ocorreu um erro ao processar sua mensagem."
+                        else:
+                            logger.warning("[WA] bot_loop não disponível, tentando asyncio.run()")
+                            resposta = asyncio.run(
+                                roteador_principal(
+                                    user_id=from_number,
+                                    mensagem=text_body,
+                                    update=None,
+                                    context=None
+                                )
+                            )
+
+                        # ✅ Enviar resposta via WhatsApp
+                        if resposta:
+                            try:
+                                from services.whatsapp_service import enviar_mensagem_whatsapp
+                                resultado = asyncio.run(
+                                    enviar_mensagem_whatsapp(
+                                        destinatario_id=from_number,
+                                        mensagem=resposta,
+                                        phone_number_id=phone_number_id
+                                    )
+                                )
+
+                                if resultado.get("success"):
+                                    logger.info(f"[WA] ✅ Resposta enviada: message_id={resultado.get('message_id')} to={from_number}")
+                                else:
+                                    logger.error(f"[WA] ❌ Falha ao enviar: {resultado.get('error')} status={resultado.get('status_code')}")
+
+                            except Exception as send_e:
+                                logger.error(f"[WA] Exceção ao enviar resposta: {send_e}")
+                        else:
+                            logger.warning(f"[WA] Roteador retornou resposta vazia para {from_number}")
+
+                    except Exception as e:
+                        logger.error(f"[WA] Erro ao processar mensagem de {from_number}: {e}", exc_info=True)
 
         return "OK", 200
     except json.JSONDecodeError as e:

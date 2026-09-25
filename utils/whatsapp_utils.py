@@ -1,13 +1,9 @@
 # utils/whatsapp_utils.py
+"""
+Exportações públicas de WhatsApp.
+A implementação real está em services/whatsapp_service.py.
+"""
 
-def send_whatsapp_message(msg: str):
-    """
-    Função simulada para envio de mensagem via WhatsApp.
-    Em produção, pode ser integrada ao Twilio, Z-API, etc.
-    """
-    print(f"📲 (Simulação) Enviando mensagem no WhatsApp: {msg}")
+from services.whatsapp_service import enviar_mensagem_whatsapp
 
-async def enviar_mensagem_whatsapp(user_id: str, mensagem: str):
-    # Implementação real de envio via API do WhatsApp
-    print(f"📤 Enviando mensagem para WhatsApp de {user_id}: {mensagem}")
-    return True
+__all__ = ["enviar_mensagem_whatsapp"]
