@@ -9,6 +9,7 @@ from services.firebase_service_async import (
     atualizar_dado_em_path,
     buscar_dado_em_path,
     buscar_notificacoes_pendentes,
+    obter_id_dono,
 )
 from services.notificacoes_idempotencia_service import (
     tentar_claim_notificacao,
@@ -395,6 +396,9 @@ async def enviar_resumo_diario():
                     # 📅 RESUMO PARA CLIENTE: apenas seus agendamentos
                     # =========================================================
                     dono_id = await obter_id_dono(user_id)
+                    if not dono_id:
+                        logger.warning(f"[RESUMO] Usuário {user_id} sem tenant vinculado; resumo ignorado")
+                        continue
 
                     eventos_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos") or {}
 
@@ -424,6 +428,10 @@ async def enviar_resumo_diario():
                     # 📅 RESUMO PARA PROFISSIONAL: seus agendamentos de hoje
                     # =========================================================
                     dono_id = await obter_id_dono(user_id)
+                    if not dono_id:
+                        logger.warning(f"[RESUMO] Usuário {user_id} sem tenant vinculado; resumo ignorado")
+                        continue
+
                     prof_nome = (doc_cli or {}).get("nome", "")
 
                     if not prof_nome:
