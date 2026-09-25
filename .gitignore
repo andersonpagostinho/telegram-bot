@@ -23,6 +23,10 @@ webclient.json
 BotTelegramOAuth.json
 agendabot-*.json
 client_secret*.json
+firebase_credentials_*.json
+firebase_credentials_b64_*.txt
+firebase_credentials_new/
+gerar_base64_*.py
 
 # Node.js
 node_modules/
