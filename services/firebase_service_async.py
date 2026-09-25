@@ -106,13 +106,54 @@ except ValueError:
 
 # [FIX-ASYNC] Usar AsyncClient em vez de firestore.client() (sync)
 # AsyncClient() usa GOOGLE_APPLICATION_CREDENTIALS que acabamos de definir
+# [P1.6.5] Cliente adaptativo para mudanças de event loop
+import asyncio
+
+_client_cache = None
+_client_loop = None
+
+def get_async_client():
+    """
+    Obtém AsyncClient adaptativo ao event loop atual.
+
+    [P1.6.5] Detecta mudanças de event loop (pytest-asyncio Mode.STRICT)
+    e recria o cliente conforme necessário.
+    """
+    global _client_cache, _client_loop
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    # Se não há loop ativo (contexto síncrono), criar cliente novo
+    if loop is None:
+        if _client_cache is None:
+            _client_cache = AsyncClient()
+        return _client_cache
+
+    # Se loop mudou, cliente ficou órfão - recriar
+    if _client_loop != id(loop):
+        _client_cache = AsyncClient()
+        _client_loop = id(loop)
+
+    return _client_cache
+
+# Inicializar com cliente padrão
 client = AsyncClient()
+_client_cache = client
+try:
+    _client_loop = id(asyncio.get_running_loop())
+except RuntimeError:
+    _client_loop = None
+
 print(f"[OK] Firestore inicializado com sucesso!", flush=True)
 
 # [LOOP] Utilitário para navegar até o path
+# [P1.6.5] Usa get_async_client() para adaptação de event loop
 def get_ref_from_path(path: str):
     partes = path.split("/")
-    ref = client
+    ref = get_async_client()
     for i in range(len(partes)):
         if i % 2 == 0:
             ref = ref.collection(partes[i])
@@ -127,7 +168,7 @@ async def buscar_notificacoes_pendentes(user_id: str):
     """
     try:
         ref = (
-            client.collection("Clientes")
+            get_async_client().collection("Clientes")
             .document(str(user_id))
             .collection("NotificacoesAgendadas")
         )
@@ -271,9 +312,9 @@ async def deletar_dado_em_path(path: str):
 # [OK] Limpar coleção inteira
 async def limpar_colecao(colecao: str):
     try:
-        docs = client.collection(colecao).stream()
+        docs = get_async_client().collection(colecao).stream()
         async for doc in docs:
-            await client.collection(colecao).document(doc.id).delete()
+            await get_async_client().collection(colecao).document(doc.id).delete()
         print(f"[OK] Todos os documentos da coleção '{colecao}' foram removidos!")
         return True
     except Exception as e:
@@ -283,7 +324,7 @@ async def limpar_colecao(colecao: str):
 # [OK] Buscar todos os documentos de uma coleção (assíncrono)
 async def buscar_dados(colecao: str):
     try:
-        docs = client.collection(colecao).stream()
+        docs = get_async_client().collection(colecao).stream()
         resultados = [doc.to_dict() async for doc in docs]
         return resultados
     except Exception as e:
@@ -304,7 +345,7 @@ async def salvar_cliente(user_id: str, dados: dict):
 # [OK] Salvar dados em uma coleção (gera ID automático)
 async def salvar_dados(colecao: str, dados: dict):
     try:
-        await client.collection(colecao).add(dados)
+        await get_async_client().collection(colecao).add(dados)
         print(f"[OK] Documento salvo em '{colecao}' com dados: {dados}")
         return True
     except Exception as e:
@@ -324,7 +365,7 @@ async def buscar_dado_em_path(path: str):
 # [OK] Buscar todos os clientes (assíncrono)
 async def buscar_todos_clientes():
     try:
-        docs = client.collection("Clientes").stream()
+        docs = get_async_client().collection("Clientes").stream()
         resultados = {doc.id: doc.to_dict() async for doc in docs}
         return resultados
     except Exception as e:
@@ -334,7 +375,7 @@ async def buscar_todos_clientes():
 # [OK] Salvar evento em coleção global (opcional)
 async def salvar_evento(evento_data):
     try:
-        await client.collection("Eventos").add(evento_data)
+        await get_async_client().collection("Eventos").add(evento_data)
         print("[OK] Evento salvo na coleção global.")
         return True
     except Exception as e:

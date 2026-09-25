@@ -3,11 +3,17 @@
 from datetime import datetime
 from pytz import timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import uuid
 from services.firebase_service_async import (
     buscar_subcolecao,
     atualizar_dado_em_path,
     buscar_dado_em_path,
     buscar_notificacoes_pendentes,
+)
+from services.notificacoes_idempotencia_service import (
+    tentar_claim_notificacao,
+    confirmar_notificacao_processada,
+    marcar_notificacao_erro,
 )
 from services.recorrencia_service import checar_e_propor_recorrencias_todos
 import logging
@@ -96,6 +102,11 @@ async def processar_notificacoes_agendadas():
         if bot is None:
             return
 
+        # Identificador único para esta sessão de processamento
+        # Usado para garantir idempotência em execuções concorrentes
+        processo_id = str(uuid.uuid4())
+        logger.info(f"[IDEMPOT] Sessão de processamento: {processo_id}")
+
         # aqui vêm TODOS os documentos de Clientes (dono + clientes)
         clientes = await buscar_subcolecao("Clientes") or {}
         agora = datetime.now(FUSO_BR)
@@ -118,6 +129,23 @@ async def processar_notificacoes_agendadas():
 
             for notif_id, notif in notificacoes.items():
                 if not isinstance(notif, dict):
+                    continue
+
+                # =========================================================
+                # 🔒 IDEMPOTÊNCIA: Tentar obter claim exclusivo
+                # =========================================================
+                try:
+                    sucesso_claim, _ = await tentar_claim_notificacao(
+                        user_id, notif_id, processo_id
+                    )
+                    if not sucesso_claim:
+                        logger.info(
+                            f"[IDEMPOT] Notificação já está sendo processada: "
+                            f"{user_id}/{notif_id}"
+                        )
+                        continue  # Outro processo tem o claim, pular
+                except Exception as e:
+                    logger.error(f"[IDEMPOT] Erro ao tentar claim: {user_id}/{notif_id}: {e}")
                     continue
 
                 avisado = bool(notif.get("avisado"))
@@ -203,18 +231,31 @@ async def processar_notificacoes_agendadas():
                             "atualizado_em": agora.isoformat()
                         })
 
+                        # ✅ Confirmar que foi processada com sucesso
+                        try:
+                            await confirmar_notificacao_processada(
+                                user_id, notif_id, processo_id
+                            )
+                        except Exception as confirm_e:
+                            logger.warning(
+                                f"[IDEMPOT] Erro ao confirmar CONFIRMAR_RESERVA: "
+                                f"{user_id}/{notif_id}: {confirm_e}"
+                            )
+
                         # IMPORTANTE: não envia mensagem para este tipo de notificação
                         continue
 
                 except Exception as e:
                     logger.error(f"❌ Erro ao processar CONFIRMAR_RESERVA para {destinatario_id}: {e}")
-                    await atualizar_dado_em_path(f"{path}/{notif_id}", {
-                        "avisado": True,
-                        "processada": True,
-                        "status": "erro",
-                        "erro": f"CONFIRMAR_RESERVA: {str(e)}",
-                        "atualizado_em": agora.isoformat()
-                    })
+
+                    # ❌ Erro em CONFIRMAR_RESERVA → liberar claim
+                    try:
+                        await marcar_notificacao_erro(
+                            user_id, notif_id, processo_id,
+                            f"CONFIRMAR_RESERVA: {str(e)}"
+                        )
+                    except Exception as mark_e:
+                        logger.error(f"[IDEMPOT] Erro ao marcar erro: {mark_e}")
                     continue
 
                 # =========================================================
@@ -249,20 +290,36 @@ async def processar_notificacoes_agendadas():
                     else:
                         await bot.send_message(chat_id=int(destinatario_id), text=mensagem)
 
-                    await atualizar_dado_em_path(f"{path}/{notif_id}", {
-                        "avisado": True,
-                        "status": "enviado",
-                        "enviado_em": agora.isoformat()
-                    })
+                    # ✅ Envio bem-sucedido → confirmar processamento
+                    try:
+                        await confirmar_notificacao_processada(
+                            user_id, notif_id, processo_id
+                        )
+                    except Exception as confirm_e:
+                        logger.error(
+                            f"[IDEMPOT] Erro ao confirmar: {user_id}/{notif_id}: {confirm_e}"
+                        )
+                        # Continuamos mesmo com erro na confirmação (já foi enviada)
+                        await atualizar_dado_em_path(f"{path}/{notif_id}", {
+                            "avisado": True,
+                            "status": "enviado",
+                            "enviado_em": agora.isoformat(),
+                            "confirmacao_erro": str(confirm_e)
+                        })
+
                     logger.info(f"✅ Notificação enviada para {destinatario_id} via {canal}: {mensagem}")
 
                 except Exception as e:
                     logger.error(f"Erro ao enviar notificação para {destinatario_id} via {canal}: {e}")
-                    await atualizar_dado_em_path(f"{path}/{notif_id}", {
-                        "status": "erro",
-                        "erro": str(e),
-                        "atualizado_em": agora.isoformat()
-                    })
+
+                    # ❌ Envio falhou → marcar erro e liberar claim
+                    try:
+                        await marcar_notificacao_erro(
+                            user_id, notif_id, processo_id,
+                            f"Envio {canal}: {str(e)}"
+                        )
+                    except Exception as mark_e:
+                        logger.error(f"[IDEMPOT] Erro ao marcar erro: {mark_e}")
 
     except Exception as e:
         logger.error(f"❌ Erro na rotina de notificações: {e}")
