@@ -289,8 +289,9 @@ def run_bot():
         bot_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(bot_loop)
 
-        # ✅ PATCH: daily_summary inicializado após event loop existir
-        start_daily_summary(application)
+        # ✅ C4.3.6: resumo diário unificado é gerenciado por notificacoes_scheduler.py
+        # Removido start_daily_summary() para evitar duplicação com notificacoes_scheduler
+        # (ambos disparavam às 08:00, agora há apenas uma implementação canônica)
 
         bot_loop.run_until_complete(application.initialize())
         bot_loop.run_until_complete(setup_webhook())
