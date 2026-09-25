@@ -103,7 +103,8 @@ async def _gerar_3_horarios_livres(
     data_sugerida: date,
     servico_chave: Optional[str] = None,
     profissional: Optional[str] = None,
-    duracao_min: Optional[int] = None
+    duracao_min: Optional[int] = None,
+    eventos_disponiveis: Optional[List[dict]] = None
 ) -> List[str]:
     """
     Retorna 3 horários realmente livres no dia (sem conflito com agenda global)
@@ -112,6 +113,10 @@ async def _gerar_3_horarios_livres(
     Estratégia:
       - Tenta horários base: 10:00, 14:00, 16:00
       - Se não achar, varre 09:00→18:00 em passos de 30 min
+
+    Parâmetros opcionais:
+      - eventos_disponiveis: Se fornecido, evita leitura redundante do Firestore
+        filtrando eventos do dia a partir desta lista em vez de buscar novamente.
     """
     # 1) duração do serviço (fallback 60)
     if duracao_min is None:
@@ -121,7 +126,14 @@ async def _gerar_3_horarios_livres(
             duracao_min = 60
 
     # 2) eventos do dia para checar conflito geral (independente de profissional)
-    eventos_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=data_sugerida) or []
+    if eventos_disponiveis is not None:
+        # Filtrar lista pré-carregada por data (evita leitura redundante Firestore)
+        data_iso = data_sugerida.isoformat()
+        eventos_dia = [ev for ev in eventos_disponiveis if ev.get("data") == data_iso]
+    else:
+        # Fallback: ler do Firestore (comportamento original)
+        eventos_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=data_sugerida) or []
+
     ocupados: List[Tuple[datetime, datetime]] = []
     for ev in eventos_dia:
         try:
@@ -298,7 +310,8 @@ async def checar_e_propor_recorrencias(user_id: str) -> int:
             data_sugerida=data_alvo,
             servico_chave=servico_chave,
             profissional=profissional,
-            duracao_min=duracao
+            duracao_min=duracao,
+            eventos_disponiveis=[ev for ev in eventos.values() if isinstance(ev, dict)]
         )
 
         if not horarios:
