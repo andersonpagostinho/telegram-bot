@@ -340,14 +340,30 @@ async def checar_e_propor_recorrencias(user_id: str) -> int:
                 "origem_user": str(user_id),
                 "tipo": "proposta_recorrencia",
             }
-            from uuid import uuid4
-            notif_id = str(uuid4())
-            await salvar_dado_em_path(
-                f"Clientes/{cliente_id}/NotificacoesAgendadas/{notif_id}",
-                notif
-            )
-            propostas += 1
-            logger.info(f"[recorrencia] Proposta enviada para cliente {cliente_id} (notif {notif_id}).")
+            # Gerar notif_id determinístico para idempotência
+            notif_id = f"proposta_{user_id}_{cliente_id}_{servico_chave}_{data_alvo.isoformat()}"
+
+            # Criar documento de proposta atomicamente usando create() para garantir idempotência
+            from google.api_core.exceptions import AlreadyExists
+            from services.firestore_client import get_db
+
+            try:
+                db = get_db()
+                doc_path = f"Clientes/{user_id}/NotificacoesAgendadas/{notif_id}"
+
+                # create() falha se documento já existe (AlreadyExists)
+                # Isso garante que mesma proposta não seja criada duas vezes
+                db.collection("Clientes").document(user_id) \
+                  .collection("NotificacoesAgendadas").document(notif_id).create(notif)
+
+                propostas += 1
+                logger.info(f"[recorrencia] Proposta criada (idempotente): cliente={cliente_id} notif={notif_id}")
+            except AlreadyExists:
+                # Proposta já existe (idempotência validada)
+                logger.info(f"[recorrencia] Proposta já existe: cliente={cliente_id} notif={notif_id}")
+                # NÃO incrementar propostas (já contabilizado)
+            except Exception as e:
+                logger.error(f"[recorrencia] Erro ao criar proposta idempotente: {e}")
         except Exception as e:
             logger.error(f"[recorrencia] Erro ao salvar notificação de proposta: {e}")
 
