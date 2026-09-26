@@ -260,20 +260,32 @@ def whatsapp_webhook_post():
 
                         # ✅ Enviar resposta via WhatsApp
                         if resposta:
+                            # Extrair texto da resposta (pode ser dict ou str)
+                            texto_resposta = None
+                            if isinstance(resposta, dict):
+                                texto_resposta = resposta.get("resposta")
+                            elif isinstance(resposta, str):
+                                texto_resposta = resposta
+
                             try:
                                 from services.whatsapp_service import enviar_mensagem_whatsapp
-                                resultado = asyncio.run(
-                                    enviar_mensagem_whatsapp(
-                                        destinatario_id=from_number,
-                                        mensagem=resposta,
-                                        phone_number_id=phone_number_id
-                                    )
-                                )
 
-                                if resultado.get("success"):
-                                    logger.info(f"[WA] ✅ Resposta enviada: message_id={resultado.get('message_id')} to={from_number}")
+                                # Só enviar se houver texto (não é "already_sent" ou ação interna)
+                                if texto_resposta:
+                                    resultado = asyncio.run(
+                                        enviar_mensagem_whatsapp(
+                                            destinatario_id=from_number,
+                                            mensagem=texto_resposta,
+                                            phone_number_id=phone_number_id
+                                        )
+                                    )
+
+                                    if resultado.get("success"):
+                                        logger.info(f"[WA] ✅ Resposta enviada: message_id={resultado.get('message_id')} to={from_number}")
+                                    else:
+                                        logger.error(f"[WA] ❌ Falha ao enviar: {resultado.get('error')} status={resultado.get('status_code')}")
                                 else:
-                                    logger.error(f"[WA] ❌ Falha ao enviar: {resultado.get('error')} status={resultado.get('status_code')}")
+                                    logger.debug(f"[WA] Resposta sem texto (já enviada por outro canal ou é ação interna): {resposta}")
 
                             except Exception as send_e:
                                 logger.error(f"[WA] Exceção ao enviar resposta: {send_e}")
