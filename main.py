@@ -43,9 +43,14 @@ load_dotenv()
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True
 )
 logger = logging.getLogger(__name__)
+
+# Forçar flush de logs para stdout (importante para Render)
+for handler in logger.handlers:
+    handler.flush()
 
 # 🔑 Variáveis de ambiente
 TOKEN = os.getenv("TOKEN")
@@ -374,9 +379,16 @@ def run_bot():
 
 # 🧵 Inicia Flask + Bot em paralelo
 if __name__ == "__main__":
+    # Adicionar handler de stdout unbuffered para Render logs
+    import sys
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.DEBUG)
+    stdout_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(stdout_handler)
+
     threading.Thread(
         target=app.run,
-        kwargs={"host": "0.0.0.0", "port": PORT, "use_reloader": False},
+        kwargs={"host": "0.0.0.0", "port": PORT, "use_reloader": False, "threaded": True},
         daemon=True
     ).start()
 
