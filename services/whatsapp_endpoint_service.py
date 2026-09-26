@@ -115,14 +115,14 @@ def resolver_tenant_por_endpoint(phone_number_id: str) -> str | None:
             doc_data = doc.to_dict()
             if doc_data.get("status") == "ativo":
                 tenant_id = doc_data.get("tenant_id")
-                print(f"[DEBUG] resolver_tenant_por_endpoint({phone_number_id}) → {tenant_id}")
+                print(f"[OK] resolver_tenant_por_endpoint({phone_number_id}): {tenant_id}")
                 return tenant_id
 
         print(f"[AVISO] Endpoint {phone_number_id} desconhecido ou inativo")
         return None
 
     except Exception as e:
-        print(f"[AVISO] resolver_tenant_por_endpoint({phone_number_id}): {e}")
+        print(f"[AVISO] resolver_tenant_por_endpoint({phone_number_id}): {str(e)[:50]}")
         return None
 
 
