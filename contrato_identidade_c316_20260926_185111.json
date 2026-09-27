@@ -1,0 +1,459 @@
+{
+  "timestamp": "2026-09-26T18:51:11.162441",
+  "questoes": {
+    "1_nascimento_actor_id": {
+      "pergunta": "Como nasce um actor_id?",
+      "evidencias": [
+        {
+          "arquivo": "auditoria_4b_executar_acao.py",
+          "linha": 36,
+          "conteudo": "tenant_id = f\"audit_4b_{uuid.uuid4().hex[:8]}\"",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "auditoria_4b_executar_acao.py",
+          "linha": 37,
+          "conteudo": "actor_id = \"whatsapp:55119999006\"",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "auditoria_cenario_05_isolada.py",
+          "linha": 44,
+          "conteudo": "tenant_id = f\"auditoria_cenario_05_{uuid.uuid4().hex[:8]}\"",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "auditoria_cenario_05_isolada.py",
+          "linha": 45,
+          "conteudo": "actor_id = \"whatsapp:55119999005\"",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "audit_cenario_05_com_logs_reais.py",
+          "linha": 98,
+          "conteudo": "tenant_id = f\"audit_cenario_05_{uuid.uuid4().hex[:8]}\"",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "audit_cenario_05_com_logs_reais.py",
+          "linha": 99,
+          "conteudo": "actor_id = \"whatsapp:55119999005\"",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 54,
+          "conteudo": "# Procurar por uuid, uuid5, phone, etc",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 63,
+          "conteudo": "if re.search(r'uuid\\.uuid5|uuid5|uuid4|generate.*id|create.*actor', content, re.IGNORECASE):",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 66,
+          "conteudo": "if re.search(r'uuid\\.uuid5|uuid5|uuid4|actor.*=|actor_id.*=', line, re.IGNORECASE):",
+          "tipo": "geração_id"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 83,
+          "conteudo": "contratos[\"questoes\"][\"1_nascimento_actor_id\"] = questao_1",
+          "tipo": "geração_id"
+        }
+      ],
+      "resposta": null
+    },
+    "2_4_criar_atores": {
+      "pergunta": "Quem pode criar dono/profissional/cliente?",
+      "evidencias_dono": [
+        {
+          "arquivo": "CUsersANDERSONiCloudDriveProjeto Mercado DigitalAgente BotNeoEve - Empresarialtestsvalidacao_blocker_fix.py",
+          "linha": 29,
+          "conteudo": "criar_ator_dono,"
+        },
+        {
+          "arquivo": "script_c315_5d1_validacao_evidencia.py",
+          "linha": 320,
+          "conteudo": "\"is_dono\","
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 9,
+          "conteudo": "2. Quem pode criar um dono?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 86,
+          "conteudo": "print(\"\\n[Q2-4] 👥 Quem pode criar dono/profissional/cliente?\\n\")"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 89,
+          "conteudo": "\"pergunta\": \"Quem pode criar dono/profissional/cliente?\","
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 104,
+          "conteudo": "if re.search(r'criar.*dono|create.*dono|is_dono|type.*dono', line, re.IGNORECASE):"
+        }
+      ],
+      "evidencias_profissional": [
+        {
+          "arquivo": "CUsersANDERSONiCloudDriveProjeto Mercado DigitalAgente BotNeoEve - Empresarialtestsvalidacao_blocker_fix.py",
+          "linha": 31,
+          "conteudo": "criar_ator_profissional,"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 10,
+          "conteudo": "3. Quem pode criar um profissional?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 86,
+          "conteudo": "print(\"\\n[Q2-4] 👥 Quem pode criar dono/profissional/cliente?\\n\")"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 89,
+          "conteudo": "\"pergunta\": \"Quem pode criar dono/profissional/cliente?\","
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 112,
+          "conteudo": "if re.search(r'criar.*profissional|create.*professional|is_profissional', line, re.IGNORECASE):"
+        }
+      ],
+      "evidencias_cliente": [
+        {
+          "arquivo": "CUsersANDERSONiCloudDriveProjeto Mercado DigitalAgente BotNeoEve - Empresarialtestsvalidacao_blocker_fix.py",
+          "linha": 30,
+          "conteudo": "criar_ator_cliente_automatico,"
+        },
+        {
+          "arquivo": "DEBUG_OBTER_ID_DONO_2026_08_11.py",
+          "linha": 26,
+          "conteudo": "# 1. Criar cliente Maria"
+        },
+        {
+          "arquivo": "flask_app.py",
+          "linha": 130,
+          "conteudo": "# [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 11,
+          "conteudo": "4. Quem pode criar um cliente?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 86,
+          "conteudo": "print(\"\\n[Q2-4] 👥 Quem pode criar dono/profissional/cliente?\\n\")"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 89,
+          "conteudo": "\"pergunta\": \"Quem pode criar dono/profissional/cliente?\","
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 120,
+          "conteudo": "if re.search(r'criar.*cliente|create.*client|is_cliente', line, re.IGNORECASE):"
+        }
+      ],
+      "resposta": null
+    },
+    "5_whatsapp_associacao": {
+      "pergunta": "Como um WhatsApp novo é associado a um actor_id?",
+      "evidencias": [
+        {
+          "arquivo": "whatsapp_endpoint_service.py",
+          "linha": 5,
+          "conteudo": "from datetime import datetime"
+        },
+        {
+          "arquivo": "whatsapp_endpoint_service.py",
+          "linha": 7,
+          "conteudo": "from services.firestore_client import get_db"
+        },
+        {
+          "arquivo": "whatsapp_service.py",
+          "linha": 19,
+          "conteudo": "from typing import Dict, Any, Optional"
+        }
+      ],
+      "resposta": null
+    },
+    "6_diferenciar_tipos": {
+      "pergunta": "Como o sistema diferencia dono/profissional/cliente?",
+      "campos_encontrados": "{'tipo_usuario=cliente', 'role=system', 'role=user', 'tipo_usuario=in', 'tipo_usuario=dono'}",
+      "evidencias": [
+        {
+          "arquivo": "auditoria_gpt.py",
+          "linha": 333,
+          "campo": "role",
+          "valor": "system"
+        },
+        {
+          "arquivo": "auditoria_gpt.py",
+          "linha": 334,
+          "campo": "role",
+          "valor": "user"
+        },
+        {
+          "arquivo": "DEBUG_OBTER_ID_DONO_2026_08_11.py",
+          "linha": 31,
+          "campo": "tipo_usuario",
+          "valor": "cliente"
+        },
+        {
+          "arquivo": "DIAGNOSTICO_BUSCA_EVENTOS_2026_08_11.py",
+          "linha": 55,
+          "campo": "tipo_usuario",
+          "valor": "cliente"
+        },
+        {
+          "arquivo": "ETAPA_3_DIAGNOSTICO_LEITURA_2026_08_11.py",
+          "linha": 54,
+          "campo": "tipo_usuario",
+          "valor": "cliente"
+        },
+        {
+          "arquivo": "ETAPA_4_INVESTIGACAO_MULTI_TENANT_2026_08_11.py",
+          "linha": 65,
+          "campo": "tipo_usuario",
+          "valor": "cliente"
+        },
+        {
+          "arquivo": "orquestrador.py",
+          "linha": 197,
+          "campo": "role",
+          "valor": "user"
+        },
+        {
+          "arquivo": "orquestrador.py",
+          "linha": 282,
+          "campo": "role",
+          "valor": "user"
+        },
+        {
+          "arquivo": "RASTREAMENTO_PERSISTENCIA_EVENTO_2026_08_11.py",
+          "linha": 54,
+          "campo": "tipo_usuario",
+          "valor": "cliente"
+        },
+        {
+          "arquivo": "script_c315_5e0_validacao_definitiva.py",
+          "linha": 12,
+          "campo": "tipo_usuario",
+          "valor": "dono"
+        },
+        {
+          "arquivo": "script_c315_investigacao_profunda_owner.py",
+          "linha": 94,
+          "campo": "tipo_usuario",
+          "valor": "in"
+        }
+      ]
+    },
+    "7_telefone_multiplos_tenants": {
+      "pergunta": "O mesmo telefone pode existir em tenants diferentes?",
+      "evidencias_sim": [],
+      "evidencias_nao": [
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 14,
+          "conteudo": "7. O mesmo telefone pode existir em tenants diferentes?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 17,
+          "conteudo": "10. Como funciona profissional que trabalha em dois tenants?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 21,
+          "conteudo": "14. Como impedir que um ator de Tenant A seja resolvido no Tenant B?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 152,
+          "conteudo": "# Procurar por resolver_tenant_por_endpoint, phone_number_id, etc"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 153,
+          "conteudo": "if re.search(r'phone_number_id|resolver_tenant|associate.*phone|from_number', co"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 229,
+          "conteudo": "# ✅ QUESTÃO 7: O mesmo telefone pode existir em tenants diferentes?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 230,
+          "conteudo": "print(\"\\n[Q7] 🔄 O mesmo telefone pode existir em tenants diferentes?\\n\")"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 233,
+          "conteudo": "\"pergunta\": \"O mesmo telefone pode existir em tenants diferentes?\","
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 245,
+          "conteudo": "# Procurar por \"unique\", \"tenant isolation\", \"phone unique\""
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 246,
+          "conteudo": "if re.search(r'unique.*phone|phone.*unique|phone_number.*global|isolacao.*phone'"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 249,
+          "conteudo": "if re.search(r'unique|isolacao|tenant', line, re.IGNORECASE):"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 261,
+          "conteudo": "print(f\"  Isto sugere que o MESMO telefone PODE existir em tenants diferentes\\n\""
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 264,
+          "conteudo": "questao_7[\"resposta\"] = \"NÃO - Isolado por tenant\""
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 266,
+          "conteudo": "contratos[\"questoes\"][\"7_telefone_multiplos_tenants\"] = questao_7"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 330,
+          "conteudo": "if any(kw in coll.lower() for kw in [\"actor\", \"user\", \"tenant\", \"dono\"]):"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 339,
+          "conteudo": "# ✅ QUESTÃO 14: Como impedir que um ator de Tenant A seja resolvido no Tenant B?"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 340,
+          "conteudo": "print(\"\\n[Q14] 🔒 Como impedir que um ator de Tenant A seja resolvido no Tenant B"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 343,
+          "conteudo": "\"pergunta\": \"Como impedir que um ator de Tenant A seja resolvido no Tenant B?\","
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 348,
+          "conteudo": "# Procurar por validação de tenant_id, isolacao, etc"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 354,
+          "conteudo": "if re.search(r'tenant.*check|tenant.*validat|tenant.*isolat|where.*tenant', cont"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 357,
+          "conteudo": "if re.search(r'tenant_id.*==|where.*tenant|tenant.*check', line, re.IGNORECASE):"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 373,
+          "conteudo": "contratos[\"questoes\"][\"14_isolacao_tenant\"] = questao_14"
+        }
+      ],
+      "resposta": "NÃO - Isolado por tenant"
+    },
+    "11_fonte_verdade": {
+      "pergunta": "Qual é a fonte de verdade da identidade?",
+      "fontes_potenciais": {
+        "Firestore": [
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 19
+          },
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 26
+          },
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 300
+          },
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 301
+          },
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 305
+          },
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 306
+          },
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 309
+          }
+        ],
+        "firestore": [
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 286
+          },
+          {
+            "arquivo": "script_c316_contrato_identidade.py",
+            "linha": 287
+          }
+        ]
+      },
+      "resposta": null
+    },
+    "12_documento_vinculo": {
+      "pergunta": "Qual documento Firestore representa o vínculo?",
+      "colecoes_encontradas": "{'testes'}",
+      "caminhos": [
+        {
+          "colecao": "testes",
+          "documento": "primeiro_teste",
+          "caminho": "testes/primeiro_teste"
+        },
+        {
+          "colecao": "testes",
+          "documento": "primeiro_teste",
+          "caminho": "testes/primeiro_teste"
+        }
+      ]
+    },
+    "14_isolacao_tenant": {
+      "pergunta": "Como impedir que um ator de Tenant A seja resolvido no Tenant B?",
+      "mecanismos": [
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 354,
+          "mecanismo": "if re.search(r'tenant.*check|tenant.*validat|tenant.*isolat|where.*tenant', cont"
+        },
+        {
+          "arquivo": "script_c316_contrato_identidade.py",
+          "linha": 357,
+          "mecanismo": "if re.search(r'tenant_id.*==|where.*tenant|tenant.*check', line, re.IGNORECASE):"
+        }
+      ],
+      "resposta": "2 pontos de validação encontrados"
+    }
+  }
+}
