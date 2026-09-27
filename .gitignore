@@ -10,6 +10,14 @@ TESTES_*.md
 tests/resultado_*.json
 tests/resultado_stress_*.json
 
+# Arquivos de auditoria com credenciais
+auditoria_*.json
+investigacao_*.json
+validacao_*.json
+script_c315_*.py
+script_c316_*.py
+investigacao_profunda_*.json
+
 __pycache__/
 *.pyc
 
