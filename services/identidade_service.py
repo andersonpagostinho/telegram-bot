@@ -53,7 +53,13 @@ def gerar_actor_id_estavel(prefixo: str = "actor") -> str:
 
 
 async def resolver_ator_por_canal_canonico(tenant_id: str, canal: str, identificador: str) -> dict | None:
-    """Resolve ator pelo canal+identificador lendo canais[] em codigo."""
+    """
+    Resolve ator pelo canal+identificador lendo canais[] em codigo.
+
+    Suporta dois formatos de ator:
+    1. Novo: ator com campo canais[] preenchido
+    2. Legacy: ator sem canais[], usa resolver_ator_por_canal() como fallback
+    """
     if not tenant_id or not canal or not identificador:
         return None
     try:
@@ -69,7 +75,14 @@ async def resolver_ator_por_canal_canonico(tenant_id: str, canal: str, identific
                 if any(c.get("canal") == canal_norm and c.get("identificador") == ident_norm and c.get("ativo") for c in canais):
                     return data
             return None
-        return await asyncio.to_thread(buscar)
+        resultado = await asyncio.to_thread(buscar)
+
+        # Fallback: Se nao encontrou em canais[], tentar resolver por actor_id direto
+        # Necessario para compatibilidade com atores legacy que nao possuem canais[]
+        if resultado is None:
+            resultado = await resolver_ator_por_canal(tenant_id, canal, identificador)
+
+        return resultado
     except Exception as e:
         print(f"[ERRO] Resolver por canal: {e}")
         return None
