@@ -5,10 +5,13 @@
 import asyncio
 from datetime import datetime
 import pytz
+import uuid
+import time
+from google.cloud import firestore
 from services.firestore_client import get_db
 
 # Normalização de canal e identificador
-CANAIS_VALIDOS = ["whatsapp", "sms", "voz", "email", "web"]
+CANAIS_VALIDOS = ["whatsapp", "sms", "voz", "email", "web", "telegram"]
 
 
 def normalizar_actor_id(canal: str, identificador: str) -> str:
@@ -42,6 +45,34 @@ def normalizar_actor_id(canal: str, identificador: str) -> str:
 
     actor_id = f"{canal}:{identificador}"
     return actor_id
+
+
+def gerar_actor_id_estavel(prefixo: str = "actor") -> str:
+    """Gera UUID v4 independente."""
+    return f"{prefixo}_{str(uuid.uuid4())[:16]}"
+
+
+async def resolver_ator_por_canal_canonico(tenant_id: str, canal: str, identificador: str) -> dict | None:
+    """Resolve ator pelo canal+identificador lendo canais[] em codigo."""
+    if not tenant_id or not canal or not identificador:
+        return None
+    try:
+        canal_norm = canal.lower().strip()
+        ident_norm = identificador.strip()
+        def buscar():
+            docs = list(get_db().collection("Clientes").document(tenant_id).collection("Atores").stream())
+            for doc in docs:
+                data = doc.to_dict()
+                if not data or not data.get("ativo"):
+                    continue
+                canais = data.get("canais") or []
+                if any(c.get("canal") == canal_norm and c.get("identificador") == ident_norm and c.get("ativo") for c in canais):
+                    return data
+            return None
+        return await asyncio.to_thread(buscar)
+    except Exception as e:
+        print(f"[ERRO] Resolver por canal: {e}")
+        return None
 
 
 async def resolver_ator_por_canal(tenant_id: str, canal: str, identificador: str) -> dict | None:
@@ -198,7 +229,7 @@ async def criar_ator_cliente_automatico(tenant_id: str, canal: str, identificado
         raise
 
 
-async def criar_ator_profissional(tenant_id: str, canal: str, identificador: str, nome: str, criado_por: str) -> dict:
+async def criar_ator_profissional(tenant_id: str, canal: str, identificador: str, nome: str, criado_por: str, operation_id: str = None) -> dict:
     """
     Cria um novo ator PROFISSIONAL (cadastrado pelo dono).
 
@@ -210,22 +241,102 @@ async def criar_ator_profissional(tenant_id: str, canal: str, identificador: str
         identificador: valor único do canal (telefone, email, etc)
         nome: nome do profissional
         criado_por: actor_id do dono que cadastrou
+        operation_id: ID de operação para idempotência (opcional)
 
     Returns:
         Documento criado do ator profissional
     """
-    if not tenant_id or not canal or not identificador or not nome or not criado_por:
-        raise ValueError("tenant_id, canal, identificador, nome e criado_por são obrigatórios")
+    if not tenant_id or not nome or not criado_por:
+        raise ValueError("tenant_id, nome e criado_por são obrigatórios")
 
     try:
-        actor_id = normalizar_actor_id(canal, identificador)
+        # Validar que criado_por é dono
+        def validar_criador():
+            doc = get_db().collection("Clientes").document(tenant_id).collection("Atores").document(criado_por).get()
+            if doc.exists:
+                return doc.to_dict().get("tipo_usuario")
+            return None
+
+        tipo_criador = await asyncio.to_thread(validar_criador)
+        if tipo_criador and tipo_criador != "dono":
+            raise ValueError(f"Apenas donos podem criar profissionais, {tipo_criador} não autorizado")
         now = datetime.now(pytz.UTC).isoformat()
+
+        # Se operation_id fornecido, usar Firestore Transaction para atomicidade
+        if operation_id:
+            def criar_com_transacao():
+                db = get_db()
+
+                @firestore.transactional
+                def callback(transaction):
+                    operacao_ref = db.collection("Clientes").document(tenant_id).collection("OperacoesProfissional").document(operation_id)
+                    docs = list(transaction.get(operacao_ref))
+                    operacao_doc = docs[0] if docs else None
+
+                    if operacao_doc and operacao_doc.exists and operacao_doc.get("status") == "completed":
+                        actor_id = operacao_doc.get("actor_id")
+                        ator_ref = db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id)
+                        ator_docs = list(transaction.get(ator_ref))
+                        if ator_docs:
+                            return ator_docs[0].to_dict()
+                        return None
+
+                    if canal and identificador:
+                        actor_id = normalizar_actor_id(canal, identificador)
+                    else:
+                        actor_id = gerar_actor_id_estavel("prof")
+
+                    ator_data = {
+                        "actor_id": actor_id,
+                        "tenant_id": tenant_id,
+                        "tipo_usuario": "profissional",
+                        "nome": nome,
+                        "ativo": True,
+                        "criado_em": now,
+                        "criado_por": criado_por,
+                        "atualizado_em": now,
+                        "permissoes": ["ler", "operacional"]
+                    }
+
+                    if canal and identificador:
+                        ator_data["canais"] = [{
+                            "canal": canal.lower().strip(),
+                            "identificador": identificador.strip(),
+                            "ativo": True,
+                            "vinculado_em": now
+                        }]
+                    else:
+                        ator_data["canais"] = []
+
+                    ator_ref = db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id)
+                    transaction.set(ator_ref, ator_data)
+
+                    transaction.set(operacao_ref, {
+                        "operation_id": operation_id,
+                        "status": "completed",
+                        "actor_id": actor_id,
+                        "parametros": {"nome": nome},
+                        "criado_em": now
+                    })
+
+                    return ator_data
+
+                transaction = db.transaction()
+                return callback(transaction)
+
+            ator_data = await asyncio.to_thread(criar_com_transacao)
+            print(f"[OK] Ator PROFISSIONAL criado: {ator_data['actor_id']} (tenant: {tenant_id})")
+            return ator_data
+
+        # Se operation_id NÃO fornecido, usar fluxo simples
+        if canal and identificador:
+            actor_id = normalizar_actor_id(canal, identificador)
+        else:
+            actor_id = gerar_actor_id_estavel("prof")
 
         ator_data = {
             "actor_id": actor_id,
             "tenant_id": tenant_id,
-            "canal": canal,
-            "identificador": identificador,
             "tipo_usuario": "profissional",
             "nome": nome,
             "ativo": True,
@@ -234,6 +345,16 @@ async def criar_ator_profissional(tenant_id: str, canal: str, identificador: str
             "atualizado_em": now,
             "permissoes": ["ler", "operacional"]
         }
+
+        if canal and identificador:
+            ator_data["canais"] = [{
+                "canal": canal.lower().strip(),
+                "identificador": identificador.strip(),
+                "ativo": True,
+                "vinculado_em": now
+            }]
+        else:
+            ator_data["canais"] = []
 
         await asyncio.to_thread(
             lambda: get_db().collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).set(ator_data)

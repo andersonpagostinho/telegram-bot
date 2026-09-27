@@ -3361,7 +3361,7 @@ def eh_continuacao_de_agendamento(txt: str, ctx: dict) -> bool:
 # Router principal
 # ----------------------------
 
-async def roteador_principal(user_id: str, mensagem: str, update=None, context=None):
+async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None, update=None, context=None):
     print(" [principal_router] Arquivo carregado")
 
     # 🧹 Limpeza multilinha: remover quebras de linha e normalizar espaços
@@ -3373,10 +3373,36 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
 
     # [P0-TENANT] Resolver tenant_id deterministicamente no início da função
     # Crítico: Toda leitura/escrita de contexto temporário deve usar tenant_id correto
-    dono_id = await obter_id_dono(user_id)
-    if not dono_id:
-        dono_id = str(user_id)
-        print(f"[TENANT_FALLBACK] obter_id_dono retornou None, usando user_id como fallback | user_id={user_id}")
+
+    # [C3.15.3-B] Se tenant_id foi passado explicitamente (ex: WhatsApp endpoint), usar diretamente
+    if tenant_id:
+        dono_id = tenant_id
+        print(f"[TENANT_INGRESS] tenant_id explícito recebido do endpoint: {tenant_id}", flush=True)
+    else:
+        # Fallback legado: tentar resolver via obter_id_dono (para Telegram e fluxos antigos)
+        dono_id = await obter_id_dono(user_id)
+        if not dono_id:
+            dono_id = str(user_id)
+            print(f"[TENANT_FALLBACK] obter_id_dono retornou None, usando user_id como fallback | user_id={user_id}")
+
+    # [C3.15.3-B] Resolver actor canonicamente no WhatsApp
+    # Se tenant_id foi passado explicitamente, resolver ator por canal
+    actor_id_whatsapp = None
+    if tenant_id:
+        from services.identidade_service import resolver_ator_por_canal_canonico
+        try:
+            ator_canonico = await resolver_ator_por_canal_canonico(
+                tenant_id=dono_id,
+                canal="whatsapp",
+                identificador=user_id
+            )
+            if ator_canonico:
+                actor_id_whatsapp = ator_canonico.get("actor_id") or ator_canonico.get("id")
+                print(f"[ACTOR_CANONICO] Resolvido para WhatsApp: actor_id={actor_id_whatsapp}", flush=True)
+            else:
+                print(f"[ACTOR_CANONICO] WhatsApp {user_id} não tem ator em {dono_id}", flush=True)
+        except Exception as e:
+            print(f"[AVISO] Erro ao resolver ator canônico: {e}", flush=True)
 
     # P0 FIX (2026-06-28): Sessão V2 não deve ser sobrescrita por legado
     # 1. Se context.user_data já tem contexto (carregado pelo handler), usar esse
@@ -3415,29 +3441,8 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
             # Continue para fluxo normal (P0_CONFIRMACAO)
 
     # =========================================================
-    # ⭐ CRÍTICO: Processar RESPOSTA de onboarding ANTES de tudo
-    # Se usuário está respondendo pergunta de onboarding, processar aqui
-    # =========================================================
-    if ctx.get("estado_fluxo") == "onboarding_dono":
-        print(f"[ROUTER] DETECTADO: estado_fluxo=onboarding_dono, processando resposta ANTES de identidade", flush=True)
-        resultado_novo_onboarding = await processar_resposta_onboarding_dono(
-            user_id=user_id,
-            tenant_id=dono_id,
-            texto_usuario=texto_usuario,
-            ctx=ctx,
-            context=context,
-        )
-
-        if resultado_novo_onboarding is not None:
-            print(f"[ROUTER] processar_resposta_onboarding_dono retornou resultado, devolvendo", flush=True)
-            if resultado_novo_onboarding.get("acao") == "send_stop":
-                resposta = resultado_novo_onboarding.get("resposta", "")
-                return await _send_and_stop(context, user_id, resposta)
-            return resultado_novo_onboarding
-
-    # =========================================================
-    # P1 IDENTIDADE + ONBOARDING: Resolver ator e validar guard
-    # PRIORIDADE: Executa ANTES de P0 normal
+    # P1 IDENTIDADE + ONBOARDING: Resolver ator e validar guard (EXECUTAR PRIMEIRO)
+    # PRIORIDADE: Executa ANTES de tudo
     # - Resolve ator por canal (dono, profissional, cliente)
     # - Valida guard forte (tenant_id, tipo_usuario, onboarding)
     # - Se dono sem onboarding: direciona para onboarding_dono, não cai em P0
@@ -3464,6 +3469,27 @@ async def roteador_principal(user_id: str, mensagem: str, update=None, context=N
                 print(f"[ERRO] Falha ao enviar mensagem: {e}", flush=True)
 
         return resultado_identidade
+
+    # =========================================================
+    # ⭐ CRÍTICO: Processar RESPOSTA de onboarding DEPOIS de identidade
+    # Se usuário está respondendo pergunta de onboarding (após validação de identidade), processar aqui
+    # =========================================================
+    if ctx.get("estado_fluxo") == "onboarding_dono":
+        print(f"[ROUTER] DETECTADO: estado_fluxo=onboarding_dono, processando resposta (após identidade)", flush=True)
+        resultado_novo_onboarding = await processar_resposta_onboarding_dono(
+            user_id=user_id,
+            tenant_id=dono_id,
+            texto_usuario=texto_usuario,
+            ctx=ctx,
+            context=context,
+        )
+
+        if resultado_novo_onboarding is not None:
+            print(f"[ROUTER] processar_resposta_onboarding_dono retornou resultado, devolvendo", flush=True)
+            if resultado_novo_onboarding.get("acao") == "send_stop":
+                resposta = resultado_novo_onboarding.get("resposta", "")
+                return await _send_and_stop(context, user_id, resposta)
+            return resultado_novo_onboarding
 
     # =========================================================
     # 🧠 NORMALIZADOR HUMANO — sinais sociais/implícitos

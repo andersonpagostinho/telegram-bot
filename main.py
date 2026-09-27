@@ -237,6 +237,7 @@ def whatsapp_webhook_post():
                                 roteador_principal(
                                     user_id=from_number,
                                     mensagem=text_body,
+                                    tenant_id=tenant_id,
                                     update=None,
                                     context=None
                                 ),
@@ -253,6 +254,7 @@ def whatsapp_webhook_post():
                                 roteador_principal(
                                     user_id=from_number,
                                     mensagem=text_body,
+                                    tenant_id=tenant_id,
                                     update=None,
                                     context=None
                                 )
