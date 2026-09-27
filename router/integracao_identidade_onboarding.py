@@ -104,7 +104,7 @@ async def resolver_ator_e_validar_guard(
             if not onboarding_completo:
                 # Dono sem onboarding — obter próxima etapa
                 try:
-                    etapa_info = await pegar_etapa_onboarding(tenant_id)
+                    etapa_info = await pegar_etapa_onboarding(tenant_id, actor_id)
                     proxima_etapa = etapa_info.get("etapa_atual", "nome_negocio") if etapa_info else "nome_negocio"
                     proxima_pergunta = obter_pergunta_etapa(proxima_etapa)
                 except Exception as e:
@@ -218,7 +218,7 @@ async def resolver_ator_e_validar_guard(
                 )
 
                 try:
-                    etapa_info = await pegar_etapa_onboarding(tenant_id)
+                    etapa_info = await pegar_etapa_onboarding(tenant_id, actor_id)
                     proxima_etapa = etapa_info.get("etapa_atual", "nome_negocio") if etapa_info else "nome_negocio"
                     proxima_pergunta = obter_pergunta_etapa(proxima_etapa)
                 except Exception as e:

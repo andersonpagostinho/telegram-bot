@@ -16,6 +16,7 @@ from services.onboarding_dono_service import (
     marcar_onboarding_completo,
     validar_onboarding_minimo
 )
+from services.identidade_service import normalizar_actor_id
 
 # Simulação de Firestore (será mockado nos testes)
 _firestore_data = {}
@@ -252,10 +253,13 @@ async def processar_resposta_onboarding_dono(
         return None
 
     try:
-        # Obter etapa atual
-        etapa_info = await pegar_etapa_onboarding(tenant_id)
+        # Normalizar actor_id a partir de user_id (WhatsApp)
+        actor_id = normalizar_actor_id("whatsapp", user_id)
+
+        # Obter etapa atual (isolada por ator)
+        etapa_info = await pegar_etapa_onboarding(tenant_id, actor_id)
         if not etapa_info:
-            print(f"[ERRO] Não conseguiu obter etapa onboarding para {tenant_id}")
+            print(f"[ERRO] Não conseguiu obter etapa onboarding para {tenant_id}@{actor_id}")
             return {
                 "handled": True,
                 "resposta": "Erro ao processar onboarding. Tente novamente."
@@ -281,6 +285,7 @@ async def processar_resposta_onboarding_dono(
         print(f"[ONBOARDING] avancar_etapa_onboarding CHAMADO com campo={etapa_atual}", flush=True)
         resultado_avanço = await avancar_etapa_onboarding(
             tenant_id=tenant_id,
+            actor_id=actor_id,
             campo=etapa_atual,
             valor=texto_usuario
         )

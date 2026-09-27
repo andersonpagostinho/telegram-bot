@@ -60,12 +60,30 @@ async def iniciar_onboarding_dono(tenant_id: str, actor_id: str, dono_nome: str,
             "dono_email": dono_email
         }
 
-        print(f"[ONBOARDING] iniciar_onboarding_dono: salvando em Clientes/{tenant_id}/Configuracao/negocio", flush=True)
-        await asyncio.to_thread(
-            lambda: get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").set(config_data)
-        )
+        # Escrever em novo path isolado (source of truth)
+        print(f"[ONBOARDING] iniciar_onboarding_dono: salvando em Donos/{actor_id}/onboarding/ativo", flush=True)
+        novo_ref = get_db().collection("Clientes").document(tenant_id)\
+            .collection("Donos").document(actor_id)\
+            .collection("onboarding").document("ativo")
 
-        print(f"[OK] Onboarding iniciado para tenant {tenant_id}", flush=True)
+        await asyncio.to_thread(lambda: novo_ref.set(config_data))
+
+        # Legacy para compatibilidade (somente negócio, não estado individual)
+        legacy_data = {
+            "tenant_id": tenant_id,
+            "dono_actor_id": actor_id,
+            "criado_em": config_data["criado_em"],
+            "criado_por": config_data["criado_por"],
+            "atualizado_em": config_data["atualizado_em"]
+        }
+
+        legacy_ref = get_db().collection("Clientes").document(tenant_id)\
+            .collection("Configuracao").document("negocio")
+
+        # Usar set com merge=True para compatibilidade (não falha se não existe)
+        await asyncio.to_thread(lambda: legacy_ref.set(legacy_data, merge=True))
+
+        print(f"[OK] Onboarding iniciado para tenant {tenant_id} | actor {actor_id}", flush=True)
 
         return {
             "tenant_id": tenant_id,
@@ -80,67 +98,104 @@ async def iniciar_onboarding_dono(tenant_id: str, actor_id: str, dono_nome: str,
         raise
 
 
-async def pegar_etapa_onboarding(tenant_id: str) -> dict:
+async def pegar_etapa_onboarding(tenant_id: str, actor_id: str = None) -> dict:
     """
-    Obtém etapa atual do onboarding.
+    Obtém etapa atual do onboarding isolada por ator.
+
+    Prioridade:
+    1. Novo path: Clientes/{tenant_id}/Donos/{actor_id}/onboarding/ativo
+    2. Fallback legacy: Clientes/{tenant_id}/Configuracao/negocio (com ownership validation)
+    3. None se nenhum encontrado
 
     Args:
         tenant_id: ID do tenant
+        actor_id: ID do ator (obrigatório para isolamento)
 
     Returns:
-        {"etapa_atual": str, "indice": int, "status": str}
+        {"etapa_atual": str, "indice": int, "status": str, "dados": dict}
+        ou None se sem onboarding
     """
     if not tenant_id:
         raise ValueError("tenant_id é obrigatório")
 
     try:
-        doc = await asyncio.to_thread(
-            lambda: get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").get()
-        )
+        # 1. Tentar novo path (isolado por ator)
+        if actor_id:
+            novo_ref = get_db().collection("Clientes").document(tenant_id)\
+                .collection("Donos").document(actor_id)\
+                .collection("onboarding").document("ativo")
 
-        if not doc.exists:
-            return None
+            novo_doc = await asyncio.to_thread(lambda: novo_ref.get())
 
-        config = doc.to_dict()
-        return {
-            "etapa_atual": config.get("onboarding_etapa_atual"),
-            "indice": config.get("onboarding_indice", 0),
-            "status": config.get("onboarding_status"),
-            "dados": config
-        }
+            if novo_doc.exists:
+                config = novo_doc.to_dict()
+                return {
+                    "etapa_atual": config.get("onboarding_etapa_atual"),
+                    "indice": config.get("onboarding_indice", 0),
+                    "status": config.get("onboarding_status"),
+                    "dados": config
+                }
+
+        # 2. Fallback legacy (com validação de ownership)
+        legacy_ref = get_db().collection("Clientes").document(tenant_id)\
+            .collection("Configuracao").document("negocio")
+
+        legacy_doc = await asyncio.to_thread(lambda: legacy_ref.get())
+
+        if legacy_doc.exists:
+            config = legacy_doc.to_dict()
+
+            # Validar ownership se actor_id foi fornecido
+            if actor_id:
+                legacy_dono = config.get("dono_actor_id")
+                if legacy_dono and legacy_dono != actor_id:
+                    # Legacy pertence a outro ator, não retornar
+                    print(f"[ONBOARDING] Legacy pertence a outro ator (legacy.dono_actor_id={legacy_dono}, actor_id={actor_id})")
+                    return None
+
+            return {
+                "etapa_atual": config.get("onboarding_etapa_atual"),
+                "indice": config.get("onboarding_indice", 0),
+                "status": config.get("onboarding_status"),
+                "dados": config
+            }
+
+        # 3. Nenhum estado encontrado
+        return None
 
     except Exception as e:
         print(f"[ERRO] Pegar etapa onboarding: {e}")
         return None
 
 
-async def avancar_etapa_onboarding(tenant_id: str, campo: str, valor: str) -> dict:
+async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, valor: str) -> dict:
     """
-    Avança para próxima etapa e salva dado da etapa atual.
-
-    IMPORTANTE: Apenas salva em Configuracao/negocio, não na sessão.
+    Avança para próxima etapa e salva dado da etapa atual (isolado por actor).
 
     Args:
         tenant_id: ID do tenant
+        actor_id: ID do ator
         campo: nome do campo (ex: "nome_negocio")
         valor: valor fornecido pelo dono
 
     Returns:
         {"etapa_atual": str, "proximo_passo": str}
     """
-    if not tenant_id or not campo or not valor:
-        raise ValueError("tenant_id, campo e valor são obrigatórios")
+    if not tenant_id or not actor_id or not campo or not valor:
+        raise ValueError("tenant_id, actor_id, campo e valor são obrigatórios")
 
     try:
-        # Obter configuração atual
-        config_ref = get_db().collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio")
+        # Novo path isolado por actor (source of truth)
+        novo_ref = get_db().collection("Clientes").document(tenant_id)\
+            .collection("Donos").document(actor_id)\
+            .collection("onboarding").document("ativo")
 
         def atualizar():
-            config_doc = config_ref.get()
-            if not config_doc.exists:
-                raise ValueError("Configuração não encontrada")
+            novo_doc = novo_ref.get()
+            if not novo_doc.exists:
+                raise ValueError(f"Onboarding não encontrado para actor {actor_id}")
 
-            config = config_doc.to_dict()
+            config = novo_doc.to_dict()
             etapa_atual = config.get("onboarding_etapa_atual")
             indice_atual = INDICE_ETAPAS.get(etapa_atual, 0)
 
@@ -149,8 +204,8 @@ async def avancar_etapa_onboarding(tenant_id: str, campo: str, valor: str) -> di
             if not validacao["valido"]:
                 raise ValueError(f"Validação falhou: {validacao['motivo']}")
 
-            # Salvar campo (apenas em Configuracao, não na sessão)
-            config_ref.update({
+            # Atualizar novo path (isolado)
+            novo_ref.update({
                 campo: valor,
                 "atualizado_em": datetime.now(pytz.UTC).isoformat()
             })
@@ -159,13 +214,13 @@ async def avancar_etapa_onboarding(tenant_id: str, campo: str, valor: str) -> di
             proximo_indice = indice_atual + 1
             if proximo_indice < len(ETAPAS_ONBOARDING):
                 proxima_etapa = ETAPAS_ONBOARDING[proximo_indice]
-                config_ref.update({
+                novo_ref.update({
                     "onboarding_etapa_atual": proxima_etapa,
                     "onboarding_indice": proximo_indice
                 })
             else:
                 # Onboarding completo
-                config_ref.update({
+                novo_ref.update({
                     "onboarding_status": "completo",
                     "onboarding_etapa_atual": "completo",
                     "onboarding_indice": len(ETAPAS_ONBOARDING)
