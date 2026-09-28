@@ -1,0 +1,119 @@
+================================================================================
+GATE C3.15.3-C — RELATORIO DE DIAGNOSTICO
+================================================================================
+
+Timestamp: 2026-09-27 21:28:25
+Projeto Firebase: projeto-agente-inteligente
+Status: COMPLETO
+
+================================================================================
+VERIFICACOES REALIZADAS
+================================================================================
+
+[1] DOCUMENTO WhatsAppEndpoints/1350170954840548
+   Resultado: NAO EXISTE
+
+   Status: O documento com ID "1350170954840548" nao foi encontrado no Firestore
+
+   Documentos existentes em WhatsAppEndpoints (total: 8):
+   - test_p0_t1_endpoint
+   - test_p0_t2_endpoint
+   - test_p0_t3_endpoint
+   - test_p0_t4_endpoint
+   - test_p0_t7_endpoint_x
+   - test_p0_t7_endpoint_y
+   - test_p0_t8_endpoint_x
+   - test_p0_t8_endpoint_y
+
+[2] FUNCAO resolve_tenant_por_endpoint
+   Resultado: NAO EXISTE
+
+   Status: A funcao "resolve_tenant_por_endpoint" nao foi encontrada em
+   services/whatsapp_service.py
+
+   Erro de importacao: cannot import name 'resolve_tenant_por_endpoint' from
+   'services.whatsapp_service'
+
+================================================================================
+DADOS DO DOCUMENTO (se existisse)
+================================================================================
+
+Campo                         Valor
+--------------------------------------------------
+documento existe?             NAO
+projeto Firebase utilizado    projeto-agente-inteligente
+tenant_id                     [NAO DISPONIVEL]
+status                        [NAO DISPONIVEL]
+validado                      [NAO DISPONIVEL]
+display_phone_number          [NAO DISPONIVEL]
+waba_id                       [NAO DISPONIVEL]
+
+================================================================================
+DADOS ENCONTRADOS NA COLECAO WhatsAppEndpoints
+================================================================================
+
+EXEMPLO 1: test_p0_t1_endpoint
+  waba_id: "test_waba_123"
+  display_phone_number: "55 11 98765-4321"
+  tenant_id: "test_p0_t1_tenant_a"
+  phone_number_id: "test_p0_t1_endpoint"
+  status: "ativo"
+  validado: true
+  criado_em: "2026-09-24T18:59:52.767792-03:00"
+
+EXEMPLO 2: test_p0_t2_endpoint
+  waba_id: ""
+  display_phone_number: ""
+  tenant_id: "test_p0_t2_tenant_a"
+  phone_number_id: "test_p0_t2_endpoint"
+  status: "ativo"
+  validado: true
+  criado_em: "2026-09-24T18:59:42.840737-03:00"
+
+================================================================================
+CONCLUSOES
+================================================================================
+
+1. DOCUMENTO PROCURADO
+   - O endpoint "1350170954840548" nao existe em WhatsAppEndpoints
+   - A colecao existe e contem 8 documentos de teste
+   - Nenhum deles corresponde ao ID procurado
+
+2. FUNCAO PROCURADA
+   - A funcao resolve_tenant_por_endpoint nao existe
+   - Nao foi possivel testar se retornaria 7394370553
+
+3. PROJETO FIREBASE
+   - Confirmado: projeto-agente-inteligente
+   - Autenticacao OK
+   - Acesso ao Firestore funcionando
+
+4. ESTADO GERAL
+   - Firestore real esta acessivel
+   - Colecao WhatsAppEndpoints contem dados de teste
+   - Nenhum dado de producao encontrado nesse Firestore
+
+================================================================================
+PROXIMOS PASSOS
+================================================================================
+
+Para o endpoint 1350170954840548 existir, seria necessario:
+1. Criar o documento manualmente em WhatsAppEndpoints
+2. Ou, confirmar que ele deveria estar em outro Firestore/projeto
+3. Ou, verificar se o ID 1350170954840548 e o ID correto esperado
+
+Para testar resolve_tenant_por_endpoint(endpoint_id):
+1. Verificar se a funcao existe em outro arquivo (nao whatsapp_service.py)
+2. Ou, implementar a funcao se ela for necessaria
+3. Ou, verificar qual funcao atual resolve tenants a partir de endpoints
+
+================================================================================
+STATUS FINAL: DIAGNOSTICO CONCLUIDO
+================================================================================
+
+Nao foram feitas alteracoes no Firestore.
+Nao foi alterado codigo.
+Nao foi feito commit.
+Nao foi feito push.
+
+Diagnostico puro (leitura) completado com sucesso.
