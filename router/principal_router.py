@@ -3469,7 +3469,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         mensagem=texto_usuario,
         tenant_id=dono_id,
         ctx=ctx,
-        context=context
+        context=context,
+        cliente_id=cliente_id
     )
 
     # Se fluxo de identidade/onboarding foi processado, retornar

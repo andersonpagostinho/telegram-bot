@@ -282,6 +282,7 @@ async def processar_fluxo_identidade_onboarding(
     tenant_id: str,
     ctx: dict = None,
     context=None,
+    cliente_id: str = None,
 ) -> dict | None:
     """
     Processa fluxo de identidade e onboarding.
@@ -329,7 +330,7 @@ async def processar_fluxo_identidade_onboarding(
             "onboarding_etapa": resultado_guard.get("onboarding_etapa"),
         })
 
-        await salvar_contexto_temporario(tenant_id, user_id, ctx)
+        await salvar_contexto_temporario(tenant_id, cliente_id or user_id, ctx)
 
         proxima_pergunta = resultado_guard.get("onboarding_pergunta", "Qual é o nome do seu negócio?")
 
@@ -346,10 +347,10 @@ async def processar_fluxo_identidade_onboarding(
             "estado_fluxo": "idle"
         })
 
-        await salvar_contexto_temporario(tenant_id, user_id, ctx)
+        await salvar_contexto_temporario(tenant_id, cliente_id or user_id, ctx)
 
         print(f"[OK] Cliente criado automaticamente: {resultado_guard.get('actor_id')}", flush=True)
 
     # Passo 3: Continuar no fluxo P0 normal
-    await salvar_contexto_temporario(tenant_id, user_id, ctx)
+    await salvar_contexto_temporario(tenant_id, cliente_id or user_id, ctx)
     return None
