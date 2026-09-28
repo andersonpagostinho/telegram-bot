@@ -1825,7 +1825,7 @@ async def precheck_e_confirmacao_agendamento(
             "servico": servico,
             "modo_prechecagem": True
         }
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         lista = ", ".join(nomes_validos) if nomes_validos else "ninguém cadastrado"
         return await _send_and_stop(
@@ -1866,7 +1866,7 @@ async def precheck_e_confirmacao_agendamento(
         ctx["profissional_escolhido"] = prof
         ctx["data_hora"] = data_hora
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         frase_data = montar_frase_data_legivel(data_hora)
         return await _send_and_stop_ctx(
@@ -1930,7 +1930,7 @@ async def precheck_e_confirmacao_agendamento(
         ctx["profissional_rejeitado"] = prof
         ctx["profissionais_validos"] = lista_validos
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
         return await _send_and_stop(
             context,
             user_id,
@@ -2028,7 +2028,7 @@ async def precheck_e_confirmacao_agendamento(
 
         ctx["modo_escolha_horario"] = True
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         print(
             f"[POS-SAVE CONFLITO] estado_fluxo={ctx.get('estado_fluxo')} | "
@@ -2119,7 +2119,7 @@ async def precheck_e_confirmacao_agendamento(
             flush=True
         )
 
-    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
     msg_confirmacao = montar_mensagem_preconfirmacao(servico, prof, data_hora)
     return await _send_and_stop(context, user_id, msg_confirmacao)
@@ -2327,7 +2327,7 @@ async def resolver_alteracao_draft_agendamento(
         nova_data_hora = alteracao.get("valor")
 
         if not (servico and profissional and nova_data_hora):
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2358,7 +2358,7 @@ async def resolver_alteracao_draft_agendamento(
             "descricao": f"{servico.capitalize()} com {profissional}",
         }
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -2380,7 +2380,7 @@ async def resolver_alteracao_draft_agendamento(
         data_nova = alteracao.get("valor")
 
         if not (servico and profissional and data_nova):
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2401,7 +2401,7 @@ async def resolver_alteracao_draft_agendamento(
         if ctx.get("dados_confirmacao_agendamento"):
             ctx["dados_confirmacao_agendamento"]["data_hora"] = None
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -2466,7 +2466,7 @@ async def resolver_alteracao_draft_agendamento(
             "descricao": f"{servico.capitalize()} com {profissional}",
         }
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         texto = (
             f"Tenho sim 😊\n\n"
@@ -2606,7 +2606,7 @@ async def resolver_alteracao_draft_agendamento(
                 ),
             })
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -2636,7 +2636,7 @@ async def resolver_alteracao_draft_agendamento(
 
         print(f"[TYPE_AUDIT_2163] valido={type(valido)} value={repr(valido)}", flush=True)
         if not valido.get("ok"):
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2656,7 +2656,7 @@ async def resolver_alteracao_draft_agendamento(
         )
 
         if not validacao.get("permitido"):
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2738,7 +2738,7 @@ async def resolver_alteracao_draft_agendamento(
                     ctx["objetivo_conversacional"] = None
                     ctx["tipo_ajuste_incremental"] = None
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     return await _send_and_stop(
                         context,
@@ -2755,7 +2755,7 @@ async def resolver_alteracao_draft_agendamento(
 
             if sugestoes:
                 primeira = sugestoes[0]
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                 return await _send_and_stop(
                     context,
                     user_id,
@@ -2767,7 +2767,7 @@ async def resolver_alteracao_draft_agendamento(
                     parse_mode=None
                 )
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -2803,7 +2803,7 @@ async def resolver_alteracao_draft_agendamento(
         ctx["objetivo_conversacional"] = None
         ctx["tipo_ajuste_incremental"] = None
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -2827,7 +2827,7 @@ async def resolver_alteracao_draft_agendamento(
         draft["modo_prechecagem"] = True
         ctx["draft_agendamento"] = draft
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -2928,7 +2928,7 @@ async def resolver_alteracao_draft_agendamento(
             flush=True
         )
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -3012,7 +3012,7 @@ async def resolver_alteracao_draft_agendamento(
             ctx["aguardando_confirmacao_agendamento"] = True
             ctx["dados_confirmacao_agendamento"] = dados_conf_guard
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             descricao_guard = dados_conf_guard.get("descricao") or (
                 f"{str(servico_oficial_guard).capitalize()} com {profissional_oficial_guard}"
@@ -3060,7 +3060,7 @@ async def resolver_alteracao_draft_agendamento(
             ctx["servico"] = novo_servico
             ctx["data_hora"] = data_hora
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -3079,7 +3079,7 @@ async def resolver_alteracao_draft_agendamento(
         )
 
         if not valido.get("ok"):
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -3112,7 +3112,7 @@ async def resolver_alteracao_draft_agendamento(
                     "origem": "alteracao_servico_conflito",
                 }
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop(
                     context,
@@ -3125,7 +3125,7 @@ async def resolver_alteracao_draft_agendamento(
                     parse_mode=None
                 )
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -3156,7 +3156,7 @@ async def resolver_alteracao_draft_agendamento(
             "descricao": f"{novo_servico.capitalize()} com {profissional}",
         }
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         data_legivel = formatar_data_hora_br(data_hora)
 
@@ -3413,6 +3413,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         except Exception as e:
             print(f"[AVISO] Erro ao resolver ator canônico: {e}", flush=True)
 
+    # [C3.15.3-D-B] Usar actor_id_whatsapp canônico para operações de sessão, fallback para user_id
+    cliente_id = actor_id_whatsapp or user_id
+
     # P0 FIX (2026-06-28): Sessão V2 não deve ser sobrescrita por legado
     # 1. Se context.user_data já tem contexto (carregado pelo handler), usar esse
     # 2. Se não, carregar V2 (não legado que pode estar vazio/divergente)
@@ -3422,7 +3425,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         print(f"[CTX_HANDLER] Usando contexto carregado pelo handler | keys={list(ctx.keys())}", flush=True)
     else:
         # Carregar V2 se handler não carregou
-        ctx = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+        ctx = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
 
     # =========================================================
     # LOTE 3E: RESOLVER CONFIRMACAO/NEGACAO PENDENTE (EARLY)
@@ -3440,7 +3443,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx = decisao_confirmacao.get("ctx_modificado") or ctx
         acao = decisao_confirmacao.get("acao")
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         if acao == "negar":
             print(f"[LOTE_3E_NEGACAO] Desistencia detectada", flush=True)
@@ -3508,7 +3511,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     if sinais_humanos:
         ctx.update(sinais_humanos)
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         print(
             f"🧠 [NORMALIZADOR_HUMANO] sinais={sinais_humanos}",
@@ -3559,7 +3562,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     print(f"[DIAG_SAVE_PRE] PATCH_P0: Usando DELETE_FIELD para limpeza real", flush=True)
                     print(f"[DIAG_SAVE_PRE] campos_remove={len([k for k, v in payload_limpeza.items() if v is firestore.DELETE_FIELD])}", flush=True)
 
-                    resultado_save = await salvar_contexto_temporario_v2(dono_id, user_id, payload_limpeza)
+                    resultado_save = await salvar_contexto_temporario_v2(dono_id, cliente_id, payload_limpeza)
 
                     print(f"[DIAG_SAVE_POS] resultado={resultado_save} | tipo={type(resultado_save)}", flush=True)
 
@@ -3572,7 +3575,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "motivo": "cancelamento_confirmado"
                     }
                 else:
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                     return {
                         "handled": True,
                         "resposta": "❌ Não consegui cancelar. Pode tentar novamente?",
@@ -3600,7 +3603,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "objetivo_conversacional": firestore.DELETE_FIELD,
                 "tipo_ajuste_incremental": firestore.DELETE_FIELD,
             }
-            await salvar_contexto_temporario_v2(dono_id, user_id, payload_limpeza)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, payload_limpeza)
 
             return {
                 "handled": True,
@@ -3633,7 +3636,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 resposta = "Nenhum profissional disponível para esse serviço."
 
             ctx["estado_fluxo"] = "aguardando_profissional"
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return {
                 "handled": True,
@@ -3651,7 +3654,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if ctx.get("estado_fluxo") == "aguardando_profissional":
                 ctx["estado_fluxo"] = "idle"
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return {
                 "handled": True,
@@ -3669,7 +3672,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx.pop("motivo_estado", None)
             ctx.pop("profissional_rejeitado", None)
             ctx.pop("profissionais_validos", None)
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             print(f"[PATCH_P0 LIMPEZA] Estado limpo, continuando com fluxo normal", flush=True)
 
             # Não retorna aqui, deixa continuar para o fluxo normal
@@ -3703,7 +3706,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 else:
                     resposta = f"*{prof_mencionado}* não atende {servico}. Nenhum outro profissional disponível."
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return {
                     "handled": True,
@@ -3718,7 +3721,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 else:
                     resposta = "Não consegui entender. Tente novamente."
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return {
                     "handled": True,
@@ -3747,7 +3750,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["controle_atendimento"] = "humano"
         ctx["estado_fluxo"] = "encaminhado_humano"
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         print("‍ [HANDOFF ATIVADO] cliente pediu humano", flush=True)
 
@@ -3851,7 +3854,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                         ctx["draft_agendamento"] = draft
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         # Early return com resposta apropriada
                         if data_hora_ctx:
@@ -3868,7 +3871,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         else:
                             # FALTA DATA_HORA: pedir data
                             ctx["estado_fluxo"] = "aguardando_data"
-                            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                             resposta = f"Perfeito — {servico_ctx} com {profissional_detectado}. Qual dia e horário você prefere?"
                             return await _send_and_stop(context, user_id, resposta)
 
@@ -3911,7 +3914,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "objetivo_conversacional": None,
                 "intencao_conversacional": None,
             }
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx_update)  # P0-004 patch
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_update)  # P0-004 patch
 
             resposta_texto = f"Perfeito — {servico_sugerido}. Qual dia e horário você prefere?"
             print(f" [CONSULTA->AGENDAMENTO] resposta='{resposta_texto}'", flush=True)
@@ -3928,7 +3931,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "objetivo_conversacional": None,
                 "intencao_conversacional": None,
             }
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx_update)  # P0-004 patch
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_update)  # P0-004 patch
 
             resposta_texto = "Tudo bem. Se precisar, estou por aqui! 😊"
             return await _send_and_stop(context, user_id, resposta_texto)
@@ -4049,7 +4052,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             )
 
             ctx["cancelamento_pendente"] = cancelamento_dict or {}
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             # Resposta já vem formatada de cancelar_evento_por_texto
             return await _send_and_stop(context, user_id, msg)
@@ -4304,7 +4307,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "confianca": 100,
                 }
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             else:
                 interpretacao_gpt = await interpretar_linguagem_operacional_gpt(
@@ -4365,7 +4368,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         flush=True
     )
 
-    await salvar_contexto_temporario_v2(dono_id, user_id, {
+    await salvar_contexto_temporario_v2(dono_id, cliente_id, {
         "historico_texto": ctx["historico_texto"],
         "intencao_conversacional": ctx.get("intencao_conversacional"),
         "tipo_ajuste_incremental": ctx.get("tipo_ajuste_incremental"),
@@ -4390,7 +4393,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["tipo_ajuste_incremental"] = None
         ctx["intencao_conversacional"] = None
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -4496,7 +4499,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["ultima_consulta"] = {}
         ctx["ultima_consulta"]["data_hora"] = None
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         # ✅ primeiro coletar mínimo (serviço OU profissional)
         if not (prof or servico):
@@ -4580,7 +4583,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["objetivo_conversacional"] = None
         ctx["tipo_ajuste_incremental"] = None
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -4640,7 +4643,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx.pop("modo_escolha_horario", None)
                 ctx.pop("aguardando_escolha_horario", None)
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop(
                     context,
@@ -4707,7 +4710,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["estado_fluxo"] = "aguardando_horario"
             ctx["aguardando_confirmacao_agendamento"] = False
             ctx.pop("dados_confirmacao_agendamento", None)
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             frase_data = montar_frase_data_legivel(data_hora)
             return await _send_and_stop_ctx(
@@ -4745,7 +4748,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx["estado_fluxo"] = "agendando"
                         ctx["aguardando_confirmacao_agendamento"] = True
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         frase_data = montar_frase_data_legivel(data_hora_ajustada)
                         print(" [AUDIT-CONF:BLOCO_PENDENTE_HORA_NOVA] AJUSTE INCREMENTAL ATIVADO", flush=True)
@@ -4774,7 +4777,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["aguardando_confirmacao_agendamento"] = False
             ctx.pop("dados_confirmacao_agendamento", None)
             ctx.pop("ultima_opcao_profissionais", None)
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             print(" [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto", flush=True)
             return await executar_acao_gpt_resultado(update, context, "criar_evento", dados_exec)
@@ -4830,7 +4833,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if draft.get("data_hora") and "T" in draft["data_hora"]:
             ctx["data"] = draft["data_hora"].split("T")[0]
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -4888,7 +4891,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             ctx.pop("inconsistencia_periodo_hora", None)
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             print(f" [P1 CLAREZA RESOLVIDA] cliente escolheu hora={hora_ref}", flush=True)
 
@@ -4907,7 +4910,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             ctx.pop("inconsistencia_periodo_hora", None)
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -4992,7 +4995,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 print(f"[TYPE_AUDIT_4319] validar_prof_servico={type(valido)} value={repr(valido)}", flush=True)
                 if not valido.get("ok"):
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                     return await _send_and_stop(
                         context,
                         user_id,
@@ -5070,7 +5073,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx["alternativa_profissional"] = alternativas
                         ctx["ultima_opcao_profissionais"] = alternativas
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         msg = (
                             f"⛔ A *{profissional_escolhido}* já tem atendimento às *{hora_ref}* nesse dia.\n\n"
@@ -5117,7 +5120,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["tipo_ajuste_incremental"] = None
                 ctx["objetivo_conversacional"] = None
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 msg_p1 = await gerar_resposta_p1({
                     "tipo": "confirmar_agendamento",
@@ -5253,7 +5256,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx["alternativa_profissional"] = alternativas
                         ctx["ultima_opcao_profissionais"] = alternativas
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         msg = (
                             f"⛔ A *{profissional_slot}* já tem atendimento às *{hora_ref}* nesse dia.\n\n"
@@ -5291,7 +5294,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ctx["tipo_ajuste_incremental"] = None
                     ctx["objetivo_conversacional"] = None
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "confirmar_agendamento",
@@ -5316,7 +5319,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 if not profissional_slot:
                     ctx["estado_fluxo"] = "aguardando_profissional"
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "pedir_profissional",
@@ -5338,7 +5341,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 if not data_hora_slot:
                     ctx["estado_fluxo"] = "aguardando_data"
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "pedir_data",
@@ -5380,7 +5383,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["tipo_ajuste_incremental"] = None
                 ctx["objetivo_conversacional"] = None
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 msg_p1 = await gerar_resposta_p1({
                     "tipo": "pedir_horario",
@@ -5495,7 +5498,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ctx["alternativa_profissional"] = alternativas
                     ctx["ultima_opcao_profissionais"] = alternativas
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     msg = (
                         f"⛔ A *{profissional_slot}* já tem atendimento às *{hora_ref}* nesse dia.\n\n"
@@ -5536,7 +5539,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["tipo_ajuste_incremental"] = None
                 ctx["objetivo_conversacional"] = None
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 msg_p1 = await gerar_resposta_p1({
                     "tipo": "confirmar_agendamento",
@@ -5720,7 +5723,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     draft["data_hora"] = nova_data_hora
                     ctx["draft_agendamento"] = draft
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 if not servico_ctx:
 
@@ -5858,7 +5861,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "descricao": formatar_descricao_evento(servico_ctx, prof_ctx),
                 }
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop(
                     context,
@@ -5881,7 +5884,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "modo_prechecagem": True,
             }
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             opcoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes[:3])
 
@@ -6180,7 +6183,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["objetivo_conversacional"] = None
             ctx["intencao_conversacional"] = None
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(context, user_id, msg_resposta)
 
@@ -6319,7 +6322,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx["alternativa_profissional"] = alternativas
                         ctx["ultima_opcao_profissionais"] = alternativas
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         msg = (
                             f"⛔ A *{profissional_escolhido}* já tem atendimento às *{hora_ref}* nesse dia.\n\n"
@@ -6361,7 +6364,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 ctx.pop("ultima_opcao_profissionais", None)
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 hora_ref = ""
 
@@ -6523,7 +6526,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["modo_escolha_horario"] = True
                 ctx["estado_fluxo"] = "aguardando_escolha_horario"
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 # Montar resposta
                 if nome_rejeitado:
@@ -6583,7 +6586,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 if draft.get("data_hora") and "T" in draft["data_hora"]:
                     ctx["data"] = draft["data_hora"].split("T")[0]
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 await _send_and_stop(
                     context,
@@ -6658,7 +6661,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ),
                     }
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "confirmar_agendamento",
@@ -6829,7 +6832,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             draft["data_hora"] = nova_data_hora
                             ctx["draft_agendamento"] = draft
 
-                            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         janela = await obter_janela_funcionamento(
                             user_id=id_dono,
@@ -6881,7 +6884,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             flush=True
                         )
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         if servico and profissional:
                             return await _send_and_stop(
@@ -6999,7 +7002,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             flush=True
                         )
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         if servico and profissional:
                             return await _send_and_stop(
@@ -7122,7 +7125,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             flush=True
                         )
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         if servico and profissional:
                             return await _send_and_stop(
@@ -7203,7 +7206,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 "descricao": f"{servico_ctx.capitalize()} com {prof_alt}",
                             }
 
-                            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                             return await _send_and_stop_ctx(
                                 context,
@@ -7241,7 +7244,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     # mantém serviço e profissional
                     ctx["draft_agendamento"] = draft
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     servico_ctx = ctx.get("servico") or draft.get("servico")
                     prof_ctx = ctx.get("profissional_escolhido") or draft.get("profissional")
@@ -7318,7 +7321,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     draft["data_hora"] = nova_data_hora
                     ctx["draft_agendamento"] = draft
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     return await executar_acao_gpt(
                         update,
@@ -7550,7 +7553,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             )
 
             ctx["controle_atendimento"] = "humano"
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return {
                 "handled": True,
@@ -7639,7 +7642,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 draft_tmp.pop("servico", None)
                 ctx["draft_agendamento"] = draft_tmp
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
 
@@ -7667,7 +7670,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if not base_iso:
             ctx["estado_fluxo"] = "aguardando_data"
             ctx["pergunta_amanha_mesmo_horario"] = False
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             msg_p1 = await gerar_resposta_p1({
                 "tipo": "pedir_data",
                 "servico": ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico"),
@@ -7687,7 +7690,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if not base_dt:
             ctx["estado_fluxo"] = "aguardando_data"
             ctx["pergunta_amanha_mesmo_horario"] = False
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             msg_p1 = await gerar_resposta_p1({
                 "tipo": "pedir_data",
                 "servico": ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico"),
@@ -7715,7 +7718,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["pergunta_amanha_mesmo_horario"] = False
             ctx["data_hora"] = nova_iso
             ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": servico, "modo_prechecagem": True}
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -7734,7 +7737,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if not prof:
             ctx["estado_fluxo"] = "aguardando_profissional"
             ctx["draft_agendamento"] = {"profissional": None, "data_hora": nova_iso, "servico": servico, "modo_prechecagem": True}
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             msg_p1 = await gerar_resposta_p1({
                 "tipo": "pedir_profissional",
                 "servico": servico,
@@ -7764,7 +7767,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             ctx["estado_fluxo"] = "aguardando_servico"
             ctx["draft_agendamento"] = {"profissional": prof, "data_hora": nova_iso, "servico": None, "modo_prechecagem": True}
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -7789,7 +7792,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "servico": servico,
                 "modo_prechecagem": True
             }
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             lista = ", ".join(nomes_validos) if nomes_validos else "ninguém cadastrado"
             return await _send_and_stop(
@@ -7820,7 +7823,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["pergunta_amanha_mesmo_horario"] = False
         ctx["data_hora_pendente"] = None
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
         print(
             "🧪 [SAVE-CONF]",
             {
@@ -7886,7 +7889,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "modo_prechecagem": True
             }
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -7917,7 +7920,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "modo_prechecagem": True
             }
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -7925,7 +7928,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 f"Pra eu confirmar se cabe em *{formatar_data_hora_br(data_hora)}*, qual serviço vai ser?{sugestao}"
             )
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
     
     # =========================================================
     # ✅ CONFIRMAÇÃO EXPLÍCITA OU IMPLÍCITA DE SERVIÇO SUGERIDO
@@ -7975,7 +7978,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             draft["servico"] = servico_sugerido
             ctx["draft_agendamento"] = draft
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             # =========================================================
             # 🔥 FAST PATH — serviço sugerido + data/hora já completos
@@ -8170,7 +8173,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 ctx["servico_principal_recomendado"] = servico_escolhido
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 print(f" [SERVICO_DECIDIDO_AUTOMATICO] servico={servico_escolhido}", flush=True)
 
@@ -8203,7 +8206,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if not data_hora:
             print(" [AG_SERVICO] saiu por falta de data_hora", flush=True)
             ctx["estado_fluxo"] = "aguardando_data"
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(context, user_id, "Qual dia e horário você prefere?")
 
         # =========================================================
@@ -8274,7 +8277,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             "descricao": f"{servico.capitalize()} com {alternativo}",
                         }
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         return await _send_and_stop(
                             context,
@@ -8506,7 +8509,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 ctx["melhor_sugestao"] = melhor_sugestao
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 frase_data = montar_frase_data_legivel(data_hora)
                 msg = f"Perfeito — encontrei estas opções {frase_data} 😊\n\n"
@@ -8574,7 +8577,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                     ctx["draft_agendamento"] = draft_local
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                     frase_data = montar_frase_data_legivel(draft_local.get("data_hora") or data_hora)
 
                     return await _send_and_stop_ctx(
@@ -8602,7 +8605,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["draft_agendamento"] = draft_local
                 ctx["ultima_opcao_profissionais"] = profs
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                 frase_data = montar_frase_data_legivel(draft_local.get("data_hora") or data_hora)
 
                 return await _send_and_stop_ctx(
@@ -8635,7 +8638,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             ctx["estado_fluxo"] = "aguardando_servico"
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             frase_data = montar_frase_data_legivel(data_hora) if data_hora else ""
 
@@ -8665,7 +8668,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["aguardando_confirmacao_servico_sugerido"] = True
                 ctx["estado_fluxo"] = "aguardando_servico"
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 frase_data = montar_frase_data_legivel(data_hora) if data_hora else "nesse dia"
 
@@ -8680,7 +8683,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             ctx["estado_fluxo"] = "aguardando_servico"
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -8693,7 +8696,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             ctx["estado_fluxo"] = "aguardando_profissional"
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -8827,7 +8830,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx.pop("modo_escolha_horario", None)
             ctx.pop("horarios_sugeridos", None)
             ctx["estado_fluxo"] = "aguardando_servico"
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(
                 context,
                 user_id,
@@ -8848,7 +8851,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             ctx["estado_fluxo"] = "aguardando_servico"
             ctx["draft_agendamento"] = {"profissional": prof, "data_hora": data_hora, "servico": None, "modo_prechecagem": True}
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -9003,7 +9006,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["objetivo_conversacional"] = None
                 ctx["tipo_ajuste_incremental"] = None
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop(
                     context,
@@ -9033,7 +9036,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ):
             ctx["estado_fluxo"] = "aguardando_profissional"
             ctx["draft_agendamento"] = {"profissional": None, "data_hora": data_hora, "servico": servico, "modo_prechecagem": True}
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             return await _send_and_stop(context, user_id, "Perfeito. Qual profissional você prefere?")
 
         # =====================================================
@@ -9068,7 +9071,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "servico": servico,
                 "modo_prechecagem": True
             }
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             lista = ", ".join(nomes_validos) if nomes_validos else "ninguém cadastrado"
             return await _send_and_stop(
@@ -9100,7 +9103,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         ctx["ultima_opcao_profissionais"] = [prof]
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -9177,7 +9180,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 ctx["ultima_opcao_profissionais"] = [escolha_prof]
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop(
                     context,
@@ -9204,7 +9207,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "modo_prechecagem": True
             }
             ctx["ultima_opcao_profissionais"] = [escolha_prof]
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             print(" [AUDIT-CONF:ESCOLHA_DIRETA_PROFISSIONAL] MONTANDO CONFIRMACAO", flush=True)
 
@@ -9230,7 +9233,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             }
             ctx["ultima_opcao_profissionais"] = [escolha_prof]
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -9250,7 +9253,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             }
             ctx["ultima_opcao_profissionais"] = [escolha_prof]
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -9295,7 +9298,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # ✅ (H) Chamada normal ao GPT (com contexto do dono)
     # =========================================================
     # P0 FIX: Usar V2 ao invés de legado (linha 9176)
-    contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+    contexto = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
     contexto["usuario"] = {"user_id": user_id, "id_negocio": dono_id}
 
     profissionais_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
@@ -9319,7 +9322,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         if so_hora and not data_hora_ctx:
             ctx["hora_pendente"] = texto_usuario
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             return await _send_and_stop(
                 context,
@@ -9374,7 +9377,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "descricao": formatar_descricao_evento(servico, profissional),
                     }
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 if servico and profissional:
                     return await _send_and_stop(
@@ -9418,7 +9421,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx["estado_fluxo"] = "aguardando_horario"
                         ctx["hora_confirmada"] = False
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         msg_p1 = await gerar_resposta_p1({
                             "tipo": "pedir_horario",
@@ -9447,7 +9450,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx["estado_fluxo"] = "aguardando_horario"
                         ctx["hora_confirmada"] = False
 
-                        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         msg_p1 = await gerar_resposta_p1({
                             "tipo": "pedir_horario",
@@ -9490,7 +9493,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "descricao": formatar_descricao_evento(servico, profissional),
                     }
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     return await _send_and_stop(
                         context,
@@ -9502,7 +9505,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         )
                     )
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 # =========================================================
                 # 🔒 VALIDAÇÃO DE EXPEDIENTE (BLOCO DATA COMPLEXA)
@@ -9515,7 +9518,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ctx["estado_fluxo"] = "aguardando_horario"
                     ctx["hora_confirmada"] = False
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     return await _send_and_stop(
                         context,
@@ -9530,7 +9533,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ctx["estado_fluxo"] = "aguardando_horario"
                     ctx["hora_confirmada"] = False
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     return await _send_and_stop(
                         context,
@@ -9571,7 +9574,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             draft["data_hora"] = nova_data_hora
                             ctx["draft_agendamento"] = draft
 
-                            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                         janela = await obter_janela_funcionamento(
                             user_id=id_dono,
@@ -9639,7 +9642,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 draft["data_hora"] = data_base
                 ctx["draft_agendamento"] = draft
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 data_legivel = formatar_data_hora_br(data_base).split(" às ")[0]
 
@@ -9682,7 +9685,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         draft_fast["servico"] = servico_fast
         ctx["draft_agendamento"] = draft_fast
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         print(" [FAST PATH OPERACIONAL] contexto preparado", flush=True)
 
@@ -9800,7 +9803,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["data_hora"] = nova_data_hora
             ctx["estado_fluxo"] = "agendando"
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             alteracao = {
                 "tipo": "data",
@@ -9927,7 +9930,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["draft_agendamento"]["profissional"] = None
             ctx["draft_agendamento"]["data_hora"] = data_hora_auto
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             if lista_validos:
                 lista_str = ", ".join(lista_validos)
@@ -10031,7 +10034,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["intencao_conversacional"] = None
                 ctx["interpretacao_conversacional"] = None
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 nomes_txt = ", ".join(profissionais_compativeis)
 
@@ -10085,7 +10088,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["intencao_conversacional"] = None
             ctx["interpretacao_conversacional"] = None
 
-            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             resposta_humana = await gerar_resposta_humana_agendamento({
                 "tipo": "opcoes_profissionais_disponiveis",
@@ -10180,7 +10183,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     if not isinstance(ctx, dict):
         print(f" ctx inválido — abortando sobrescrita", flush=True)
         # P0 FIX: Usar V2 ao invés de legado (linha 10060)
-        ctx = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+        ctx = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
 
     print(" [SLOTS CENTRALIZADOS] ctx=", ctx, flush=True)
 
@@ -10488,7 +10491,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     draft["servico"] = servico_check
                     ctx["draft_agendamento"] = draft
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     return await _send_and_stop_ctx(
                         context,
@@ -10513,7 +10516,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 draft["servico"] = servico_check
                 ctx["draft_agendamento"] = draft
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop_ctx(
                     context,
@@ -10801,7 +10804,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                             ctx["estado_fluxo"] = "aguardando_horario"
                             ctx["aguardando_confirmacao_agendamento"] = False
-                            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                             return await _send_and_stop(
                                 context,
@@ -10833,7 +10836,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             ctx["estado_fluxo"] = "aguardando_horario"
                             ctx["aguardando_confirmacao_agendamento"] = False
                             ctx["sugestoes"] = sugestoes
-                            await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                             return await _send_and_stop(
                                 context,
@@ -10869,7 +10872,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx["ultima_acao"] = None
                         ctx["dados_confirmacao_agendamento"] = None
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     if servico and profissional:
                         return await _send_and_stop(
@@ -10950,7 +10953,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         print(" [BLOQUEIO GPT] já tenho data + horários (sem serviço)", flush=True)
 
         ctx["estado_fluxo"] = "aguardando_servico"
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         horarios = ctx.get("horarios_sugeridos") or []
         horarios_txt = " ou ".join(horarios)
@@ -11098,7 +11101,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             "ultima_acao": "confirmar_agendamento_por_consulta",
             "estado_fluxo": "aguardando_confirmacao_consulta",
         }
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx_consulta)  # [P2-MIGRACAO-LOTE2-OC1]
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_consulta)  # [P2-MIGRACAO-LOTE2-OC1]
 
         print(f" [CONSULTA PURA ESTADO SALVO] aguardando_confirmacao_agendamento_por_consulta=True | servico='{servico_para_resposta}'", flush=True)
 
@@ -11241,7 +11244,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 draft["modo_prechecagem"] = True
                                 ctx["draft_agendamento"] = draft
 
-                                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                             janela = await obter_janela_funcionamento(
                                 user_id=id_dono,
@@ -11295,7 +11298,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 }
                 ctx["ultima_opcao_profissionais"] = [prof]
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop(
                     context,
@@ -11515,7 +11518,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         contexto_update["data_hora"] = data_base_iso
 
                     # P0 FIX: Usar V2 ao invés de legado (linha 11394)
-                    ctx_atual = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+                    ctx_atual = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
 
                     # 🔥 NÃO deixar perder estado de escolha de horário
                     if ctx_atual.get("estado_fluxo") == "aguardando_escolha_horario":
@@ -11525,7 +11528,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     # 🔥 merge em vez de sobrescrever
                     ctx_atual.update(contexto_update)
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx_atual)  # [P2-MIGRACAO-LOTE2-OC2]
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_atual)  # [P2-MIGRACAO-LOTE2-OC2]
 
                     partes = []
                     if servico_ctx:
@@ -11581,7 +11584,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         draft["data_hora"] = None
         ctx["draft_agendamento"] = draft
 
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         return await _send_and_stop(
             context,
@@ -11714,7 +11717,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "modo_prechecagem": True,
                     }
 
-                    await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                     opcoes = "\n".join(f"🔄 {h}" for h in horarios)
 
@@ -11779,7 +11782,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["draft_agendamento"] = draft
 
         print(" [SALVANDO ESTADO COMPLEXO] ctx=", ctx, flush=True)
-        await salvar_contexto_temporario_v2(dono_id, user_id, ctx)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
 
     if (not acao) and resposta_texto:
