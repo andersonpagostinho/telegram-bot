@@ -1194,7 +1194,7 @@ def _audit_confirmacao(tag: str, ctx: dict, texto_usuario: str = ""):
 # Slots always-on
 # ----------------------------
 
-async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str) -> dict:
+async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, cliente_id: str = None) -> dict:
 
     """
     Sempre-on: extrai slots em ctx + draft_agendamento.
@@ -1794,6 +1794,7 @@ async def precheck_e_confirmacao_agendamento(
     prof: str,
     data_hora: str,
     dono_id: str,
+    cliente_id: str = None,
 ):
     """
     Executa pré-check oficial: validação profissional + conflito + confirmação.
@@ -2127,7 +2128,8 @@ async def precheck_e_confirmacao_agendamento(
 async def detectar_alteracao_draft_agendamento(
     texto_usuario: str,
     ctx: dict,
-    dono_id: str
+    dono_id: str,
+    cliente_id: str = None
 ) -> dict | None:
 
     t = normalizar(texto_usuario or "")
@@ -2285,7 +2287,8 @@ async def resolver_alteracao_draft_agendamento(
     user_id: str,
     ctx: dict,
     alteracao: dict,
-    texto_usuario: str = ""
+    texto_usuario: str = "",
+    cliente_id: str = None
 ):
     # [PATCH_P0] Obter dono_id para salvar contexto com tenant_id correto
     dono_id = await obter_id_dono(user_id)
@@ -3867,6 +3870,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 prof=profissional_detectado,
                                 data_hora=data_hora_ctx,
                                 dono_id=dono_id_slot,
+                                cliente_id=cliente_id,
                             )
                         else:
                             # FALTA DATA_HORA: pedir data
@@ -4290,7 +4294,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             alteracao_slot = await detectar_alteracao_draft_agendamento(
                 texto_usuario=texto_usuario,
                 ctx=ctx,
-                dono_id=dono_id
+                dono_id=dono_id,
+                cliente_id=cliente_id
             )
 
             if alteracao_slot and alteracao_slot.get("tipo") == "profissional":
@@ -4952,7 +4957,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         alteracao = await detectar_alteracao_draft_agendamento(
             texto_usuario=texto_usuario,
             ctx=ctx,
-            dono_id=dono_id
+            dono_id=dono_id,
+            cliente_id=cliente_id
         )
 
         # =====================================================
@@ -5569,8 +5575,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     user_id=user_id,
                     ctx=ctx,
                     alteracao=alteracao,
-                    texto_usuario=texto_usuario
-                )
+                    texto_usuario=texto_usuario,
+            cliente_id=cliente_id
+        )
 
     # =========================================================
     # 🔥 MUDANÇA DE PROFISSIONAL DURANTE FLUXO AGENDANDO
@@ -5603,7 +5610,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 alteracao_prof = await detectar_alteracao_draft_agendamento(
                     texto_usuario=texto_usuario,
                     ctx=ctx,
-                    dono_id=dono_id
+                    dono_id=dono_id,
+                    cliente_id=cliente_id
                 )
 
                 if alteracao_prof and alteracao_prof.get("tipo") == "profissional":
@@ -5635,7 +5643,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         alteracao_draft = await detectar_alteracao_draft_agendamento(
             texto_usuario=texto_usuario,
             ctx=ctx,
-            dono_id=dono_id
+            dono_id=dono_id,
+            cliente_id=cliente_id
         )
 
         print(
@@ -5909,8 +5918,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 user_id=user_id,
                 ctx=ctx,
                 alteracao=alteracao,
-                texto_usuario=texto_usuario
-            )
+                texto_usuario=texto_usuario,
+            cliente_id=cliente_id
+        )
 
     # =========================================================
     # PRIORIDADE ALTA — CONTINUIDADE DE AÇÃO PENDENTE
@@ -7565,7 +7575,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # 🔥 EXTRAÇÃO PRINCIPAL
         # =========================================================
 
-        ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+        ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
 
         # 🔥 P0: em confirmação pendente, sincronizar dados_confirmacao após extração
         if ctx.get("aguardando_confirmacao_agendamento") and ctx.get("data_hora"):
@@ -8810,6 +8820,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             prof=prof,
             data_hora=data_hora,
             dono_id=dono_id,
+            cliente_id=cliente_id,
         )
 
     # =========================================================
@@ -9833,7 +9844,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
 
     elif not skip_data_complexa:
-        ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id)
+        ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
     
     # =========================================================
     # 🔥 PROFISSIONAL INDIFERENTE — PÓS EXTRAÇÃO
