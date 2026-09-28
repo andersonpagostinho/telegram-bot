@@ -1301,7 +1301,14 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
     # 🔥 NOVO — detectar serviço com erro de digitação ANTES da data/hora
     # 🛡️ BLOQUEIO: Não chamar encontrar_servico_mais_proximo se for rejeição
-    if not servico_detectado and not eh_rejeicao_alternativa:
+    # 🛡️ BLOQUEIO C4.2.7: Preservar serviço já detectado, não sobrescrever com heurística
+    servico_anterior = ctx.get("servico") or draft.get("servico")
+
+    if (
+        not servico_detectado
+        and not eh_rejeicao_alternativa
+        and not servico_anterior
+    ):
         servico_detectado = await encontrar_servico_mais_proximo(
             texto_usuario,
             dono_id
@@ -3617,6 +3624,21 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "resposta": "Tudo bem, não cancelei nada.",
                 "motivo": "cancelamento_abortado"
             }
+
+    # =========================================================
+    # 🔥 PATCH P0.5: Detectar novo agendamento e limpar estado anterior
+    # 🔥 CRÍTICO: Evitar que usuário fique preso em estado "profissional_nao_atende"
+    # =========================================================
+    if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
+        palavras_novo_agendamento = ["agendar", "marcar", "agendamento", "quero", "gostaria", "desejo"]
+        if any(kw in texto_lower for kw in palavras_novo_agendamento):
+            print(f"[PATCH_P0.5] Detectado novo agendamento, limpando estado anterior", flush=True)
+            ctx.pop("motivo_estado", None)
+            ctx.pop("estado_fluxo", None)
+            ctx.pop("profissional_rejeitado", None)
+            ctx.pop("profissionais_validos", None)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            print(f"[PATCH_P0.5] Estado anterior limpo, continuando fluxo normal", flush=True)
 
     # =========================================================
     # 🔥 PATCH P0: Handler para "sim/não" após profissional inválido
