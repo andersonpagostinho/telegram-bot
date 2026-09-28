@@ -56,7 +56,16 @@ async def _send_and_stop(context, user_id: str, text: str, parse_mode: str = "Ma
     """
     if context is not None:
         await context.bot.send_message(chat_id=user_id, text=text, parse_mode=parse_mode)
-    return {"handled": True, "already_sent": True}
+        return {
+            "handled": True,
+            "already_sent": True,
+            "resposta": text,
+        }
+
+    return {
+        "handled": True,
+        "resposta": text,
+    }
 
 async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario):
     try:
