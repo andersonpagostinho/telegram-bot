@@ -2289,11 +2289,10 @@ async def resolver_alteracao_draft_agendamento(
     user_id: str,
     ctx: dict,
     alteracao: dict,
+    dono_id: str,
     texto_usuario: str = "",
     cliente_id: str = None
 ):
-    # [PATCH_P0] Obter dono_id para salvar contexto com tenant_id correto
-    dono_id = await obter_id_dono(user_id)
 
     # 🚨 GUARDA P0: Bloquear ajuste incremental se cancelamento está pendente
     if ctx.get("estado_fluxo") == "aguardando_confirmacao_cancelamento":
@@ -5583,6 +5582,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     user_id=user_id,
                     ctx=ctx,
                     alteracao=alteracao,
+                    dono_id=dono_id,
                     texto_usuario=texto_usuario,
             cliente_id=cliente_id
         )
@@ -5637,7 +5637,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             user_id=user_id,
                             ctx=ctx,
                             alteracao=alteracao_prof,
-                            texto_usuario=texto_usuario
+                            dono_id=dono_id,
+                            texto_usuario=texto_usuario,
+                            cliente_id=cliente_id
                         )
 
     # =========================================================
@@ -5671,7 +5673,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 user_id=user_id,
                 ctx=ctx,
                 alteracao=alteracao_draft,
-                texto_usuario=texto_usuario
+                dono_id=dono_id,
+                texto_usuario=texto_usuario,
+                cliente_id=cliente_id
             )
     else:
         print(
@@ -5924,6 +5928,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 user_id=user_id,
                 ctx=ctx,
                 alteracao=alteracao,
+                dono_id=dono_id,
                 texto_usuario=texto_usuario,
             cliente_id=cliente_id
         )
@@ -9856,7 +9861,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 context=context,
                 user_id=user_id,
                 ctx=ctx,
-                alteracao=alteracao
+                alteracao=alteracao,
+                dono_id=dono_id,
+                cliente_id=cliente_id
             )
     
     # =========================================================
