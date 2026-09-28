@@ -4446,9 +4446,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 print(" Consulta informativa detectada (idle). Respondendo diretamente.")
                 return await _send_and_stop(context, user_id, resposta_informativa)
 
-    # 🔐 dono do negócio
-    dono_id = await obter_id_dono(user_id)
-
     # ✅ Guard: perguntas de catálogo/menu NÃO podem cair no fluxo legado (evita GPT alucinar lista)
     intencao_catalogo = any(x in tnorm for x in [
         # lista por profissional (A1)
@@ -5788,8 +5785,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # =====================================================
             # ✅ AGORA SIM → PODE CALCULAR DISPONIBILIDADE
             # =====================================================
-            dono_id = await obter_id_dono(user_id)
-
             duracao_ctx = estimar_duracao(servico_ctx)
 
             if not hora_preferida:
