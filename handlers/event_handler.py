@@ -593,10 +593,17 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         dados["titulo"] = descricao
 
         duracao_minutos = dados.get("duracao", 60)
-        user_id = str(update.message.from_user.id)
+        # [WhatsApp] Se update=None, usar user_id de dados_exec
+        if update and hasattr(update, "message") and hasattr(update.message, "from_user"):
+            user_id = str(update.message.from_user.id)
+        else:
+            user_id = (dados or {}).get("user_id")
 
         # 🔧 PATCH MT-07: Obter dono_id para carregar contexto v2 (multi-tenant)
         dono_id = await obter_id_dono(user_id)
+        # [WhatsApp] Se update=None e dono_id é None, usar tenant_id de dados_exec
+        if not dono_id:
+            dono_id = (dados or {}).get("tenant_id")
 
         # ✅ Carrega contexto UMA vez no início (evita UnboundLocalError)
         contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
@@ -605,11 +612,18 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         cliente_cadastrado = await buscar_cliente(user_id) or {}
 
         # 📝 Aplicar ordem de prioridade para cliente_nome
+        # [WhatsApp] Se update=None, cliente_nome já vem de dados_exec
+        from_user_full_name = None
+        from_user_first_name = None
+        if update and hasattr(update, "message") and hasattr(update.message, "from_user"):
+            from_user_full_name = update.message.from_user.full_name
+            from_user_first_name = update.message.from_user.first_name
+
         cliente_nome = (
             dados.get("cliente_nome")
             or cliente_cadastrado.get("nome")
-            or update.message.from_user.full_name
-            or update.message.from_user.first_name
+            or from_user_full_name
+            or from_user_first_name
         )
 
         cliente_id = user_id

@@ -586,6 +586,9 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         elif acao == "criar_evento":
             # ✅ GATE: valida profissional vs serviço antes de agendar
             user_id = _obter_user_id(update, context)
+            # [WhatsApp] Se update=None, usar user_id de dados_exec
+            if not user_id:
+                user_id = (dados or {}).get("user_id")
 
             # [TESTE_SURI] 3️⃣ DADOS PARA EXECUTAR_ACAO_GPT
             print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: user_id={repr(user_id)}", flush=True)
@@ -597,10 +600,14 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: profissional={repr(dados.get('profissional'))}", flush=True)
 
             if not user_id:
-                await update.message.reply_text("⚠️ Não consegui identificar o usuário para criar o evento.")
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text("⚠️ Não consegui identificar o usuário para criar o evento.")
                 return True
 
             dono_id = await obter_id_dono(user_id)
+            # [WhatsApp] Se update=None e dono_id é None, usar tenant_id de dados_exec
+            if not dono_id:
+                dono_id = (dados or {}).get("tenant_id")
 
             # serviço: preferir contexto; se não existir, tenta inferir do texto/descrição
             contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
@@ -626,11 +633,12 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     if prof_escolhido_norm and prof_escolhido_norm not in validos_norm:
                         # ❌ não agenda
                         lista_txt = ", ".join(validos)
-                        await update.message.reply_text(
-                            f"Para *{servico_ctx}*, eu tenho: {lista_txt}.\n"
-                            f"Quem você prefere?",
-                            parse_mode="Markdown"
-                        )
+                        if update and hasattr(update, "message"):
+                            await update.message.reply_text(
+                                f"Para *{servico_ctx}*, eu tenho: {lista_txt}.\n"
+                                f"Quem você prefere?",
+                                parse_mode="Markdown"
+                            )
                         return True  # handled
 
             # ✅ passou no gate → executa normal

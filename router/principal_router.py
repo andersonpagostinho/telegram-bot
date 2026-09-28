@@ -4781,6 +4781,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # 🔒 commit real da agenda: só chega aqui após confirmação do cliente
                 "confirmado": True,
                 "status": "confirmado",
+                # [WhatsApp] Identidade para suportar update=None
+                "tenant_id": dono_id,
+                "user_id": user_id,
+                "cliente_id": cliente_id,
             }
 
             ctx["aguardando_confirmacao_agendamento"] = False
