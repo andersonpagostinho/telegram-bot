@@ -95,12 +95,12 @@ class TestC312NovoDono:
         # PASSO 1: Verificar que obter_id_dono retorna None (novo dono não existe)
         dono_id = await obter_id_dono(user_id)
         assert dono_id is None, f"[FAIL] obter_id_dono deveria retornar None para novo dono, obteve {dono_id}"
-        print(f"[OK] obter_id_dono(novo_dono) = None ✓")
+        print(f"[OK] obter_id_dono(novo_dono) = None")
 
         # PASSO 2: Simular fallback (como faz principal_router.py:3378)
         tenant_id = dono_id or user_id
         assert tenant_id == user_id, f"[FAIL] Fallback deveria ser {user_id}, obteve {tenant_id}"
-        print(f"[OK] Fallback: tenant_id = user_id ({tenant_id}) ✓")
+        print(f"[OK] Fallback: tenant_id = user_id ({tenant_id})")
 
         # PASSO 3: Tentar criar dono com tenant_id = user_id
         try:
@@ -111,7 +111,7 @@ class TestC312NovoDono:
                 nome="Novo Dono Teste",
                 email="novo@teste.com"
             )
-            print(f"[OK] Ator dono criado: {ator_novo.get('actor_id')} ✓")
+            print(f"[OK] Ator dono criado: {ator_novo.get('actor_id')}")
         except Exception as e:
             pytest.fail(f"[FAIL] Erro ao criar ator: {e}")
 
@@ -125,7 +125,7 @@ class TestC312NovoDono:
             )
             assert onboarding_result["tenant_id"] == tenant_id
             assert onboarding_result["onboarding_status"] == "em_progresso"
-            print(f"[OK] Onboarding iniciado com sucesso ✓")
+            print(f"[OK] Onboarding iniciado com sucesso")
         except Exception as e:
             pytest.fail(f"[FAIL] Erro ao iniciar onboarding: {e}")
 
@@ -133,13 +133,13 @@ class TestC312NovoDono:
         db = get_db()
         ator_doc = db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).get()
         assert ator_doc.exists, f"[FAIL] Ator não encontrado em Firestore"
-        print(f"[OK] Ator persistido em Clientes/{tenant_id}/Atores/{actor_id} ✓")
+        print(f"[OK] Ator persistido em Clientes/{tenant_id}/Atores/{actor_id}")
 
         config_doc = db.collection("Clientes").document(tenant_id).collection("Configuracao").document("negocio").get()
         assert config_doc.exists, f"[FAIL] Configuração não encontrada"
-        print(f"[OK] Configuração persistida em Clientes/{tenant_id}/Configuracao/negocio ✓")
+        print(f"[OK] Configuração persistida em Clientes/{tenant_id}/Configuracao/negocio")
 
-        print("[T1] ✅ PASS")
+        print("[T1] [PASS] Novo dono fallback funciona")
 
     @pytest.mark.asyncio
     async def test_t2_dono_existente_sem_fallback(self):
@@ -170,15 +170,15 @@ class TestC312NovoDono:
         tenant_id_para_usar = dono_id or user_id
 
         print(f"[OK] obter_id_dono({user_id}) = {dono_id}")
-        print(f"[OK] Fallback produziria: {tenant_id_para_usar} ✓")
+        print(f"[OK] Fallback produziria: {tenant_id_para_usar}")
 
         # Validar que ator foi criado
         db = get_db()
         ator_doc = db.collection("Clientes").document(tenant_id).collection("Atores").document(actor_id).get()
         assert ator_doc.exists, f"[FAIL] Ator não encontrado"
-        print(f"[OK] Ator persistido corretamente ✓")
+        print(f"[OK] Ator persistido corretamente")
 
-        print("[T2] ✅ PASS")
+        print("[T2] [PASS] Dono existente sem fallback")
 
     @pytest.mark.asyncio
     async def test_t3_retry_idempotencia(self):
@@ -198,7 +198,7 @@ class TestC312NovoDono:
             nome="Novo Dono Teste",
             email="novo@teste.com"
         )
-        print(f"  [OK] Ator criado ✓")
+        print(f"  [OK] Ator criado")
 
         # TENTATIVA 2 (Retry)
         print("  Tentativa 2 (retry)...")
@@ -209,19 +209,19 @@ class TestC312NovoDono:
             nome="Novo Dono Teste",
             email="novo@teste.com"
         )
-        print(f"  [OK] Ator recriado (idempotente) ✓")
+        print(f"  [OK] Ator recriado (idempotente)")
 
         # VALIDAR: Nenhuma duplicação
         db = get_db()
         docs = list(db.collection("Clientes").document(tenant_id).collection("Atores")
                     .where("actor_id", "==", actor_id).stream())
         assert len(docs) == 1, f"[FAIL] Esperava 1 documento, encontrou {len(docs)}"
-        print(f"[OK] Sem duplicação: 1 documento ✓")
+        print(f"[OK] Sem duplicacao: 1 documento")
 
         assert ator_1.get("actor_id") == ator_2.get("actor_id")
-        print(f"[OK] Dados idênticos (mesmas operações) ✓")
+        print(f"[OK] Dados identicos (mesmas operacoes)")
 
-        print("[T3] ✅ PASS")
+        print("[T3] [PASS] Retry idempotencia")
 
     @pytest.mark.asyncio
     async def test_t4_concorrencia_dois_donos(self):
@@ -240,7 +240,7 @@ class TestC312NovoDono:
                 nome=f"Dono {num}",
                 email=f"dono{num}@teste.com"
             )
-            print(f"    [Dono {num}] Criado ✓")
+            print(f"    [Dono {num}] Criado")
             return (tenant_id, actor_id, ator)
 
         # Executar simultaneamente
@@ -251,11 +251,11 @@ class TestC312NovoDono:
         )
 
         (t1, a1, at1), (t2, a2, at2) = results
-        print(f"[OK] Ambos criados sem conflito ✓")
+        print(f"[OK] Ambos criados sem conflito")
 
         # VALIDAR: Tenants são diferentes
         assert t1 != t2, f"[FAIL] Tenants deveriam ser diferentes: {t1} vs {t2}"
-        print(f"[OK] Tenants isolados: {t1} vs {t2} ✓")
+        print(f"[OK] Tenants isolados: {t1} vs {t2}")
 
         # VALIDAR: Nenhuma duplicação
         db = get_db()
@@ -266,9 +266,9 @@ class TestC312NovoDono:
 
         assert len(docs1) == 1, f"[FAIL] Dono 1: esperava 1, obteve {len(docs1)}"
         assert len(docs2) == 1, f"[FAIL] Dono 2: esperava 1, obteve {len(docs2)}"
-        print(f"[OK] Sem duplicação: 1 documento cada ✓")
+        print(f"[OK] Sem duplicacao: 1 documento cada")
 
-        print("[T4] ✅ PASS")
+        print("[T4] [PASS] Concorrencia dois donos")
 
 
 if __name__ == "__main__":

@@ -67,10 +67,12 @@ async def _send_and_stop(context, user_id: str, text: str, parse_mode: str = "Ma
         "resposta": text,
     }
 
-async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario, cliente_id: str = None):
+async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario, cliente_id: str = None, dono_id: str = None):
     try:
-        dono_id = await obter_id_dono(user_id)
-        await salvar_contexto_temporario_v2(dono_id, cliente_id or user_id, ctx)
+        if dono_id:
+            await salvar_contexto_temporario_v2(dono_id, cliente_id or user_id, ctx)
+        else:
+            print(f"[WARN] _send_and_stop_ctx: chamado sem dono_id explícito para user_id={user_id}", flush=True)
     except Exception as e:
         print(f"[ERRO] erro ao salvar contexto: {e}", flush=True)
 
@@ -1877,7 +1879,7 @@ async def precheck_e_confirmacao_agendamento(
             f"Perfeito — {servico} com {prof} {frase_data}.\n\nQual horário você prefere?",
             ctx,
             "",
-            cliente_id,
+            cliente_id, dono_id=dono_id
         )
 
     # =========================================================
@@ -4725,7 +4727,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 f"Perfeito — {servico} com {profissional} {frase_data}.\n\nQual horário você prefere?",
                 ctx,
                 texto_usuario,
-                cliente_id,
+                cliente_id, dono_id=dono_id
             )
 
         # 🔒 P0: Se confirmação contém hora NOVA, ajustar antes de criar evento
@@ -4765,7 +4767,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             f"Perfeito — {servico} com {profissional} {frase_data}.\n\nTá bom assim?",
                             ctx,
                             texto_usuario,
-                            cliente_id,
+                            cliente_id, dono_id=dono_id
                         )
                 except Exception as e:
                     print(f" [AUDIT-CONF] Erro ao ajustar hora: {e}", flush=True)
@@ -6561,7 +6563,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         f"Me diga outro horário para {servico_ref}."
                     )
 
-                return await _send_and_stop_ctx(context, user_id, resposta, ctx, texto_usuario, cliente_id)
+                return await _send_and_stop_ctx(context, user_id, resposta, ctx, texto_usuario, cliente_id, dono_id=dono_id)
 
             # 🔥 INTERCEPTAÇÃO DE DESISTÊNCIA DENTRO DA ESCOLHA
             if eh_desistencia_fluxo(texto_usuario) and not rejeicao_alternativa_especifica:
@@ -6882,7 +6884,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             + "Posso agendar pra você? 😊",
                             ctx,
                             texto_usuario,
-                            cliente_id,
+                            cliente_id, dono_id=dono_id
                         )
 
                     return await _send_and_stop_ctx(
@@ -6891,7 +6893,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico pra você.",
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                     if resolvido:
@@ -7010,7 +7012,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             "Esse horário está fora do expediente desse dia. Me diga outro horário que eu verifico para você.",
                             ctx,
                             texto_usuario,
-                            cliente_id,
+                            cliente_id, dono_id=dono_id
                         )
 
                     if resolvido:
@@ -7243,7 +7245,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             ),
                             ctx,
                             texto_usuario,
-                            cliente_id,
+                            cliente_id, dono_id=dono_id
                         )
                 # =========================================================
                 # 🔥 CLIENTE QUER OUTRO DIA
@@ -7283,7 +7285,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ),
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
                 # =========================================================
@@ -7316,7 +7318,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         resposta_humana,
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 # =========================================================
@@ -8218,7 +8220,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     f"Para eu seguir certinho: você quer *{candidatos[0]}* ou *{candidatos[1]}*?",
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
         # 🔥 só salva se bateu com 1 serviço
@@ -8389,7 +8391,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "Nesse dia eu não tenho horário dentro do expediente configurado. Me diga outro dia que eu verifico para você.",
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
             # profissionais aptos ao serviço
@@ -8572,7 +8574,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     msg,
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
             # ---------------------------------------------------------
@@ -8589,7 +8591,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         f"Encontrei *{h}*, mas tive um problema ao verificar as profissionais.\nPosso tentar outro horário?",
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 # 2A: só 1 profissional livre → fecha direto
@@ -8621,7 +8623,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         f"Perfeito — tenho *{h} com a {prof}* {frase_data} 😊\nPosso reservar para você?",
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 # 2B: mais de 1 profissional livre → cliente escolhe
@@ -8650,7 +8652,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     f"Perfeito — tenho *{h} com {lista}* {frase_data} 😊\nQual você prefere?",
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
             # ---------------------------------------------------------
@@ -8663,7 +8665,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 f"Para *{servico}*, esses horários não estão livres {frase_data} 😕\n\nPosso te sugerir os horários mais próximos?",
                 ctx,
                 texto_usuario,
-                cliente_id,
+                cliente_id, dono_id=dono_id
             )
 
         # =========================================================
@@ -8779,7 +8781,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     f"Para *{servico}*, não encontrei horário dentro do expediente desse dia. Me diga outro dia ou outro horário.",
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
             dt_base = datetime.fromisoformat(data_hora)
@@ -8931,7 +8933,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             f"Nesse dia a agenda da {prof} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você.",
                             ctx,
                             texto_usuario,
-                            cliente_id,
+                            cliente_id, dono_id=dono_id
                         )
 
                     return await _send_and_stop_ctx(
@@ -8940,7 +8942,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "Nesse dia a agenda está fechada 😕",
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 if motivo == "fora_do_expediente":
@@ -8962,7 +8964,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ),
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 return await _send_and_stop_ctx(
@@ -8971,7 +8973,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "❌ Não consegui validar esse horário na agenda configurada. Tente novamente.",
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
         print(
@@ -9647,7 +9649,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             + "Posso agendar pra você? 😊",
                             ctx,
                             texto_usuario,
-                            cliente_id,
+                            cliente_id, dono_id=dono_id
                         )
 
                     return await _send_and_stop_ctx(
@@ -9656,7 +9658,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "❌ Esse horário não cabe no expediente desse dia. Me diga outro horário.",
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 if servico and not profissional and tem_hora_real(data_final):
@@ -10379,7 +10381,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             f"Nesse dia a agenda da {profissional_validacao} está bloqueada. Me diga outro dia ou outro profissional que eu verifico para você.",
                             ctx,
                             texto_usuario,
-                            cliente_id,
+                            cliente_id, dono_id=dono_id
                         )
 
                     return await _send_and_stop_ctx(
@@ -10388,7 +10390,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "Nesse dia não teremos expediente.\n\nPor favor, me informe outro dia que eu verifico para você 😊",
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                         )
 
                 if motivo == "fora_do_expediente":
@@ -10415,7 +10417,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ),
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 return await _send_and_stop_ctx(
@@ -10424,7 +10426,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "❌ Não consegui encaixar esse horário. Me diga outro que eu verifico para você.",
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
     print(" [ANTES GPT] proximo_passo=", proximo_passo, flush=True)
@@ -10480,7 +10482,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ),
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
         except Exception as e:
@@ -10556,7 +10558,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ),
                         ctx,
                         texto_usuario,
-                        cliente_id,
+                        cliente_id, dono_id=dono_id
                     )
 
                 lista = ", ".join(profissionais_aptos[:-1]) + f" e {profissionais_aptos[-1]}"
@@ -10582,7 +10584,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ),
                     ctx,
                     texto_usuario,
-                    cliente_id,
+                    cliente_id, dono_id=dono_id
                 )
 
             return await _send_and_stop_ctx(
@@ -10594,7 +10596,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ),
                 ctx,
                 texto_usuario,
-                cliente_id,
+                cliente_id, dono_id=dono_id
             )
 
         if (
@@ -10654,7 +10656,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             prof_rejeitado_com_resposta_especifica,
             ctx,
             texto_usuario,
-            cliente_id,
+            cliente_id, dono_id=dono_id
         )
 
     # =========================================================
@@ -11330,7 +11332,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 + "Posso agendar pra você? 😊",
                                 ctx,
                                 texto_usuario,
-                                cliente_id,
+                                cliente_id, dono_id=dono_id
                             )
 
                         return await _send_and_stop(
