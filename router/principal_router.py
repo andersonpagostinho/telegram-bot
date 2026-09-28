@@ -1212,7 +1212,8 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
         if not isinstance(ctx, dict):
             print(f" ctx inválido — mantendo anterior", flush=True)
             return ctx if isinstance(ctx, dict) else {}
-    
+
+    print(f"[TRACE DCC SLOTS ENTER] dono_id={dono_id} cliente_id={cliente_id} user_id=N/A texto_usuario={texto_usuario[:40] if texto_usuario else 'None'}", flush=True)
     texto = (texto_usuario or "").strip()
     tnorm = normalizar(texto)
     draft = ctx.get("draft_agendamento") or {}
@@ -7664,6 +7665,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 draft_tmp.pop("servico", None)
                 ctx["draft_agendamento"] = draft_tmp
 
+        print(f"[TRACE DCC P0 SAVE] dono_id={dono_id} cliente_id={cliente_id} user_id=N/A", flush=True)
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
         estado_fluxo = (ctx.get("estado_fluxo") or estado_fluxo or "idle").strip().lower()
         draft = ctx.get("draft_agendamento") or {}
@@ -7672,6 +7674,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         raise
 
     except Exception as e:
+        print(f"[TRACE DCC FIRST ERROR] type={type(e).__name__} message={str(e)}", flush=True)
+        import traceback
+        print(f"[TRACE DCC FIRST TRACEBACK] {traceback.format_exc()}", flush=True)
         print(" [slots] Falha ao extrair/mesclar slots:", e, flush=True)
 
     # =========================================================

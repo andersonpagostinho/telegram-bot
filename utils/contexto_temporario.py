@@ -28,6 +28,7 @@ async def salvar_sessao_temporaria(actor_id: str, contexto: dict, tenant_id: str
     - updated_at: timestamp
     - schema_version: 2 (para versionamento)
     """
+    print(f"[TRACE DCC SAVE FUNC] actor_id={actor_id} tenant_id={tenant_id} contexto_keys={list(contexto.keys())[:5]}", flush=True)
     if not tenant_id:
         raise ValueError("tenant_id é obrigatório para salvar sessão")
     if not actor_id:
@@ -74,6 +75,7 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
     Path novo: Clientes/{tenant_id}/Sessoes/{actor_id}
     Path legado: Clientes/{actor_id}/MemoriaTemporaria/contexto (com validação)
     """
+    print(f"[TRACE DCC LOAD FUNC] actor_id={actor_id} tenant_id={tenant_id}", flush=True)
     if not tenant_id:
         raise ValueError("tenant_id é obrigatório para carregar sessão")
     if not actor_id:
