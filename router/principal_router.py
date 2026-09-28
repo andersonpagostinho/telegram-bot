@@ -3626,19 +3626,46 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             }
 
     # =========================================================
-    # 🔥 PATCH P0.5: Detectar novo agendamento e limpar estado anterior
+    # ✅ CLASSIFICAÇÃO SEMÂNTICA ANTECIPADA
+    # Executar ANTES de PATCH_P0 para ter acesso a intenção real
+    # =========================================================
+    # Se há erro de profissional anterior, o fluxo não é mais válido para classificação
+    # Limpar estado_fluxo temporariamente para não influenciar classificação
+    ctx_para_classificacao = ctx.copy()
+    if ctx_para_classificacao.get("motivo_estado") == "profissional_nao_atende_servico":
+        ctx_para_classificacao.pop("estado_fluxo", None)
+
+    class_intencao = classificar_intencao_conversacional(texto_usuario, ctx_para_classificacao)
+
+    print(f"[INTENÇÃO_ANTECIPADA] {class_intencao}", flush=True)
+
+    ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
+    ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
+    ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
+
+    await salvar_contexto_temporario_v2(dono_id, cliente_id, {
+        "intencao_conversacional": ctx.get("intencao_conversacional"),
+        "tipo_ajuste_incremental": ctx.get("tipo_ajuste_incremental"),
+        "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
+    })
+
+    # =========================================================
+    # 🔥 PATCH P0.5 V2: Detectar novo agendamento via semântica
     # 🔥 CRÍTICO: Evitar que usuário fique preso em estado "profissional_nao_atende"
     # =========================================================
-    if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
-        palavras_novo_agendamento = ["agendar", "marcar", "agendamento", "quero", "gostaria", "desejo"]
-        if any(kw in texto_lower for kw in palavras_novo_agendamento):
-            print(f"[PATCH_P0.5] Detectado novo agendamento, limpando estado anterior", flush=True)
-            ctx.pop("motivo_estado", None)
-            ctx.pop("estado_fluxo", None)
-            ctx.pop("profissional_rejeitado", None)
-            ctx.pop("profissionais_validos", None)
-            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-            print(f"[PATCH_P0.5] Estado anterior limpo, continuando fluxo normal", flush=True)
+    if (
+        ctx.get("motivo_estado") == "profissional_nao_atende_servico"
+        and ctx.get("intencao_conversacional") in ["agendamento_direto", "pedido_aberto_temporal"]
+    ):
+        print(f"[PATCH_P0.5] Novo agendamento detectado via intenção_conversacional, limpando estado anterior", flush=True)
+        ctx.pop("motivo_estado", None)
+        ctx.pop("estado_fluxo", None)
+        ctx.pop("profissional_rejeitado", None)
+        ctx.pop("profissionais_validos", None)
+        ctx.pop("draft_agendamento", None)
+        ctx.pop("profissional_escolhido", None)
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+        print(f"[PATCH_P0.5] Estado anterior limpo, novo agendamento iniciado", flush=True)
 
     # =========================================================
     # 🔥 PATCH P0: Handler para "sim/não" após profissional inválido
@@ -4132,11 +4159,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             }
 
     # =========================================================
-    # CAMADA 1 — INTENÇÃO CONVERSACIONAL
+    # CAMADA 1 — INTENÇÃO CONVERSACIONAL (REUTILIZAR SE JÁ CALCULADA)
     # =========================================================
-    class_intencao = classificar_intencao_conversacional(texto_usuario, ctx)
-
-    print(f" [INTENÇÃO CONVERSACIONAL] {class_intencao}", flush=True)
+    if ctx.get("intencao_conversacional"):
+        # Já foi classificado em ~3628, reutilizar
+        class_intencao = {
+            "intencao_conversacional": ctx.get("intencao_conversacional"),
+            "tipo_ajuste_incremental": ctx.get("tipo_ajuste_incremental"),
+            "confianca": ctx.get("confianca_intencao_conversacional"),
+        }
+        print(f" [INTENÇÃO CONVERSACIONAL] REUTILIZADA: {class_intencao}", flush=True)
+    else:
+        # Fallback: classificar agora (não deveria acontecer, mas por segurança)
+        class_intencao = classificar_intencao_conversacional(texto_usuario, ctx)
+        print(f" [INTENÇÃO CONVERSACIONAL] CLASSIFICADA: {class_intencao}", flush=True)
 
     preservar_continuidade_data = (
         ctx.get("estado_fluxo") == "aguardando_data"
