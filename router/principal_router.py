@@ -3818,6 +3818,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         # Obter dono_id (estratégia padrão do router)
         dono_id_slot = await obter_id_dono(user_id)
+        if not dono_id_slot:
+            dono_id_slot = str(user_id)
 
         # Buscar profissionais
         profs_dict = await buscar_subcolecao(f"Clientes/{dono_id_slot}/Profissionais") or {}
