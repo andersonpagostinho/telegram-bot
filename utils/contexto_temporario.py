@@ -194,8 +194,7 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
         "alternativa_profissional": firestore.DELETE_FIELD,
         "ultima_opcao_profissionais": firestore.DELETE_FIELD,
 
-        # Histórico e consultas
-        "historico_texto": firestore.DELETE_FIELD,
+        # Histórico e consultas (historico_texto PRESERVADO — não é transitório)
         "ultima_consulta": firestore.DELETE_FIELD,
         "ultima_intencao": firestore.DELETE_FIELD,
 

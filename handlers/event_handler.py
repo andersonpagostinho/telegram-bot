@@ -1332,6 +1332,28 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         await limpar_contexto_agendamento_v2(dono_id, user_id)
 
+        # [P0.4-CORREÇÃO 2] Limpar context.user_data também (memória do handler)
+        # Firestore foi limpo, mas context.user_data pode estar sujo com estado antigo
+        if context and hasattr(context, 'user_data') and context.user_data:
+            campos_transitorio_agendamento = [
+                "estado_fluxo",
+                "aguardando_confirmacao_agendamento",
+                "intencao_conversacional",
+                "draft_agendamento",
+                "dados_confirmacao_agendamento",
+                "profissional_escolhido",
+                "servico",
+                "data_hora",
+                "objetivo_conversacional",
+                "tipo_ajuste_incremental",
+                "modo_escolha_horario",
+                "horarios_sugeridos",
+                "alternativa_profissional",
+            ]
+            for campo in campos_transitorio_agendamento:
+                context.user_data.pop(campo, None)
+            print(f"[P0.4-CORREÇÃO 2] Campos transitórios removidos de context.user_data", flush=True)
+
         return True
 
     except Exception as e:
