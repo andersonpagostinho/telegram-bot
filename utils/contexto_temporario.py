@@ -181,6 +181,7 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
         # Interpretação conversacional
         "interpretacao_conversacional": firestore.DELETE_FIELD,
         "intencao_conversacional": firestore.DELETE_FIELD,
+        "confianca_intencao_conversacional": firestore.DELETE_FIELD,
         "objetivo_conversacional": firestore.DELETE_FIELD,
         "tipo_ajuste_incremental": firestore.DELETE_FIELD,
         "modo_conversa": firestore.DELETE_FIELD,

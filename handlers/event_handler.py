@@ -1330,7 +1330,19 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
         await update.message.reply_text(msg_sucesso)
 
-        await limpar_contexto_agendamento_v2(dono_id, user_id)
+        cleanup_ok = await limpar_contexto_agendamento_v2(dono_id, user_id)
+        if not cleanup_ok:
+            print(
+                f"[ERRO_P0_CLEAR] Falha ao limpar contexto de agendamento "
+                f"| dono={dono_id} | cliente={user_id}",
+                flush=True
+            )
+            return False
+        print(
+            f"[OK_P0_CLEAR] Contexto de agendamento limpo "
+            f"| dono={dono_id} | cliente={user_id}",
+            flush=True
+        )
 
         # [P0.4-CORREÇÃO 2] Limpar context.user_data também (memória do handler)
         # Firestore foi limpo, mas context.user_data pode estar sujo com estado antigo
