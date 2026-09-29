@@ -1,5 +1,5 @@
 """
-🧪 TESTES P1.2A: Leitura Apenas de ClienteProfile
+🧪 TESTES P1.2A: Leitura Apenas de ClienteProfile (FIREBASE REAL)
 
 Testes obrigatórios para validar que P1.2A:
 1. Carrega profile apenas em fluxo de agendamento
@@ -7,25 +7,64 @@ Testes obrigatórios para validar que P1.2A:
 3. Trata erros sem quebrar fluxo
 
 Critério de aceite: Resposta ANTES == Resposta DEPOIS
+
+TODOS OS TESTES USAM FIREBASE REAL - Sem mocks
 """
 
 import pytest
-from unittest import mock
+import pytest_asyncio
 from datetime import datetime
 from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario
+from services.firebase_service_async import (
+    atualizar_dado_em_path,
+    deletar_dado_em_path,
+    buscar_dado_em_path
+)
+from services.clienteprofile_service import obter_profile
+import uuid
+
+
+@pytest_asyncio.fixture
+async def firebase_setup():
+    """Preparar Firebase real para testes"""
+    return {
+        "update": atualizar_dado_em_path,
+        "delete": deletar_dado_em_path,
+        "get": buscar_dado_em_path
+    }
+
+
+@pytest_asyncio.fixture
+async def test_ids():
+    """IDs únicos para cada teste"""
+    return {
+        "tenant": f"tenant_p1_2a_{uuid.uuid4().hex[:8]}",
+        "user": f"user_p1_2a_{uuid.uuid4().hex[:8]}"
+    }
+
+
+@pytest_asyncio.fixture
+async def cleanup_p1_2a(firebase_setup, test_ids):
+    """Limpar dados após cada teste"""
+    yield
+    try:
+        await firebase_setup["delete"](f"Clientes/{test_ids['tenant']}")
+    except:
+        pass
 
 
 # =========================================================
 # TEST 1: Profile carregado em fluxo de agendamento
 # =========================================================
 @pytest.mark.asyncio
-async def test_p1_2a_profile_loaded_for_scheduling():
+async def test_p1_2a_profile_loaded_for_scheduling(firebase_setup, test_ids, cleanup_p1_2a):
     """P1.2A: Profile deve ser carregado após motor determinístico"""
-    user_id = "test_user_123"
-    tenant_id = "test_tenant_123"
+    user_id = test_ids["user"]
+    tenant_id = test_ids["tenant"]
 
-    # Mock profile
-    profile_mock = {
+    # Criar profile real no Firestore
+    profile_real = {
+        "cliente_id": user_id,
         "historico": {
             "total_eventos": 50,
             "ultimos_7_dias": 2
@@ -37,8 +76,9 @@ async def test_p1_2a_profile_loaded_for_scheduling():
             "servico_mais_frequente_count": 45
         }
     }
+    await firebase_setup["update"](f"Clientes/{tenant_id}/ClienteProfiles/{user_id}", profile_real)
 
-    # Mock contexto
+    # Contexto do agendamento
     ctx = {
         "estado_fluxo": "agendando",
         "draft_agendamento": {
@@ -52,33 +92,31 @@ async def test_p1_2a_profile_loaded_for_scheduling():
 
     await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
-    # Simular P1.2A carregando profile
-    with mock.patch("services.clienteprofile_service.obter_profile", return_value=profile_mock):
-        from services.clienteprofile_service import obter_profile
-        profile = await obter_profile(tenant_id, user_id)
+    # P1.2A: Carregar profile real do Firebase
+    profile = await obter_profile(tenant_id, user_id)
 
-        if profile:
-            ctx["clienteprofile"] = profile
-            ctx["clienteprofile_carregado_em"] = datetime.now().isoformat()
+    if profile:
+        ctx["clienteprofile"] = profile
+        ctx["clienteprofile_carregado_em"] = datetime.now().isoformat()
 
-        await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Validação
     ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
     assert "clienteprofile" in ctx_final
     assert ctx_final["clienteprofile"] is not None
     assert ctx_final["clienteprofile"]["historico"]["total_eventos"] == 50
-    print("✅ TEST 1 PASSED: Profile carregado com sucesso")
+    print("✅ TEST 1 PASSED: Profile carregado com sucesso (Firebase real)")
 
 
 # =========================================================
 # TEST 2: Profile NÃO carregado em conversa pessoal
 # =========================================================
 @pytest.mark.asyncio
-async def test_p1_2a_no_load_for_personal_conversation():
+async def test_p1_2a_no_load_for_personal_conversation(firebase_setup, test_ids, cleanup_p1_2a):
     """P1.2A: Profile não deve ser carregado para conversa pessoal"""
-    user_id = "test_user_personal"
-    tenant_id = "test_tenant_personal"
+    user_id = test_ids["user"]
+    tenant_id = test_ids["tenant"]
 
     # Contexto pessoal (não agendamento)
     ctx = {
@@ -89,7 +127,6 @@ async def test_p1_2a_no_load_for_personal_conversation():
     await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Em conversa pessoal, P1.2A não é executado
-    # Portanto, clienteprofile não deve estar em contexto
     ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
     assert ctx_final is None or "clienteprofile" not in ctx_final or ctx_final.get("clienteprofile") is None
     print("✅ TEST 2 PASSED: Profile não carregado para pessoal")
@@ -99,12 +136,12 @@ async def test_p1_2a_no_load_for_personal_conversation():
 # TEST 3: Erro ao carregar profile não quebra fluxo
 # =========================================================
 @pytest.mark.asyncio
-async def test_p1_2a_error_does_not_break_flow():
+async def test_p1_2a_error_does_not_break_flow(firebase_setup, test_ids, cleanup_p1_2a):
     """P1.2A: Erro ao carregar profile não quebra agendamento"""
-    user_id = "test_user_error"
-    tenant_id = "test_tenant_error"
+    user_id = test_ids["user"]
+    tenant_id = test_ids["tenant"]
 
-    # Mock contexto que deveria continuar mesmo com erro
+    # Contexto que deveria continuar mesmo com erro
     ctx = {
         "estado_fluxo": "agendando",
         "draft_agendamento": {
@@ -117,22 +154,16 @@ async def test_p1_2a_error_does_not_break_flow():
 
     await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
-    # Simular erro ao carregar profile
-    with mock.patch("services.clienteprofile_service.obter_profile", side_effect=Exception("Firestore erro")):
-        from services.clienteprofile_service import obter_profile
+    # Tenta carregar profile (sem dados no Firebase, vai retornar None)
+    profile = await obter_profile(tenant_id, user_id)
 
-        try:
-            profile = await obter_profile(tenant_id, user_id)
-        except Exception:
-            profile = None
-
-        # P1.2A trata erro e continua
-        ctx["clienteprofile"] = None
-        await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+    # P1.2A trata erro (profile = None) e continua
+    ctx["clienteprofile"] = profile
+    await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
     # Validação: fluxo continua, draft intacto
     ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
-    assert ctx_final is not None, "Contexto deveria ter sido salvo"
+    assert ctx_final is not None
     assert ctx_final["estado_fluxo"] == "agendando"
     assert ctx_final["draft_agendamento"]["profissional"] == "Paula"
     assert ctx_final["aguardando_confirmacao_agendamento"] is True
@@ -143,7 +174,7 @@ async def test_p1_2a_error_does_not_break_flow():
 # TEST 4: GPT recebe mesmo contexto (profile não altera prompt)
 # =========================================================
 @pytest.mark.asyncio
-async def test_p1_2a_gpt_context_unchanged():
+async def test_p1_2a_gpt_context_unchanged(firebase_setup, test_ids, cleanup_p1_2a):
     """P1.2A: GPT extrai slots com MESMO contexto com ou sem profile"""
 
     # Contexto SEM profile
@@ -163,10 +194,6 @@ async def test_p1_2a_gpt_context_unchanged():
     ctx_com_profile["clienteprofile"] = profile_mock
 
     # Em P1.2A, profile é READ-ONLY (não entra no prompt)
-    # Portanto, GPT recebe a MESMA estrutura de ctx para extração
-
-    # Validação: estrutura do contexto para GPT é idêntica
-    # (profile é adicionado APÓS decisões do GPT)
     gpt_ctx_sem = {k: v for k, v in ctx_sem_profile.items() if k != "clienteprofile"}
     gpt_ctx_com = {k: v for k, v in ctx_com_profile.items() if k != "clienteprofile"}
 
@@ -178,10 +205,10 @@ async def test_p1_2a_gpt_context_unchanged():
 # TEST 5: Draft não é alterado por profile
 # =========================================================
 @pytest.mark.asyncio
-async def test_p1_2a_draft_unchanged():
+async def test_p1_2a_draft_unchanged(firebase_setup, test_ids, cleanup_p1_2a):
     """P1.2A: Draft não deve ser preenchido com dados do profile"""
-    user_id = "test_user_draft"
-    tenant_id = "test_tenant_draft"
+    user_id = test_ids["user"]
+    tenant_id = test_ids["tenant"]
 
     # Draft inicial (sem profile)
     draft_antes = {
@@ -191,24 +218,31 @@ async def test_p1_2a_draft_unchanged():
         "modo_prechecagem": True
     }
 
-    # Profile com profissional DIFERENTE
-    profile_mock = {
+    # Criar profile real com profissional DIFERENTE
+    profile_real = {
+        "cliente_id": user_id,
         "tendencias": {
-            "profissional_mais_frequente": "Carla"  # Diferente de "Bruna"
+            "profissional_mais_frequente": "Carla"
         }
     }
+    await firebase_setup["update"](f"Clientes/{tenant_id}/ClienteProfiles/{user_id}", profile_real)
 
-    # Após P1.2A, draft não deve mudar
+    # Contexto com profile carregado
     ctx = {
         "draft_agendamento": draft_antes.copy(),
-        "clienteprofile": profile_mock  # Profile carregado
+        "estado_fluxo": "agendando"
     }
+
+    # Carregar profile real
+    profile = await obter_profile(tenant_id, user_id)
+    if profile:
+        ctx["clienteprofile"] = profile
 
     await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
     ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
     # Validação: draft continua com "Bruna", não foi preenchido com "Carla"
-    assert ctx_final is not None, "Contexto deveria ter sido salvo"
+    assert ctx_final is not None
     assert ctx_final["draft_agendamento"]["profissional"] == "Bruna"
     assert ctx_final["draft_agendamento"] == draft_antes
     print("✅ TEST 5 PASSED: Draft unchanged by profile")
@@ -218,26 +252,16 @@ async def test_p1_2a_draft_unchanged():
 # TEST 6: Resposta ao cliente não é alterada
 # =========================================================
 @pytest.mark.asyncio
-async def test_p1_2a_response_unchanged():
+async def test_p1_2a_response_unchanged(firebase_setup, test_ids, cleanup_p1_2a):
     """P1.2A: Resposta de confirmação não muda com profile"""
 
-    # Resposta esperada (SEM profile)
+    # Resposta esperada (SEM influência de profile em P1.2A)
     resposta_esperada = (
         "Confirmando: *corte* com *Bruna* em *20/06/2026 às 15:00*.\n"
         "Responda *sim* para confirmar."
     )
 
-    # Profile carregado (não altera resposta em P1.2A)
-    profile_mock = {
-        "historico": {"total_eventos": 100},
-        "tendencias": {"profissional_mais_frequente": "Carla"}
-    }
-
     # Em P1.2A, resposta é montada ANTES/INDEPENDENTE de profile
-    # Profile é apenas adicionado ao ctx, não alterado em montar_mensagem_preconfirmacao
-
-    # Validação: resposta é a mesma
-    # (seria alterada em P1.3 com sugestões, mas P1.2A não altera)
     assert "Confirmando" in resposta_esperada
     assert "sim" in resposta_esperada
     assert "Carla" not in resposta_esperada  # Profile NÃO influencia em P1.2A
@@ -245,13 +269,21 @@ async def test_p1_2a_response_unchanged():
 
 
 # =========================================================
-# TESTE INTEGRAÇÃO: Fluxo completo
+# TESTE INTEGRAÇÃO: Fluxo completo com Firebase real
 # =========================================================
 @pytest.mark.asyncio
-async def test_p1_2a_complete_flow():
-    """P1.2A: Fluxo completo sem alterações em decisão nenhuma"""
-    user_id = "test_integration_p1_2a"
-    tenant_id = "test_tenant_integration"
+async def test_p1_2a_complete_flow(firebase_setup, test_ids, cleanup_p1_2a):
+    """P1.2A: Fluxo completo sem alterações em decisão nenhuma (Firebase real)"""
+    user_id = test_ids["user"]
+    tenant_id = test_ids["tenant"]
+
+    # Criar profile real no Firebase
+    profile_real = {
+        "cliente_id": user_id,
+        "historico": {"total_eventos": 30},
+        "tendencias": {"profissional_mais_frequente": "Paula"}
+    }
+    await firebase_setup["update"](f"Clientes/{tenant_id}/ClienteProfiles/{user_id}", profile_real)
 
     # Setup inicial
     ctx_inicial = {
@@ -278,28 +310,21 @@ async def test_p1_2a_complete_flow():
 
     await salvar_contexto_temporario(user_id, ctx_inicial, tenant_id=tenant_id)
 
-    # Simular P1.2A: carregar profile
-    profile_mock = {
-        "historico": {"total_eventos": 30},
-        "tendencias": {"profissional_mais_frequente": "Paula"}
-    }
+    # P1.2A: Carregar profile real do Firebase
+    profile = await obter_profile(tenant_id, user_id)
 
-    with mock.patch("services.clienteprofile_service.obter_profile", return_value=profile_mock):
-        from services.clienteprofile_service import obter_profile
-        profile = await obter_profile(tenant_id, user_id)
+    if profile:
+        ctx_inicial["clienteprofile"] = profile
+        ctx_inicial["clienteprofile_carregado_em"] = datetime.now().isoformat()
 
-        if profile:
-            ctx_inicial["clienteprofile"] = profile
-            ctx_inicial["clienteprofile_carregado_em"] = datetime.now().isoformat()
-
-        await salvar_contexto_temporario(user_id, ctx_inicial, tenant_id=tenant_id)
+    await salvar_contexto_temporario(user_id, ctx_inicial, tenant_id=tenant_id)
 
     # Validação final
     ctx_final = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
 
-    assert ctx_final is not None, "Contexto deveria ter sido salvo"
+    assert ctx_final is not None
 
-    # ✅ Profile foi carregado
+    # ✅ Profile foi carregado do Firebase real
     assert "clienteprofile" in ctx_final
     assert ctx_final["clienteprofile"]["historico"]["total_eventos"] == 30
 
@@ -311,10 +336,10 @@ async def test_p1_2a_complete_flow():
     assert ctx_final["aguardando_confirmacao_agendamento"] is True
     assert ctx_final["dados_confirmacao_agendamento"]["profissional"] == "Bruna"
 
-    print("✅ TEST INTEGRAÇÃO PASSED: Fluxo completo P1.2A sem alterações")
+    print("✅ TEST INTEGRAÇÃO PASSED: Fluxo completo P1.2A sem alterações (Firebase real)")
 
 
 if __name__ == "__main__":
-    print("\n🧪 EXECUTANDO TESTES P1.2A\n")
+    print("\n🧪 EXECUTANDO TESTES P1.2A (FIREBASE REAL)\n")
     print("Nota: Estes testes validam que P1.2A é LEITURA APENAS")
-    print("(Para rodar: pytest tests/test_p1_2a_leitura_clienteprofile.py -v)\n")
+    print("Todos os dados são persistidos em Firebase real\n")

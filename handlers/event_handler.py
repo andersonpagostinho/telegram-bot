@@ -214,7 +214,9 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     print("📦 Salvando evento com os dados:", evento)
-    sucesso = await salvar_evento(user_id, evento)
+    # ✅ FASE 4: Obter tenant_id para salvar_evento
+    tenant_id = await obter_id_dono(user_id)
+    sucesso = await salvar_evento(user_id, evento, tenant_id)
     if sucesso:
         await update.message.reply_text(
             f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
@@ -463,8 +465,9 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if profissional:
             evento_data["profissional"] = profissional  # ✅ só se tiver
 
-        print(f"👤 Profissional detectado: {profissional}") 
-        sucesso = await salvar_evento(user_id, evento_data)
+        print(f"👤 Profissional detectado: {profissional}")
+        # ✅ FASE 4: Passar tenant_id (dono_id já disponível)
+        sucesso = await salvar_evento(user_id, evento_data, dono_id)
         if sucesso:
             msg = f"✅ Reunião marcada para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
             await responder_em_audio(update, context, msg)
@@ -1048,6 +1051,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
             return True  # ⛔️ Não agenda nesse momento
 
+        # ✅ FASE 4: Extrair tenant_id de dados (propagado por principal_router)
+        tenant_id = (dados or {}).get("tenant_id") or dono_id
+
         evento_data = {
             "descricao": descricao,
             "data": start_time.strftime("%Y-%m-%d"),
@@ -1069,7 +1075,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
 
         print("📦 Disparando salvar_evento com:", evento_data)
-        resultado_salvamento = await salvar_evento(user_id, evento_data)
+        resultado_salvamento = await salvar_evento(user_id, evento_data, tenant_id)
 
         # [PATCH_P0] Detectar e tratar duplicado
         if resultado_salvamento == "duplicado":

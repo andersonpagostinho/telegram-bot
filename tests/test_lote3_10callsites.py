@@ -546,7 +546,7 @@ class TestCallsite5SalvarEvento:
         }
 
         try:
-            result = await salvar_evento(user_id, evento)
+            result = await salvar_evento(user_id, evento, test_tenant_id)
             assert isinstance(result, bool)
         finally:
             pass
@@ -559,7 +559,7 @@ class TestCallsite5SalvarEvento:
         user_id = f"user_invalido_{test_tenant_id}"
         evento = {"cliente_id": user_id, "profissional": "X"}
 
-        result = await salvar_evento(user_id, evento)
+        result = await salvar_evento(user_id, evento, test_tenant_id)
         assert isinstance(result, bool)
 
     @pytest.mark.asyncio
@@ -570,7 +570,7 @@ class TestCallsite5SalvarEvento:
         user_id = f"user_invalido_{test_tenant_id}"
         dono_id = f"dono_{test_tenant_id}"
 
-        await salvar_evento(user_id, {"cliente_id": user_id})
+        await salvar_evento(user_id, {"cliente_id": user_id}, test_tenant_id)
 
         # Validar que nada foi criado
         try:
@@ -597,7 +597,7 @@ class TestCallsite5SalvarEvento:
             "tipo_usuario": "CLIENTE"
         })
 
-        result = await salvar_evento(user_id, {})
+        result = await salvar_evento(user_id, {}, dono_id)
 
         assert isinstance(result, bool)
 
@@ -624,7 +624,7 @@ class TestCallsite5SalvarEvento:
                     "profissional": f"Prof{i}",
                     "servico": "corte"
                 }
-                result = await salvar_evento(user_id, evento)
+                result = await salvar_evento(user_id, evento, dono_id)
                 assert isinstance(result, bool)
             except Exception as e:
                 pytest.fail(f"Evento {i} causou erro: {e}")

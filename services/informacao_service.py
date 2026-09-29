@@ -75,7 +75,10 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
     try:
         dono_id = await obter_id_dono(user_id)
     except Exception:
-        dono_id = user_id
+        dono_id = None
+
+    if dono_id is None:
+        return None
 
     # 📍 Endereço/Localização do negócio (sem acentos, pois mensagem_normalizada também não tem)
     eh_consulta_endereco = (

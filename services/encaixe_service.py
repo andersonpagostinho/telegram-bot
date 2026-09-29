@@ -173,7 +173,7 @@ async def solicitar_encaixe(
             ev["profissional"] = profissional
 
         # 👇 salva no dono
-        await salvar_evento(dono_id, ev)
+        await salvar_evento(dono_id, ev, dono_id)
         print(f"💰 ENCAIXE DIRETO CONFIRMADO | dono={dono_id} | data={ev['data']} | hora={ev['hora_inicio']} | duracao={ev['duracao']}", flush=True)
 
         # lembrete ao solicitante
@@ -415,7 +415,7 @@ async def confirmar_reagendamento_por_opcao(
     if ev_ori.get("profissional"):
         novo_ev_cliente["profissional"] = ev_ori.get("profissional")
 
-    await salvar_evento(dono_id, novo_ev_cliente)
+    await salvar_evento(dono_id, novo_ev_cliente, dono_id)
 
     dt_desejado_str = alvo_doc.get("dt_desejado")
     dt_desejado = datetime.fromisoformat(dt_desejado_str).astimezone(FUSO_BR)
@@ -437,7 +437,7 @@ async def confirmar_reagendamento_por_opcao(
     if alvo_doc.get("profissional"):
         ev_encaixe["profissional"] = alvo_doc.get("profissional")
 
-    await salvar_evento(dono_id, ev_encaixe)
+    await salvar_evento(dono_id, ev_encaixe, dono_id)
     print(
     f"💰 ENCAIXE VIA REMARCAÇÃO | dono={dono_id} | data={ev_encaixe['data']} | "
     f"hora={ev_encaixe['hora_inicio']} | cliente_movido={cliente_id}",

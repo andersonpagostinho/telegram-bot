@@ -6010,14 +6010,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         from services.gpt_actions import executar_confirmacao_generica
 
         # [P1-MIGRACAO] Passar dono_id como tenant_id para isolamento multi-tenant
-        resultado = await executar_confirmacao_generica(user_id, ctx, tenant_id=dono_id)
+        tenant_id = dono_id
+        resultado = await executar_confirmacao_generica(user_id, ctx, tenant_id=tenant_id)
 
         if resultado and resultado.get("acao"):
+            dados_exec = resultado.get("dados") or {}
+            dados_exec["tenant_id"] = tenant_id
+
             return await executar_acao_gpt(
                 update,
                 context,
                 resultado.get("acao"),
-                resultado.get("dados"),
+                dados_exec,
             )
 
         if resultado and resultado.get("resposta"):

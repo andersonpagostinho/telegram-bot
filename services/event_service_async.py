@@ -61,8 +61,16 @@ def evento_deve_entrar_na_agenda(
 
 
 # 🔁 Salvar ou atualizar um evento
-async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> bool:
+async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: str = None) -> bool:
     try:
+
+        # =====================================================
+        # 🔒 VALIDAÇÃO OBRIGATÓRIA: tenant_id para isolamento multi-tenant
+        # =====================================================
+        if not tenant_id or not isinstance(tenant_id, str):
+            logger.error(f"tenant_id inválido para salvar_evento: {tenant_id}")
+            print(f"🚫 [TENANT_ID_INVÁLIDO] tenant_id={tenant_id}", flush=True)
+            return False
 
         # =====================================================
         # 🔒 EVENTOS só podem ser persistidos quando confirmados
@@ -110,17 +118,8 @@ async def salvar_evento(user_id: str, evento: dict, event_id: str = None) -> boo
             evento.setdefault("confirmado", False)
             evento.setdefault("status", "pendente")
 
-        # 🧠 Decide onde salvar (pessoal ou empresa)
-        dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}")
-        user_id_efetivo = user_id
-
-        if dados_usuario:
-            tipo = dados_usuario.get("tipo_usuario", "cliente")
-            modo = dados_usuario.get("modo_uso", "")
-            if tipo == "cliente" or modo == "atendimento_cliente":
-                user_id_efetivo = await obter_tenant_id(user_id)
-
-        path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
+        # ✅ Path usa tenant_id (origem canônica) para isolamento multi-tenant
+        path = f"Clientes/{tenant_id}/Eventos/{event_id}"
 
         # 🔒 PATCH P0: Se evento é confirmado, usar criação segura com lock
         if confirmado_flag:
@@ -302,6 +301,9 @@ async def cancelar_evento(
         elif tipo_usuario == "dono":
             # Dono cancela qualquer evento do seu tenant
             tenant_evento = await obter_id_dono(cliente_id_evento)
+            if tenant_evento is None:
+                logger.warning(f"[CANCELAMENTO_BLOQUEADO] tenant do evento não resolvido para cliente_id={cliente_id_evento}")
+                return False
             if tenant_evento != user_id_efetivo:
                 logger.warning(
                     f"[CANCELAMENTO_BLOQUEADO] tenant_evento={tenant_evento} != tenant_usuario={user_id_efetivo}"
@@ -977,7 +979,12 @@ async def tentar_split_simples(
 
     # --- modo híbrido (dono efetivo) ---
     dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}")
-    user_id_efetivo = await obter_id_dono(user_id) if dados_usuario else user_id
+    if dados_usuario:
+        user_id_efetivo = await obter_id_dono(user_id)
+        if user_id_efetivo is None:
+            return {}  # Tenant não resolvido → sem disponibilidade
+    else:
+        user_id_efetivo = user_id
 
     # --- carregar dados ---
     eventos = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Eventos") or {}
@@ -1648,6 +1655,12 @@ async def alterar_agendamento(
                 }
         elif tipo_usuario == "dono":
             tenant_evento = await obter_id_dono(cliente_id_evento)
+            if tenant_evento is None:
+                return {
+                    "ok": False,
+                    "motivo": f"Tenant do evento não resolvido",
+                    "evento_id": event_id
+                }
             if tenant_evento != tenant_id:
                 return {
                     "ok": False,
