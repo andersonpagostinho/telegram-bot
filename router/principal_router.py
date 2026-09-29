@@ -4356,12 +4356,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx.get("estado_fluxo") == "aguardando_profissional"
             and not ctx.get("profissional_escolhido")
         ):
-            alteracao_slot = await detectar_alteracao_draft_agendamento(
-                texto_usuario=texto_usuario,
-                ctx=ctx,
-                dono_id=dono_id,
-                cliente_id=cliente_id
-            )
+            # 🔒 P1-C GUARD: Não detectar alterações para entrada indefinida
+            # Evita falso match em encontrar_servico_mais_proximo (cutoff 0.4)
+            # Ex: "ola" não deve disparar serviço detectado como "coloracao"
+            if ctx.get("intencao_conversacional") == "indefinida":
+                alteracao_slot = None
+            else:
+                alteracao_slot = await detectar_alteracao_draft_agendamento(
+                    texto_usuario=texto_usuario,
+                    ctx=ctx,
+                    dono_id=dono_id,
+                    cliente_id=cliente_id
+                )
 
             if alteracao_slot and alteracao_slot.get("tipo") == "profissional":
                 ctx["intencao_conversacional"] = "preenchimento_slot"
@@ -5022,12 +5028,17 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             flush=True
         )
 
-        alteracao = await detectar_alteracao_draft_agendamento(
-            texto_usuario=texto_usuario,
-            ctx=ctx,
-            dono_id=dono_id,
-            cliente_id=cliente_id
-        )
+        # 🔒 P1-C GUARD: Não detectar alterações para entrada indefinida
+        # Evita falso match em encontrar_servico_mais_proximo (cutoff 0.4)
+        if ctx.get("intencao_conversacional") == "indefinida":
+            alteracao = None
+        else:
+            alteracao = await detectar_alteracao_draft_agendamento(
+                texto_usuario=texto_usuario,
+                ctx=ctx,
+                dono_id=dono_id,
+                cliente_id=cliente_id
+            )
 
         # =====================================================
         # 🔥 SLOT FALTANTE — profissional
