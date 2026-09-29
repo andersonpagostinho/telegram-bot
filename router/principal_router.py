@@ -3284,6 +3284,11 @@ def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
     if not ctx.get("ultima_acao"):
         return False
 
+    # 🔒 GUARD: entrada indefinida nunca é aceite de ação pendente
+    # "ola", "oi", etc. são conversação social, não confirmação operacional
+    if ctx.get("intencao_conversacional") == "indefinida":
+        return False
+
     # negativa/desistência nunca é aceite
     if eh_desistencia_fluxo(t):
         return False
