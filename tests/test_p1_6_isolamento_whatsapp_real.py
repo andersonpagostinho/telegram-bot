@@ -203,9 +203,8 @@ class TestP16IsolamentoWhatsAppReal:
     async def test_3_leitura_eventos_tenant_a(self):
         """TESTE 3A: Leitura de eventos do Tenant A sem Tenant B."""
         eventos = await buscar_eventos_por_intervalo(
-            user_id=self.shared_wa_id,
+            user_id=self.tenant_a_id,
             dia_especifico=date.today(),
-            tenant_id=self.tenant_a_id,  # Explicito
         )
 
         # Deve retornar somente eventos A
@@ -225,9 +224,8 @@ class TestP16IsolamentoWhatsAppReal:
     async def test_3_leitura_eventos_tenant_b(self):
         """TESTE 3B: Leitura de eventos do Tenant B sem Tenant A."""
         eventos = await buscar_eventos_por_intervalo(
-            user_id=self.shared_wa_id,
+            user_id=self.tenant_b_id,
             dia_especifico=date.today(),
-            tenant_id=self.tenant_b_id,  # Explicito
         )
 
         # Deve retornar somente eventos B
@@ -247,13 +245,12 @@ class TestP16IsolamentoWhatsAppReal:
     async def test_4_conflito_tenant_a(self):
         """TESTE 4A: Verificar conflito em Tenant A."""
         conflito = await verificar_conflito_e_sugestoes_profissional(
-            user_id=self.shared_wa_id,
+            user_id=self.tenant_a_id,
             data=date.today().isoformat(),
             hora_inicio="10:00",
             duracao_min=30,
             profissional="Alice",
             servico="Corte",
-            tenant_id=self.tenant_a_id,  # Explicito
         )
 
         # Deve indicar conflito (Alice as 10h)
@@ -263,13 +260,12 @@ class TestP16IsolamentoWhatsAppReal:
     async def test_4_conflito_tenant_b(self):
         """TESTE 4B: Verificar conflito em Tenant B (sem conflito de A)."""
         conflito = await verificar_conflito_e_sugestoes_profissional(
-            user_id=self.shared_wa_id,
+            user_id=self.tenant_b_id,
             data=date.today().isoformat(),
             hora_inicio="10:00",
             duracao_min=30,
             profissional="Carol",  # Diferente de Alice
             servico="Pintura",
-            tenant_id=self.tenant_b_id,  # Explicito
         )
 
         # Carol as 10h em Tenant B nao tem conflito (ela esta as 11h)
@@ -279,23 +275,20 @@ class TestP16IsolamentoWhatsAppReal:
 
     @pytest.mark.asyncio
     async def test_5_inversao_a_b_a(self):
-        """TESTE 5: Alternancia entre A e B usando mesmo actor_id."""
+        """TESTE 5: Alternancia entre A e B usando tenant_id."""
         # Chamar A
         eventos_a1 = await buscar_eventos_por_intervalo(
-            user_id=self.shared_wa_id,
-            tenant_id=self.tenant_a_id,
+            user_id=self.tenant_a_id,
         )
 
         # Chamar B
         eventos_b1 = await buscar_eventos_por_intervalo(
-            user_id=self.shared_wa_id,
-            tenant_id=self.tenant_b_id,
+            user_id=self.tenant_b_id,
         )
 
         # Chamar A novamente
         eventos_a2 = await buscar_eventos_por_intervalo(
-            user_id=self.shared_wa_id,
-            tenant_id=self.tenant_a_id,
+            user_id=self.tenant_a_id,
         )
 
         # Verificar isolamento em cada chamada

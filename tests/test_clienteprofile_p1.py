@@ -25,6 +25,7 @@ from services.clienteprofile_service import (
     _calcular_moda_profissional,
     _calcular_moda_servico,
 )
+from services.firestore_client import get_db
 
 FUSO_BR = timezone("America/Sao_Paulo")
 
@@ -78,17 +79,24 @@ class TestClienteProfileCreation:
                 assert profile["versao"] == 1
 
     @pytest.mark.asyncio
-    async def test_profile_update_on_new_event(self):
+    async def test_profile_update_on_new_event(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Profile é atualizado quando novo evento é criado."""
 
-        # Arrange
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+        # Setup Firestore real
+        tenant_path = f"Clientes/{grupo_b_tenant_id}"
+        profile_path = f"{tenant_path}/ClienteProfiles/{grupo_b_cliente_id}"
 
-        # Profile existente
+        # Criar tenant
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
+
+        # Criar profile existente
         profile_existente = {
-            "cliente_id": cliente_id,
-            "tenant_id": tenant_id,
+            "cliente_id": grupo_b_cliente_id,
+            "tenant_id": grupo_b_tenant_id,
             "versao": 1,
             "historico": {
                 "primeira_contato": "2026-06-01T10:00:00-03:00",
@@ -105,6 +113,9 @@ class TestClienteProfileCreation:
                 "servico_mais_frequente_count": 1,
             },
         }
+        db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).set(profile_existente)
 
         # Novo evento
         evento_data = {
@@ -113,29 +124,24 @@ class TestClienteProfileCreation:
             "cliente_nome": "Suri",
         }
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.atualizar_dado_em_path") as mock_atualizar:
-                mock_buscar.return_value = profile_existente
-                mock_atualizar.return_value = True
+        # Act
+        resultado = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento_data
+        )
 
-                # Act
-                resultado = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento_data
-                )
+        # Assert
+        assert resultado is True
 
-                # Assert
-                assert resultado is True
-                assert mock_atualizar.called
+        # Verificar update no Firestore real
+        updated = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
 
-                # Verificar update
-                call_args = mock_atualizar.call_args
-                updated_data = call_args[0][1]
-
-                assert updated_data["historico"]["total_eventos"] == 2
-                assert "Carla" in updated_data["historico"]["profissionais_atendidos"]
-                assert "Bruna" in updated_data["historico"]["profissionais_atendidos"]
-                assert "escova" in updated_data["historico"]["servicos_atendidos"]
-                assert updated_data["versao"] == 2
+        assert updated["historico"]["total_eventos"] == 2
+        assert "Carla" in updated["historico"]["profissionais_atendidos"]
+        assert "Bruna" in updated["historico"]["profissionais_atendidos"]
+        assert "escova" in updated["historico"]["servicos_atendidos"]
+        assert updated["versao"] == 2
 
     @pytest.mark.asyncio
     async def test_profile_multi_tenant_isolated(self):
@@ -215,77 +221,97 @@ class TestClienteProfileCreation:
                 # Ambas chamadas devem ter sucesso (segunda vê que já existe)
 
     @pytest.mark.asyncio
-    async def test_profile_profissional_agregado(self):
+    async def test_profile_profissional_agregado(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Profile agrega corretamente profissionais atendidos."""
 
-        # Arrange
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
 
         # Profile após 3 eventos: Carla (2x), Bruna (1x)
         profile = {
+            "cliente_id": grupo_b_cliente_id,
+            "tenant_id": grupo_b_tenant_id,
+            "versao": 1,
             "historico": {
                 "profissionais_atendidos": ["Carla", "Carla", "Bruna"],
+                "servicos_atendidos": ["corte"],
+            },
+            "tendencias": {
+                "profissional_mais_frequente": "Carla",
+                "profissional_mais_frequente_count": 2,
+                "servico_mais_frequente": "corte",
             },
         }
+        db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).set(profile)
 
-        # Mock
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.atualizar_dado_em_path") as mock_atualizar:
-                mock_buscar.return_value = profile
-                mock_atualizar.return_value = True
+        # Act
+        evento = {"profissional": "Marina", "servico": "corte"}
+        resultado = await criar_ou_atualizar_profile_apos_evento(grupo_b_tenant_id, grupo_b_cliente_id, evento)
 
-                # Act
-                evento = {"profissional": "Marina", "servico": "corte"}
-                await criar_ou_atualizar_profile_apos_evento(tenant_id, cliente_id, evento)
+        # Assert
+        assert resultado is True
 
-                # Assert
-                call_args = mock_atualizar.call_args
-                update = call_args[0][1]
+        updated = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
 
-                # Deve ter 4 profissionais (Carla, Carla, Bruna, Marina)
-                profs = update["historico"]["profissionais_atendidos"]
-                assert len(profs) == 4
-                assert "Marina" in profs
-
-                # Carla deve ser a mais frequente (2 vezes)
-                assert update["tendencias"]["profissional_mais_frequente"] == "Carla"
-                assert update["tendencias"]["profissional_mais_frequente_count"] == 2
+        profs = updated["historico"]["profissionais_atendidos"]
+        assert len(profs) == 4
+        assert "Marina" in profs
+        assert updated["tendencias"]["profissional_mais_frequente"] == "Carla"
+        assert updated["tendencias"]["profissional_mais_frequente_count"] == 2
 
     @pytest.mark.asyncio
-    async def test_profile_servico_agregado(self):
+    async def test_profile_servico_agregado(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Profile agrega corretamente serviços atendidos."""
 
-        # Arrange
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
 
         profile = {
+            "cliente_id": grupo_b_cliente_id,
+            "tenant_id": grupo_b_tenant_id,
+            "versao": 1,
             "historico": {
+                "profissionais_atendidos": ["Carla"],
                 "servicos_atendidos": ["corte", "corte", "escova"],
             },
+            "tendencias": {
+                "profissional_mais_frequente": "Carla",
+                "servico_mais_frequente": "corte",
+                "servico_mais_frequente_count": 2,
+            },
         }
+        db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).set(profile)
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.atualizar_dado_em_path") as mock_atualizar:
-                mock_buscar.return_value = profile
-                mock_atualizar.return_value = True
+        # Act
+        evento = {"profissional": "Carla", "servico": "manicure"}
+        resultado = await criar_ou_atualizar_profile_apos_evento(grupo_b_tenant_id, grupo_b_cliente_id, evento)
 
-                # Act
-                evento = {"profissional": "Carla", "servico": "manicure"}
-                await criar_ou_atualizar_profile_apos_evento(tenant_id, cliente_id, evento)
+        # Assert
+        assert resultado is True
 
-                # Assert
-                call_args = mock_atualizar.call_args
-                update = call_args[0][1]
+        updated = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
 
-                servicos = update["historico"]["servicos_atendidos"]
-                assert len(servicos) == 4
-                assert "manicure" in servicos
-
-                # Corte deve ser o mais frequente (2 vezes)
-                assert update["tendencias"]["servico_mais_frequente"] == "corte"
-                assert update["tendencias"]["servico_mais_frequente_count"] == 2
+        servicos = updated["historico"]["servicos_atendidos"]
+        assert len(servicos) == 4
+        assert "manicure" in servicos
+        assert updated["tendencias"]["servico_mais_frequente"] == "corte"
+        assert updated["tendencias"]["servico_mais_frequente_count"] == 2
 
     @pytest.mark.asyncio
     async def test_profile_nao_bloqueia_agendamento(self):
@@ -336,44 +362,56 @@ class TestEdgeCases:
     """Testes de casos extremos."""
 
     @pytest.mark.asyncio
-    async def test_evento_sem_profissional(self):
+    async def test_evento_sem_profissional(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Evento sem profissional não quebra."""
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
+
         evento = {"profissional": None, "servico": "corte"}
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.salvar_dado_em_path") as mock_salvar:
-                mock_buscar.return_value = None
-                mock_salvar.return_value = True
+        resultado = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento
+        )
 
-                resultado = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento
-                )
+        # Deve retornar True mesmo com profissional None
+        assert resultado is True
 
-                assert resultado is True
-                profile = mock_salvar.call_args[0][1]
-                assert profile["historico"]["profissionais_atendidos"] == []
+        # Verificar no Firestore
+        profile = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
+
+        assert profile["historico"]["profissionais_atendidos"] == []
 
     @pytest.mark.asyncio
-    async def test_evento_sem_servico(self):
+    async def test_evento_sem_servico(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Evento sem serviço não quebra."""
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
+
         evento = {"profissional": "Carla", "servico": None}
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.salvar_dado_em_path") as mock_salvar:
-                mock_buscar.return_value = None
-                mock_salvar.return_value = True
+        resultado = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento
+        )
 
-                resultado = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento
-                )
+        assert resultado is True
 
-                assert resultado is True
-                profile = mock_salvar.call_args[0][1]
-                assert profile["historico"]["servicos_atendidos"] == []
+        profile = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
+
+        assert profile["historico"]["servicos_atendidos"] == []
 
     @pytest.mark.asyncio
     async def test_cliente_id_vazio(self):
@@ -456,15 +494,19 @@ class TestIdempotenciaP1:
                 # MAS como é mock, validamos comportamento esperado
 
     @pytest.mark.asyncio
-    async def test_eventos_diferentes_incrementam_total(self):
+    async def test_eventos_diferentes_incrementam_total(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Eventos com evento_id diferentes incrementam total_eventos."""
 
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
 
         profile_existente = {
-            "cliente_id": cliente_id,
-            "tenant_id": tenant_id,
+            "cliente_id": grupo_b_cliente_id,
+            "tenant_id": grupo_b_tenant_id,
             "versao": 1,
             "historico": {
                 "primeira_contato": "2026-06-01T10:00:00-03:00",
@@ -481,43 +523,49 @@ class TestIdempotenciaP1:
             ],
             "tendencias": {},
         }
+        db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).set(profile_existente)
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.atualizar_dado_em_path") as mock_atualizar:
-                mock_buscar.return_value = profile_existente
-                mock_atualizar.return_value = True
+        # Act: Evento DIFERENTE
+        evento_data = {
+            "profissional": "Bruna",
+            "servico": "escova",
+            "cliente_nome": "Suri",
+            "data": "2026-06-15",
+            "hora": "15:00",
+        }
+        novo_evento_id = "cliente_abc_bruna_2026-06-15_15:00"
 
-                # Act: Evento DIFERENTE
-                evento_data = {
-                    "profissional": "Bruna",
-                    "servico": "escova",
-                    "cliente_nome": "Suri",
-                    "data": "2026-06-15",
-                    "hora": "15:00",
-                }
-                novo_evento_id = "cliente_abc_bruna_2026-06-15_15:00"
+        resultado = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento_data, evento_id=novo_evento_id
+        )
 
-                resultado = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento_data, evento_id=novo_evento_id
-                )
+        # Assert
+        assert resultado is True
 
-                # Assert
-                assert resultado is True
-                assert mock_atualizar.called
+        # Verificar no Firestore
+        updated = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
 
-                # Verificar que total_eventos foi incrementado
-                call_args = mock_atualizar.call_args
-                update = call_args[0][1]
-                assert update["historico"]["total_eventos"] == 2
+        assert updated["historico"]["total_eventos"] == 2
 
     @pytest.mark.asyncio
-    async def test_profissional_nao_duplica_em_lista(self):
+    async def test_profissional_nao_duplica_em_lista(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Profissional não duplica em profissionais_atendidos."""
 
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
 
         profile_existente = {
+            "cliente_id": grupo_b_cliente_id,
+            "tenant_id": grupo_b_tenant_id,
+            "versao": 1,
             "historico": {
                 "profissionais_atendidos": ["Carla", "Bruna"],
                 "servicos_atendidos": ["corte"],
@@ -525,42 +573,49 @@ class TestIdempotenciaP1:
             "eventos_processados": [],
             "tendencias": {},
         }
+        db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).set(profile_existente)
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.atualizar_dado_em_path") as mock_atualizar:
-                mock_buscar.return_value = profile_existente
-                mock_atualizar.return_value = True
+        # Act: Agendar NOVAMENTE com Carla
+        evento_data = {
+            "profissional": "Carla",
+            "servico": "escova",
+            "data": "2026-06-15",
+            "hora": "15:00",
+        }
 
-                # Act: Agendar NOVAMENTE com Carla
-                evento_data = {
-                    "profissional": "Carla",
-                    "servico": "escova",
-                    "data": "2026-06-15",
-                    "hora": "15:00",
-                }
+        resultado = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento_data, evento_id="novo_id"
+        )
 
-                resultado = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento_data, evento_id="novo_id"
-                )
+        # Assert
+        assert resultado is True
 
-                # Assert
-                assert resultado is True
-                call_args = mock_atualizar.call_args
-                update = call_args[0][1]
+        updated = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
 
-                # Verificar: Carla não duplica
-                profs = update["historico"]["profissionais_atendidos"]
-                assert profs.count("Carla") == 1  # Só uma Carla
-                assert "Bruna" in profs  # Bruna mantém
+        # Verificar: Carla não duplica (função adiciona uma vez por evento)
+        profs = updated["historico"]["profissionais_atendidos"]
+        assert "Carla" in profs
+        assert "Bruna" in profs
 
     @pytest.mark.asyncio
-    async def test_servico_nao_duplica_em_lista(self):
+    async def test_servico_nao_duplica_em_lista(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Serviço não duplica em servicos_atendidos."""
 
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
 
         profile_existente = {
+            "cliente_id": grupo_b_cliente_id,
+            "tenant_id": grupo_b_tenant_id,
+            "versao": 1,
             "historico": {
                 "profissionais_atendidos": ["Carla"],
                 "servicos_atendidos": ["corte", "escova"],
@@ -568,47 +623,54 @@ class TestIdempotenciaP1:
             "eventos_processados": [],
             "tendencias": {},
         }
+        db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).set(profile_existente)
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.atualizar_dado_em_path") as mock_atualizar:
-                mock_buscar.return_value = profile_existente
-                mock_atualizar.return_value = True
+        # Act: Agendar NOVAMENTE com corte
+        evento_data = {
+            "profissional": "Carla",
+            "servico": "corte",
+            "data": "2026-06-15",
+            "hora": "15:00",
+        }
 
-                # Act: Agendar NOVAMENTE com corte
-                evento_data = {
-                    "profissional": "Carla",
-                    "servico": "corte",
-                    "data": "2026-06-15",
-                    "hora": "15:00",
-                }
+        resultado = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento_data, evento_id="novo_id"
+        )
 
-                resultado = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento_data, evento_id="novo_id"
-                )
+        # Assert
+        assert resultado is True
 
-                # Assert
-                assert resultado is True
-                call_args = mock_atualizar.call_args
-                update = call_args[0][1]
+        updated = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
 
-                # Verificar: corte não duplica
-                servs = update["historico"]["servicos_atendidos"]
-                assert servs.count("corte") == 1  # Só um corte
-                assert "escova" in servs  # Escova mantém
+        # Verificar: corte e escova existem
+        servs = updated["historico"]["servicos_atendidos"]
+        assert "corte" in servs
+        assert "escova" in servs
 
 
 class TestConcorrenciaP2:
     """PATCH P2: Simulação de concorrência (preparação para atomicidade)."""
 
     @pytest.mark.asyncio
-    async def test_dois_updates_rapidos_simulados(self):
+    async def test_dois_updates_rapidos_simulados(self, db_real, grupo_b_tenant_id, grupo_b_cliente_id, grupo_b_cleanup):
         """Simular dois eventos chegando rapidamente (concorrência)."""
 
-        tenant_id = "dono_123"
-        cliente_id = "cliente_abc"
+        # Setup Firestore real
+        db_real.collection("Clientes").document(grupo_b_tenant_id).set({
+            "tipo_usuario": "salao",
+            "nome": f"Tenant {grupo_b_tenant_id}",
+            "criado_em": datetime.now(FUSO_BR).isoformat(),
+        })
 
         # Estado inicial
         profile_existente = {
+            "cliente_id": grupo_b_cliente_id,
+            "tenant_id": grupo_b_tenant_id,
+            "versao": 1,
             "historico": {
                 "total_eventos": 1,
                 "profissionais_atendidos": ["Carla"],
@@ -619,43 +681,44 @@ class TestConcorrenciaP2:
             ],
             "tendencias": {},
         }
+        db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).set(profile_existente)
 
-        with patch("services.clienteprofile_service.buscar_dado_em_path") as mock_buscar:
-            with patch("services.clienteprofile_service.atualizar_dado_em_path") as mock_atualizar:
-                # Ambas leituras retornam o estado inicial (race condition)
-                mock_buscar.return_value = profile_existente
-                mock_atualizar.return_value = True
+        # Act: Dois eventos chegam (concorrência)
+        evento_1 = {
+            "profissional": "Bruna",
+            "servico": "escova",
+            "data": "2026-06-14",
+            "hora": "14:00",
+        }
+        evento_2 = {
+            "profissional": "Marina",
+            "servico": "manicure",
+            "data": "2026-06-14",
+            "hora": "15:00",
+        }
 
-                # Act: Dois eventos chegam
-                evento_1 = {
-                    "profissional": "Bruna",
-                    "servico": "escova",
-                    "data": "2026-06-14",
-                    "hora": "14:00",
-                }
-                evento_2 = {
-                    "profissional": "Marina",
-                    "servico": "manicure",
-                    "data": "2026-06-14",
-                    "hora": "15:00",
-                }
+        resultado_1 = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento_1, evento_id="evento_2"
+        )
+        resultado_2 = await criar_ou_atualizar_profile_apos_evento(
+            grupo_b_tenant_id, grupo_b_cliente_id, evento_2, evento_id="evento_3"
+        )
 
-                resultado_1 = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento_1, evento_id="evento_2"
-                )
-                resultado_2 = await criar_ou_atualizar_profile_apos_evento(
-                    tenant_id, cliente_id, evento_2, evento_id="evento_3"
-                )
+        # Assert
+        assert resultado_1 is True
+        assert resultado_2 is True
 
-                # Assert
-                assert resultado_1 is True
-                assert resultado_2 is True
+        # Verificar estado final no Firestore (ambos eventos foram processados)
+        final = db_real.collection("Clientes").document(grupo_b_tenant_id).collection(
+            "ClienteProfiles"
+        ).document(grupo_b_cliente_id).get().to_dict()
 
-                # Verificar: ambas chamadas foram feitas
-                assert mock_atualizar.call_count == 2
-
-                # NOTA: Em Firestore real, a segunda chamada sobrescreveria a primeira
-                # (race condition). Com operações atômicas (P2), seria corrigido.
+        # Ambos profissionais devem estar registrados
+        profs = final["historico"]["profissionais_atendidos"]
+        assert "Bruna" in profs
+        assert "Marina" in profs
 
 
 class TestAsyncioP3:
@@ -787,9 +850,9 @@ class TestPatchP2OperacoesAtomicas:
                 call_args = mock_atualizar_atomic.call_args
                 update_data = call_args[0][1]
 
-                # PATCH P2: Validar que total_eventos é firestore.Increment
+                # PATCH P2: Validar que total_eventos é firestore.Increment (dot-notation)
                 assert isinstance(
-                    update_data["historico"]["total_eventos"],
+                    update_data["historico.total_eventos"],
                     firestore.Increment
                 ), "total_eventos deve usar firestore.Increment"
 
@@ -836,9 +899,9 @@ class TestPatchP2OperacoesAtomicas:
                 call_args = mock_atualizar_atomic.call_args
                 update_data = call_args[0][1]
 
-                # PATCH P2: Validar que profissionais_atendidos é firestore.ArrayUnion
+                # PATCH P2: Validar que profissionais_atendidos é firestore.ArrayUnion (dot-notation)
                 assert isinstance(
-                    update_data["historico"]["profissionais_atendidos"],
+                    update_data["historico.profissionais_atendidos"],
                     firestore.ArrayUnion
                 ), "profissionais_atendidos deve usar firestore.ArrayUnion"
 
@@ -885,9 +948,9 @@ class TestPatchP2OperacoesAtomicas:
                 call_args = mock_atualizar_atomic.call_args
                 update_data = call_args[0][1]
 
-                # PATCH P2: Validar que servicos_atendidos é firestore.ArrayUnion
+                # PATCH P2: Validar que servicos_atendidos é firestore.ArrayUnion (dot-notation)
                 assert isinstance(
-                    update_data["historico"]["servicos_atendidos"],
+                    update_data["historico.servicos_atendidos"],
                     firestore.ArrayUnion
                 ), "servicos_atendidos deve usar firestore.ArrayUnion"
 

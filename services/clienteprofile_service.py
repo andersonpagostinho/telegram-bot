@@ -70,8 +70,8 @@ async def criar_ou_atualizar_profile_apos_evento(
         if not evento_id:
             data = evento_data.get("data", "unknown")
             hora = evento_data.get("hora", "00:00")
-            prof = evento_data.get("profissional", "pessoal").lower().replace(" ", "_")
-            serv = evento_data.get("servico", "geral").lower().replace(" ", "_")
+            prof = (evento_data.get("profissional") or "pessoal").lower().replace(" ", "_")
+            serv = (evento_data.get("servico") or "geral").lower().replace(" ", "_")
             evento_id = f"{cliente_id}_{prof}_{serv}_{data}_{hora}".replace("/", "-")
 
         profile_path = f"Clientes/{tenant_id}/ClienteProfiles/{cliente_id}"
@@ -110,9 +110,9 @@ async def _criar_profile_novo(
     PATCH P1: Adiciona eventos_processados para deduplicação.
     """
     try:
-        profissional = evento_data.get("profissional", "").strip() or None
-        servico = evento_data.get("servico", "").strip() or None
-        cliente_nome = evento_data.get("cliente_nome", "").strip() or None
+        profissional = (evento_data.get("profissional") or "").strip() or None
+        servico = (evento_data.get("servico") or "").strip() or None
+        cliente_nome = (evento_data.get("cliente_nome") or "").strip() or None
 
         profile = {
             # Identity
@@ -192,27 +192,25 @@ async def _atualizar_profile_existente(
             logger.info(f"evento duplicado ignorado: {evento_id} já foi processado")
             return True  # Sucesso (idempotência)
 
-        profissional = evento_data.get("profissional", "").strip() or None
-        servico = evento_data.get("servico", "").strip() or None
+        profissional = (evento_data.get("profissional") or "").strip() or None
+        servico = (evento_data.get("servico") or "").strip() or None
 
         # PATCH P2: Preparar update com operações atômicas do Firestore
+        # Usar dot-notation para nested fields (evita substituir todo o dict)
         # Usar firestore.Increment() para contadores
         # Usar firestore.ArrayUnion() para arrays
-        # Isso garante que duas updates simultâneas não sobrescrevem dados
 
         update_data = {
             "atualizado_em": agora.isoformat(),
             "versao": firestore.Increment(1),  # PATCH P2: ATOMIC
 
-            "historico": {
-                "primeira_contato": profile_existente.get("historico", {}).get("primeira_contato"),
-                "ultima_contato": agora.isoformat(),
-                "total_eventos": firestore.Increment(1),  # PATCH P2: ATOMIC (não read-modify-write)
-                # PATCH P2: Usar ArrayUnion para adicionar sem sobrescrita
-                "profissionais_atendidos": firestore.ArrayUnion([profissional] if profissional else []),
-                "servicos_atendidos": firestore.ArrayUnion([servico] if servico else []),
-                "proxima_sugestao": profile_existente.get("historico", {}).get("proxima_sugestao"),
-            },
+            # Usar dot-notation para nested fields
+            "historico.primeira_contato": profile_existente.get("historico", {}).get("primeira_contato"),
+            "historico.ultima_contato": agora.isoformat(),
+            "historico.total_eventos": firestore.Increment(1),  # PATCH P2: ATOMIC
+            "historico.profissionais_atendidos": firestore.ArrayUnion([profissional] if profissional else []),
+            "historico.servicos_atendidos": firestore.ArrayUnion([servico] if servico else []),
+            "historico.proxima_sugestao": profile_existente.get("historico", {}).get("proxima_sugestao"),
 
             # PATCH P1: Usar ArrayUnion para registrar evento processado
             # PATCH P2: ATOMIC (adiciona sem sobrescrita)
