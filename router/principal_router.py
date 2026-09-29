@@ -3673,6 +3673,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     if (
         ctx.get("motivo_estado") == "profissional_nao_atende_servico"
+        and ctx.get("intencao_conversacional") != "indefinida"
         and not (
             ctx.get("aguardando_confirmacao_agendamento")
             and ctx.get("dados_confirmacao_agendamento")

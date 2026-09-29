@@ -2,7 +2,12 @@ import pytest
 import pytest_asyncio
 import uuid
 import sys
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env first
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
