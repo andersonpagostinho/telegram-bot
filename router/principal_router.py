@@ -11069,16 +11069,19 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         f"Para *{slots_extraidos.get('servico')}*, eu tenho: {lista}.\n\nQual profissional você prefere?"
                     )
 
-        resposta_texto = montar_resposta_fallback(
-            proximo_passo_real,
-            frase_data_legivel,
-            ctx
-        )
+        # 🔒 P2B GUARD: Bloquear saudação indefinida em fluxo pendente
+        # Deixar continuar para GPT que detectará saudação social (linha 11251-11270)
+        if not (ctx.get("intencao_conversacional") == "indefinida" and normalizar(texto_usuario or "") in ["oi", "ola", "olá", "bom dia"]):
+            resposta_texto = montar_resposta_fallback(
+                proximo_passo_real,
+                frase_data_legivel,
+                ctx
+            )
 
-        # NÃO responder aqui se ainda está coletando serviço.
-        # Deixa o bloco específico de aguardando_servico tratar antes do GPT.
-        if ctx.get("estado_fluxo") != "aguardando_servico":
-            return await _send_and_stop(context, user_id, resposta_texto)
+            # NÃO responder aqui se ainda está coletando serviço.
+            # Deixa o bloco específico de aguardando_servico tratar antes do GPT.
+            if ctx.get("estado_fluxo") != "aguardando_servico":
+                return await _send_and_stop(context, user_id, resposta_texto)
 
     # =========================================================
     # 🔥 BLOQUEIO DE GPT — só quando ainda NÃO tem serviço

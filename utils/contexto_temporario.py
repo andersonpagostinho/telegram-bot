@@ -97,7 +97,7 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
     data_legado = await buscar_dado_em_path(path_legado)
 
     if not data_legado:
-        print(f"🚨 [SESSAO VAZIA] path_novo={path_novo} | path_legado={path_legado}", flush=True)
+        print(f"[SESSAO VAZIA] path_novo={path_novo} | path_legado={path_legado}", flush=True)
         return {}
 
     # 3️⃣ Validar guard_tenant no legado
