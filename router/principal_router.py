@@ -6017,6 +6017,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     if (
         ctx.get("ultima_acao")
         and ctx.get("estado_fluxo") not in ["aguardando_escolha_horario"]
+        and ctx.get("objetivo_conversacional") not in [
+            "consultar_disponibilidade_por_servico",
+            "descobrir_servico_para_consulta",
+            "consultar_agendamentos_usuario",
+        ]
         and eh_aceite_de_acao_pendente(texto_usuario, ctx)
     ):
         print(
