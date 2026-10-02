@@ -5846,6 +5846,23 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 texto_usuario=texto_usuario,
                 cliente_id=cliente_id
             )
+        else:
+            print(
+                f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
+                flush=True
+            )
+
+            draft = ctx.get("draft_agendamento") or {}
+            servico = draft.get("servico") or ctx.get("servico")
+            prof = draft.get("profissional") or ctx.get("profissional_escolhido")
+            data_hora = draft.get("data_hora") or ctx.get("data_hora")
+
+            msg_confirmacao = (
+                f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(data_hora)}*.\n"
+                f"Responda *sim* para confirmar."
+            )
+
+            return await _send_and_stop(context, user_id, msg_confirmacao)
     else:
         print(
             f" [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
