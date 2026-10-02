@@ -10891,7 +10891,19 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     # 🔒 GARANTE QUE FLUXO SEMPRE RESPONDE ANTES DO GPT
     # =========================================================
+    print(
+        "[FLOW GUARD PRE-CHECK] "
+        f"ctx_estado_fluxo={ctx.get('estado_fluxo')!r}",
+        flush=True
+    )
     estado_fluxo = ctx.get("estado_fluxo")
+    print(
+        "[FLOW GUARD STATE] "
+        f"estado_fluxo={estado_fluxo!r} "
+        f"tipo={type(estado_fluxo).__name__} "
+        f"igual_ajustando={estado_fluxo == 'ajustando_agendamento'}",
+        flush=True
+    )
 
     interceptar_flow_guard = estado_fluxo in [
         "aguardando_servico",
@@ -10901,6 +10913,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "agendando",
         "ajustando_agendamento"
     ]
+    print(
+        "[FLOW GUARD DECISION] "
+        f"estado_fluxo={estado_fluxo!r} "
+        f"interceptar_flow_guard={interceptar_flow_guard!r} "
+        f"draft={ctx.get('draft_agendamento')!r} "
+        f"proximo_passo_real={ctx.get('proximo_passo_real')!r}",
+        flush=True
+    )
 
     if interceptar_flow_guard:
         data_hora_guard = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
