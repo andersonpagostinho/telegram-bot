@@ -1138,15 +1138,33 @@ async def validar_profissional_para_servico(dono_id: str, profissional: str | No
     if not profissional or not servico:
         return {"ok": False, "validos": []}
 
+    print(
+        f"[DIAG VALIDAR PROF] "
+        f"dono_id={dono_id} | "
+        f"path=Clientes/{dono_id}/Profissionais | "
+        f"profissional={profissional} | "
+        f"servico={servico}",
+        flush=True
+    )
+
     profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
     # serviços do profissional escolhido
     servicos_prof = []
+    profissional_encontrada = False
     for p in profs_dict.values():
         nomep = (p.get("nome") or "").strip()
         if normalizar(nomep) == normalizar(profissional):
+            profissional_encontrada = True
             servicos_prof = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
             break
+
+    print(
+        f"[DIAG VALIDAR PROF RESULTADO] "
+        f"profissional_encontrada={profissional_encontrada} | "
+        f"servicos={servicos_prof}",
+        flush=True
+    )
 
     if any(normalizar(servico) == normalizar(s) for s in servicos_prof):
         return {"ok": True, "validos": []}
@@ -3988,6 +4006,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         # Early return com resposta apropriada
                         if data_hora_ctx:
                             # TEM TUDO: servico + profissional + data_hora → executar pré-check
+                            print(
+                                f"[DIAG PRECHECK TENANT] "
+                                f"dono_id_contexto={dono_id} | "
+                                f"dono_id_slot={dono_id_slot} | "
+                                f"tenant_id_ctx={ctx.get('tenant_id')} | "
+                                f"profissional={profissional_detectado} | "
+                                f"servico={servico_ctx}",
+                                flush=True
+                            )
                             return await precheck_e_confirmacao_agendamento(
                                 context=context,
                                 user_id=user_id,
