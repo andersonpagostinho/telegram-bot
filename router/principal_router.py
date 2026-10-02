@@ -3731,6 +3731,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx.pop("profissionais_validos", None)
             ctx.pop("draft_agendamento", None)
             ctx.pop("profissional_escolhido", None)
+            ctx.pop("intencao_conversacional", None)
+            ctx.pop("objetivo_conversacional", None)
+            ctx.pop("tipo_ajuste_incremental", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             print(f"[PATCH_P0.5 V3] Estado anterior limpo, novo agendamento iniciado", flush=True)
 
