@@ -15,6 +15,11 @@ from services.gpt_service import (
     gerar_resposta_p1,
 )
 from prompts.manual_secretaria import INSTRUCAO_SECRETARIA
+from utils.identidade_contexto import (
+    IdentidadeContexto,
+    criar_identidade_whatsapp,
+    criar_identidade_telegram,
+)
 
 from datetime import datetime, timedelta
 from google.cloud import firestore
@@ -53,18 +58,26 @@ from router.integracao_identidade_onboarding import processar_fluxo_identidade_o
 async def _send_and_stop(context, user_id: str, text: str, parse_mode: str = "Markdown"):
     """
     Envia mensagem UMA vez e sinaliza para o bot.py não reenviar.
-    """
-    if context is not None:
-        await context.bot.send_message(chat_id=user_id, text=text, parse_mode=parse_mode)
-        return {
-            "handled": True,
-            "already_sent": True,
-            "resposta": text,
-        }
 
+    [P0.3] Retorna ResultadoAcao estruturado conforme contrato de separação execução × transporte.
+    """
+    already_sent = False
+    if context is not None:
+        try:
+            await context.bot.send_message(chat_id=user_id, text=text, parse_mode=parse_mode)
+            already_sent = True
+        except Exception as e:
+            print(f"[P0.3] Falha ao enviar mensagem Telegram: {e}", flush=True)
+
+    # [P0.3] Retornar estrutura conforme contrato
     return {
-        "handled": True,
+        "ok": True,
+        "acao": "send_and_stop",
+        "resultado": None,
         "resposta": text,
+        "erro": None,
+        "already_sent": already_sent,  # True apenas se efetivamente enviado
+        "handled": True,
     }
 
 async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario, cliente_id: str = None, dono_id: str = None):
@@ -3419,6 +3432,26 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             dono_id = str(user_id)
             print(f"[TENANT_FALLBACK] obter_id_dono retornou None, usando user_id como fallback | user_id={user_id}")
 
+    # [P0.1] Criar IdentidadeContexto normalizado (agnóstico de canal)
+    # Nota: integração mínima apenas para demonstrar construção
+    # Fluxo funcional NÃO foi alterado, apenas criamos o objeto para futuro uso
+    try:
+        if tenant_id:
+            # WhatsApp: temos tenant_id e user_id (wa_id)
+            identidade_p01 = criar_identidade_telegram(
+                telegram_id=user_id,
+                canal_tenant_id=dono_id,
+            )
+        else:
+            # Telegram: apenas user_id
+            identidade_p01 = criar_identidade_telegram(telegram_id=user_id)
+
+        # Log para auditoria (não altera fluxo)
+        print(f"[P0.1] IdentidadeContexto criado: {identidade_p01}", flush=True)
+    except Exception as e:
+        print(f"[P0.1] Erro ao criar IdentidadeContexto: {e}", flush=True)
+        identidade_p01 = None
+
     # [C3.15.3-B] Resolver actor canonicamente no WhatsApp
     # Se tenant_id foi passado explicitamente, resolver ator por canal
     actor_id_whatsapp = None
@@ -3472,7 +3505,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         if acao == "negar":
             print(f"[LOTE_3E_NEGACAO] Desistencia detectada", flush=True)
-            return await _send_and_stop(context, user_id, "Beleza, entao nao vou agendar.")
+            # [P0.3] Retornar ResultadoAcao estruturado
+            resultado = await _send_and_stop(context, user_id, "Beleza, entao nao vou agendar.")
+            return resultado
         elif acao == "confirmar":
             print(f"[LOTE_3E_CONFIRMACAO] Confirmacao detectada", flush=True)
             # Continue para fluxo normal (P0_CONFIRMACAO)

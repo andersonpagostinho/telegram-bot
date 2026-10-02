@@ -89,17 +89,29 @@ async def processar_mensagem_whatsapp(payload: Dict[str, Any]) -> Dict[str, Any]
 
         # Chamar roteador com as informações do WhatsApp
         # O roteador vai automaticamente identificar o papel/contexto pelo actor_id
-        resposta = await roteador_principal(
+        # [P0.3] roteador_principal retorna ResultadoAcao (dict)
+        resultado = await roteador_principal(
             user_id=actor_id,
             mensagem=texto,
+            tenant_id=tenant_id,  # [P0.3] Passar tenant_id explicitamente
             update=None,  # WhatsApp não tem update object do Telegram
             context=None,  # WhatsApp não tem context do Telegram
         )
 
-        logger.info(
-            f"[WHATSAPP_BRIDGE] Resposta gerada | "
-            f"actor_id={actor_id} | resposta='{resposta}'"
-        )
+        # [P0.3] Extrair resposta do ResultadoAcao
+        if isinstance(resultado, dict):
+            resposta = resultado.get("resposta", "Desculpa, não consegui processar sua mensagem.")
+            logger.info(
+                f"[WHATSAPP_BRIDGE] ResultadoAcao gerado | "
+                f"actor_id={actor_id} | ok={resultado.get('ok')} | already_sent={resultado.get('already_sent')} | resposta='{resposta}'"
+            )
+        else:
+            # Fallback legado (para compatibilidade com código antigo)
+            resposta = str(resultado) if resultado else "Desculpa, não consegui processar sua mensagem."
+            logger.warning(
+                f"[WHATSAPP_BRIDGE] Retorno não é dict: {type(resultado)} | "
+                f"actor_id={actor_id} | resposta='{resposta}'"
+            )
 
         return {
             "canal": "whatsapp",

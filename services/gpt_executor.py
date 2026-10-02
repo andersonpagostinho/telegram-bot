@@ -3,9 +3,11 @@ from telegram.ext import ContextTypes
 
 from datetime import datetime
 import json
+from typing import Optional
 
 from handlers.task_handler import add_task_por_gpt, gerar_texto_tarefas, remover_tarefa_por_descricao
 from handlers.event_handler import add_evento_por_gpt
+from utils.identidade_contexto import IdentidadeContexto
 from handlers.email_handler import listar_emails_prioritarios, ler_emails_command
 from handlers.followup_handler import configurar_avisos
 from handlers.report_handler import relatorio_diario, relatorio_semanal, enviar_relatorio_email
@@ -35,6 +37,47 @@ from services.profissional_service import buscar_profissionais_disponiveis_no_ho
 
 # ✅ Executor de ações baseado no JSON retornado pelo GPT
 from services.event_service_async import buscar_eventos_por_intervalo  # Importação necessária
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# P0.3: CONTRATO RESULTADO AÇÃO — Separação Execução × Transporte
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def resultado_acao(
+    ok: bool,
+    acao: str,
+    resposta: str = None,
+    resultado: any = None,
+    erro: str = None,
+    already_sent: bool = False,
+    handled: bool = True
+) -> dict:
+    """
+    Construtor do contrato ResultadoAcao (P0.3).
+
+    Retorna dict estruturado que separar execução de transporte.
+
+    Args:
+        ok: True se ação foi executada com sucesso
+        acao: Nome da ação executada
+        resposta: Mensagem ao usuário
+        resultado: Resultado específico da ação (evento criado, etc)
+        erro: Mensagem de erro se houver
+        already_sent: True APENAS se mensagem foi enviada pelo transporte
+        handled: True se foi tratado (não deve processar mais)
+
+    Returns:
+        Dict com campos: ok, acao, resultado, resposta, erro, already_sent, handled
+    """
+    return {
+        "ok": ok,
+        "acao": acao,
+        "resultado": resultado,
+        "resposta": resposta,
+        "erro": erro,
+        "already_sent": already_sent,
+        "handled": handled
+    }
 
 
 # 🔥 P0: Sanitizador de cancelamento_pendente — apenas dados serializáveis
@@ -212,16 +255,51 @@ async def executar_acao_gpt_resultado(update: Update, context: ContextTypes.DEFA
     }
 
 
-async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, acao: str, dados: dict):
+async def executar_acao_gpt(
+    update: Optional[Update] = None,
+    context: Optional[ContextTypes.DEFAULT_TYPE] = None,
+    acao: str = "",
+    dados: dict = None,
+    identidade: Optional[IdentidadeContexto] = None,
+):
+    """
+    Executar ação determinística ou delegada ao GPT.
+
+    P0.2: Aceita IdentidadeContexto para ser agnóstico de canal.
+
+    Args:
+        update: Telegram Update (opcional, para compatibilidade)
+        context: Telegram Context (opcional, para compatibilidade)
+        acao: Nome da ação a executar
+        dados: Dados específicos da ação
+        identidade: IdentidadeContexto normalizado (novo, opcional)
+
+    Se identidade for passado, usar dele.
+    Se não, tentar extrair de update (compatibilidade Telegram).
+    """
     try:
         print(f"🪵 Ação recebida: {repr(acao)}")  # DEBUG extra
 
         if not acao or acao.strip() == "":
             return False
 
-        # 🔥 PATCH P0: Resolver tenant_id para isolamento multi-tenant
-        user_id = str(update.message.from_user.id)
-        tenant_id = await obter_id_dono(user_id)
+        # [P0.2] Obter identidade de forma agnóstica
+        if identidade:
+            # Usar identidade normalizada
+            user_id = identidade.user_id
+            tenant_id = identidade.tenant_id
+            canal = identidade.canal
+            print(f"[P0.2] Usando IdentidadeContexto: canal={canal}, user_id={user_id}, tenant_id={tenant_id}", flush=True)
+        else:
+            # Fallback para Telegram (compatibilidade)
+            if not update or not update.message:
+                print(f"[P0.2] ERRO: Nem identidade nem update fornecidos", flush=True)
+                return False
+
+            user_id = str(update.message.from_user.id)
+            tenant_id = await obter_id_dono(user_id)
+            canal = "telegram"
+            print(f"[P0.2] Usando fallback Telegram: user_id={user_id}, tenant_id={tenant_id}", flush=True)
 
         print(f"🔁 Ação recebida: {acao}")
         print(f"📦 Dados: {dados}")
@@ -231,27 +309,80 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             return True
 
         elif acao == "buscar_tarefas_do_usuario":
-            user_id = str(update.message.from_user.id)
+            # [P0.3] Separar execução de transporte
+            # Obter user_id de identidade ou fallback
+            if identidade:
+                user_id = identidade.user_id
+            else:
+                user_id = (update.message.from_user.id if update and update.message else None)
+                if not user_id:
+                    return resultado_acao(
+                        ok=False,
+                        acao=acao,
+                        resposta="Não consegui identificar o usuário.",
+                        erro="user_id_missing",
+                        already_sent=False
+                    )
+                user_id = str(user_id)
+
             texto_tarefas = await gerar_texto_tarefas(user_id)
-            resposta = dados.get("resposta") or "📋 Aqui está sua lista de tarefas:\n"
-            await update.message.reply_text(f"{resposta}\n\n{texto_tarefas}", parse_mode="Markdown")
-            return True
+            resposta_texto = dados.get("resposta") or "📋 Aqui está sua lista de tarefas:\n"
+            mensagem = f"{resposta_texto}\n\n{texto_tarefas}"
+
+            # [P0.3] Se update é disponível, marcar como enviado pelo Telegram
+            already_sent = bool(update and update.message)
+            if already_sent:
+                await update.message.reply_text(mensagem, parse_mode="Markdown")
+
+            return resultado_acao(
+                ok=True,
+                acao=acao,
+                resposta=mensagem,
+                resultado={"tarefas": texto_tarefas},
+                already_sent=already_sent
+            )
 
         elif acao == "pre_confirmar_agendamento":
 
-            user_id = _obter_user_id(update, context)
+            # [P0.2] Obter user_id de identidade ou fallback
+            if identidade:
+                user_id = identidade.user_id
+            else:
+                user_id = _obter_user_id(update, context)
 
             if not user_id:
-                await update.message.reply_text("⚠️ Não consegui identificar o usuário.")
-                return True
+                # [P0.3] Retornar dict de erro em vez de reply_text
+                msg = "⚠️ Não consegui identificar o usuário."
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(msg)
+                    already_sent = True
+                return resultado_acao(
+                    ok=False,
+                    acao=acao,
+                    resposta=msg,
+                    erro="user_id_not_identified",
+                    already_sent=already_sent
+                )
 
             prof = (dados or {}).get("profissional")
             servico = (dados or {}).get("servico")
             data_hora = (dados or {}).get("data_hora")
 
             if not (prof and servico and data_hora):
-                await update.message.reply_text("Faltaram dados para confirmar o agendamento.")
-                return True
+                # [P0.3] Retornar dict de erro
+                msg = "Faltaram dados para confirmar o agendamento."
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(msg)
+                    already_sent = True
+                return resultado_acao(
+                    ok=False,
+                    acao=acao,
+                    resposta=msg,
+                    erro="missing_required_data",
+                    already_sent=already_sent
+                )
 
             # 🔥 VERIFICAR CONFLITO
             data = data_hora.split("T")[0]
@@ -338,27 +469,56 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
                             await salvar_contexto_temporario(user_id, contexto_tmp, tenant_id=tenant_id)
 
-                            return await update.message.reply_text(
-                                (
-                                    f"😕 A {prof} não estará atendendo nesse dia.\n\n"
-                                    f"Tenho *{alternativo}* disponível às *{hora}* para *{servico}*.\n"
-                                    "Posso agendar pra você? 😊"
-                                ),
-                                parse_mode="Markdown"
+                            # [P0.3] Retornar dict em vez de reply_text
+                            msg = (
+                                f"😕 A {prof} não estará atendendo nesse dia.\n\n"
+                                f"Tenho *{alternativo}* disponível às *{hora}* para *{servico}*.\n"
+                                "Posso agendar pra você? 😊"
+                            )
+                            already_sent = False
+                            if update and update.message:
+                                await update.message.reply_text(msg, parse_mode="Markdown")
+                                already_sent = True
+                            return resultado_acao(
+                                ok=True,
+                                acao=acao,
+                                resposta=msg,
+                                resultado={"alternativa": alternativo, "motivo": "profissional_indisponivel"},
+                                already_sent=already_sent
                             )
 
-                        return await update.message.reply_text(
-                            (
-                                f"😕 A {prof} não estará atendendo nesse dia.\n\n"
-                                "Me diga outro dia ou outro profissional que eu verifico para você 😊"
-                            ),
-                            parse_mode="Markdown"
+                        # [P0.3] Sem alternativas
+                        msg = (
+                            f"😕 A {prof} não estará atendendo nesse dia.\n\n"
+                            "Me diga outro dia ou outro profissional que eu verifico para você 😊"
+                        )
+                        already_sent = False
+                        if update and update.message:
+                            await update.message.reply_text(msg, parse_mode="Markdown")
+                            already_sent = True
+                        return resultado_acao(
+                            ok=True,
+                            acao=acao,
+                            resposta=msg,
+                            resultado={"alternativa": None, "motivo": "profissional_indisponivel_sem_alternativa"},
+                            already_sent=already_sent
                         )
 
-                    return await update.message.reply_text(
+                    # [P0.3] Dia fechado
+                    msg = (
                         "😕 Nesse dia não vamos atender.\n\n"
-                        "Por favor, me informe outro dia que eu verifico para você 😊",
-                        parse_mode="Markdown"
+                        "Por favor, me informe outro dia que eu verifico para você 😊"
+                    )
+                    already_sent = False
+                    if update and update.message:
+                        await update.message.reply_text(msg, parse_mode="Markdown")
+                        already_sent = True
+                    return resultado_acao(
+                        ok=True,
+                        acao=acao,
+                        resposta=msg,
+                        resultado={"motivo": "dia_fechado"},
+                        already_sent=already_sent
                     )
 
                 if motivo == "fora_do_expediente":
@@ -420,18 +580,40 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                                 "Esse horário não está disponível nesse dia.\n\n"
                             )
 
-                        return await update.message.reply_text(
+                        # [P0.3] Retornar dict
+                        msg = (
                             texto_base
                             + f"O horário mais próximo com *{prof}* é às *{horario}*.\n"
-                            + "Posso agendar pra você? 😊",
-                            parse_mode="Markdown"
+                            + "Posso agendar pra você? 😊"
+                        )
+                        already_sent = False
+                        if update and update.message:
+                            await update.message.reply_text(msg, parse_mode="Markdown")
+                            already_sent = True
+                        return resultado_acao(
+                            ok=True,
+                            acao=acao,
+                            resposta=msg,
+                            resultado={"horario_sugerido": horario, "motivo": "fora_do_expediente_com_alternativa"},
+                            already_sent=already_sent
                         )
 
-                    return await update.message.reply_text(
+                    # [P0.3] Sem mais horários disponíveis
+                    msg = (
                         "😕 Esse horário não encaixa e hoje já não tenho mais horários próximos disponíveis.\n\n"
-                        "Me fala outro dia e horário que eu vejo o melhor pra você 😊",
-                        parse_mode="Markdown"
-                )
+                        "Me fala outro dia e horário que eu vejo o melhor pra você 😊"
+                    )
+                    already_sent = False
+                    if update and update.message:
+                        await update.message.reply_text(msg, parse_mode="Markdown")
+                        already_sent = True
+                    return resultado_acao(
+                        ok=True,
+                        acao=acao,
+                        resposta=msg,
+                        resultado={"motivo": "fora_do_expediente_sem_alternativa"},
+                        already_sent=already_sent
+                    )
 
             resultado = await verificar_conflito_e_sugestoes_profissional(
                 user_id=user_id,
@@ -538,8 +720,23 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     f"Deseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
                 )
 
-                await update.message.reply_text(mensagem, parse_mode="Markdown")
-                return True
+                # [P0.3] Retornar dict
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(mensagem, parse_mode="Markdown")
+                    already_sent = True
+
+                return resultado_acao(
+                    ok=True,
+                    acao=acao,
+                    resposta=mensagem,
+                    resultado={
+                        "motivo": "conflito_detectado",
+                        "horarios_sugeridos": horarios_formatados,
+                        "alternativas": alternativas
+                    },
+                    already_sent=already_sent
+                )
 
             # ✅ SEM CONFLITO → SALVA CONTEXTO + CONFIRMAÇÃO
             contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=id_dono) or {}
@@ -572,16 +769,28 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             except Exception:
                 data_fmt = data_hora
 
-            await update.message.reply_text(
-                (
-                    f"✨ *{servico.capitalize()} com {prof}*\n"
-                    f"📆 {data_fmt}\n\n"
-                    f"Posso confirmar?"
-                ),
-                parse_mode="Markdown"
+            # [P0.3] Separar execução de transporte — sempre retornar ResultadoAcao com resposta
+            mensagem = (
+                f"✨ *{servico.capitalize()} com {prof}*\n"
+                f"📆 {data_fmt}\n\n"
+                f"Posso confirmar?"
             )
 
-            return True
+            already_sent = False
+            if update and update.message:
+                await update.message.reply_text(mensagem, parse_mode="Markdown")
+                already_sent = True
+            else:
+                # [P0.3] WhatsApp: resposta será entregue pelo adapter — não enviar aqui
+                print(f"[P0.3] Confirmação de agendamento preparada — resposta no dict, adapter entrega", flush=True)
+
+            return resultado_acao(
+                ok=True,
+                acao=acao,
+                resposta=mensagem,
+                resultado={"servico": servico, "profissional": prof, "data_hora": data_hora},
+                already_sent=already_sent
+            )
 
         elif acao == "criar_evento":
             # ✅ GATE: valida profissional vs serviço antes de agendar
@@ -600,9 +809,19 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: profissional={repr(dados.get('profissional'))}", flush=True)
 
             if not user_id:
+                # [P0.3] Retornar dict de erro
+                msg = "⚠️ Não consegui identificar o usuário para criar o evento."
+                already_sent = False
                 if update and hasattr(update, "message"):
-                    await update.message.reply_text("⚠️ Não consegui identificar o usuário para criar o evento.")
-                return True
+                    await update.message.reply_text(msg)
+                    already_sent = True
+                return resultado_acao(
+                    ok=False,
+                    acao=acao,
+                    resposta=msg,
+                    erro="user_id_not_identified",
+                    already_sent=already_sent
+                )
 
             dono_id = await obter_id_dono(user_id)
             # [WhatsApp] Se update=None e dono_id é None, usar tenant_id de dados_exec
@@ -631,15 +850,24 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 if validos:
                     validos_norm = {_normalizar_nome(x) for x in validos}
                     if prof_escolhido_norm and prof_escolhido_norm not in validos_norm:
-                        # ❌ não agenda
+                        # [P0.3] Profissional inválido — retornar dict
                         lista_txt = ", ".join(validos)
+                        msg = (
+                            f"Para *{servico_ctx}*, eu tenho: {lista_txt}.\n"
+                            f"Quem você prefere?"
+                        )
+                        already_sent = False
                         if update and hasattr(update, "message"):
-                            await update.message.reply_text(
-                                f"Para *{servico_ctx}*, eu tenho: {lista_txt}.\n"
-                                f"Quem você prefere?",
-                                parse_mode="Markdown"
-                            )
-                        return True  # handled
+                            await update.message.reply_text(msg, parse_mode="Markdown")
+                            already_sent = True
+                        return resultado_acao(
+                            ok=True,
+                            acao=acao,
+                            resposta=msg,
+                            resultado={"motivo": "profissional_invalido", "validos": validos},
+                            already_sent=already_sent,
+                            handled=True
+                        )
 
             # ✅ passou no gate → executa normal
             await add_evento_por_gpt(update, context, dados)
@@ -655,8 +883,19 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             # P0.1A: Cancelamento com confirmação obrigatória
             user_id = _obter_user_id(update, context)
             if not user_id:
-                await update.message.reply_text("⚠️ Não consegui identificar quem está solicitando o cancelamento.")
-                return True
+                # [P0.3] Retornar dict
+                msg = "⚠️ Não consegui identificar quem está solicitando o cancelamento."
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(msg)
+                    already_sent = True
+                return resultado_acao(
+                    ok=False,
+                    acao=acao,
+                    resposta=msg,
+                    erro="user_id_not_identified",
+                    already_sent=already_sent
+                )
 
             termo = (dados or {}).get("termo") or getattr(getattr(update, "message", None), "text", "") or ""
 
@@ -664,24 +903,45 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             ok, msg, candidatos = await cancelar_evento_por_texto(user_id, termo)
 
             if not candidatos:
-                # Nenhum encontrado
-                await update.message.reply_text(msg)
-                return True
+                # [P0.3] Nenhum encontrado — retornar dict
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(msg)
+                    already_sent = True
+                return resultado_acao(
+                    ok=False,
+                    acao=acao,
+                    resposta=msg,
+                    erro="no_events_found",
+                    already_sent=already_sent
+                )
 
             # Limpar estado anterior
-            context.user_data.pop("cancelamento_pendente", None)
+            if context:
+                context.user_data.pop("cancelamento_pendente", None)
 
             # 🔥 P0: Sanitizar cancelamento_pendente — APENAS dados serializáveis
             cancelamento_sanitizado = sanitizar_cancelamento_pendente(candidatos, user_id)
 
             if not cancelamento_sanitizado:
-                # Erro de serialização — não continuar
-                await update.message.reply_text("Não consegui preparar o cancelamento. Pode tentar novamente?")
-                return True
+                # [P0.3] Erro de serialização — retornar dict
+                msg_erro = "Não consegui preparar o cancelamento. Pode tentar novamente?"
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(msg_erro)
+                    already_sent = True
+                return resultado_acao(
+                    ok=False,
+                    acao=acao,
+                    resposta=msg_erro,
+                    erro="serialization_error",
+                    already_sent=already_sent
+                )
 
             # Salvar contexto sanitizado
-            context.user_data["cancelamento_pendente"] = cancelamento_sanitizado
-            context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
+            if context:
+                context.user_data["cancelamento_pendente"] = cancelamento_sanitizado
+                context.user_data["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
 
             # 🔥 P0: Limpar lixo de agendamento antes de entrar em cancelamento
             ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
@@ -696,9 +956,18 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             ctx["estado_fluxo"] = "aguardando_confirmacao_cancelamento"
             await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
-            # Mensagem (criada por cancelar_evento_por_texto)
-            await update.message.reply_text(msg)
-            return True
+            # [P0.3] Retornar dict em vez de reply_text
+            already_sent = False
+            if update and update.message:
+                await update.message.reply_text(msg)
+                already_sent = True
+            return resultado_acao(
+                ok=True,
+                acao=acao,
+                resposta=msg,
+                resultado={"cancelamento_pendente": cancelamento_sanitizado},
+                already_sent=already_sent
+            )
 
         elif acao == "enviar_email":
             destinatario = dados.get("destinatario")
@@ -712,8 +981,19 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         elif acao == "buscar_eventos_do_dia":
             user_id = _obter_user_id(update, context)
             if not user_id:
-                await update.message.reply_text("⚠️ Não consegui identificar o usuário para consultar a agenda.")
-                return True
+                # [P0.3] Retornar dict
+                msg = "⚠️ Não consegui identificar o usuário para consultar a agenda."
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(msg)
+                    already_sent = True
+                return resultado_acao(
+                    ok=False,
+                    acao=acao,
+                    resposta=msg,
+                    erro="user_id_not_identified",
+                    already_sent=already_sent
+                )
 
             dias = int((dados or {}).get("dias", 0))
             eventos = await buscar_eventos_por_intervalo(user_id, dias=dias) or []
@@ -732,17 +1012,23 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 when = _fmt(data_hora) if data_hora else "nesse horário"
 
                 if prof:
-                    await update.message.reply_text(
-                        f"✅ A agenda da *{prof}* está livre *{when}*. Quer que eu agende?",
-                        parse_mode="Markdown"
-                    )
+                    msg = f"✅ A agenda da *{prof}* está livre *{when}*. Quer que eu agende?"
                 else:
-                    await update.message.reply_text(
-                        f"✅ Está livre em *{when}*. Quer que eu agende?",
-                        parse_mode="Markdown"
-                    )
+                    msg = f"✅ Está livre em *{when}*. Quer que eu agende?"
 
-                return True
+                # [P0.3] Retornar dict
+                already_sent = False
+                if update and update.message:
+                    await update.message.reply_text(msg, parse_mode="Markdown")
+                    already_sent = True
+
+                return resultado_acao(
+                    ok=True,
+                    acao=acao,
+                    resposta=msg,
+                    resultado={"eventos": [], "motivo": "sem_eventos"},
+                    already_sent=already_sent
+                )
 
             # Se você já tem formatador padronizado:
             try:
@@ -756,10 +1042,28 @@ async def executar_acao_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                     )
                 texto = "📅 Eventos do dia:\n\n" + "\n".join(linhas)
 
-            await update.message.reply_text(texto, parse_mode="Markdown")
-            return True
+            # [P0.3] Retornar dict
+            already_sent = False
+            if update and update.message:
+                await update.message.reply_text(texto, parse_mode="Markdown")
+                already_sent = True
 
-        return False
+            return resultado_acao(
+                ok=True,
+                acao=acao,
+                resposta=texto,
+                resultado={"eventos": eventos, "count": len(eventos)},
+                already_sent=already_sent
+            )
+
+        # [P0.3] Ação não reconhecida — retornar dict em vez de False
+        return resultado_acao(
+            ok=False,
+            acao=acao,
+            resposta=None,
+            erro="acao_nao_reconhecida",
+            already_sent=False
+        )
 
     except Exception as e:
         import traceback
