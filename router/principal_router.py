@@ -4318,11 +4318,37 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         }
         ctx["objetivo_conversacional"] = "encerrar_fluxo_agendamento"
 
-    # 🔒 P0: ajuste incremental vence preservação de contexto confirmacao_pendente
+    # 🔒 P0: ajuste incremental — detectar se é realmente alteração ou apenas reiteração
+    # Antes de forçar ajuste_incremental, verificar se os dados do draft foram realmente alterados
     if preservar_confirmacao_pendente and class_intencao.get("intencao_conversacional") == "ajuste_incremental":
-        ctx["intencao_conversacional"] = "ajuste_incremental"
-        ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca", 90)
-        ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
+        # Usar a função existente para diferenciar reiteração de alteração real
+        alteracao_real = await detectar_alteracao_draft_agendamento(
+            texto_usuario,
+            ctx,
+            dono_id,
+            cliente_id
+        )
+
+        if alteracao_real is None:
+            # REITERAÇÃO: Dados idênticos ao draft
+            # NÃO forçar ajuste_incremental
+            # Preservar estado original de confirmação pendente
+            print(
+                "[P0_REITERAÇÃO_DETECTADA] Dados idênticos ao draft, mantendo confirmação pendente",
+                flush=True
+            )
+            # NÃO executar bloco P0 abaixo — deixar passar para confirmação pendente
+        else:
+            # ALTERAÇÃO REAL: Dados divergem do draft
+            # PERMITIR transformação em ajuste_incremental
+            print(
+                f"[P0_ALTERAÇÃO_REAL] Mudança detectada: {alteracao_real.get('tipo')}",
+                flush=True
+            )
+            # Executar bloco P0 original
+            ctx["intencao_conversacional"] = "ajuste_incremental"
+            ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca", 90)
+            ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
 
     # =========================================================
     # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
