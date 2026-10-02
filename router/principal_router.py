@@ -2227,9 +2227,16 @@ async def detectar_alteracao_draft_agendamento(
         data_base = data_hora_atual.split("T")[0] if data_hora_atual else dt_novo.strftime("%Y-%m-%d")
 
         if _tem_indicio_de_hora(texto_usuario):
+            nova_data_hora_str = dt_novo.strftime("%Y-%m-%dT%H:%M:%S")
+
+            # Guard: Se data_hora é idêntica ao draft, não é alteração
+            # É reitação do mesmo agendamento, não ajuste
+            if data_hora_atual and nova_data_hora_str == data_hora_atual:
+                return None
+
             return {
                 "tipo": "data_hora",
-                "valor": dt_novo.strftime("%Y-%m-%dT%H:%M:%S")
+                "valor": nova_data_hora_str
             }
 
     # =====================================================
