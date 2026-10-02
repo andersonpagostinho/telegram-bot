@@ -3704,9 +3704,50 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     print(f"[INTENÇÃO_ANTECIPADA] {class_intencao}", flush=True)
 
-    ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
-    ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
-    ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
+    # 🔒 P0: PATCH P0 — Detectar reiteração vs alteração ANTES de salvar intenção
+    # Se está em confirmação pendente e classificou como ajuste_incremental,
+    # verificar se dados realmente mudaram
+    if (
+        ctx.get("estado_fluxo") == "agendando"
+        and (ctx.get("aguardando_confirmacao_agendamento") or ctx.get("dados_confirmacao_agendamento"))
+        and class_intencao.get("intencao_conversacional") == "ajuste_incremental"
+    ):
+        # Usar a função existente para diferenciar reiteração de alteração real
+        alteracao_real = await detectar_alteracao_draft_agendamento(
+            texto_usuario,
+            ctx,
+            dono_id,
+            cliente_id
+        )
+
+        if alteracao_real is None:
+            # REITERAÇÃO: Dados idênticos ao draft
+            # NÃO forçar ajuste_incremental — deixar passar para confirmação pendente
+            print(
+                "[P0_REITERAÇÃO_DETECTADA] Dados idênticos ao draft, mantendo confirmação pendente",
+                flush=True
+            )
+            # Flag para indicar que é reiteração (não modificar class_intencao aqui)
+            # Deixar que o fluxo de confirmação pendente trate isso
+            ctx["_p0_reiteracao_detectada"] = True
+        else:
+            # ALTERAÇÃO REAL: Dados divergem do draft
+            # PERMITIR transformação em ajuste_incremental
+            print(
+                f"[P0_ALTERAÇÃO_REAL] Mudança detectada: {alteracao_real.get('tipo')}",
+                flush=True
+            )
+            # Manter class_intencao como "ajuste_incremental" (não modificar)
+
+    # Se foi detectada reiteração, NÃO salvar ajuste_incremental na intenção
+    # Isso vai permitir que o bloco de confirmação pendente trate isso
+    if not ctx.get("_p0_reiteracao_detectada"):
+        ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
+        ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
+        ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
+    else:
+        # Reiteração: preservar intenção anterior (não sobrescrever com ajuste_incremental)
+        print("[P0_REITERAÇÃO] NÃO sobrescrevendo intencao_conversacional", flush=True)
 
     await salvar_contexto_temporario_v2(dono_id, cliente_id, {
         "intencao_conversacional": ctx.get("intencao_conversacional"),
@@ -4318,37 +4359,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         }
         ctx["objetivo_conversacional"] = "encerrar_fluxo_agendamento"
 
-    # 🔒 P0: ajuste incremental — detectar se é realmente alteração ou apenas reiteração
-    # Antes de forçar ajuste_incremental, verificar se os dados do draft foram realmente alterados
-    if preservar_confirmacao_pendente and class_intencao.get("intencao_conversacional") == "ajuste_incremental":
-        # Usar a função existente para diferenciar reiteração de alteração real
-        alteracao_real = await detectar_alteracao_draft_agendamento(
-            texto_usuario,
-            ctx,
-            dono_id,
-            cliente_id
-        )
-
-        if alteracao_real is None:
-            # REITERAÇÃO: Dados idênticos ao draft
-            # NÃO forçar ajuste_incremental
-            # Preservar estado original de confirmação pendente
-            print(
-                "[P0_REITERAÇÃO_DETECTADA] Dados idênticos ao draft, mantendo confirmação pendente",
-                flush=True
-            )
-            # NÃO executar bloco P0 abaixo — deixar passar para confirmação pendente
-        else:
-            # ALTERAÇÃO REAL: Dados divergem do draft
-            # PERMITIR transformação em ajuste_incremental
-            print(
-                f"[P0_ALTERAÇÃO_REAL] Mudança detectada: {alteracao_real.get('tipo')}",
-                flush=True
-            )
-            # Executar bloco P0 original
-            ctx["intencao_conversacional"] = "ajuste_incremental"
-            ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca", 90)
-            ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
 
     # =========================================================
     # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
