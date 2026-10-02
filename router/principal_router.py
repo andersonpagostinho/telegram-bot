@@ -3662,22 +3662,42 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     })
 
     # =========================================================
-    # 🔥 PATCH P0.5 V2: Detectar novo agendamento via semântica
+    # 🔥 PATCH P0.5 V3: Detectar novo agendamento via semântica + comparação
     # 🔥 CRÍTICO: Evitar que usuário fique preso em estado "profissional_nao_atende"
+    # 🔥 NOVO: Verificar se é reiteration vs novo agendamento antes de limpar draft
     # =========================================================
     if (
         ctx.get("motivo_estado") == "profissional_nao_atende_servico"
         and ctx.get("intencao_conversacional") in ["agendamento_direto", "pedido_aberto_temporal"]
     ):
-        print(f"[PATCH_P0.5] Novo agendamento detectado via intenção_conversacional, limpando estado anterior", flush=True)
-        ctx.pop("motivo_estado", None)
-        ctx.pop("estado_fluxo", None)
-        ctx.pop("profissional_rejeitado", None)
-        ctx.pop("profissionais_validos", None)
-        ctx.pop("draft_agendamento", None)
-        ctx.pop("profissional_escolhido", None)
-        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-        print(f"[PATCH_P0.5] Estado anterior limpo, novo agendamento iniciado", flush=True)
+        # Verificar se a mensagem atual representa o mesmo pedido ou um novo pedido
+        alteracao = await detectar_alteracao_draft_agendamento(
+            texto_usuario,
+            ctx,
+            dono_id,
+            cliente_id
+        )
+
+        if alteracao is None:
+            # Reiteration: mesmo agendamento
+            # Limpar apenas o motivo_estado, preservar draft_agendamento
+            print(f"[PATCH_P0.5 V3] Reiteration detectada: mesmo agendamento, preservando draft", flush=True)
+            ctx.pop("motivo_estado", None)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, {
+                "motivo_estado": firestore.DELETE_FIELD
+            })
+        else:
+            # Novo agendamento: algo diverge (serviço, data, profissional)
+            # Executar limpeza completa do P0.5 atual
+            print(f"[PATCH_P0.5 V3] Novo agendamento detectado: {alteracao.get('tipo')}, limpando estado anterior", flush=True)
+            ctx.pop("motivo_estado", None)
+            ctx.pop("estado_fluxo", None)
+            ctx.pop("profissional_rejeitado", None)
+            ctx.pop("profissionais_validos", None)
+            ctx.pop("draft_agendamento", None)
+            ctx.pop("profissional_escolhido", None)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            print(f"[PATCH_P0.5 V3] Estado anterior limpo, novo agendamento iniciado", flush=True)
 
     # =========================================================
     # 🔥 PATCH P0: Handler para "sim/não" após profissional inválido
