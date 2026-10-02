@@ -10898,7 +10898,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "aguardando_profissional",
         "aguardando_data",
         "aguardando_horario",
-        "agendando"
+        "agendando",
+        "ajustando_agendamento"
     ]
 
     if interceptar_flow_guard:
