@@ -10752,7 +10752,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 prof_doc = p
                 break
 
-        print(f"[DEBUG P0 PROF_DOC] prof_check={prof_check!r} | prof_doc_found={prof_doc is not None} | prof_doc={prof_doc!r if prof_doc else 'None'}", flush=True)
+        prof_doc_str = str(prof_doc) if prof_doc else "None"
+        print(f"[DEBUG P0 PROF_DOC] prof_check={prof_check!r} | prof_doc_found={prof_doc is not None} | prof_doc={prof_doc_str!r}", flush=True)
 
         servicos_prof = [str(s).strip() for s in (prof_doc or {}).get("servicos", []) if str(s).strip()]
         print(f"[DEBUG FLOW 10746] SERVICOS_PROF CHECK | servico_check={servico_check!r} | servicos_prof={servicos_prof!r}", flush=True)
