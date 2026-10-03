@@ -155,6 +155,17 @@ async def executar_confirmacao_generica(user_id, contexto_salvo, tenant_id=None)
         servico = contexto_salvo.get("servico")
         data_hora = dados_anteriores.get("data_hora")
 
+        print(
+            f"[DIAG CRIAR_EVENTO] "
+            f"profissional={profissional!r} | "
+            f"servico={servico!r} | "
+            f"data_hora={data_hora!r} | "
+            f"user_id={user_id!r} | "
+            f"tenant_id={tenant_id!r} | "
+            f"dados_anteriores_keys={list((dados_anteriores or {}).keys())}",
+            flush=True
+        )
+
         if profissional and servico and data_hora:
             duracao = estimar_duracao(servico)
             contexto_salvo.update({

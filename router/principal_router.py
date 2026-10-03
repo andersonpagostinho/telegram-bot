@@ -6166,6 +6166,17 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # PRIORIDADE ALTA — CONTINUIDADE DE AÇÃO PENDENTE
     # Ex.: resolver_fora_do_expediente, trocar profissional, etc.
     # =========================================================
+    eh_aceite = eh_aceite_de_acao_pendente(texto_usuario, ctx)
+    print(
+        f"[DIAG CONFIRMACAO] "
+        f"ultima_acao={ctx.get('ultima_acao')} | "
+        f"estado_fluxo={ctx.get('estado_fluxo')} | "
+        f"intencao_conversacional={ctx.get('intencao_conversacional')} | "
+        f"eh_aceite_acao_pendente={eh_aceite} | "
+        f"texto_usuario={texto_usuario!r}",
+        flush=True
+    )
+
     if (
         ctx.get("ultima_acao")
         and ctx.get("estado_fluxo") not in ["aguardando_escolha_horario"]
@@ -6174,7 +6185,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             "descobrir_servico_para_consulta",
             "consultar_agendamentos_usuario",
         ]
-        and eh_aceite_de_acao_pendente(texto_usuario, ctx)
+        and eh_aceite
     ):
         print(
             f"🔥 [CONTINUIDADE PENDENTE] ultima_acao={ctx.get('ultima_acao')}",

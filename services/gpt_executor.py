@@ -875,6 +875,18 @@ async def executar_acao_gpt(
                         )
 
             # ✅ passou no gate → executa normal
+            print(
+                f"[DIAG EXECUTOR] "
+                f"update={update is None and 'None' or 'presente'} | "
+                f"context={context is not None and 'presente' or 'None'} | "
+                f"acao={acao!r} | "
+                f"dados_keys={list((dados or {}).keys())} | "
+                f"profissional={dados.get('profissional')!r} | "
+                f"servico={dados.get('servico')!r} | "
+                f"data_hora={dados.get('data_hora')!r} | "
+                f"tenant_id={dados.get('tenant_id')!r}",
+                flush=True
+            )
             await add_evento_por_gpt(update, context, dados)
             return True  # ✅ sempre "handled": add_evento_por_gpt já responde (sucesso OU conflito)
 
