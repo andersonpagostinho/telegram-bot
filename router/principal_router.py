@@ -10738,7 +10738,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         data_ref = data_hora_check.split("T")[0]
         hora_ref = data_hora_check.split("T")[1][:5]
 
-        id_dono = await obter_id_dono(user_id)
+        id_dono = dono_id
         print(f"[DEBUG P0 TENANT] dono_id={dono_id!r} | id_dono={id_dono!r} | equals={dono_id == id_dono}", flush=True)
 
         # 🔒 valida se o profissional realmente faz o serviço
