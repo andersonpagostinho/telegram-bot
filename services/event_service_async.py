@@ -1275,6 +1275,7 @@ async def verificar_conflito_e_sugestoes_profissional(
     )
 
     eventos = await buscar_subcolecao(path_eventos) or {}
+    eventos = {eid: ev for eid, ev in eventos.items() if ev.get("data") == data}
     profissionais = await buscar_subcolecao(f"Clientes/{user_id_efetivo}/Profissionais") or {}
 
     print(
