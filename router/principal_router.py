@@ -10431,6 +10431,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             else:
                 dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
 
+                # P0.6 — Sincronizar draft com novo data_hora quando tipo_ajuste == "data"
+                if tipo_ajuste == "data" and ctx.get("data_hora"):
+                    draft_inc["data_hora"] = ctx.get("data_hora")
+
                 # preserva campos operacionais já conhecidos
                 draft_inc["servico"] = (
                     ctx.get("servico")
@@ -10445,9 +10449,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 )
 
                 draft_inc["data_hora"] = (
-                    ctx.get("data_hora")
-                    or draft_inc.get("data_hora")
+                    draft_inc.get("data_hora")
                     or dados_conf.get("data_hora")
+                    or ctx.get("data_hora")
                 )
 
                 ctx["draft_agendamento"] = draft_inc
