@@ -10739,9 +10739,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         hora_ref = data_hora_check.split("T")[1][:5]
 
         id_dono = await obter_id_dono(user_id)
+        print(f"[DEBUG P0 TENANT] dono_id={dono_id!r} | id_dono={id_dono!r} | equals={dono_id == id_dono}", flush=True)
 
         # 🔒 valida se o profissional realmente faz o serviço
         profissionais_dict = await buscar_subcolecao(f"Clientes/{id_dono}/Profissionais") or {}
+        print(f"[DEBUG P0 PROFISSIONAIS] path=Clientes/{id_dono}/Profissionais | dict_keys={list(profissionais_dict.keys())!r} | count={len(profissionais_dict)}", flush=True)
         prof_doc = None
 
         for _, p in profissionais_dict.items():
@@ -10749,6 +10751,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if nomep and normalizar(nomep) == normalizar(prof_check):
                 prof_doc = p
                 break
+
+        print(f"[DEBUG P0 PROF_DOC] prof_check={prof_check!r} | prof_doc_found={prof_doc is not None} | prof_doc={prof_doc!r if prof_doc else 'None'}", flush=True)
 
         servicos_prof = [str(s).strip() for s in (prof_doc or {}).get("servicos", []) if str(s).strip()]
         print(f"[DEBUG FLOW 10746] SERVICOS_PROF CHECK | servico_check={servico_check!r} | servicos_prof={servicos_prof!r}", flush=True)
