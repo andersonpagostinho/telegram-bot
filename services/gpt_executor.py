@@ -766,6 +766,7 @@ async def executar_acao_gpt(
             contexto_tmp["servico"] = servico
             contexto_tmp["data_hora"] = data_hora
             contexto_tmp["ultima_opcao_profissionais"] = [prof]
+            contexto_tmp["ultima_acao"] = "criar_evento"
 
             await salvar_contexto_temporario(user_id, contexto_tmp, tenant_id=tenant_id)
 
