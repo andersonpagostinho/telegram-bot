@@ -392,7 +392,10 @@ async def executar_acao_gpt(
             # =========================================================
             # 🔒 VALIDAÇÃO DE EXPEDIENTE (FALTAVA AQUI)
             # =========================================================
-            id_dono = await obter_id_dono(user_id)
+            if identidade and identidade.tenant_id:
+                id_dono = identidade.tenant_id
+            else:
+                id_dono = await obter_id_dono(user_id)
 
             validacao = await validar_horario_funcionamento(
                 user_id=id_dono,
