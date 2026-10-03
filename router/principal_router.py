@@ -7596,7 +7596,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             "data_hora": nova_data_hora,
                             "servico": ctx.get("servico"),
                             "profissional": ctx.get("profissional_escolhido"),
-                        }
+                        },
+                        identidade=identidade_p01
                     )
 
                 if melhor_sugestao:
@@ -11401,7 +11402,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "data_hora": ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora"),
                 "servico": ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico"),
                 "profissional": ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional"),
-            }
+            },
+            identidade=identidade_p01
         )
     # 🛡 RESPOSTA DETERMINÍSTICA PARA CONSULTA PURA (sem GPT)
     eh_consulta_pura = (
