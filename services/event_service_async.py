@@ -1179,7 +1179,8 @@ async def verificar_conflito_e_sugestoes_profissional(
     duracao_min: int,
     profissional: str,
     servico,
-    event_id: str = None
+    event_id: str = None,
+    tenant_id: str | None = None
 ) -> dict:
     from datetime import datetime, timedelta
     from unidecode import unidecode
@@ -1210,51 +1211,61 @@ async def verificar_conflito_e_sugestoes_profissional(
     fim_novo = inicio_novo + timedelta(minutes=duracao_min)
 
     # 2) Ajusta para modo híbrido de forma segura
-    dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
-    user_id_efetivo = user_id
-
-    print(
-        f"\n[DIAG_TENANT] user_id recebido: {user_id}",
-        flush=True
-    )
-    print(
-        f"[DIAG_TENANT] Documento encontrado: {bool(dados_usuario)}",
-        flush=True
-    )
-
-    # CORREÇÃO P0: Se documento tem id_negocio, é cliente → resolve tenant
-    # Se NÃO tem id_negocio, provavelmente JÁ é tenant → usa direto
-    if dados_usuario.get("id_negocio"):
-        # Cliente: tem id_negocio → usar esse como tenant
-        user_id_efetivo = dados_usuario.get("id_negocio")
+    # [CORREÇÃO A] Se tenant_id foi fornecido explicitamente, usar direto
+    if tenant_id:
+        user_id_efetivo = tenant_id
         print(
-            f"[DIAG_TENANT] Tipo: CLIENTE com id_negocio={user_id_efetivo}",
+            f"\n[DIAG_TENANT] Usando tenant_id explícito: {tenant_id}",
             flush=True
         )
     else:
-        # Tenant ou cliente desconhecido
-        tipo = (dados_usuario.get("tipo_usuario") or "cliente").strip().lower()
-        modo = (dados_usuario.get("modo_uso") or "").strip().lower()
+        # Comportamento legado: resolver a partir de user_id
+        dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+        user_id_efetivo = user_id
 
         print(
-            f"[DIAG_TENANT] Tipo: {tipo}, Modo: {modo}",
+            f"\n[DIAG_TENANT] user_id recebido: {user_id}",
+            flush=True
+        )
+        print(
+            f"[DIAG_TENANT] Documento encontrado: {bool(dados_usuario)}",
             flush=True
         )
 
-        if tipo == "cliente" or modo == "atendimento_cliente":
-            # Tentar resolver como cliente
-            tenant_resolvido = await obter_tenant_id(user_id)
-            if tenant_resolvido:
-                user_id_efetivo = tenant_resolvido
-                print(
-                    f"[DIAG_TENANT] Resolvido como cliente, tenant={user_id_efetivo}",
-                    flush=True
-                )
-        else:
+        # CORREÇÃO P0: Se documento tem id_negocio, é cliente → resolve tenant
+        # Se NÃO tem id_negocio, provavelmente JÁ é tenant → usa direto
+        if dados_usuario.get("id_negocio"):
+            # Cliente: tem id_negocio → usar esse como tenant
+            user_id_efetivo = dados_usuario.get("id_negocio")
             print(
-                f"[DIAG_TENANT] Usando user_id como tenant direto",
+                f"[DIAG_TENANT] Tipo: CLIENTE com id_negocio={user_id_efetivo}",
                 flush=True
             )
+        else:
+            # Tenant ou cliente desconhecido
+            tipo = (dados_usuario.get("tipo_usuario") or "cliente").strip().lower()
+            modo = (dados_usuario.get("modo_uso") or "").strip().lower()
+
+            print(
+                f"[DIAG_TENANT] Tipo: {tipo}, Modo: {modo}",
+                flush=True
+            )
+
+            if tipo == "cliente" or modo == "atendimento_cliente":
+                # Tentar resolver como cliente
+                tenant_resolvido = await obter_tenant_id(user_id)
+                if tenant_resolvido:
+                    user_id_efetivo = tenant_resolvido
+                    print(
+                        f"[DIAG_TENANT] Resolvido como cliente, tenant={user_id_efetivo}",
+                        flush=True
+                    )
+            else:
+                print(
+                    f"[DIAG_TENANT] Usando user_id como tenant direto",
+                    flush=True
+                )
+                user_id_efetivo = user_id
 
     # 3) Busca eventos e profissionais
     path_eventos = f"Clientes/{user_id_efetivo}/Eventos"

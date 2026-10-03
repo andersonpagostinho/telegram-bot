@@ -624,7 +624,8 @@ async def executar_acao_gpt(
                 hora_inicio=hora,
                 duracao_min=duracao,
                 profissional=prof,
-                servico=servico
+                servico=servico,
+                tenant_id=tenant_id
             )
 
             # 🚨 CONFLITO
@@ -656,7 +657,8 @@ async def executar_acao_gpt(
                             hora_inicio=hora,
                             duracao_min=duracao,
                             profissional=nome_alt,
-                            servico=servico
+                            servico=servico,
+                            tenant_id=tenant_id
                         )
 
                         if not resultado_alt.get("conflito"):

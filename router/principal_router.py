@@ -1926,7 +1926,8 @@ async def precheck_e_confirmacao_agendamento(
     valido = await validar_profissional_para_servico(
         dono_id=dono_id,
         profissional=prof,
-        servico=servico
+        servico=servico,
+        tenant_id=dono_id
     )
 
     print(f"[PRE-CHECK COMPATIBILIDADE] prof={prof} | servico={servico} | ok={valido.get('ok')}", flush=True)
@@ -1993,7 +1994,8 @@ async def precheck_e_confirmacao_agendamento(
         hora_inicio=dt_obj.strftime("%H:%M"),
         duracao_min=estimar_duracao(servico),
         profissional=prof,
-        servico=servico
+        servico=servico,
+        tenant_id=dono_id
     )
     print(" [PRE-CHECK RESULTADO]:", conflito_info, flush=True)
 
@@ -2682,7 +2684,8 @@ async def resolver_alteracao_draft_agendamento(
         valido = await validar_profissional_para_servico(
             dono_id=user_id,
             profissional=novo_profissional,
-            servico=servico
+            servico=servico,
+        tenant_id=dono_id
         )
 
         print(f"[TYPE_AUDIT_2163] valido={type(valido)} value={repr(valido)}", flush=True)
@@ -2724,7 +2727,8 @@ async def resolver_alteracao_draft_agendamento(
             hora_inicio=hora,
             duracao_min=duracao,
             profissional=novo_profissional,
-            servico=servico
+            servico=servico,
+        tenant_id=dono_id
         )
 
         print(f"[TYPE_AUDIT_2203] conflito={type(conflito)} value={repr(conflito)}", flush=True)
@@ -2760,7 +2764,8 @@ async def resolver_alteracao_draft_agendamento(
                     hora_inicio=hora,
                     duracao_min=duracao,
                     profissional=profissional_anterior,
-                    servico=servico
+                    servico=servico,
+        tenant_id=dono_id
                 )
 
                 if not conflito_anterior.get("conflito"):
@@ -2925,7 +2930,8 @@ async def resolver_alteracao_draft_agendamento(
             hora_inicio=hora,
             duracao_min=duracao,
             profissional=profissional,
-            servico=servico
+            servico=servico,
+        tenant_id=dono_id
         )
 
         if conflito.get("conflito"):
@@ -3292,7 +3298,8 @@ async def buscar_horario_ajuste_no_dia(
             hora_inicio=hora,
             duracao_min=duracao_min,
             profissional=profissional,
-            servico=servico
+            servico=servico,
+        tenant_id=dono_id
         )
 
         if not conflito.get("conflito"):
@@ -4234,7 +4241,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ok, msg, candidatos = await cancelar_evento_por_texto(
             user_id=user_id,
             termo=termo,
-            tenant_id=dono_id
+        tenant_id=dono_id
         )
 
         print(f"[P0-CANCELAMENTO_BUSCA] encontrados={len(candidatos)} | msg={msg[:50]}", flush=True)
@@ -8655,7 +8662,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             hora_inicio=dt_teste.strftime("%H:%M"),
                             duracao_min=estimar_duracao(servico),
                             profissional=nome_prof,
-                            servico=servico
+                            servico=servico,
+        tenant_id=dono_id
                         )
 
                         if not conflito.get("conflito"):
@@ -9033,7 +9041,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         hora_inicio=dt_teste.strftime("%H:%M"),
                         duracao_min=estimar_duracao(servico),
                         profissional=prof,
-                        servico=servico
+                        servico=servico,
+        tenant_id=dono_id
                     )
 
                     if not conflito.get("conflito"):
@@ -11158,7 +11167,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             hora_inicio=hora_str,
                             duracao_min=duracao_minutos,
                             profissional=profissional,
-                            servico=servico
+                            servico=servico,
+        tenant_id=dono_id
                         )
 
                         if conflito_info.get("conflito"):
