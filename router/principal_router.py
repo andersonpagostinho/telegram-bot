@@ -10668,11 +10668,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # mas ainda falta serviço, valida se a hora pedida existe
     # dentro da janela-base do dia. Não valida duração ainda.
     # =========================================================
+    print(f"[DEBUG FLOW 10671] ENTER JANELA-BASE CHECK | proximo_passo_real={proximo_passo_real!r}", flush=True)
     if (
         proximo_passo_real == "perguntar_servico"
         and slots_extraidos.get("data_hora")
         and slots_extraidos.get("profissional")
     ):
+        print("[DEBUG FLOW 10676] ENTERING JANELA-BASE TRY BLOCK", flush=True)
         try:
             data_hora_base = slots_extraidos["data_hora"]
             data_ref = data_hora_base.split("T")[0]
@@ -10717,6 +10719,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         except Exception as e:
             print(f" [PRECHECK JANELA-BASE] erro: {e}", flush=True)
 
+    print("[DEBUG FLOW 10721] EXIT JANELA-BASE CHECK, ENTERING P0 SECTION", flush=True)
+
     # =========================================================
     # 🔥 P0 — PRÉ-CHECAGEM (SEM GPT)
     # só executa se o horário estiver válido no expediente
@@ -10725,9 +10729,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     servico_check = slots_extraidos.get("servico")
     prof_check = slots_extraidos.get("profissional")
 
+    print(f"[DEBUG FLOW 10724] P0 VARIABLES | data_hora={data_hora_check!r} | servico={servico_check!r} | prof={prof_check!r}", flush=True)
+
     pode_executar_p0 = False
 
     if data_hora_check and servico_check and prof_check:
+        print("[DEBUG FLOW 10730] ENTER P0 VALIDATION BLOCK", flush=True)
         data_ref = data_hora_check.split("T")[0]
         hora_ref = data_hora_check.split("T")[1][:5]
 
@@ -10744,8 +10751,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 break
 
         servicos_prof = [str(s).strip() for s in (prof_doc or {}).get("servicos", []) if str(s).strip()]
+        print(f"[DEBUG FLOW 10746] SERVICOS_PROF CHECK | servico_check={servico_check!r} | servicos_prof={servicos_prof!r}", flush=True)
 
         if not any(normalizar(servico_check) == normalizar(s) for s in servicos_prof):
+            print("[DEBUG FLOW 10748] SERVICO NAO ENCONTRADO - PROCURANDO ALTERNATIVAS", flush=True)
             profissionais_aptos = []
             for _, p in profissionais_dict.items():
                 nome_alt = (p.get("nome") or "").strip()
@@ -10756,6 +10765,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if profissionais_aptos:
                 if len(profissionais_aptos) == 1:
                     nome_unico = profissionais_aptos[0]
+                    print(f"[DEBUG FLOW 10757] RETURN: UMA PROFISSIONAL ALTERNATIVA ENCONTRADA: {nome_unico!r}", flush=True)
 
                     # 🔥 troca o contexto para a profissional correta
                     ctx["profissional_escolhido"] = nome_unico
@@ -10791,6 +10801,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     )
 
                 lista = ", ".join(profissionais_aptos[:-1]) + f" e {profissionais_aptos[-1]}"
+                print(f"[DEBUG FLOW 10793] RETURN: MULTIPLOS PROFISSIONAIS ALTERNATIVOS: {profissionais_aptos!r}", flush=True)
 
                 # 🔥 guarda opções para o próximo passo
                 ctx["servico"] = servico_check
@@ -10816,6 +10827,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     cliente_id, dono_id=dono_id
                 )
 
+            print(f"[DEBUG FLOW 10819] RETURN: NENHUM PROFISSIONAL ALTERNATIVO ENCONTRADO", flush=True)
             return await _send_and_stop_ctx(
                 context,
                 user_id,
@@ -10828,14 +10840,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 cliente_id, dono_id=dono_id
             )
 
+        print("[DEBUG FLOW 10830] SERVICO VALIDADO - CONTINUANDO", flush=True)
+
         if (
             ctx.get("hora_confirmada") is False
             or ctx.get("data_sem_hora") is True
             or str(data_hora_check or "").endswith("T00:00:00")
         ):
+            print("[DEBUG FLOW 10831] P0 CONDITION TRUE - IGNORADO", flush=True)
             print(" [P0 IGNORADO] sem horário confirmado", flush=True)
 
         else:
+            print("[DEBUG FLOW 10838] P0 CONDITION FALSE - EXECUTANDO VALIDACAO", flush=True)
             validacao_p0 = await validar_horario_funcionamento(
                 user_id=id_dono,
                 data_iso=data_ref,
@@ -10849,13 +10865,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             )
 
             if validacao_p0.get("permitido"):
+                print("[DEBUG FLOW 10851] P0 PERMITIDO - SETANDO pode_executar_p0=True", flush=True)
                 pode_executar_p0 = True
+    else:
+        print("[DEBUG FLOW 10730] SKIP P0 VALIDATION - UMA OU MAIS VARIAVEIS NULAS", flush=True)
 
+    print(f"[DEBUG FLOW 10854] P0 RETURN CHECK | pode_executar_p0={pode_executar_p0} | data_hora_check={data_hora_check!r} | tem_hora_real={tem_hora_real(data_hora_check) if data_hora_check else None}", flush=True)
     if (
         pode_executar_p0
         and tem_hora_real(data_hora_check)
     ):
         print(" [P0] PRÉ-CHECAGEM — SEM GPT", flush=True)
+        print("[DEBUG FLOW 10860] RETURN AQUI - executar_acao_gpt(pre_confirmar_agendamento)", flush=True)
 
         return await executar_acao_gpt(
             update,
@@ -10869,10 +10890,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
 
     elif pode_executar_p0:
+        print("[DEBUG FLOW 10871] ELIF: pode_executar_p0 TRUE MAS tem_hora_real FALSE", flush=True)
         print(
             f"⛔ [P0 BLOQUEADO] data_hora inválida: {data_hora_check}",
             flush=True
         )
+    else:
+        print("[DEBUG FLOW 10875] NEITHER IF NOR ELIF - CONTINUANDO PARA FLOW GUARD", flush=True)
 
     print(" ANTES DO CHAMAR_GPT_COM_CONTEXTO ", flush=True)
 
