@@ -10891,7 +10891,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "data_hora": data_hora_check,
                 "servico": servico_check,
                 "profissional": prof_check
-            }
+            },
+            identidade=identidade_p01
         )
 
     elif pode_executar_p0:
