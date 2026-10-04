@@ -3496,6 +3496,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if ator_canonico:
                 actor_id_whatsapp = ator_canonico.get("actor_id") or ator_canonico.get("id")
                 print(f"[ACTOR_CANONICO] Resolvido para WhatsApp: actor_id={actor_id_whatsapp}", flush=True)
+                if actor_id_whatsapp and identidade_p01:
+                    identidade_p01.actor_id = actor_id_whatsapp
             else:
                 print(f"[ACTOR_CANONICO] WhatsApp {user_id} não tem ator em {dono_id}", flush=True)
         except Exception as e:
