@@ -214,7 +214,7 @@ async def _listar_profissionais_validos_para_servico(dono_id: str, servico: str)
     return validos
 
 
-async def executar_acao_gpt_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE, acao: str, dados: dict):
+async def executar_acao_gpt_resultado(update: Update, context: ContextTypes.DEFAULT_TYPE, acao: str, dados: dict, identidade: Optional[IdentidadeContexto] = None):
     """
     Wrapper que normaliza o retorno de executar_acao_gpt para sempre ser dict.
 
@@ -231,7 +231,7 @@ async def executar_acao_gpt_resultado(update: Update, context: ContextTypes.DEFA
         "tipo_erro": str | None  # Tipo/classe do erro
     }
     """
-    resultado = await executar_acao_gpt(update, context, acao, dados)
+    resultado = await executar_acao_gpt(update, context, acao, dados, identidade=identidade)
 
     # Se já é dict (exc block), garantir que tem chave "ok"
     if isinstance(resultado, dict):

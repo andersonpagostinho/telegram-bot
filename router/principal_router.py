@@ -5006,7 +5006,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             print(" [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto", flush=True)
-            return await executar_acao_gpt_resultado(update, context, "criar_evento", dados_exec)
+            return await executar_acao_gpt_resultado(update, context, "criar_evento", dados_exec, identidade=identidade_p01)
 
         print(" [AUDIT-CONF:BLOCO_PENDENTE] DADOS_INSUFICIENTES -> REABRINDO FLUXO", flush=True)
         return await _send_and_stop(
