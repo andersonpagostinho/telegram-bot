@@ -834,14 +834,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     return False
 
                 # fallback (mantém comportamento antigo)
-                await update.message.reply_text(
-                    "❌ Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
-                )
+                if update:
+                    await update.message.reply_text(
+                        "❌ Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
+                    )
                 return False
 
-            await update.message.reply_text(
-                "❌ Não consegui validar esse horário na agenda configurada. Tente novamente."
-            )
+            if update:
+                await update.message.reply_text(
+                    "❌ Não consegui validar esse horário na agenda configurada. Tente novamente."
+                )
             return False
 
         eventos_do_dia = await buscar_eventos_por_intervalo(
