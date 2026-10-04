@@ -3462,13 +3462,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # Fluxo funcional NÃO foi alterado, apenas criamos o objeto para futuro uso
     try:
         if tenant_id:
-            # WhatsApp: temos tenant_id e user_id (wa_id)
-            identidade_p01 = criar_identidade_telegram(
-                telegram_id=user_id,
-                canal_tenant_id=dono_id,
+            # WhatsApp: construir identidade com actor_id canônico
+            from utils.identidade_contexto import IdentidadeContexto
+
+            actor_id = f"whatsapp:{user_id}"
+            identidade_p01 = IdentidadeContexto(
+                user_id=user_id,
+                tenant_id=dono_id,
+                actor_id=actor_id,
+                canal="whatsapp"
             )
         else:
-            # Telegram: apenas user_id
+            # Telegram: usar factory existente
             identidade_p01 = criar_identidade_telegram(telegram_id=user_id)
 
         # Log para auditoria (não altera fluxo)
