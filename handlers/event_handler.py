@@ -565,12 +565,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
     if "servico" in (dados or {}):
         print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: servico={repr(dados.get('servico'))}", flush=True)
 
-    if not await verificar_pagamento(update, context): return False
-    if not await verificar_acesso_modulo(update, context, "secretaria"): return False
+    # [P0] Validações Telegram-específicas (skip em WhatsApp onde update=None)
+    if update and hasattr(update, "message"):
+        if not await verificar_pagamento(update, context): return False
+        if not await verificar_acesso_modulo(update, context, "secretaria"): return False
 
-    if context.chat_data.get("evento_via_gpt"):
-        return False  # evitar duplicação
-    context.chat_data["evento_via_gpt"] = True
+    # [P0] Check duplicação: somente com context válido
+    if context and context.chat_data.get("evento_via_gpt"):
+        return False
+    if context:
+        context.chat_data["evento_via_gpt"] = True
 
     try:
         descricao = dados.get("descricao", "Evento sem título")
