@@ -825,11 +825,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                             "Esse horário não está disponível nesse dia.\n\n"
                         )
 
-                    await update.message.reply_text(
-                        texto_base
-                        + f"O horário mais próximo que tenho disponível é às {horario}.\n"
-                        + "Posso agendar pra você? 😊"
-                    )
+                    if update:
+                        await update.message.reply_text(
+                            texto_base
+                            + f"O horário mais próximo que tenho disponível é às {horario}.\n"
+                            + "Posso agendar pra você? 😊"
+                        )
                     return False
 
                 # fallback (mantém comportamento antigo)
@@ -1384,7 +1385,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         import traceback
         print(f"❌ Erro inesperado em add_evento_por_gpt: {e}")
         traceback.print_exc()
-        await update.message.reply_text("❌ Ocorreu um erro ao tentar criar o evento.")
+        if update:
+            await update.message.reply_text("❌ Ocorreu um erro ao tentar criar o evento.")
         return False
 
     finally:
