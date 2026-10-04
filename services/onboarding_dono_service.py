@@ -27,6 +27,90 @@ ETAPAS_ONBOARDING = [
 INDICE_ETAPAS = {etapa: idx for idx, etapa in enumerate(ETAPAS_ONBOARDING)}
 
 
+async def _criar_agenda_funcionamento_firestore(tenant_id: str, agenda_padrao_str: str) -> None:
+    """
+    Cria documento de configuração de agenda_funcionamento no Firestore.
+
+    Converte formato coletado no onboarding (ex: "9:00-18:00") para estrutura
+    esperada por obter_janela_funcionamento().
+
+    Args:
+        tenant_id: ID do tenant
+        agenda_padrao_str: String formato "inicio-fim", ex: "9:00-18:00"
+
+    Raises:
+        ValueError: Se formato inválido ou Firestore falhar
+    """
+    try:
+        # Parsear horários
+        partes = agenda_padrao_str.split("-")
+        if len(partes) != 2:
+            raise ValueError(f"Formato inválido: esperado 'inicio-fim', recebido '{agenda_padrao_str}'")
+
+        inicio_str = partes[0].strip()
+        fim_str = partes[1].strip()
+
+        # Normalizar para HH:MM
+        if inicio_str.count(":") == 0:
+            inicio_str = f"{inicio_str}:00"
+        if fim_str.count(":") == 0:
+            fim_str = f"{fim_str}:00"
+
+        # Validar formato básico
+        if not _validar_formato_hora(inicio_str) or not _validar_formato_hora(fim_str):
+            raise ValueError(f"Horários inválidos: inicio='{inicio_str}', fim='{fim_str}'")
+
+        # Criar configuração com padrão: seg-sáb aberto, domingo fechado
+        agenda_config = {
+            "agenda_padrao": {
+                "0": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # segunda
+                "1": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # terça
+                "2": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quarta
+                "3": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quinta
+                "4": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sexta
+                "5": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sábado
+                "6": {"aberto": False}                                         # domingo
+            },
+            "excecoes_data": {}
+        }
+
+        def salvar():
+            config_ref = get_db().collection("Clientes").document(tenant_id)\
+                .collection("configuracao").document("agenda_funcionamento")
+            config_ref.set(agenda_config)
+
+        await asyncio.to_thread(salvar)
+
+        print(f"[OK] Agenda funcionamento criada para tenant {tenant_id}: {inicio_str}-{fim_str}", flush=True)
+
+    except Exception as e:
+        print(f"[ERRO] Criar agenda_funcionamento: {e}", flush=True)
+        raise
+
+
+def _validar_formato_hora(hora_str: str) -> bool:
+    """
+    Valida se string está em formato HH:MM.
+
+    Args:
+        hora_str: String como "09:00" ou "18:30"
+
+    Returns:
+        True se válido, False caso contrário
+    """
+    try:
+        partes = hora_str.split(":")
+        if len(partes) != 2:
+            return False
+
+        horas = int(partes[0])
+        minutos = int(partes[1])
+
+        return 0 <= horas <= 23 and 0 <= minutos <= 59
+    except (ValueError, IndexError):
+        return False
+
+
 async def iniciar_onboarding_dono(tenant_id: str, actor_id: str, dono_nome: str, dono_email: str) -> dict:
     """
     Inicia onboarding do dono.
@@ -229,6 +313,10 @@ async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, va
             return proxima_etapa if proximo_indice < len(ETAPAS_ONBOARDING) else "completo"
 
         proxima_etapa = await asyncio.to_thread(atualizar)
+
+        # Se agenda_padrao, criar configuração de agenda_funcionamento
+        if campo == "agenda_padrao":
+            await _criar_agenda_funcionamento_firestore(tenant_id, valor)
 
         print(f"[OK] Etapa avançada para: {proxima_etapa} (tenant: {tenant_id})")
 
