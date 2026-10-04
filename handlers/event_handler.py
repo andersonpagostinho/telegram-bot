@@ -612,8 +612,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if not dono_id:
             dono_id = (dados or {}).get("tenant_id")
 
+        # [P0.3] CORREÇÃO: Normalizar cliente_id com actor_id (preservar prefixo whatsapp:)
+        cliente_id = (dados or {}).get("cliente_id")
+        if not cliente_id:
+            cliente_id = user_id
+            # Se é WhatsApp (update=None), adicionar prefixo whatsapp: para preservar canal
+            if update is None and cliente_id and not str(cliente_id).startswith("whatsapp:"):
+                cliente_id = f"whatsapp:{cliente_id}"
+
         # ✅ Carrega contexto UMA vez no início (evita UnboundLocalError)
-        contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+        contexto = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
 
         # 🆔 Buscar cliente cadastrado para usar nome persistido
         cliente_cadastrado = await buscar_cliente(user_id) or {}
@@ -632,8 +640,6 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             or from_user_full_name
             or from_user_first_name
         )
-
-        cliente_id = user_id
 
         # 🚫 BLOQUEIO: impedir agendamento sem confirmação explícita
         texto_usuario = (
@@ -1312,12 +1318,14 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             f"📅 {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}"
         )
 
-        if context.user_data.get("origem_email_detectado"):
+        # [P0.3] Proteção: context pode ser None em WhatsApp
+        if context and context.user_data.get("origem_email_detectado"):
             mensagem_confirmacao = (
                 "📬 Um novo evento foi criado com base em um e-mail importante:\n\n"
                 + mensagem_confirmacao
             )
-        context.user_data.pop("origem_email_detectado", None)
+        if context:
+            context.user_data.pop("origem_email_detectado", None)
 
         try:
             from main import application
@@ -1380,7 +1388,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         return False
 
     finally:
-        context.chat_data.pop("evento_via_gpt", None)
+        # [P0.3] Proteção: context pode ser None em WhatsApp
+        if context:
+            context.chat_data.pop("evento_via_gpt", None)
 
 async def enviar_agenda_excel(update: Update, context: ContextTypes.DEFAULT_TYPE, intervalo: str = "hoje"):
     if not await verificar_pagamento(update, context): return
