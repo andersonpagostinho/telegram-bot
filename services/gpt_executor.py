@@ -17,7 +17,11 @@ from utils.plan_utils import verificar_pagamento, verificar_acesso_modulo
 from utils.tts_utils import responder_em_audio
 from utils.gpt_utils import estimar_duracao
 from utils.formatters import formatar_eventos_telegram
-from utils.contexto_temporario import carregar_contexto_temporario, salvar_contexto_temporario
+from utils.contexto_temporario import (
+    carregar_contexto_temporario,
+    salvar_contexto_temporario,
+    salvar_contexto_temporario_v2,
+)
 
 from services.firebase_service_async import buscar_subcolecao, obter_id_dono
 from services.email_service import enviar_email_google
@@ -768,7 +772,8 @@ async def executar_acao_gpt(
             contexto_tmp["ultima_opcao_profissionais"] = [prof]
             contexto_tmp["ultima_acao"] = "criar_evento"
 
-            await salvar_contexto_temporario(user_id, contexto_tmp, tenant_id=tenant_id)
+            actor_id = identidade.actor_id if identidade else f"telegram:{user_id}"
+            await salvar_contexto_temporario_v2(id_dono, actor_id, contexto_tmp)
 
             try:
                 data_fmt = datetime.fromisoformat(data_hora).strftime("%d/%m às %H:%M")
