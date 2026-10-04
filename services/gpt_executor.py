@@ -282,7 +282,7 @@ async def executar_acao_gpt(
     Se não, tentar extrair de update (compatibilidade Telegram).
     """
     try:
-        print(f"🪵 Ação recebida: {repr(acao)}")  # DEBUG extra
+        print(f"[DEBUG] Acao recebida: {repr(acao)}")
 
         if not acao or acao.strip() == "":
             return False
@@ -305,8 +305,8 @@ async def executar_acao_gpt(
             canal = "telegram"
             print(f"[P0.2] Usando fallback Telegram: user_id={user_id}, tenant_id={tenant_id}", flush=True)
 
-        print(f"🔁 Ação recebida: {acao}")
-        print(f"📦 Dados: {dados}")
+        print(f"[ACAO] Recebida: {acao}")
+        print(f"[DADOS] Valores: {dados}")
 
         if acao == "criar_tarefa":
             await add_task_por_gpt(update, context, dados)
@@ -805,19 +805,21 @@ async def executar_acao_gpt(
 
         elif acao == "criar_evento":
             # ✅ GATE: valida profissional vs serviço antes de agendar
-            user_id = _obter_user_id(update, context)
-            # [WhatsApp] Se update=None, usar user_id de dados_exec
+            # P0A: Reutilizar user_id já resolvido no início da função
+            # Se identidade existe, user_id já foi obtido de identidade.user_id (linha 293)
+            # Não chamar _obter_user_id(None, None) que quebra com context=None
             if not user_id:
+                # Fallback: tentar extrair de dados se ainda não temos
                 user_id = (dados or {}).get("user_id")
 
-            # [TESTE_SURI] 3️⃣ DADOS PARA EXECUTAR_ACAO_GPT
-            print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: user_id={repr(user_id)}", flush=True)
-            print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: acao={repr(acao)}", flush=True)
-            print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: dados_keys={list((dados or {}).keys())}", flush=True)
+            # [TESTE_SURI] DADOS PARA EXECUTAR_ACAO_GPT
+            print(f"[TESTE_SURI] DADOS_EXECUTAR_ACAO: user_id={repr(user_id)}", flush=True)
+            print(f"[TESTE_SURI] DADOS_EXECUTAR_ACAO: acao={repr(acao)}", flush=True)
+            print(f"[TESTE_SURI] DADOS_EXECUTAR_ACAO: dados_keys={list((dados or {}).keys())}", flush=True)
             if "cliente_nome" in (dados or {}):
-                print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
+                print(f"[TESTE_SURI] DADOS_EXECUTAR_ACAO: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
             if "profissional" in (dados or {}):
-                print(f"[TESTE_SURI] 3️⃣ DADOS_EXECUTAR_ACAO: profissional={repr(dados.get('profissional'))}", flush=True)
+                print(f"[TESTE_SURI] DADOS_EXECUTAR_ACAO: profissional={repr(dados.get('profissional'))}", flush=True)
 
             if not user_id:
                 # [P0.3] Retornar dict de erro
@@ -1090,11 +1092,11 @@ async def executar_acao_gpt(
 
     except Exception as e:
         import traceback
-        print("❌ ERRO DETALHADO em executar_acao_gpt:")
+        print("[ERRO] Detalhado em executar_acao_gpt:")
         traceback.print_exc()
         try:
             if getattr(update, "message", None):
-                await update.message.reply_text(f"❌ Erro interno: {e}")
+                await update.message.reply_text(f"[ERRO] Interno: {e}")
         except Exception:
             pass
         return {
