@@ -23,7 +23,7 @@ firebase_creds_b64 = os.getenv("FIREBASE_CREDENTIALS_B64")
 if firebase_creds_b64:
     try:
         import base64
-        decoded = base64.b64decode(firebase_creds_b64).decode('utf-8')
+        decoded = base64.b64decode(firebase_creds_b64.replace("\n", "")).decode('utf-8')
         firebase_json_str = decoded
         print(f"[OK] FIREBASE_CREDENTIALS carregado de Base64", flush=True)
     except Exception as e:
