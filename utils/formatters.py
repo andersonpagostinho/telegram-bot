@@ -200,6 +200,16 @@ def gerar_sugestoes_de_horario(
         inicio_slot = horario
         fim_slot = horario + duracao
 
+        # 🔥 verifica conflito com eventos reais (ocupados)
+        conflita = False
+        for ini_event, fim_event in ocupados:
+            if not (fim_slot <= ini_event or inicio_slot >= fim_event):
+                conflita = True
+                break
+
+        if conflita:
+            continue
+
         # 🔥 verifica se esse horário conflita com alguma sugestão já escolhida
         conflita = False
         for ini_exist, fim_exist in janelas_ocupadas:
