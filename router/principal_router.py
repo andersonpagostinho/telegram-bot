@@ -7542,37 +7542,50 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 )
 
                 # =========================================================
-                # GPT HUMANO — dúvida/objeção em conflito
+                # RESPOSTA DETERMINÍSTICA — dúvida/objeção em conflito
+                # [P0.5] Remove GPT, usa formatter determinístico
                 # =========================================================
 
-                from services.gpt_service import gerar_resposta_humana_agendamento
+                prof_conflito = ctx.get("profissional_escolhido")
+                horarios_disponiveis = ctx.get("horarios_sugeridos") or []
+                profissionais_alt = ctx.get("alternativa_profissional") or []
+                data_hora_conflito = ctx.get("data_hora") or ""
 
-                resposta_humana = await gerar_resposta_humana_agendamento({
-                    "tipo": "conflito_agenda",
-                    "mensagem_cliente": texto_usuario,
-                    "estado_fluxo": ctx.get("estado_fluxo"),
-                    "profissional_original": ctx.get("profissional_escolhido"),
-                    "servico": ctx.get("servico"),
-                    "data_hora_original": ctx.get("data_hora"),
-                    "horarios_disponiveis_mesmo_profissional": ctx.get("horarios_sugeridos") or [],
-                    "profissionais_alternativos": ctx.get("alternativa_profissional") or [],
-                    "ultima_opcao_profissionais": ctx.get("ultima_opcao_profissionais") or [],
-                    "regra": (
-                        "O cliente não escolheu uma opção válida ainda. "
-                        "Não crie evento, não confirme agendamento e não invente disponibilidade. "
-                        "Acolha a mensagem e conduza para escolher uma das opções disponíveis."
-                    ),
-                })
+                # Extrair hora original (mesmo padrão de P0)
+                try:
+                    if data_hora_conflito and "T" in data_hora_conflito:
+                        hora_original = data_hora_conflito.split("T")[1][:5]  # HH:MM
+                    else:
+                        hora_original = ""
+                except Exception:
+                    hora_original = ""
 
-                if resposta_humana:
-                    return await _send_and_stop_ctx(
-                        context,
-                        user_id,
-                        resposta_humana,
-                        ctx,
-                        texto_usuario,
-                        cliente_id, dono_id=dono_id
-                    )
+                # Montar resposta determinística (compatível com P0.2087-2104)
+                msg_conflito = f"⛔ A *{prof_conflito}* já tem atendimento às *{hora_original}*.\n"
+
+                if horarios_disponiveis:
+                    msg_conflito += f"\n✅ Estes horários estão livres com *{prof_conflito}*:\n"
+                    for h in horarios_disponiveis[:3]:
+                        h_str = str(h).strip()
+                        if " - " in h_str:
+                            msg_conflito += f"🔄 {h_str}\n"
+                        else:
+                            msg_conflito += f"🔄 {h_str}\n"
+
+                if profissionais_alt:
+                    prof_alt_str = ", ".join([f"*{p}*" for p in profissionais_alt])
+                    msg_conflito += f"\n💡 Se quiser manter *{hora_original}*, posso te encaixar com: {prof_alt_str}.\n"
+
+                msg_conflito += "\nVocê prefere outro horário ou manter o horário com outra profissional?"
+
+                return await _send_and_stop_ctx(
+                    context,
+                    user_id,
+                    msg_conflito,
+                    ctx,
+                    texto_usuario,
+                    cliente_id, dono_id=dono_id
+                )
 
                 # =========================================================
                 # CONFIRMAÇÃO DETERMINÍSTICA — ÚNICO HORÁRIO SUGERIDO
