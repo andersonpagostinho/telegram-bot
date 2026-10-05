@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Setup Firebase Credentials from Base64
+
+Decodifica FIREBASE_CREDENTIALS_B64 e salva com escape correto de quebras de linha.
+"""
+
+import os
+import base64
+import json
+
+creds_b64 = """ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAicHJvamV0by1hZ2VudGUtaW50ZWxpZ2VudGUiLAogICJwcml2YXRlX2tleV9pZCI6ICJmNzhjOTM2ZGNlNDI2YjEwOWNmMTJjZGRkNDViYWY3ODc3Y2RlMjZiIiwKICAicHJpdmF0ZV9rZXkiOiAiLS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tXG5NSUlFdmdJQkFEQU5CZ2txaGtpRzl3MEJBUUVGQUFTQ0JLZ3dnZ1NrQWdFQUFvSUJBUURLR01BU21JYUlYUzR3XG55d0JkbUVsYnlQektCQ0g1NWRXRXh2cmtTZHhoNlNlYnVOcVg5em9naVFZaWQ4dEkxbGpjZ3M1NklHS1RmK01DXG5yOU03YWpsOU9aM1lHby9ZdndVYmxZYnpnck1VWitESTgwL1J3eENPeHdvRlo1dFRJSmdIOWpKUDFEUWtaTzhpXG4wNHQ4UmlRYjZDdFh6RlMxdXBOWklhdmgySGo5aEdGKzd3Qjl3M3h3R2wxSzRBTWw3K05WQ1BLTFBSdFFvaUdjXG52OHdLdXJQREU5UzlvZEhVUTlnU0k0dDBSd0wzdDhIcVpSS0IzMGhrblltVk1vSStaZytiUzlDOU1xSkJXT282XG5lUW9ONkVNYVNVNnV0S1FhTFIwTjM1TThrcmxrTlA4bXY4bGxWTDJ2Ty92c1RPOUZvYTl3VWJnVVpDYnpuamVjXG5CcXhUMFhBbkFnTUJBQUVDZ2dFQUlWcllaSmhRNS9POUdtZCt6WFBEYzhjbDFhKzk3ZEU5bnRiNmRMQXVFK2pYXG4xUzg2d01jWWpHTWhKSkl4OW5rT0hJTG9VaWJETGtYMnNTeFV5Q01kanVueC84ZE9nMzd2ZUdDQzcvRGIzcHZRXG5jVW9iRytzK2Nkb3U4THByVzlwdXpTMllteTFTVjhsaTRKUWFtdTIycXZaMEpOOEFBaWhqaGx2MDB1Y1gvUHRQXG5YaW1sTnZuUDAxZy9iV0w1MDhIeUFOdUJSVDJYKy9SczBIV2VrVm5Fa0FqQU4vaHVkeG1rS2lKSS9yOWxYYituXG5Pd05uVitvMFhsN0ZTM1lXK08yRzN0MHo2bHhoSmtsUHhsSHRLSUV2Um5CYWNOYStNVEpRdEVuTS9GemtpanR0XG5FMllLclhacDVLWG5MWjJBbHllYUdzTVh5S2tndjJnYUR3U1VteWhWNFFLQmdRRDh2cUpHVTRXYW15UmUyejlVXG5VN1ZtWlF4SGxEYXBYM0ZBNmhwRWZoNWxQMkpXUWpmczl1L2FRUDZFSDdKbExudDQ4bG13T01zaCtKWmxmM2VQXG5XVC9UaVdzdGpBejlpYUxrc1VkdExJOXE4bytBV2VHZEowLyt4R1FYeFYyeUpLRTFqWnNYVHFMVGU1MytveS9CXG5VOTNiZ1JIUXNOSkZjTmkwVzVQLzJ2Wm9vUUtCZ1FEMXN4M1lQbHZIYWtvZ0piUlNaOTgxUGNVcUZ0K0J0QjUxXG5QL3FhRWQva05Gb3d1cDFCRElUR25pUnNDLzZuOWE3RDlCQ3RVUTA4RTNYc3dhcDNSM1BZWllSUXlyc0lZTEszXG5RbTBROHBHanpMV1BmVTJsNEsvWU9vbERHLzdMNHg3dS9EbUlleU5NTWhWbGNpOUt4NUt3R3VsY3hpS3JWY0pwXG52MFJtbG9rN3d3S0JnUURCRXAvRU9XbUdnWjEzR09WMzlicE5Ua1BqS2tYWGZTRjNCVjZyayt5RVM3ZERUYktMXG5RdGhYVWU4YjMxcllFSG9pR29DSkxlVzRQYjRtS3dtYWFBTnFCVC9xdTJIeERJTnpVRG5RSElveW1Ma213NEttXG5Hckh4WFBWWmMxdndDaXRjVGFCOFhZWGxLRG01bTgrUFVCSGE3TzQvRGRTVFYzRXoxZ0ZwSWt1NkFRS0JnUUNQXG5Wa0Zvd2NtOHFzWDdHc3ZaQkZrOVMrSzdKVWNlNk1TSEwrVEliQW5PSDRha0pwaWxDeUlTZm54Y21FMmF5U08yXG5uVG5zVXU5VHlRRERaNTE1WnJSTTdGRXB6YndJRXNZeUl6YUNMb2tqSE41cCtzRWJqV2swelZCK2lLVHptamQzXG4rM0JDREkvYjlCb2Rib2FGWTVobzduOUljb21tVmlnTHFsNDRRK01XMHdLQmdFSGVEU1k2dWhERmkwMllkRDNYXG5HeVpQeGZFa25wNkZZQWVkbFRJMjBFWnBBdjdrOEpDd2ozZ25uV2l5WXF6aXh6aEtYNFZoamtyakNvVzZLazRRXG5oNG5jb0c2eGZuUStGb09DOTlUQ3NtWDRIVzlWMVRzM0h6bEVNWk54TEJVTGNraEVlYjFzNXBaOW5rbUt2OUpmXG5kb2s0ZlFnWFo2NGFZQkJIVjd5M2tTcWxcbi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS1cbiIsCiAgImNsaWVudF9lbWFpbCI6ICJmaXJlYmFzZS1hZG1pbnNkay1mYnN2Y0Bwcm9qZWN0by1hZ2VudGUtaW50ZWxpZ2VudGUuaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLAogICJjbGllbnRfaWQiOiAiMTE3MTE1NDUzNjk2MDg2NjQzNTU5IiwKICAiYXV0aF91cmkiOiAiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tL28vb2F1dGgyL2F1dGgiLAogICJ0b2tlbl91cmkiOiAiaHR0cHM6Ly9vYXV0aDIuZ29vZ2xlYXBpcy5jb20vdG9rZW4iLAogICJhdXRoX3Byb3ZpZGVyX3g1MDlfY2VydF91cmwiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vb2F1dGgyL3YxL2NlcnRzIiwKICAiY2xpZW50X3g1MDlfY2VydF91cmwiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vcm9ib3QvdjEvbWV0YWRhdGEveDUwOS9maXJlYmFzZS1hZG1pbnNkay1mYnN2YyU0MHByb2plY3RvLWFnZW50ZS1pbnRlbGlnZW50ZS5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsCiAgInVuaXZlcnNlX2RvbWFpbiI6ICJnb29nbGVhcGlzLmNvbSIKfQ=="""
+
+print("[setup_firebase_creds.py] Decodificando credencial...")
+
+try:
+    # Decodificar base64
+    decoded_str = base64.b64decode(creds_b64).decode('utf-8')
+
+    # Parse JSON
+    creds_dict = json.loads(decoded_str)
+
+    # IMPORTANTE: Processar escape de quebras de linha na chave privada
+    if 'private_key' in creds_dict:
+        # Converter \n literal para quebras de linha reais
+        creds_dict['private_key'] = creds_dict['private_key'].replace('\\n', '\n')
+
+    # Salvar em arquivo com json.dumps (preserva quebras de linha reais)
+    output_file = 'firebase_credentials.json'
+    with open(output_file, 'w') as f:
+        json.dump(creds_dict, f)
+
+    print(f"[OK] Credencial salva em {output_file}")
+    print(f"[OK] Tipo: {creds_dict.get('type')}")
+    print(f"[OK] Projeto: {creds_dict.get('project_id')}")
+    print(f"[OK] Chave privada processada (\\n convertido para quebras reais)")
+
+    # Definir variável de ambiente
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = output_file
+    print(f"[OK] GOOGLE_APPLICATION_CREDENTIALS definido")
+
+except Exception as e:
+    print(f"[ERRO] {e}")
+    raise

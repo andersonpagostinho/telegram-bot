@@ -1,0 +1,17 @@
+﻿[INFO] FIREBASE_CREDENTIALS carregado de variável normal
+[WARN] Falha ao fazer parse de JSON: JSONDecodeError: Unterminated string starting at: line 1 column 2017 (char 2016)
+[INFO] Usando arquivo padrao do projeto: C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\firebase_credentials.json
+[OK] Arquivo Firebase validado: C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\firebase_credentials.json
+[INFO] GOOGLE_APPLICATION_CREDENTIALS definido: C:\Users\ANDERSON\iCloudDrive\Projeto Mercado Digital\Agente Bot\NeoEve - Empresarial\firebase_credentials.json
+[OK] Firestore inicializado com sucesso!
+====================================================================================================
+[DIAGNÓSTICO FIRESTORE REAL] 2026-10-03
+====================================================================================================
+
+====================================================================================================
+[ETAPA 1] LEITURA FIRESTORE REAL
+====================================================================================================
+Path: Clientes/7394370553/Eventos
+
+[ERRO] Erro ao buscar subcoleção 'Clientes/7394370553/Eventos': Timeout of 300.0s exceeded, last exception: 503 Getting metadata from plugin failed with error: ('invalid_grant: Invalid JWT Signature.', {'error': 'invalid_grant', 'error_description': 'Invalid JWT Signature.'})
+❌ Nenhum evento encontrado

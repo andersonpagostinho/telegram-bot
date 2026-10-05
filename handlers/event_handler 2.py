@@ -18,12 +18,12 @@ from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario
 from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
 from utils.contexto_temporario import (
-    salvar_contexto_temporario,  #  LEGADO (v1)
-    carregar_contexto_temporario,  #  LEGADO (v1)
-    limpar_contexto_agendamento,  #  LEGADO (v1)
-    salvar_contexto_temporario_v2,  #  v2 novo
-    carregar_contexto_temporario_v2,  #  v2 novo
-    limpar_contexto_agendamento_v2,  #  v2 novo
+    salvar_contexto_temporario,  # ⚠️ LEGADO (v1)
+    carregar_contexto_temporario,  # ⚠️ LEGADO (v1)
+    limpar_contexto_agendamento,  # ⚠️ LEGADO (v1)
+    salvar_contexto_temporario_v2,  # ✅ v2 novo
+    carregar_contexto_temporario_v2,  # ✅ v2 novo
+    limpar_contexto_agendamento_v2,  # ✅ v2 novo
 )
 
 from services.firebase_service_async import (
@@ -122,7 +122,7 @@ def oferecer_entrar_lista_espera(
 
     # Adicionar opção de lista de espera
     msg += (
-        "\n\n *Outra opção:* Posso te avisar quando esse horário vagar "
+        "\n\n💡 *Outra opção:* Posso te avisar quando esse horário vagar "
         "e você confirma direto comigo. Quer entrar na fila?"
     )
 
@@ -148,7 +148,7 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if len(context.args) < 4:
         await update.message.reply_text(
-            " Uso correto: /agenda <Descrição> <AAAA-MM-DD> <HH:MM início> <HH:MM fim>\n"
+            "⚠️ Uso correto: /agenda <Descrição> <AAAA-MM-DD> <HH:MM início> <HH:MM fim>\n"
             "Exemplo: /agenda Reunião 2025-03-25 14:00 15:00"
         )
         return
@@ -165,13 +165,13 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
         duracao = fim - inicio
         duracao_minutos = int(duracao.total_seconds() / 60)
     except Exception:
-        await update.message.reply_text(" Data ou hora em formato inválido. Use o formato 2025-03-25 14:00.")
+        await update.message.reply_text("⚠️ Data ou hora em formato inválido. Use o formato 2025-03-25 14:00.")
         return
 
-    #  Buscar eventos do dia
+    # 🔍 Buscar eventos do dia
     eventos_dia = await buscar_eventos_por_intervalo(user_id, dia_especifico=inicio.date())
 
-    #  Verificar conflitos com base nos horários
+    # 🔄 Verificar conflitos com base nos horários
     conflitos = []
     for ev in eventos_dia:
         try:
@@ -197,12 +197,12 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     break
             atual += timedelta(minutes=15)
 
-        resposta = " Já existe um evento nesse horário.\n"
-        resposta += "\n".join(f" Alternativa: {s}" for s in sugestoes) if sugestoes else " Nenhum horário alternativo disponível."
+        resposta = "⚠️ Já existe um evento nesse horário.\n"
+        resposta += "\n".join(f"🔄 Alternativa: {s}" for s in sugestoes) if sugestoes else "❌ Nenhum horário alternativo disponível."
         await update.message.reply_text(resposta)
         return
 
-    #  Salvar evento no Firebase
+    # ✅ Salvar evento no Firebase
     evento = {
         "descricao": descricao,
         "data": data,
@@ -213,13 +213,13 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "link": ""
     }
 
-    print(" Salvando evento com os dados:", evento)
-    #  FASE 4: Obter tenant_id para salvar_evento
+    print("📦 Salvando evento com os dados:", evento)
+    # ✅ FASE 4: Obter tenant_id para salvar_evento
     tenant_id = await obter_id_dono(user_id)
     sucesso = await salvar_evento(user_id, evento, tenant_id)
     if sucesso:
         await update.message.reply_text(
-            f" Evento criado com sucesso!\n {data} ⏰ {hora_inicio} às {hora_fim}",
+            f"📅 Evento criado com sucesso!\n🗓️ {data} ⏰ {hora_inicio} às {hora_fim}",
             parse_mode="Markdown"
         )
 
@@ -236,7 +236,7 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
             alvo_evento={"data": data, "hora_inicio": hora_inicio}
         )
     else:
-        await update.message.reply_text(" Ocorreu um erro ao tentar salvar o evento.")
+        await update.message.reply_text("❌ Ocorreu um erro ao tentar salvar o evento.")
 
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
@@ -248,10 +248,10 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE):
     eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=hoje)
 
     if not eventos:
-        await update.message.reply_text(" Nenhum evento encontrado para hoje.")
+        await update.message.reply_text("📭 Nenhum evento encontrado para hoje.")
         return
 
-    resposta = " Eventos de hoje:\n" + "\n".join(f"- {ev}" for ev in eventos)
+    resposta = "📅 Eventos de hoje:\n" + "\n".join(f"- {ev}" for ev in eventos)
     await update.message.reply_text(resposta)
 
 async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -260,11 +260,11 @@ async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     descricao = ' '.join(context.args)
     if not descricao:
-        await update.message.reply_text(" Informe a descrição do evento para confirmar.")
+        await update.message.reply_text("⚠️ Informe a descrição do evento para confirmar.")
         return
 
     user_id = str(update.message.from_user.id)
-    dono_id = await obter_id_dono(user_id)   #  garante que busca no dono
+    dono_id = await obter_id_dono(user_id)   # 👈 garante que busca no dono
 
     eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
 
@@ -273,10 +273,10 @@ async def confirmar_reuniao(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if descricao.lower() in texto_evento:
             evento["confirmado"] = True
             await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento)
-            await responder_em_audio(update, context, f" Reunião confirmada: {evento['descricao']}")
+            await responder_em_audio(update, context, f"✅ Reunião confirmada: {evento['descricao']}")
             return
 
-    await update.message.reply_text(" Evento não encontrado.")
+    await update.message.reply_text("❌ Evento não encontrado.")
 
 async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_pagamento(update, context): return
@@ -284,11 +284,11 @@ async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     descricao = ' '.join(context.args).lower()
     if not descricao:
-        await update.message.reply_text(" Informe o nome do evento para confirmar presença.")
+        await update.message.reply_text("⚠️ Informe o nome do evento para confirmar presença.")
         return
 
     user_id = str(update.message.from_user.id)
-    dono_id = await obter_id_dono(user_id)  #  aqui
+    dono_id = await obter_id_dono(user_id)  # 👈 aqui
 
     eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
 
@@ -296,17 +296,17 @@ async def confirmar_presenca(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if descricao in evento.get("descricao", "").lower():
             evento["confirmado"] = True
             await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento)
-            await responder_em_audio(update, context, f" Presença confirmada para: {evento['descricao']}")
+            await responder_em_audio(update, context, f"✅ Presença confirmada para: {evento['descricao']}")
             return
 
-    await update.message.reply_text(" Evento não encontrado.")
+    await update.message.reply_text("❌ Evento não encontrado.")
 
 
 async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await verificar_acesso_modulo(update, context, "secretaria"): return
 
     user_id = str(update.message.from_user.id)
-    dono_id = await obter_id_dono(user_id)  #  aqui
+    dono_id = await obter_id_dono(user_id)  # 👈 aqui
 
     event_id = "evento_debug"
     evento_data = {
@@ -319,18 +319,18 @@ async def debug_eventos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     if await salvar_dado_em_path(f"Clientes/{dono_id}/Eventos/{event_id}", evento_data):
-        await responder_em_audio(update, context, " Evento de teste salvo com sucesso.")
+        await responder_em_audio(update, context, "✅ Evento de teste salvo com sucesso.")
     else:
-        await update.message.reply_text(" Erro ao salvar evento de teste.")
+        await update.message.reply_text("❌ Erro ao salvar evento de teste.")
 
     eventos = await buscar_subcolecao(f"Clientes/{dono_id}/Eventos")
     if not eventos:
-        await update.message.reply_text(" Nenhum evento encontrado.")
+        await update.message.reply_text("📭 Nenhum evento encontrado.")
         return
 
-    resposta = " Eventos salvos:\n"
+    resposta = "📂 Eventos salvos:\n"
     for eid, ev in eventos.items():
-        resposta += f"\n {eid}: {ev.get('descricao')} ({ev.get('data')} {ev.get('hora_inicio')} - {ev.get('hora_fim')})"
+        resposta += f"\n📌 {eid}: {ev.get('descricao')} ({ev.get('data')} {ev.get('hora_inicio')} - {ev.get('hora_fim')})"
 
     await responder_em_audio(update, context, resposta)
 
@@ -354,22 +354,22 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         duracao = 60
         titulo = "Reunião agendada por voz"
 
-        #  Resolver dono_id para contexto v2
+        # 🆔 Resolver dono_id para contexto v2
         dono_id = await obter_id_dono(user_id)
 
-        #  Recupera contexto e profissional alternativo (v2)
+        # 🧠 Recupera contexto e profissional alternativo (v2)
         contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
         profissional = contexto.get("profissional")  # vem do contexto anterior
         alternativa = None
 
-        #  Só exige profissional se o tipo de evento precisar
+        # 🔍 Só exige profissional se o tipo de evento precisar
         if _precisa_profissional(contexto, titulo) and not profissional:
             await update.message.reply_text(
-                " Não consegui identificar a profissional. Pode repetir dizendo quem irá atender?"
+                "❌ Não consegui identificar a profissional. Pode repetir dizendo quem irá atender?"
             )
             return
 
-        #  Verifica conflitos
+        # 🔍 Verifica conflitos
         eventos = await buscar_eventos_por_intervalo(user_id, dia_especifico=start_time.date())
         ocupados = []
 
@@ -381,7 +381,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             except:
                 continue
 
-        print(" TESTE - checando conflito...")
+        print("🧪 TESTE - checando conflito...")
         conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
 
         if conflito:
@@ -391,11 +391,11 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 duracao_evento_minutos=duracao_minutos,
                 max_sugestoes=3
             )
-            sugestoes_formatadas = "\n".join([f" {s}" for s in sugestoes]) if sugestoes else " Nenhum horário alternativo disponível."
+            sugestoes_formatadas = "\n".join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
 
             alternativa = None
 
-            #  Persistir agendamento pendente (data ORIGINAL) para não perder o dia
+            # ✅ Persistir agendamento pendente (data ORIGINAL) para não perder o dia
             #    (isso é o que permite o usuário mandar só "15:20" depois)
             try:
                 servico_ctx = None
@@ -426,7 +426,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 if servico_final:
                     contexto["servico"] = servico_final
 
-                #  SEMPRE salvar dados_anteriores (não condicionar ao serviço)
+                # ✅ SEMPRE salvar dados_anteriores (não condicionar ao serviço)
                 contexto["dados_anteriores"] = {
                     "profissional": prof_final,
                     "servico": servico_final,
@@ -435,23 +435,23 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 }
 
                 await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
-                print(" Contexto pendente salvo (conflito).")
+                print("💾 Contexto pendente salvo (conflito).")
 
             except Exception as e:
-                print(f" Falha ao salvar contexto pendente no conflito: {e}")
+                print(f"⚠️ Falha ao salvar contexto pendente no conflito: {e}")
 
             mensagem_sugestao = (
-                f" A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
-                f"\n\n Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
+                f"⛔ A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
+                f"\n\n✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
                 f"{alternativa_txt}"
                 "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
             )
 
             print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
             await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
-            return True  #  Não agenda nesse momento
+            return True  # ⛔️ Não agenda nesse momento
 
-        #  Salva o evento no Firebase
+        # ✅ Salva o evento no Firebase
         evento_data = {
             "descricao": titulo,
             "data": start_time.strftime("%Y-%m-%d"),
@@ -463,16 +463,16 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "link": "",
         }
         if profissional:
-            evento_data["profissional"] = profissional  #  só se tiver
+            evento_data["profissional"] = profissional  # ✅ só se tiver
 
-        print(f" Profissional detectado: {profissional}")
-        #  FASE 4: Passar tenant_id (dono_id já disponível)
+        print(f"👤 Profissional detectado: {profissional}")
+        # ✅ FASE 4: Passar tenant_id (dono_id já disponível)
         sucesso = await salvar_evento(user_id, evento_data, dono_id)
         if sucesso:
-            msg = f" Reunião marcada para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
+            msg = f"✅ Reunião marcada para {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}."
             await responder_em_audio(update, context, msg)
 
-            #  Lembretes para o DONO (quem executou o comando / a conta que está usando o bot)
+            # 🔔 Lembretes para o DONO (quem executou o comando / a conta que está usando o bot)
             from services.notificacao_service import criar_notificacao_agendada
             try:
                 # 30 min antes
@@ -488,13 +488,13 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 )
                 
             except Exception as e:
-                print(f" Falha ao agendar lembretes (voz): {e}")
+                print(f"⚠️ Falha ao agendar lembretes (voz): {e}")
         else:
-            await update.message.reply_text(" Não foi possível salvar o evento.")
+            await update.message.reply_text("❌ Não foi possível salvar o evento.")
 
     except Exception as e:
-        print(f" Erro ao agendar por voz: {e}")
-        await update.message.reply_text(" Ocorreu um erro ao tentar agendar a reunião.")
+        print(f"❌ Erro ao agendar por voz: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao tentar agendar a reunião.")
 
     finally:
         context.chat_data.pop("evento_via_gpt", None)
@@ -510,8 +510,8 @@ async def cancelar_evento_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     ok, msg = await cancelar_evento_por_texto(user_id, termo)
 
-    #  Se vieram múltiplos candidatos, salva estado para o atalho numérico do bot.py finalizar
-    #  P0: APENAS dados serializáveis — Firestore rejeita tuplas
+    # ✅ Se vieram múltiplos candidatos, salva estado para o atalho numérico do bot.py finalizar
+    # 🔥 P0: APENAS dados serializáveis — Firestore rejeita tuplas
     if (not ok) and candidatos:
         resumo_eventos = []
         for eid, ev in candidatos:
@@ -531,7 +531,7 @@ async def cancelar_evento_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(msg)
     return
 
-#  definição de duração de eventos
+# ✅ definição de duração de eventos
 async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAULT_TYPE, mensagem: str):
     match = re.search(r'(\d{1,3})\s*(min|minuto|minutos)', mensagem.lower())
 
@@ -540,41 +540,37 @@ async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAU
 
         if 15 <= minutos <= 180:
             user_id = str(update.message.from_user.id)
-            dono_id = await obter_id_dono(user_id)  #  salva na config do dono
+            dono_id = await obter_id_dono(user_id)  # 👈 salva na config do dono
             await atualizar_dado_em_path(f"Clientes/{dono_id}/configuracoes", {"duracao_padrao_evento": minutos})
 
-            await update.message.reply_text(f" Duração dos eventos ajustada para {minutos} minutos.")
+            await update.message.reply_text(f"✅ Duração dos eventos ajustada para {minutos} minutos.")
             return True
 
         else:
-            await update.message.reply_text(" Por favor, escolha uma duração entre 15 e 180 minutos.")
+            await update.message.reply_text("⚠️ Por favor, escolha uma duração entre 15 e 180 minutos.")
             return True
 
     return False
 
-#  Criar evento via GPT com verificação de conflito
+# ✅ Criar evento via GPT com verificação de conflito
 async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict):
-    print("[EXEC] Executando add_evento_por_gpt")
+    print("⚙️ Executando add_evento_por_gpt")
 
-    # [TESTE_SURI] PAYLOAD PARA ADD_EVENTO_POR_GPT
-    print(f"[TESTE_SURI] PAYLOAD_ADD_EVENTO: dados_keys={list((dados or {}).keys())}", flush=True)
+    # [TESTE_SURI] 5️⃣ PAYLOAD PARA ADD_EVENTO_POR_GPT
+    print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: dados_keys={list((dados or {}).keys())}", flush=True)
     if "cliente_nome" in (dados or {}):
-        print(f"[TESTE_SURI] PAYLOAD_ADD_EVENTO: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: cliente_nome={repr(dados.get('cliente_nome'))}", flush=True)
     if "profissional" in (dados or {}):
-        print(f"[TESTE_SURI] PAYLOAD_ADD_EVENTO: profissional={repr(dados.get('profissional'))}", flush=True)
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: profissional={repr(dados.get('profissional'))}", flush=True)
     if "servico" in (dados or {}):
-        print(f"[TESTE_SURI] 5⃣ PAYLOAD_ADD_EVENTO: servico={repr(dados.get('servico'))}", flush=True)
+        print(f"[TESTE_SURI] 5️⃣ PAYLOAD_ADD_EVENTO: servico={repr(dados.get('servico'))}", flush=True)
 
-    # [P0] Validações Telegram-específicas (skip em WhatsApp onde update=None)
-    if update and hasattr(update, "message"):
-        if not await verificar_pagamento(update, context): return False
-        if not await verificar_acesso_modulo(update, context, "secretaria"): return False
+    if not await verificar_pagamento(update, context): return False
+    if not await verificar_acesso_modulo(update, context, "secretaria"): return False
 
-    # [P0] Check duplicação: somente com context válido
-    if context and context.chat_data.get("evento_via_gpt"):
-        return False
-    if context:
-        context.chat_data["evento_via_gpt"] = True
+    if context.chat_data.get("evento_via_gpt"):
+        return False  # evitar duplicação
+    context.chat_data["evento_via_gpt"] = True
 
     try:
         descricao = dados.get("descricao", "Evento sem título")
@@ -582,7 +578,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         profissional = dados.get("profissional") or dados.get("profissional_escolhido")
         data_hora_str = dados.get("data_hora")  # ISO string
 
-        #  PATCH: construir título automaticamente
+        # 🔥 PATCH: construir título automaticamente
         servico_txt = (str(servico).strip() if servico else "")
         prof_txt = (str(profissional).strip() if profissional else "")
 
@@ -606,27 +602,19 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         else:
             user_id = (dados or {}).get("user_id")
 
-        #  PATCH MT-07: Obter dono_id para carregar contexto v2 (multi-tenant)
+        # 🔧 PATCH MT-07: Obter dono_id para carregar contexto v2 (multi-tenant)
         dono_id = await obter_id_dono(user_id)
         # [WhatsApp] Se update=None e dono_id é None, usar tenant_id de dados_exec
         if not dono_id:
             dono_id = (dados or {}).get("tenant_id")
 
-        # [P0.3] CORREÇÃO: Normalizar cliente_id com actor_id (preservar prefixo whatsapp:)
-        cliente_id = (dados or {}).get("cliente_id")
-        if not cliente_id:
-            cliente_id = user_id
-            # Se é WhatsApp (update=None), adicionar prefixo whatsapp: para preservar canal
-            if update is None and cliente_id and not str(cliente_id).startswith("whatsapp:"):
-                cliente_id = f"whatsapp:{cliente_id}"
+        # ✅ Carrega contexto UMA vez no início (evita UnboundLocalError)
+        contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
 
-        #  Carrega contexto UMA vez no início (evita UnboundLocalError)
-        contexto = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
-
-        #  Buscar cliente cadastrado para usar nome persistido
+        # 🆔 Buscar cliente cadastrado para usar nome persistido
         cliente_cadastrado = await buscar_cliente(user_id) or {}
 
-        #  Aplicar ordem de prioridade para cliente_nome
+        # 📝 Aplicar ordem de prioridade para cliente_nome
         # [WhatsApp] Se update=None, cliente_nome já vem de dados_exec
         from_user_full_name = None
         from_user_first_name = None
@@ -641,7 +629,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             or from_user_first_name
         )
 
-        #  BLOQUEIO: impedir agendamento sem confirmação explícita
+        cliente_id = user_id
+
+        # 🚫 BLOQUEIO: impedir agendamento sem confirmação explícita
         texto_usuario = (
             (getattr(getattr(update, "message", None), "text", None) or dados.get("texto_usuario") or "")
             .lower()
@@ -658,33 +648,33 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             ]
             return any(g == txt or g in txt for g in gatilhos)
 
-        #  Se não há confirmação explícita, NÃO agenda
-        #  CONTROLE DE CONFIRMAÇÃO (modo híbrido)
+        # 🧠 Se não há confirmação explícita, NÃO agenda
+        # ✅ CONTROLE DE CONFIRMAÇÃO (modo híbrido)
         origem = (dados or {}).get("origem")
 
         if dados.get("confirmado") is True:
-            print(" Confirmado pelo chamador (confirmado=True): pulando gate de confirmação", flush=True)
+            print("⚙️ Confirmado pelo chamador (confirmado=True): pulando gate de confirmação", flush=True)
 
         elif origem == "auto":
-            #  Se já existe confirmação pendente no contexto, não pode pular confirmação
+            # 🛑 Se já existe confirmação pendente no contexto, não pode pular confirmação
             ctx_tmp = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
             if ctx_tmp.get("aguardando_confirmacao_agendamento"):
-                print(" Confirmação pendente detectada — não vou executar modo automático.", flush=True)
+                print("🛑 Confirmação pendente detectada — não vou executar modo automático.", flush=True)
                 return {"acao": None, "handled": True}
 
-            print(" Modo automático: pulando confirmação", flush=True)
+            print("⚙️ Modo automático: pulando confirmação", flush=True)
 
         else:
             if not eh_confirmacao(texto_usuario):
 
-                #  Formatar data/hora (de ISO para 03/03 às 14:00)
+                # 🧠 Formatar data/hora (de ISO para 03/03 às 14:00)
                 try:
                     dt = datetime.fromisoformat(data_hora_str)
                     data_formatada = dt.strftime("%d/%m às %H:%M")
                 except:
                     data_formatada = data_hora_str  # fallback se der erro
 
-                #  Marca que agora estamos aguardando confirmação do usuário
+                # 🛑 Marca que agora estamos aguardando confirmação do usuário
                 contexto_confirmacao = {
                     "aguardando_confirmacao_agendamento": True,
                     "dados_confirmacao_agendamento": {
@@ -697,22 +687,22 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     }
                 }
 
-                # [TESTE_SURI] 4⃣ CONTEXTO SALVO
-                print(f"[TESTE_SURI] 4⃣ CONTEXTO_SALVO: servico={repr(servico)}", flush=True)
-                print(f"[TESTE_SURI] 4⃣ CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
-                print(f"[TESTE_SURI] 4⃣ CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
+                # [TESTE_SURI] 4️⃣ CONTEXTO SALVO
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: servico={repr(servico)}", flush=True)
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
+                print(f"[TESTE_SURI] 4️⃣ CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
 
                 await salvar_contexto_temporario_v2(dono_id, user_id, contexto_confirmacao)
 
                 await update.message.reply_text(
-                    f" {descricao}\n"
-                    f" {data_formatada}\n\n"
+                    f"✨ {descricao}\n"
+                    f"📆 {data_formatada}\n\n"
                     f"Posso confirmar esse horário pra você?",
                     parse_mode="Markdown"
                 )
                 return {"acao": None, "handled": True}
 
-        #  Trata profissional alternativo (contexto já carregado acima)
+        # 🧠 Trata profissional alternativo (contexto já carregado acima)
         resposta_usuario_norm = (
             (getattr(getattr(update, "message", None), "text", None) or "")
             .strip()
@@ -737,16 +727,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             profissional = profissional_alternativo_escolhido
             dados["profissional"] = profissional
 
-            #  ao escolher a alternativa, limpa resíduos do modo de sugestão
+            # ✅ ao escolher a alternativa, limpa resíduos do modo de sugestão
             contexto.pop("alternativa_profissional", None)
             contexto.pop("sugestoes", None)
             contexto.pop("modo_escolha_horario", None)
             contexto.pop("horarios_sugeridos", None)
 
             await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
-            print(f" Profissional substituído com sucesso: {profissional}")
+            print(f"🔁 Profissional substituído com sucesso: {profissional}")
         elif nomes_alternativos:
-            #  Usuário não escolheu nenhuma alternativa explicitamente → limpa
+            # ❌ Usuário não escolheu nenhuma alternativa explicitamente → limpa
             contexto.pop("alternativa_profissional", None)
             contexto.pop("sugestoes", None)
             await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
@@ -756,44 +746,37 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if _precisa_profissional(contexto, descricao):
                 profissional = await obter_profissional_para_evento(user_id, descricao)
                 if not profissional:
-                    await update.message.reply_text(" Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
+                    await update.message.reply_text("❌ Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
                     return False
             else:
                 profissional = None  # reunião/agenda pessoal não precisa
 
         if not descricao or not data_hora_str:
-            await update.message.reply_text(" Dados insuficientes para criar o evento.")
+            await update.message.reply_text("❌ Dados insuficientes para criar o evento.")
             return False
 
         try:
             start_time = datetime.fromisoformat(data_hora_str)
         except ValueError:
-            await update.message.reply_text(" Formato de data/hora inválido.")
+            await update.message.reply_text("❌ Formato de data/hora inválido.")
             return False
 
         end_time = start_time + timedelta(minutes=duracao_minutos)
 
         # =========================================================
-        #  FAIL-SAFE FINAL — VALIDAÇÃO DE EXPEDIENTE
+        # 🔒 FAIL-SAFE FINAL — VALIDAÇÃO DE EXPEDIENTE
         # =========================================================
-        # [FIX] Reutilizar dono_id que já foi resolvido com fallback (linha 610-613)
-        # REMOVIDO: id_dono = await obter_id_dono(user_id)
-        # MOTIVO: dono_id já contém tenant_id com fallback para WhatsApp
-
-        print(f"[P01_TRACE] ANTES_VALIDAR_EXPEDIENTE | user_id={dono_id} | data={start_time.strftime('%Y-%m-%d')} | hora={start_time.strftime('%H:%M')} | duracao={duracao_minutos} | profissional={profissional} | confirmado={dados.get('confirmado')}", flush=True)
+        id_dono = await obter_id_dono(user_id)
 
         validacao_funcionamento = await validar_horario_funcionamento(
-            user_id=dono_id,
+            user_id=id_dono,
             data_iso=start_time.strftime("%Y-%m-%d"),
             hora_inicio=start_time.strftime("%H:%M"),
             duracao_min=duracao_minutos,
             profissional=profissional,
         )
 
-        print(f"[P01_TRACE] RESULTADO_VALIDAR_EXPEDIENTE | resultado={validacao_funcionamento} | permitido={validacao_funcionamento.get('permitido')} | motivo={validacao_funcionamento.get('motivo')}", flush=True)
-
         if not validacao_funcionamento.get("permitido"):
-            print(f"[P01_TRACE] BLOQUEIO_EXPEDIENTE_ACIONADO | linha=789 | permitido={validacao_funcionamento.get('permitido')}", flush=True)
             motivo = validacao_funcionamento.get("motivo")
 
             if motivo == "fora_do_expediente":
@@ -802,7 +785,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 hora_ref = start_time.strftime("%H:%M")
 
                 tentativa = await resolver_fora_do_expediente(
-                    user_id=dono_id,
+                    user_id=id_dono,
                     data_iso=data_ref,
                     hora_inicio=hora_ref,
                     duracao_min=duracao_minutos,
@@ -814,7 +797,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     horario = tentativa.get("horario")
 
                     janela = await obter_janela_funcionamento(
-                        user_id=dono_id,
+                        user_id=id_dono,
                         data_str=data_ref,
                         profissional=profissional,
                     )
@@ -832,32 +815,26 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                             "Esse horário não está disponível nesse dia.\n\n"
                         )
 
-                    if update:
-                        await update.message.reply_text(
-                            texto_base
-                            + f"O horário mais próximo que tenho disponível é às {horario}.\n"
-                            + "Posso agendar pra você? "
-                        )
-                    print(f"[P01_TRACE] RETURN_FALSE_RESOLVER_OK | linha=834", flush=True)
+                    await update.message.reply_text(
+                        texto_base
+                        + f"O horário mais próximo que tenho disponível é às {horario}.\n"
+                        + "Posso agendar pra você? 😊"
+                    )
                     return False
 
                 # fallback (mantém comportamento antigo)
-                if update:
-                    await update.message.reply_text(
-                        " Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
-                    )
-                print(f"[P01_TRACE] RETURN_FALSE_RESOLVER_FALHA | linha=841", flush=True)
+                await update.message.reply_text(
+                    "❌ Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
+                )
                 return False
 
-            print(f"[P01_TRACE] RETURN_FALSE_MOTIVO_OUTRO | linha=847 | motivo={validacao_funcionamento.get('motivo')}", flush=True)
-            if update:
-                await update.message.reply_text(
-                    " Não consegui validar esse horário na agenda configurada. Tente novamente."
-                )
+            await update.message.reply_text(
+                "❌ Não consegui validar esse horário na agenda configurada. Tente novamente."
+            )
             return False
 
         eventos_do_dia = await buscar_eventos_por_intervalo(
-            dono_id,
+            id_dono,
             dia_especifico=start_time.date()
         ) or []
 
@@ -872,14 +849,14 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 or ""
             )
 
-            #  filtro estrutural da agenda
+            # 🔥 filtro estrutural da agenda
             if not evento_deve_entrar_na_agenda(
                 evento_id=evento_id,
                 evento=ev,
                 data_consulta=start_time.strftime("%Y-%m-%d")
             ):
                 print(
-                    f" [EVENTO_IGNORADO_HANDLER] id={evento_id}",
+                    f"🧹 [EVENTO_IGNORADO_HANDLER] id={evento_id}",
                     flush=True
                 )
                 continue
@@ -903,20 +880,20 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 ocupados.append((ev_inicio, ev_fim))
 
             except Exception as e:
-                print(f" Erro ao processar evento: {e}")
+                print(f"⚠️ Erro ao processar evento: {e}")
                 continue
 
-        #  DEBUG dos horários ocupados e do novo agendamento
-        print(f" Novo agendamento solicitado: {start_time} → {end_time}")
+        # 📌 DEBUG dos horários ocupados e do novo agendamento
+        print(f"📌 Novo agendamento solicitado: {start_time} → {end_time}")
         for i, (ini, fim) in enumerate(ocupados):
-            print(f" Evento ocupado {i}: {ini} → {fim} | Conflita? {not (end_time <= ini or start_time >= fim)}")
+            print(f"❗ Evento ocupado {i}: {ini} → {fim} | Conflita? {not (end_time <= ini or start_time >= fim)}")
 
-        print(" Entrando no bloco de verificação de conflitos...")
+        print("🔍 Entrando no bloco de verificação de conflitos...")
         # Verifica se há conflito real com esse horário
         conflito = any(not (end_time <= inicio or start_time >= fim) for inicio, fim in ocupados if fim > inicio)
 
         if conflito:
-            #  Aqui sim faz sentido sugerir horários alternativos com base no horário solicitado
+            # ⚠️ Aqui sim faz sentido sugerir horários alternativos com base no horário solicitado
             sugestoes = gerar_sugestoes_de_horario(
                 start_time,
                 ocupados,
@@ -925,16 +902,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
 
             alternativa = None
-            sugestoes_formatadas = '\n'.join([f" {s}" for s in sugestoes]) if sugestoes else " Nenhum horário alternativo disponível."
+            sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes]) if sugestoes else "❌ Nenhum horário alternativo disponível."
 
             id_dono = user_id
             try:
                 cliente_tmp = await buscar_cliente(user_id) or {}
                 id_dono = str(cliente_tmp.get("id_negocio") or cliente_tmp.get("id_dono") or user_id)
             except Exception as e:
-                print(f" Falha ao obter id_negocio: {e}", flush=True)
+                print(f"⚠️ Falha ao obter id_negocio: {e}", flush=True)
 
-            #  Persistir agendamento pendente (data ORIGINAL) para não perder o dia
+            # ✅ Persistir agendamento pendente (data ORIGINAL) para não perder o dia
             try:
                 # tenta derivar serviço do texto (ex: "escova com Joana" -> "escova")
                 servico_ctx = None
@@ -952,7 +929,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 if prof_final:
                     contexto["profissional_escolhido"] = prof_final
 
-                #  sempre salvar
+                # ✅ sempre salvar
                 contexto["duracao"] = duracao_minutos
                 contexto["sugestoes"] = sugestoes
                 contexto["alternativa_profissional"] = alternativa
@@ -960,7 +937,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 if servico_final:
                     contexto["servico"] = servico_final
 
-                #  sempre salvar dados_anteriores (para o gpt_service retomar com "15:20")
+                # ✅ sempre salvar dados_anteriores (para o gpt_service retomar com "15:20")
                 contexto["dados_anteriores"] = {
                     "profissional": prof_final,
                     "servico": servico_final,
@@ -969,10 +946,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 }
 
                 await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
-                print(" Contexto pendente salvo (conflito).")
+                print("💾 Contexto pendente salvo (conflito).")
 
             except Exception as e:
-                print(f" Falha ao salvar contexto pendente no conflito: {e}")
+                print(f"⚠️ Falha ao salvar contexto pendente no conflito: {e}")
 
             nomes_alternativos = []
             if isinstance(alternativa, list):
@@ -982,12 +959,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
             if len(nomes_alternativos) == 1:
                 alternativa_txt = (
-                    f"\n\n Porém, *{nomes_alternativos[0]}* está disponível exatamente às *{start_time.strftime('%H:%M')}*."
+                    f"\n\n💡 Porém, *{nomes_alternativos[0]}* está disponível exatamente às *{start_time.strftime('%H:%M')}*."
                 )
             elif len(nomes_alternativos) > 1:
                 lista_alt = ", ".join(f"*{n}*" for n in nomes_alternativos)
                 alternativa_txt = (
-                    f"\n\n Tenho estas profissionais disponíveis exatamente às *{start_time.strftime('%H:%M')}*: {lista_alt}."
+                    f"\n\n💡 Tenho estas profissionais disponíveis exatamente às *{start_time.strftime('%H:%M')}*: {lista_alt}."
                 )
             else:
                 alternativa_txt = ""
@@ -1033,14 +1010,14 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     contexto["alternativa_profissional"] = alternativa
 
                     print(
-                        f" alternativas debug | servico={servico_final} | "
+                        f"🧪 alternativas debug | servico={servico_final} | "
                         f"aptas={list(aptas.keys())} | livres={list(livres.keys())} | alts={nomes_alternativos}",
                         flush=True
                     )
 
                     if nomes_alternativos:
                         alternativas_txt = (
-                            f"\n\n Se você quiser manter *{hora_ref}*, estas profissionais fazem *{servico_final}* "
+                            f"\n\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem *{servico_final}* "
                             f"e estão disponíveis: *{', '.join(nomes_alternativos)}*."
                         )
 
@@ -1061,20 +1038,20 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                         )
 
             except Exception as e:
-                print(f" Falha ao montar alternativas no mesmo horário: {e}", flush=True)
+                print(f"⚠️ Falha ao montar alternativas no mesmo horário: {e}", flush=True)
 
             mensagem_sugestao = (
-                f" A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
-                f"\n\n Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
+                f"⛔ A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
+                f"\n\n✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
                 f"{alternativas_txt or alternativa_txt}"
                 "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
             )
 
             print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
             await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
-            return True  #  Não agenda nesse momento
+            return True  # ⛔️ Não agenda nesse momento
 
-        #  FASE 4: Extrair tenant_id de dados (propagado por principal_router)
+        # ✅ FASE 4: Extrair tenant_id de dados (propagado por principal_router)
         tenant_id = (dados or {}).get("tenant_id") or dono_id
 
         evento_data = {
@@ -1092,16 +1069,13 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if profissional:
             evento_data["profissional"] = profissional
 
-        # [TESTE_SURI] 6⃣ EVENTO_DATA ANTES DE SALVAR
-        print(f"[TESTE_SURI] 6⃣ EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
-        print(f"[TESTE_SURI] 6⃣ EVENTO_DATA: profissional={repr(evento_data.get('profissional'))}", flush=True)
-        print(f"[TESTE_SURI] 6⃣ EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
+        # [TESTE_SURI] 6️⃣ EVENTO_DATA ANTES DE SALVAR
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: profissional={repr(evento_data.get('profissional'))}", flush=True)
+        print(f"[TESTE_SURI] 6️⃣ EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
 
-        print(f"[P01_TRACE] PASSOU_VALIDACAO_EXPEDIENTE | linha=849", flush=True)
-        print(" Disparando salvar_evento com:", evento_data)
-        print(f"[P01_TRACE] ANTES_SALVAR_EVENTO | linha=1091 | tenant_id={tenant_id} | confirmado={evento_data.get('confirmado')}", flush=True)
+        print("📦 Disparando salvar_evento com:", evento_data)
         resultado_salvamento = await salvar_evento(user_id, evento_data, tenant_id)
-        print(f"[P01_TRACE] RESULTADO_SALVAR_EVENTO | linha=1092 | resultado={resultado_salvamento} | tipo={type(resultado_salvamento)}", flush=True)
 
         # [PATCH_P0] Detectar e tratar duplicado
         if resultado_salvamento == "duplicado":
@@ -1124,7 +1098,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 )
 
                 alternativa = None
-                sugestoes_formatadas = '\n'.join([f" {s}" for s in sugestoes]) if sugestoes else ""
+                sugestoes_formatadas = '\n'.join([f"🔄 {s}" for s in sugestoes]) if sugestoes else ""
 
                 id_dono = dono_id
                 servico_final = servico
@@ -1162,7 +1136,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
                         if nomes_alternativos:
                             alternativas_txt = (
-                                f"\n\n Se você quiser manter *{hora_ref}*, estas profissionais fazem *{servico_final}* "
+                                f"\n\n💡 Se você quiser manter *{hora_ref}*, estas profissionais fazem *{servico_final}* "
                                 f"e estão disponíveis: *{', '.join(nomes_alternativos)}*."
                             )
 
@@ -1171,8 +1145,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
                 # Montar mensagem EXATAMENTE como em linhas 985-990
                 mensagem_sugestao = (
-                    f" A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
-                    f"\n\n Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
+                    f"⛔ A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
+                    f"\n\n✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
                     f"{alternativas_txt}"
                     "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
                 )
@@ -1204,17 +1178,16 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             except Exception as e:
                 print(f"[PATCH_P0_CONFLITO] Erro ao gerar sugestões: {e}", flush=True)
                 await update.message.reply_text(
-                    f" Não consegui agendar nesse horário. Tente outro horário ou profissional."
+                    f"❌ Não consegui agendar nesse horário. Tente outro horário ou profissional."
                 )
                 return True
 
         # [PATCH_P0] Erro genérico (sem conflito específico)
         if not resultado_salvamento:
             print(f"[PATCH_P0] Salvamento falhou (resultado_salvamento={resultado_salvamento})", flush=True)
-            print(f"[P01_TRACE] RETURN_TRUE_SALVAR_FALHOU | linha=1212 | resultado_salvamento={resultado_salvamento}", flush=True)
             return True
 
-        #  Sucesso real — só chega aqui se não houve conflito/erro
+        # ✅ Sucesso real — só chega aqui se não houve conflito/erro
         print("[OK] Evento salvo")
 
         # P1.1: Atualizar ClienteProfile (background, não-bloqueante)
@@ -1256,7 +1229,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             # NÃO bloqueia agendamento se profile falhar
             logger.warning(f"Falha ao atualizar profile (não bloqueante): {e}")
 
-        #  Criar notificações para cliente e profissional
+        # 🔔 Criar notificações para cliente e profissional
         from services.notificacao_service import criar_notificacao_agendada, criar_notificacoes_evento_cliente_e_profissional
 
         try:
@@ -1275,7 +1248,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                             profissional_user_id = prof_dados.get("user_id") or prof_dados.get("chat_id") or prof_dados.get("telegram_id")
                             break
                 except Exception as e:
-                    print(f" Falha ao buscar profissional_user_id: {e}")
+                    print(f"⚠️ Falha ao buscar profissional_user_id: {e}")
 
             # Criar notificações (cliente + profissional se houver)
             resultado_notif = await criar_notificacoes_evento_cliente_e_profissional(
@@ -1300,13 +1273,13 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if resultado_notif["profissional"]["sucesso"]:
                 print(f"[OK] Notificação profissional criada: {resultado_notif['profissional']['notif_id']}")
             elif resultado_notif["profissional"]["motivo"] != "profissional_sem_id":
-                print(f" Falha ao criar notificação profissional: {resultado_notif['profissional'].get('motivo')}")
+                print(f"⚠️ Falha ao criar notificação profissional: {resultado_notif['profissional'].get('motivo')}")
 
         except Exception as e:
-            print(f" Falha ao criar notificações cliente+profissional: {e}")
+            print(f"⚠️ Falha ao criar notificações cliente+profissional: {e}")
             # Continua mesmo se falhar
 
-        #  Lembretes (60 e 10 min antes)
+        # 🔔 Lembretes (60 e 10 min antes)
         # NOTA: criar_notificacao_agendada será descontinuado após migração para criar_notificacoes_evento_cliente_e_profissional
         try:
             # Decide quem recebe o lembrete:
@@ -1328,33 +1301,31 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
 
         except Exception as e:
-            print(f" Falha ao agendar lembretes do evento: {e}")
+            print(f"⚠️ Falha ao agendar lembretes do evento: {e}")
 
         mensagem_confirmacao = (
-            f" {descricao.capitalize()}\n"
-            f" {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}"
+            f"📝 {descricao.capitalize()}\n"
+            f"📅 {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}"
         )
 
-        # [P0.3] Proteção: context pode ser None em WhatsApp
-        if context and context.user_data.get("origem_email_detectado"):
+        if context.user_data.get("origem_email_detectado"):
             mensagem_confirmacao = (
-                " Um novo evento foi criado com base em um e-mail importante:\n\n"
+                "📬 Um novo evento foi criado com base em um e-mail importante:\n\n"
                 + mensagem_confirmacao
             )
-        if context:
-            context.user_data.pop("origem_email_detectado", None)
+        context.user_data.pop("origem_email_detectado", None)
 
         try:
             from main import application
             await application.bot.send_message(chat_id=user_id, text=mensagem_confirmacao)
         except Exception as e:
-            print(f" Erro ao enviar notificação Telegram: {e}")
+            print(f"❌ Erro ao enviar notificação Telegram: {e}")
 
         try:
             from utils.whatsapp_utils import enviar_mensagem_whatsapp
             await enviar_mensagem_whatsapp(user_id, mensagem_confirmacao)
         except Exception as e:
-            print(f" Erro ao enviar WhatsApp: {e}")
+            print(f"❌ Erro ao enviar WhatsApp: {e}")
 
         msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
         await update.message.reply_text(msg_sucesso)
@@ -1395,21 +1366,17 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 context.user_data.pop(campo, None)
             print(f"[P0.4-CORREÇÃO 2] Campos transitórios removidos de context.user_data", flush=True)
 
-        print(f"[P01_TRACE] RETURN_TRUE_FINAL | linha=1384 | resultado=True | evento_criado_com_sucesso", flush=True)
         return True
 
     except Exception as e:
         import traceback
-        print(f" Erro inesperado em add_evento_por_gpt: {e}")
+        print(f"❌ Erro inesperado em add_evento_por_gpt: {e}")
         traceback.print_exc()
-        if update:
-            await update.message.reply_text(" Ocorreu um erro ao tentar criar o evento.")
+        await update.message.reply_text("❌ Ocorreu um erro ao tentar criar o evento.")
         return False
 
     finally:
-        # [P0.3] Proteção: context pode ser None em WhatsApp
-        if context:
-            context.chat_data.pop("evento_via_gpt", None)
+        context.chat_data.pop("evento_via_gpt", None)
 
 async def enviar_agenda_excel(update: Update, context: ContextTypes.DEFAULT_TYPE, intervalo: str = "hoje"):
     if not await verificar_pagamento(update, context): return
@@ -1427,16 +1394,16 @@ async def enviar_agenda_excel(update: Update, context: ContextTypes.DEFAULT_TYPE
         eventos = await buscar_eventos_por_intervalo(user_id, dias=-365)
 
     if not eventos:
-        await update.message.reply_text(" Nenhum evento encontrado para gerar a agenda.")
+        await update.message.reply_text("📭 Nenhum evento encontrado para gerar a agenda.")
         await responder_em_audio(update, context, "Nenhum evento disponível para gerar a agenda.")
         return
 
-    #  Gera planilha em memória
+    # 🧾 Gera planilha em memória
     excel_stream = await gerar_excel_agenda(user_id, eventos)
 
     await update.message.reply_document(
         document=InputFile(excel_stream, filename="agenda_neoagenda.xlsx"),
-        caption=" Aqui está sua agenda exportada com sucesso."
+        caption="📎 Aqui está sua agenda exportada com sucesso."
     )
 
     await responder_em_audio(update, context, "Sua agenda em Excel foi gerada e enviada.")  
