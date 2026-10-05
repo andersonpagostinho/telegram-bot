@@ -27,6 +27,7 @@ class IdentidadeContexto:
     - canal: "telegram" ou "whatsapp"
 
     Campos opcionais:
+    - phone_number_id: ID do endpoint WhatsApp (somente para WhatsApp)
     - actor_tipo: "dono", "cliente", "profissional" (resolvido após identidade)
     - actor_nome: Nome do ator (para logs)
     - tenant_nome: Nome da organização (para logs)
@@ -36,6 +37,7 @@ class IdentidadeContexto:
     tenant_id: str
     actor_id: str
     canal: str
+    phone_number_id: Optional[str] = None
     actor_tipo: Optional[str] = None
     actor_nome: Optional[str] = None
     tenant_nome: Optional[str] = None
@@ -95,6 +97,7 @@ def criar_identidade_whatsapp(
         tenant_id=tenant_id,
         actor_id=actor_id,
         canal="whatsapp",
+        phone_number_id=phone_number_id,
     )
 
 

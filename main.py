@@ -238,6 +238,7 @@ def whatsapp_webhook_post():
                                     user_id=from_number,
                                     mensagem=text_body,
                                     tenant_id=tenant_id,
+                                    phone_number_id=phone_number_id,
                                     update=None,
                                     context=None
                                 ),
@@ -255,6 +256,7 @@ def whatsapp_webhook_post():
                                     user_id=from_number,
                                     mensagem=text_body,
                                     tenant_id=tenant_id,
+                                    phone_number_id=phone_number_id,
                                     update=None,
                                     context=None
                                 )

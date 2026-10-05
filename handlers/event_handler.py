@@ -553,7 +553,7 @@ async def detectar_e_definir_duracao(update: Update, context: ContextTypes.DEFAU
     return False
 
 #  Criar evento via GPT com verificação de conflito
-async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict):
+async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE, dados: dict, identidade=None):
     print("[EXEC] Executando add_evento_por_gpt")
 
     # [TESTE_SURI] PAYLOAD PARA ADD_EVENTO_POR_GPT
@@ -1355,7 +1355,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         try:
             from utils.whatsapp_utils import enviar_mensagem_whatsapp
-            await enviar_mensagem_whatsapp(user_id, msg_sucesso)
+            phone_number_id_para_envio = (
+                identidade.phone_number_id
+                if identidade and hasattr(identidade, 'phone_number_id')
+                else None
+            )
+            await enviar_mensagem_whatsapp(user_id, msg_sucesso, phone_number_id=phone_number_id_para_envio)
         except Exception as e:
             print(f" Erro ao enviar WhatsApp: {e}")
 

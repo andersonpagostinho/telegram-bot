@@ -895,7 +895,7 @@ async def executar_acao_gpt(
                 f"tenant_id={dados.get('tenant_id')!r}",
                 flush=True
             )
-            await add_evento_por_gpt(update, context, dados)
+            await add_evento_por_gpt(update, context, dados, identidade=identidade)
             return True  # ✅ sempre "handled": add_evento_por_gpt já responde (sucesso OU conflito)
 
         elif acao == "remover_tarefa":

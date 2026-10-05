@@ -3500,11 +3500,11 @@ COMPORTAMENTO:
     - Diga diretamente quais profissionais estão disponíveis.
     - Use estrutura clara:
 
-      "Se quiser manter esse horário, tenho estas profissionais disponíveis: {lista}"
+      "Se quiser manter esse horário, tenho estas profissionais disponíveis: {{lista}}"
 
       OU
 
-      "Se quiser manter próximo desse horário, tenho estas profissionais: {lista}"
+      "Se quiser manter próximo desse horário, tenho estas profissionais: {{lista}}"
 
 - Se o cliente pedir "mais cedo":
   - Direcione para horários anteriores.

@@ -3433,7 +3433,7 @@ def eh_continuacao_de_agendamento(txt: str, ctx: dict) -> bool:
 # Router principal
 # ----------------------------
 
-async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None, update=None, context=None):
+async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None, phone_number_id: str = None, update=None, context=None):
     print(" [principal_router] Arquivo carregado")
 
     # 🧹 Limpeza multilinha: remover quebras de linha e normalizar espaços
@@ -3462,15 +3462,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # Fluxo funcional NÃO foi alterado, apenas criamos o objeto para futuro uso
     try:
         if tenant_id:
-            # WhatsApp: construir identidade com actor_id canônico
-            from utils.identidade_contexto import IdentidadeContexto
+            # WhatsApp: usar factory que preserva phone_number_id
+            from utils.identidade_contexto import criar_identidade_whatsapp
 
-            actor_id = f"whatsapp:{user_id}"
-            identidade_p01 = IdentidadeContexto(
-                user_id=user_id,
-                tenant_id=dono_id,
-                actor_id=actor_id,
-                canal="whatsapp"
+            identidade_p01 = criar_identidade_whatsapp(
+                wa_id=user_id,
+                phone_number_id=phone_number_id,
+                tenant_id=dono_id
             )
         else:
             # Telegram: usar factory existente
@@ -6214,6 +6212,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 context,
                 resultado.get("acao"),
                 dados_exec,
+                identidade=identidade_p01,
             )
 
         if resultado and resultado.get("resposta"):
@@ -11710,7 +11709,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "data_hora": slots_extraidos["data_hora"],
                 "servico": slots_extraidos["servico"],
                 "profissional": slots_extraidos["profissional"]
-            }
+            },
+            identidade=identidade_p01
         )
 
     # ✅ REGRA DE OURO FINAL:
@@ -11937,7 +11937,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                     return await _send_and_stop(context, user_id, msg)
 
-            handled = await executar_acao_gpt(update, context, acao, dados)
+            handled = await executar_acao_gpt(update, context, acao, dados, identidade=identidade_p01)
 
             if acao == "criar_evento":
                 return {"acao": "criar_evento", "handled": True}
