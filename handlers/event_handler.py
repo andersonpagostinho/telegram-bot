@@ -563,7 +563,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
     if "profissional" in (dados or {}):
         print(f"[TESTE_SURI] PAYLOAD_ADD_EVENTO: profissional={repr(dados.get('profissional'))}", flush=True)
     if "servico" in (dados or {}):
-        print(f"[TESTE_SURI] 5⃣ PAYLOAD_ADD_EVENTO: servico={repr(dados.get('servico'))}", flush=True)
+        print(f"[TESTE_SURI]  PAYLOAD_ADD_EVENTO: servico={repr(dados.get('servico'))}", flush=True)
 
     # [P0] Validações Telegram-específicas (skip em WhatsApp onde update=None)
     if update and hasattr(update, "message"):
@@ -697,10 +697,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     }
                 }
 
-                # [TESTE_SURI] 4⃣ CONTEXTO SALVO
-                print(f"[TESTE_SURI] 4⃣ CONTEXTO_SALVO: servico={repr(servico)}", flush=True)
-                print(f"[TESTE_SURI] 4⃣ CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
-                print(f"[TESTE_SURI] 4⃣ CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
+                # [TESTE_SURI]  CONTEXTO SALVO
+                print(f"[TESTE_SURI]  CONTEXTO_SALVO: servico={repr(servico)}", flush=True)
+                print(f"[TESTE_SURI]  CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
+                print(f"[TESTE_SURI]  CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
 
                 await salvar_contexto_temporario_v2(dono_id, user_id, contexto_confirmacao)
 
@@ -746,7 +746,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
             print(f" Profissional substituído com sucesso: {profissional}")
         elif nomes_alternativos:
-            #  Usuário não escolheu nenhuma alternativa explicitamente → limpa
+            #  Usuário não escolheu nenhuma alternativa explicitamente -> limpa
             contexto.pop("alternativa_profissional", None)
             contexto.pop("sugestoes", None)
             await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
@@ -907,9 +907,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 continue
 
         #  DEBUG dos horários ocupados e do novo agendamento
-        print(f" Novo agendamento solicitado: {start_time} → {end_time}")
+        print(f" Novo agendamento solicitado: {start_time} -> {end_time}")
         for i, (ini, fim) in enumerate(ocupados):
-            print(f" Evento ocupado {i}: {ini} → {fim} | Conflita? {not (end_time <= ini or start_time >= fim)}")
+            print(f" Evento ocupado {i}: {ini} -> {fim} | Conflita? {not (end_time <= ini or start_time >= fim)}")
 
         print(" Entrando no bloco de verificação de conflitos...")
         # Verifica se há conflito real com esse horário
@@ -1092,10 +1092,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if profissional:
             evento_data["profissional"] = profissional
 
-        # [TESTE_SURI] 6⃣ EVENTO_DATA ANTES DE SALVAR
-        print(f"[TESTE_SURI] 6⃣ EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
-        print(f"[TESTE_SURI] 6⃣ EVENTO_DATA: profissional={repr(evento_data.get('profissional'))}", flush=True)
-        print(f"[TESTE_SURI] 6⃣ EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
+        # [TESTE_SURI]  EVENTO_DATA ANTES DE SALVAR
+        print(f"[TESTE_SURI]  EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
+        print(f"[TESTE_SURI]  EVENTO_DATA: profissional={repr(evento_data.get('profissional'))}", flush=True)
+        print(f"[TESTE_SURI]  EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
 
         print(f"[P01_TRACE] PASSOU_VALIDACAO_EXPEDIENTE | linha=849", flush=True)
         print(" Disparando salvar_evento com:", evento_data)
