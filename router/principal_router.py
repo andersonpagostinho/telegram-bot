@@ -5365,23 +5365,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
-                msg_p1 = await gerar_resposta_p1({
-                    "tipo": "confirmar_agendamento",
-                    "servico": servico_slot,
-                    "profissional": profissional_escolhido,
-                    "data_hora": data_hora_slot,
-                    "data_hora_legivel": formatar_data_hora_br(data_hora_slot),
-                    "duracao": estimar_duracao(servico_slot),
-                    "origem": "slot_profissional_aguardando_profissional",
-                })
-
                 mensagem = (
-                    msg_p1
-                    or (
-                        f"Confirmando: *{servico_slot}* com *{profissional_escolhido}* "
-                        f"em *{formatar_data_hora_br(data_hora_slot)}*.\n"
-                        f"Responda *sim* para confirmar."
-                    )
+                    f"✨ *{servico_slot.capitalize()} com {profissional_escolhido}*\n"
+                    f"📆 {formatar_data_hora_br(data_hora_slot)}\n\n"
+                    f"Posso confirmar?"
                 )
 
                 return await _send_and_stop(
