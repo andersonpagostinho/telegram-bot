@@ -47,9 +47,19 @@ if firebase_json_str.strip().startswith("{"):
         firebase_json = json.loads(firebase_json_str)
         firebase_json_path = "firebase_credentials.json"
 
-        # Criar um arquivo temporário
+        # Normalizar private_key se contiver quebras literais de linha
+        if 'private_key' in firebase_json:
+            pk = firebase_json['private_key']
+            # Garantir que a chave tem o formato PEM correto (com \n real, não escape)
+            if pk.count('\n') < 20:  # Chave privada deve ter múltiplas quebras
+                if '\\n' in pk:  # Tem escape, precisa converter
+                    pk = pk.replace('\\n', '\n')
+                    firebase_json['private_key'] = pk
+                    print(f"[FIX] Corrigido escape de private_key (\\\\n -> \\n)", flush=True)
+
+        # Criar um arquivo temporário com os dados normalizados
         with open(firebase_json_path, "w") as f:
-            json.dump(firebase_json, f)
+            json.dump(firebase_json, f, ensure_ascii=False)
 
         print(f"[OK] Arquivo Firebase criado como JSON: {firebase_json_path}", flush=True)
 
