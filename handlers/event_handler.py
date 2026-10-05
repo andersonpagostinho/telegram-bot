@@ -1357,7 +1357,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             print(f" Erro ao enviar WhatsApp: {e}")
 
         msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
-        await update.message.reply_text(msg_sucesso)
+        # [P0-FIX] Proteger contra update=None em fluxo WhatsApp
+        # WhatsApp já enviou confirmação via enviar_mensagem_whatsapp() acima
+        if update and hasattr(update, 'message'):
+            await update.message.reply_text(msg_sucesso)
 
         cleanup_ok = await limpar_contexto_agendamento_v2(dono_id, user_id)
         if not cleanup_ok:
