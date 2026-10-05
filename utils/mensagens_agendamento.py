@@ -44,8 +44,8 @@ def montar_mensagem_confirmacao_sucesso(servico: str, profissional: str, data_ho
 
     if quando and hora_str:
         return (
-            f"Pronto, sua {servico.lower()} com {profissional} "
-            f"ficou agendada para {quando} às {hora_str}."
+            f"Pronto! Seu horário de {servico.lower()} com {profissional} "
+            f"está confirmado para {quando} às {hora_str}."
         )
 
-    return "Pronto, seu agendamento foi confirmado."
+    return "Pronto! Seu agendamento está confirmado."

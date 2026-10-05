@@ -29,10 +29,11 @@ from utils.mensagens_agendamento import montar_mensagem_confirmacao_sucesso
 def test_p03_montar_mensagem_confirmacao_sucesso_humanizada():
     """
     P0.3 — Validar que montar_mensagem_confirmacao_sucesso() produz mensagem humanizada.
+    P0.7 — Validar conformidade com padrão oficial.
     """
 
     print("\n" + "="*80)
-    print("[P0.3 TESTE] montar_mensagem_confirmacao_sucesso()")
+    print("[P0.3/P0.7 TESTE] montar_mensagem_confirmacao_sucesso()")
     print("="*80)
 
     servico = "corte"
@@ -50,36 +51,54 @@ def test_p03_montar_mensagem_confirmacao_sucesso_humanizada():
     print(f"\n[MENSAGEM GERADA]")
     print(f"  {repr(mensagem)}")
 
-    # Validacao
-    print(f"\n[VALIDACAO]")
+    # P0.7: Validacao de padrão oficial
+    print(f"\n[VALIDACAO P0.7 — PADRÃO OFICIAL]")
     print("-" * 80)
 
-    # Indicadores de humanizacao
-    tem_pronto = "Pronto" in mensagem
-    tem_agendada = "agendad" in mensagem.lower()
-    tem_ficou = "ficou" in mensagem.lower()
+    # Padrão oficial esperado (de docs/roadmap/FEATURE_ENCAIXE_LISTA_ESPERA.md:94,415)
+    # "Pronto! Seu horário de {servico} com {profissional} está confirmado para {quando} às {hora}."
+
+    # Validar elementos obrigatórios do padrão
+    tem_pronto_exclamacao = "Pronto!" in mensagem
+    tem_seu_horario = "Seu horário de" in mensagem
     tem_profissional = profissional in mensagem
+    tem_esta_confirmado = "está confirmado" in mensagem
     tem_servico = servico.lower() in mensagem.lower()
 
-    print(f"  'Pronto': {tem_pronto}")
-    print(f"  'agendad': {tem_agendada}")
-    print(f"  'ficou': {tem_ficou}")
-    print(f"  Profissional ({profissional}): {tem_profissional}")
-    print(f"  Servico ({servico}): {tem_servico}")
+    print(f"  ✓ 'Pronto!' (com exclamação): {tem_pronto_exclamacao}")
+    print(f"  ✓ 'Seu horário de': {tem_seu_horario}")
+    print(f"  ✓ 'está confirmado': {tem_esta_confirmado}")
+    print(f"  ✓ Profissional '{profissional}': {tem_profissional}")
+    print(f"  ✓ Serviço '{servico}': {tem_servico}")
 
-    # Validacao critica
-    assert tem_pronto, f"Mensagem nao contem 'Pronto': {repr(mensagem)}"
-    assert tem_agendada or tem_ficou, f"Mensagem nao contem 'agendad' ou 'ficou': {repr(mensagem)}"
-    assert tem_profissional, f"Mensagem nao contem profissional ({profissional}): {repr(mensagem)}"
-    assert tem_servico, f"Mensagem nao contem servico ({servico}): {repr(mensagem)}"
+    # Validações críticas (P0.7)
+    assert tem_pronto_exclamacao, f"Deve usar 'Pronto!' (com exclamação). Recebido: {repr(mensagem)}"
+    assert tem_seu_horario, f"Deve usar 'Seu horário de'. Recebido: {repr(mensagem)}"
+    assert tem_esta_confirmado, f"Deve usar 'está confirmado'. Recebido: {repr(mensagem)}"
+    assert tem_profissional, f"Deve conter profissional '{profissional}': {repr(mensagem)}"
+    assert tem_servico, f"Deve conter serviço '{servico}': {repr(mensagem)}"
+
+    # P0.3: Validacao de humanizacao (genérica - compatibilidade)
+    print(f"\n[VALIDACAO P0.3 — HUMANIZAÇÃO]")
+    print("-" * 80)
+
+    tem_pronto = "Pronto" in mensagem
+    tem_confirmado = "confirmad" in mensagem.lower()
+
+    print(f"  ✓ Contém 'Pronto': {tem_pronto}")
+    print(f"  ✓ Contém 'confirmad': {tem_confirmado}")
+
+    assert tem_pronto, f"Mensagem deve conter 'Pronto': {repr(mensagem)}"
+    assert tem_confirmado, f"Mensagem deve conter 'confirmad': {repr(mensagem)}"
 
     print(f"\n[RESULTADO]")
-    print(f"  Status: PASSOU")
-    print(f"  Mensagem eh humanizada")
-    print(f"  Contem: 'Pronto', 'agendada', profissional e servico")
+    print(f"  ✅ Status: PASSOU")
+    print(f"  ✅ Conformidade com padrão oficial (P0.7)")
+    print(f"  ✅ Humanização validada (P0.3)")
 
     print(f"\n" + "="*80)
     print(f"[SUMMARY]")
     print(f"  Status: PASSOU")
+    print(f"  Padrão: Oficial")
     print(f"  Mensagem: {repr(mensagem)}")
     print("="*80)
