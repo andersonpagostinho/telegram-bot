@@ -1330,6 +1330,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         except Exception as e:
             print(f" Falha ao agendar lembretes do evento: {e}")
 
+        # [P0.3-FIX] Criar msg_sucesso ANTES do envio para usar em WhatsApp
+        msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
+
         mensagem_confirmacao = (
             f" {descricao.capitalize()}\n"
             f" {start_time.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')}"
@@ -1352,11 +1355,10 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         try:
             from utils.whatsapp_utils import enviar_mensagem_whatsapp
-            await enviar_mensagem_whatsapp(user_id, mensagem_confirmacao)
+            await enviar_mensagem_whatsapp(user_id, msg_sucesso)
         except Exception as e:
             print(f" Erro ao enviar WhatsApp: {e}")
 
-        msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
         # [P0-FIX] Proteger contra update=None em fluxo WhatsApp
         # WhatsApp já enviou confirmação via enviar_mensagem_whatsapp() acima
         if update and hasattr(update, 'message'):
