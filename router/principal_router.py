@@ -2118,11 +2118,24 @@ async def precheck_e_confirmacao_agendamento(
 
     ctx["aguardando_confirmacao_agendamento"] = True
 
+    # ✅ Duração: carregar do catálogo real do tenant, fallback para estimativa
+    from services.cadastro_inicial_service import listar_servicos_negocio
+    servicos_catalogo = await listar_servicos_negocio(dono_id)
+    servico_norm = (servico or "").strip().lower()
+    duracao_catalogo = None
+    if servicos_catalogo and servico_norm:
+        for nome_servico, servico_data in servicos_catalogo.items():
+            if nome_servico.strip().lower() == servico_norm:
+                duracao_catalogo = servico_data.get("duracao")
+                break
+
+    duracao_confirmacao = duracao_catalogo or estimar_duracao(servico)
+
     ctx["dados_confirmacao_agendamento"] = {
         "profissional": prof,
         "servico": servico,
         "data_hora": data_hora,
-        "duracao": estimar_duracao(servico),
+        "duracao": duracao_confirmacao,
         "descricao": formatar_descricao_evento(servico, prof),
     }
 

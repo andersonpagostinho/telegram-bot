@@ -38,7 +38,7 @@ class TestP03CadeiaCompleta:
             "texto": "quero agendar escova com bruna quarta"
         }
 
-        with patch("handlers.whatsapp_bridge_handler.roteador_principal") as mock_router:
+        with patch("router.principal_router.roteador_principal") as mock_router:
             # [P0.3] Mock roteador retornando ResultadoAcao
             mock_router.return_value = {
                 "ok": True,
@@ -95,7 +95,7 @@ class TestP03CadeiaCompleta:
             "texto": "não"  # Desistência
         }
 
-        with patch("handlers.whatsapp_bridge_handler.roteador_principal") as mock_router:
+        with patch("router.principal_router.roteador_principal") as mock_router:
             # [P0.3] Mock roteador retornando ResultadoAcao de negação
             mock_router.return_value = {
                 "ok": True,
@@ -132,7 +132,7 @@ class TestP03CadeiaCompleta:
             "texto": "oi"
         }
 
-        with patch("handlers.whatsapp_bridge_handler.roteador_principal") as mock_router:
+        with patch("router.principal_router.roteador_principal") as mock_router:
             # WhatsApp: already_sent=False
             mock_router.return_value = {
                 "ok": True,
@@ -165,7 +165,7 @@ class TestP03CadeiaCompleta:
             "texto": "cancelar meu agendamento"
         }
 
-        with patch("handlers.whatsapp_bridge_handler.roteador_principal") as mock_router:
+        with patch("router.principal_router.roteador_principal") as mock_router:
             # Mesmo em cenário de erro, resposta não é None
             mock_router.return_value = {
                 "ok": False,  # Falha
@@ -202,7 +202,7 @@ class TestP03CadeiaCompleta:
             "texto": "qual é meu próximo agendamento?"
         }
 
-        with patch("handlers.whatsapp_bridge_handler.roteador_principal") as mock_router:
+        with patch("router.principal_router.roteador_principal") as mock_router:
             mock_router.return_value = {
                 "ok": True,
                 "acao": "buscar_eventos_do_dia",

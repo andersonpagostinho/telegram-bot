@@ -516,8 +516,21 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
         hora_raw = (sessao.get("hora") or "").strip()
 
-        # ✅ Duração: por enquanto 60; depois você troca por estimar_duracao(servico) ou duração cadastrada.
-        duracao_min = int(sessao.get("duracao") or estimar_duracao_servico(sessao.get("servico")))
+        # ✅ Duração: carregar do catálogo real do tenant (ServicosNegocio)
+        # Fallback: se não encontrar, usar 60 minutos como padrão conservador
+        from services.cadastro_inicial_service import listar_servicos_negocio
+
+        servicos_catalogo = await listar_servicos_negocio(user_id)
+        servico_norm = (sessao.get("servico") or "").strip().lower()
+        duracao_from_catalog = None
+        if servicos_catalogo and servico_norm:
+            for nome_servico, servico_data in servicos_catalogo.items():
+                if nome_servico.strip().lower() == servico_norm:
+                    duracao_from_catalog = servico_data.get("duracao")
+                    break
+
+        # ✅ Catálogo é fonte canônica. Precedência: catálogo > fallback (não sessão)
+        duracao_min = int(duracao_from_catalog or 60)
 
         conflito_info = await verificar_conflito_e_sugestoes_profissional(
             user_id=user_id,

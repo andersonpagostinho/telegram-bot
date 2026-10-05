@@ -177,7 +177,7 @@ async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, A
         }
 
     except Exception as e:
-        print(f"❌ [agenda_service] erro em obter_regra_agenda_da_data: {e}", flush=True)
+        print(f"ERROR: [agenda_service] erro em obter_regra_agenda_da_data: {e}", flush=True)
         return {
             "aberto": False,
             "inicio": None,
@@ -242,9 +242,9 @@ async def obter_janela_funcionamento(
     agenda_padrao_salao = cfg_salao.get("agenda_padrao") or {}
     excecoes_salao = cfg_salao.get("excecoes_data") or {}
 
-    print(f"🧪 [JANELA] cfg_salao keys={list(cfg_salao.keys())}", flush=True)
-    print(f"🧪 [JANELA] agenda_padrao_salao={agenda_padrao_salao}", flush=True)
-    print(f"🧪 [JANELA] excecoes_salao={excecoes_salao}", flush=True)
+    print(f"[JANELA] cfg_salao keys={list(cfg_salao.keys())}", flush=True)
+    print(f"[JANELA] agenda_padrao_salao={agenda_padrao_salao}", flush=True)
+    print(f"[JANELA] excecoes_salao={excecoes_salao}", flush=True)
 
     # =========================================================
     # 2) DESCOBRIR DIA DA SEMANA DA DATA
@@ -288,7 +288,7 @@ async def obter_janela_funcionamento(
             "motivo": exc_salao.get("motivo")
         }
 
-    print(f"🧪 [JANELA] regra_salao_final={regra_salao_final}", flush=True)
+    print(f"[JANELA] regra_salao_final={regra_salao_final}", flush=True)
 
     # =========================================================
     # 5) SE O SALÃO ESTIVER FECHADO, PARA TUDO
@@ -334,7 +334,7 @@ async def obter_janela_funcionamento(
 
     # se não encontrou profissional, não assume disponibilidade
     if not dados_prof:
-        print(f"⚠️ [JANELA] profissional '{profissional}' não encontrado.", flush=True)
+        print(f"WARNING: [JANELA] profissional '{profissional}' não encontrado.", flush=True)
         return {
             "aberto": False,
             "inicio": None,
@@ -354,9 +354,9 @@ async def obter_janela_funcionamento(
         f"Clientes/{user_id}/Profissionais/{profissional}/AgendaExcecoes"
     ) or {}
 
-    print(f"🧪 [JANELA] profissional={profissional}", flush=True)
-    print(f"🧪 [JANELA] agenda_padrao_prof={agenda_padrao_prof}", flush=True)
-    print(f"🧪 [JANELA] excecoes_prof={excecoes_prof}", flush=True)
+    print(f"[JANELA] profissional={profissional}", flush=True)
+    print(f"[JANELA] agenda_padrao_prof={agenda_padrao_prof}", flush=True)
+    print(f"[JANELA] excecoes_prof={excecoes_prof}", flush=True)
 
     # =========================================================
     # PROFISSIONAL SEM AGENDA PRÓPRIA → herda salão
@@ -411,7 +411,7 @@ async def obter_janela_funcionamento(
                 "motivo": exc_prof.get("motivo"),
             }
 
-    print(f"🧪 [JANELA] regra_prof_final={regra_prof_final}", flush=True)
+    print(f"[JANELA] regra_prof_final={regra_prof_final}", flush=True)
 
     # =========================================================
     # 10) PROFISSIONAL FECHADO
@@ -515,7 +515,7 @@ async def validar_horario_funcionamento(
         data_str=data_iso,
         profissional=profissional
     )
-    print("🧪 AGENDA JANELA REAL:", regra, flush=True)
+    print("[AGENDA JANELA REAL]:", regra, flush=True)
 
     if not regra.get("aberto"):
         return {
@@ -567,7 +567,7 @@ async def proxima_data_permitida(
         return None
 
     except Exception as e:
-        print(f"❌ [agenda_service] erro em proxima_data_permitida: {e}", flush=True)
+        print(f"ERROR: [agenda_service] erro em proxima_data_permitida: {e}", flush=True)
         return None
 
 
@@ -614,7 +614,7 @@ async def proximo_horario_valido_no_dia(
         return None
 
     except Exception as e:
-        print(f"❌ [agenda_service] erro em proximo_horario_valido_no_dia: {e}", flush=True)
+        print(f"ERROR: [agenda_service] erro em proximo_horario_valido_no_dia: {e}", flush=True)
         return None
 
 async def resolver_fora_do_expediente(
@@ -645,7 +645,7 @@ async def resolver_fora_do_expediente(
         print(f"🧪 [FORA_EXP] regra={regra}", flush=True)
 
         if not regra.get("aberto"):
-            print("⚠️ [FORA_EXP] dia fechado", flush=True)
+            print("WARNING: [FORA_EXP] dia fechado", flush=True)
             return {
                 "ok": False,
                 "tipo": "sem_opcao",
@@ -672,7 +672,7 @@ async def resolver_fora_do_expediente(
         )
 
         if min_ini is None or min_fim is None or min_ref is None:
-            print("⚠️ [FORA_EXP] erro na conversão de horários", flush=True)
+            print("WARNING: [FORA_EXP] erro na conversão de horários", flush=True)
             return {
                 "ok": False,
                 "tipo": "sem_opcao",
@@ -703,7 +703,7 @@ async def resolver_fora_do_expediente(
         print(f"🧪 [FORA_EXP] candidatos={candidatos[:10]}", flush=True)
 
         if not candidatos:
-            print("⚠️ [FORA_EXP] nenhum candidato gerado", flush=True)
+            print("WARNING: [FORA_EXP] nenhum candidato gerado", flush=True)
             return {
                 "ok": False,
                 "tipo": "sem_opcao",
@@ -753,7 +753,7 @@ async def resolver_fora_do_expediente(
                         continue
 
                 except Exception as e:
-                    print(f"⚠️ [FORA_EXP] erro ao verificar conflito geral: {e}", flush=True)
+                    print(f"WARNING: [FORA_EXP] erro ao verificar conflito geral: {e}", flush=True)
                     continue
 
                 revalidacao = await validar_horario_funcionamento(
@@ -802,7 +802,7 @@ async def resolver_fora_do_expediente(
                     servico=servico,
                 )
             except Exception as e:
-                print(f"⚠️ [FORA_EXP] erro ao verificar conflito: {e}", flush=True)
+                print(f"WARNING: [FORA_EXP] erro ao verificar conflito: {e}", flush=True)
                 continue
 
             print(f"🧪 [FORA_EXP] resultado_conflito={resultado}", flush=True)
@@ -851,7 +851,7 @@ async def resolver_fora_do_expediente(
                 "mensagem": motivo_texto,
             }
 
-        print("⚠️ [FORA_EXP] nenhum horário passou na validação final", flush=True)
+        print("WARNING: [FORA_EXP] nenhum horário passou na validação final", flush=True)
 
         return {
             "ok": False,
@@ -862,7 +862,7 @@ async def resolver_fora_do_expediente(
         }
 
     except Exception as e:
-        print(f"❌ [agenda_service] erro em resolver_fora_do_expediente: {e}", flush=True)
+        print(f"ERROR: [agenda_service] erro em resolver_fora_do_expediente: {e}", flush=True)
         return {
             "ok": False,
             "tipo": "sem_opcao",
@@ -949,7 +949,7 @@ async def bloquear_agenda_profissional(
         return True
 
     except Exception as e:
-        print(f"❌ [bloquear_agenda_profissional] erro: {e}", flush=True)
+        print(f"ERROR: [bloquear_agenda_profissional] erro: {e}", flush=True)
         return False
 
 async def definir_janela_especial_profissional(
@@ -985,5 +985,5 @@ async def definir_janela_especial_profissional(
         return True
 
     except Exception as e:
-        print(f"❌ [definir_janela_especial_profissional] erro: {e}", flush=True)
+        print(f"ERROR: [definir_janela_especial_profissional] erro: {e}", flush=True)
         return False

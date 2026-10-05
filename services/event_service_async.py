@@ -96,8 +96,9 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
         if evento.get("hora_inicio"):
             evento["hora_inicio"] = normalizar_hora_para_grade(evento["hora_inicio"])
 
-        if evento.get("hora_fim"):
-            evento["hora_fim"] = normalizar_hora_para_grade(evento["hora_fim"])
+        # ✅ hora_fim NÃO é normalizado — deve ser exato (hora_inicio + duração)
+        # Normalizamos hora_inicio para buscar conflitos em grade de 20 min,
+        # mas hora_fim deve permanecer preciso para cálculos de duração
 
         # ✅ ID idempotente por slot (evita duplicar ao confirmar/retentar)
         if not event_id:
@@ -123,7 +124,7 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
 
         # 🔒 PATCH P0: Se evento é confirmado, usar criação segura com lock
         if confirmado_flag:
-            print("🔒 Criando evento confirmado com proteção contra race condition...")
+            print("[LOCK] Criando evento confirmado com proteção contra race condition...")
             resultado_lock = await criar_evento_com_lock(
                 dono_id=tenant_id,
                 evento=evento,
@@ -184,7 +185,7 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
 
         return True
     except Exception as e:
-        print(f"❌ Erro ao salvar evento: {e}")
+        print(f"Erro ao salvar evento: {e}")
         return False
 
 
