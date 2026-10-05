@@ -47,11 +47,18 @@ if firebase_json_str.strip().startswith("{"):
         firebase_json = json.loads(firebase_json_str)
         firebase_json_path = "firebase_credentials.json"
 
-        # Criar um arquivo temporário
-        with open(firebase_json_path, "w") as f:
-            json.dump(firebase_json, f)
+        # Salvar com separadores específicos para evitar espaços extras
+        with open(firebase_json_path, "w", encoding='utf-8') as f:
+            json.dump(firebase_json, f, separators=(',', ':'), ensure_ascii=False)
 
-        print(f"[OK] Arquivo Firebase criado como JSON: {firebase_json_path}", flush=True)
+        # Validar que foi salvo corretamente
+        with open(firebase_json_path, "r", encoding='utf-8') as f:
+            test_json = json.load(f)
+
+        if test_json.get('private_key') == firebase_json.get('private_key'):
+            print(f"[OK] Arquivo Firebase criado como JSON: {firebase_json_path}", flush=True)
+        else:
+            print(f"[WARN] private_key alterada durante serialização!", flush=True)
 
     except (json.JSONDecodeError, Exception) as e:
         print(f"[WARN] Falha ao fazer parse de JSON: {type(e).__name__}: {str(e)[:100]}", flush=True)
@@ -90,6 +97,28 @@ print(f"[OK] Arquivo Firebase validado: {firebase_json_path}", flush=True)
 # Validar que temos um caminho válido
 if not firebase_json_path or not os.path.exists(firebase_json_path):
     raise FileNotFoundError(f"[ERROR] Arquivo Firebase nao encontrado: {firebase_json_path}")
+
+# [DEBUG] Validar private_key antes de usar
+try:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.backends import default_backend
+
+    with open(firebase_json_path, "r", encoding='utf-8') as f:
+        creds_test = json.load(f)
+
+    pk_str = creds_test.get('private_key', '')
+    if pk_str:
+        serialization.load_pem_private_key(
+            pk_str.encode('utf-8'),
+            password=None,
+            backend=default_backend()
+        )
+        print(f"[OK] Private key desserializacao validada com sucesso", flush=True)
+    else:
+        print(f"[WARN] private_key nao encontrada no arquivo", flush=True)
+except Exception as e:
+    print(f"[ERROR] Private key invalida: {str(e)[:100]}", flush=True)
+    raise
 
 # [FIX-ASYNC] Definir GOOGLE_APPLICATION_CREDENTIALS para que AsyncClient() encontre credenciais
 if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
