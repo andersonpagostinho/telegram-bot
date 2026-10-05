@@ -600,11 +600,19 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         dados["titulo"] = descricao
 
         duracao_minutos = dados.get("duracao", 60)
-        # [WhatsApp] Se update=None, usar user_id de dados_exec
-        if update and hasattr(update, "message") and hasattr(update.message, "from_user"):
+        # [Arquitetura] Restaurar contrato de prioridade de user_id
+        # Prioridade 1: identidade (WhatsApp passado por executor)
+        # Prioridade 2: update.message.from_user (Telegram)
+        # Prioridade 3: dados["user_id"] (compatibilidade legada)
+        if identidade:
+            user_id = identidade.user_id
+        elif update and hasattr(update, "message") and hasattr(update.message, "from_user"):
             user_id = str(update.message.from_user.id)
         else:
             user_id = (dados or {}).get("user_id")
+
+        if not user_id:
+            raise ValueError("user_id eh obrigatorio e nao pode ser None")
 
         #  PATCH MT-07: Obter dono_id para carregar contexto v2 (multi-tenant)
         dono_id = await obter_id_dono(user_id)
