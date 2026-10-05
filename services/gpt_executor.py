@@ -930,6 +930,8 @@ async def executar_acao_gpt(
             )
             # [DEBUG_INSTRUMENTACAO] Antes de chamar add_evento_por_gpt
             print(f"[DEBUG_ADD_EVENTO_PATH] CHAMANDO_ADD_EVENTO_POR_GPT", flush=True)
+            # [P0.4 FIX] Propagar user_id para add_evento_por_gpt() para evitar None em WhatsApp
+            dados["user_id"] = user_id
             print(f"[DEBUG_ADD_EVENTO_PATH] dados={repr(dados)}", flush=True)
 
             resultado_add_evento = await add_evento_por_gpt(update, context, dados, identidade=identidade)
