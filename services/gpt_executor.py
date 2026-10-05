@@ -843,7 +843,20 @@ async def executar_acao_gpt(
 
             # serviço: preferir contexto; se não existir, tenta inferir do texto/descrição
             contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
+
+            # [DEBUG_INSTRUMENTACAO] Antes de extrair servico
+            print(f"[DEBUG_SERVICO_CTX] INICIO_EXTRACAO", flush=True)
+            print(f"[DEBUG_SERVICO_CTX] contexto_tipo={type(contexto_tmp).__name__}", flush=True)
+            if isinstance(contexto_tmp, dict):
+                print(f"[DEBUG_SERVICO_CTX] contexto_keys={list(contexto_tmp.keys())}", flush=True)
+
             servico_ctx = _extrair_servico_do_contexto(contexto_tmp)
+
+            # [DEBUG_INSTRUMENTACAO] Depois de extrair servico
+            print(f"[DEBUG_SERVICO_CTX] RESULTADO_EXTRACAO", flush=True)
+            print(f"[DEBUG_SERVICO_CTX] valor={repr(servico_ctx)}", flush=True)
+            print(f"[DEBUG_SERVICO_CTX] tipo={type(servico_ctx).__name__}", flush=True)
+            print(f"[DEBUG_SERVICO_CTX] truthy={bool(servico_ctx)}", flush=True)
 
             # tentativa extra: se não achou no contexto, tenta tirar da descrição "escova com Bruna"
             if not servico_ctx:
@@ -856,12 +869,26 @@ async def executar_acao_gpt(
             prof_escolhido = (dados or {}).get("profissional") or ""
             prof_escolhido_norm = _normalizar_nome(prof_escolhido)
 
+            # [DEBUG_INSTRUMENTACAO] Antes de validacao de servico
+            print(f"[DEBUG_SERVICO_CTX] ENTRANDO_VALIDACAO_SERVICO | truthy={bool(servico_ctx)}", flush=True)
+
             if servico_ctx:
                 validos = await _listar_profissionais_validos_para_servico(dono_id, servico_ctx)
+
+                # [DEBUG_INSTRUMENTACAO] Depois de listar validos
+                print(f"[DEBUG_PROF_VALIDACAO] validos={repr(validos)}", flush=True)
 
                 # se existe conjunto de válidos e a escolha não pertence, bloqueia
                 if validos:
                     validos_norm = {_normalizar_nome(x) for x in validos}
+
+                    # [DEBUG_INSTRUMENTACAO] Antes de testar membro
+                    print(f"[DEBUG_PROF_VALIDACAO] validos_norm={repr(validos_norm)}", flush=True)
+                    print(f"[DEBUG_PROF_VALIDACAO] profissional_escolhido={repr(prof_escolhido)}", flush=True)
+                    print(f"[DEBUG_PROF_VALIDACAO] profissional_escolhido_norm={repr(prof_escolhido_norm)}", flush=True)
+                    print(f"[DEBUG_PROF_VALIDACAO] TESTE_MEMBRO", flush=True)
+                    print(f"[DEBUG_PROF_VALIDACAO] invalido={prof_escolhido_norm not in validos_norm}", flush=True)
+
                     if prof_escolhido_norm and prof_escolhido_norm not in validos_norm:
                         # [P0.3] Profissional inválido — retornar dict
                         lista_txt = ", ".join(validos)
@@ -881,6 +908,12 @@ async def executar_acao_gpt(
                             already_sent=already_sent,
                             handled=True
                         )
+                else:
+                    # [DEBUG_INSTRUMENTACAO] validos estava vazio
+                    print(f"[DEBUG_PROF_VALIDACAO] VALIDACAO_PULADA | motivo=validos_vazio", flush=True)
+            else:
+                # [DEBUG_INSTRUMENTACAO] servico_ctx estava falsy
+                print(f"[DEBUG_PROF_VALIDACAO] VALIDACAO_PULADA | motivo=servico_ctx_falsy | servico_ctx={repr(servico_ctx)}", flush=True)
 
             # ✅ passou no gate → executa normal
             print(
@@ -895,7 +928,16 @@ async def executar_acao_gpt(
                 f"tenant_id={dados.get('tenant_id')!r}",
                 flush=True
             )
-            await add_evento_por_gpt(update, context, dados, identidade=identidade)
+            # [DEBUG_INSTRUMENTACAO] Antes de chamar add_evento_por_gpt
+            print(f"[DEBUG_ADD_EVENTO_PATH] CHAMANDO_ADD_EVENTO_POR_GPT", flush=True)
+            print(f"[DEBUG_ADD_EVENTO_PATH] dados={repr(dados)}", flush=True)
+
+            resultado_add_evento = await add_evento_por_gpt(update, context, dados, identidade=identidade)
+
+            # [DEBUG_INSTRUMENTACAO] Depois de chamar add_evento_por_gpt
+            print(f"[DEBUG_ADD_EVENTO_PATH] RETORNO_ADD_EVENTO_POR_GPT", flush=True)
+            print(f"[DEBUG_ADD_EVENTO_PATH] retorno={repr(resultado_add_evento)}", flush=True)
+
             return True  # ✅ sempre "handled": add_evento_por_gpt já responde (sucesso OU conflito)
 
         elif acao == "remover_tarefa":
