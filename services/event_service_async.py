@@ -585,6 +585,23 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
         eventos_ativos += 1
         print(f"[P0-DIAG-EVENTO] eid={eid} status={event_status} prof={event_prof} data={event_data} passou_filtro_status=sim", flush=True)
 
+        # Filtro: evento no passado (P0-2)
+        data_evento = None
+        try:
+            data_str = ev.get("data", "").strip()
+            if data_str:
+                data_evento = datetime.strptime(data_str, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            print(f"[P0-DIAG-EVENTO] eid={eid} rejeitado=data_invalida data_str={ev.get('data')}", flush=True)
+            continue
+
+        if data_evento and data_evento < datetime.now().date():
+            print(f"[P0-DIAG-EVENTO] eid={eid} rejeitado=evento_no_passado data={data_evento}", flush=True)
+            continue
+
+        eventos_apos_data += 1
+        print(f"[P0-DIAG-EVENTO] eid={eid} passou_filtro_evento_passado=sim", flush=True)
+
         # Filtro: profissional (se especificado)
         if profissional_filtro:
             prof_evento = (ev.get("profissional") or "").strip().lower()
