@@ -124,15 +124,17 @@ async def processar_com_gpt_com_acao(
 
         user_id = uid
 
+        # --- Obter tenant_id uma vez no início (necessário para carregar_contexto_temporario) ---
+        from services.firebase_service_async import obter_id_dono
+        tenant_id = await obter_id_dono(user_id)
+
         # --- GARANTIR CONTEXTO COM PROFISSIONAIS ---
         contexto = contexto or {}
 
         # Se contexto não tem profissionais, carregar do Firestore
         if not (contexto.get("profissionais") and len(contexto.get("profissionais", [])) > 0):
             try:
-                from services.firebase_service_async import obter_id_dono, buscar_subcolecao
-
-                tenant_id = await obter_id_dono(user_id)
+                from services.firebase_service_async import buscar_subcolecao
                 print(f"[GPT_CONTEXT_PROF_FIX] actor_id={user_id}", flush=True)
                 print(f"[GPT_CONTEXT_PROF_FIX] tenant_id={tenant_id}", flush=True)
 
@@ -215,7 +217,7 @@ async def processar_com_gpt_com_acao(
 
         try:
             contexto_salvo = (
-                await carregar_contexto_temporario(uid) if uid != "desconhecido" else {}
+                await carregar_contexto_temporario(uid, tenant_id=tenant_id) if uid != "desconhecido" else {}
             )
 
             # 🔧 Se o usuário quer agendar, nunca mantenha estado_fluxo=consultando
@@ -294,7 +296,7 @@ async def processar_com_gpt_com_acao(
         try:
             if uid != "desconhecido":
                 # Sempre recarrega o contexto mais recente antes de qualquer heurística curta
-                contexto_salvo = await carregar_contexto_temporario(uid) or {}
+                contexto_salvo = await carregar_contexto_temporario(uid, tenant_id=tenant_id) or {}
 
                 # Descobre id_dono (se tiver id_negocio)
                 id_dono = uid
@@ -403,7 +405,7 @@ async def processar_com_gpt_com_acao(
                                 uid, {"profissional_escolhido": prof_match}
                             )
 
-                            contexto_salvo = await carregar_contexto_temporario(uid) or {}
+                            contexto_salvo = await carregar_contexto_temporario(uid, tenant_id=tenant_id) or {}
                             servico = contexto_salvo.get("servico")
                             data_hora = contexto_salvo.get("data_hora")
 
@@ -982,7 +984,7 @@ async def processar_com_gpt_com_acao(
             mm = int(m.group(2) or "00")
 
             if 0 <= hh <= 23 and 0 <= mm <= 59:
-                contexto_tmp = await carregar_contexto_temporario(uid) or {}
+                contexto_tmp = await carregar_contexto_temporario(uid, tenant_id=tenant_id) or {}
 
                 profissional = contexto_tmp.get("profissional_escolhido")
                 servico = contexto_tmp.get("servico")
@@ -1911,7 +1913,7 @@ async def processar_com_gpt_com_acao(
 
             contexto_salvo.update(memoria_nova)
             await salvar_contexto_temporario(user_id, contexto_salvo)
-            contexto_salvo = await carregar_contexto_temporario(user_id) or {}
+            contexto_salvo = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
 
             data_inteligente = interpretar_data_e_hora(texto_usuario)
             if data_inteligente:
@@ -2048,7 +2050,7 @@ async def processar_com_gpt_com_acao(
 
         # 🧠 Salva também o serviço mencionado (se houver) para uso posterior
         if servico_mencionado:
-            contexto_salvo = await carregar_contexto_temporario(user_id) or {}
+            contexto_salvo = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
 
             data_inteligente = interpretar_data_e_hora(texto_usuario)
             if data_inteligente:
@@ -2063,7 +2065,7 @@ async def processar_com_gpt_com_acao(
         nomes_profissionais = [p["nome"].lower() for p in contexto["profissionais"]]
         resposta_direta = texto_usuario.strip().lower()
 
-        contexto_salvo = await carregar_contexto_temporario(user_id)
+        contexto_salvo = await carregar_contexto_temporario(user_id, tenant_id=tenant_id)
         print("📥 Contexto salvo atual:", contexto_salvo)  # 👈 Coloque aqui
 
         # ✅ O usuário respondeu diretamente com um nome da última sugestão?
@@ -2107,7 +2109,7 @@ async def processar_com_gpt_com_acao(
                 },
             )
 
-            contexto_salvo = await carregar_contexto_temporario(user_id) or {}
+            contexto_salvo = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
 
             servico = contexto_salvo.get("servico")
             data_hora = contexto_salvo.get("data_hora")
@@ -2230,7 +2232,7 @@ async def processar_com_gpt_com_acao(
 
             # valida horário
             if 0 <= hora <= 23 and 0 <= minuto <= 59:
-                contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+                contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
 
                 dados_ant = contexto_tmp.get("dados_anteriores") or {}
 
@@ -2275,7 +2277,7 @@ async def processar_com_gpt_com_acao(
 
                     # valida horário
                     if 0 <= hora <= 23 and 0 <= minuto <= 59:
-                        contexto_tmp = await carregar_contexto_temporario(user_id) or {}
+                        contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
                         dados_ant = contexto_tmp.get("dados_anteriores") or {}
 
                         # ✅ Fallbacks robustos
@@ -3129,7 +3131,7 @@ async def processar_com_gpt_com_acao(
 
             # ✅ Salvar tudo junto
             if memoria_nova:
-                contexto_salvo = await carregar_contexto_temporario(user_id) or {}
+                contexto_salvo = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
 
                 data_inteligente = interpretar_data_e_hora(texto_usuario)
                 if data_inteligente:
