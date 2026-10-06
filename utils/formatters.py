@@ -202,12 +202,17 @@ def gerar_sugestoes_de_horario(
 
         # 🔥 verifica conflito com eventos reais (ocupados)
         conflita = False
+        tem_adjacencia = False
         for ini_event, fim_event in ocupados:
             if not (fim_slot <= ini_event or inicio_slot >= fim_event):
                 conflita = True
                 break
+            # 🔥 REGRA X1: Rejeitar adjacência exata
+            if fim_slot == ini_event or inicio_slot == fim_event:
+                tem_adjacencia = True
+                break
 
-        if conflita:
+        if conflita or tem_adjacencia:
             continue
 
         # 🔥 verifica se esse horário conflita com alguma sugestão já escolhida
