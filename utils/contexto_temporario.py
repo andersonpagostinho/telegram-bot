@@ -172,6 +172,7 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
         "servico": firestore.DELETE_FIELD,
         "hora_confirmada": firestore.DELETE_FIELD,
         "evento_criado": firestore.DELETE_FIELD,
+        "duracao": firestore.DELETE_FIELD,
 
         # Fluxo de cancelamento
         "cancelamento_pendente": firestore.DELETE_FIELD,
