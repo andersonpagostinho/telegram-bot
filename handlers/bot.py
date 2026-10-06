@@ -393,6 +393,17 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
         confirmacoes_nao = ["não", "nao", "não!", "nao!", "desistir", "manter", "deixa como está", "deixa como esta", "não, obrigado", "nao, obrigado"]
 
         if texto_usuario.lower() in confirmacoes_sim:
+            # 🔥 P0: VALIDAÇÃO — Se há múltiplos eventos e nenhum foi selecionado, reapresentar lista
+            if "resumo_eventos" in cancelamento_pendente and "evento_id" not in cancelamento_pendente:
+                resumo_eventos = cancelamento_pendente.get("resumo_eventos", [])
+                linhas = [
+                    f"{i+1}. {ev.get('descricao', '')} em {ev.get('data', '')} às {ev.get('hora_inicio', '')}"
+                    for i, ev in enumerate(resumo_eventos)
+                ]
+                msg = "Qual deseja cancelar?\n" + "\n".join(linhas)
+                await update.message.reply_text(msg)
+                raise ApplicationHandlerStop
+
             # ✅ CANCELAR
             evento_id = cancelamento_pendente.get("evento_id")
 
