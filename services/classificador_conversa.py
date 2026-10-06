@@ -410,3 +410,165 @@ def classificar_negacao_confirmacao(texto: str, ctx: dict | None = None) -> bool
     ]
 
     return any(s in t for s in sinais_negacao)
+
+
+def classificar_confirmacao_cancelamento(texto: str, ctx: dict | None = None) -> str:
+    """
+    Classifica resposta de usuário a confirmação de cancelamento de evento.
+
+    Contexto: estado_fluxo == "aguardando_confirmacao_cancelamento"
+
+    Retorna EXATAMENTE UMA destas categorias:
+    - "confirmacao"  → Usuário confirma o cancelamento
+    - "negacao"      → Usuário rejeita o cancelamento
+    - "ambiguo"      → Resposta indeterminada (requer clarificação)
+
+    Responsabilidades:
+    - Interpreta apenas, não executa ações
+    - Não acessa Firestore
+    - Não busca eventos
+    - Não modifica contexto
+
+    Semântica crítica:
+    - "cancela" = CONFIRMAÇÃO (não negação!)
+    - "pode" sozinho = AMBÍGUO (não confirmação!)
+    - "deixa para depois" = AMBÍGUO (não negação!)
+    - Frases complexas = AMBÍGUO
+    """
+
+    if not texto:
+        return "ambiguo"
+
+    t = normalizar_txt(texto or "")
+
+    # =====================================================
+    # CAMADA 1: Confirmações Simples (Match Exato)
+    # =====================================================
+    confirmacoes_simples = {"sim", "s", "ok", "claro", "isso", "isso mesmo", "mesmo"}
+    if t in confirmacoes_simples:
+        return "confirmacao"
+
+    # =====================================================
+    # CAMADA 2: Negações Simples (Match Exato)
+    # =====================================================
+    negacoes_simples = {"nao", "não"}
+    if t in negacoes_simples:
+        return "negacao"
+
+    # =====================================================
+    # CAMADA 3: Análise Composicional
+    # =====================================================
+
+    # CONFIRMAÇÃO: "pode" + verbo de ação (mas NÃO se for remarcação)
+    if "pode" in t and ("cancelar" in t or "desmarcar" in t or "fazer" in t):
+        # Verificar se não há pedido de remarcação simultâneo
+        if not ("e marca" in t or "e coloca" in t or "e marcar" in t):
+            return "confirmacao"
+
+    # CONFIRMAÇÃO: "sim" + reafirmação inequívoca
+    if "sim" in t and ("pode" in t or "ok" in t or "claro" in t or "mesmo" in t):
+        return "confirmacao"
+
+    # CONFIRMAÇÃO: "cancela" isolado (usuário confirma explicitamente)
+    if t == "cancela" or t == "cancele":
+        return "confirmacao"
+
+    # NEGAÇÃO: "nao quero" ou "não quero"
+    if "nao quero" in t or "não quero" in t:
+        return "negacao"
+
+    # NEGAÇÃO: "deixa como está" (manutenção status quo)
+    if "deixa" in t and ("como" in t or "esta" in t or "está" in t):
+        return "negacao"
+
+    # NEGAÇÃO: "não precisa" ou "nao precisa"
+    if "nao precisa" in t or "não precisa" in t:
+        return "negacao"
+
+    # NEGAÇÃO: "não cancele" ou "nao cancele"
+    if ("nao cancele" in t or "não cancele" in t or
+        "nao cancela" in t or "não cancela" in t):
+        return "negacao"
+
+    # NEGAÇÃO: "esquece" ou "esqueça"
+    if "esquece" in t or "esqueça" in t:
+        return "negacao"
+
+    # NEGAÇÃO: "melhor não" ou "melhor nao"
+    if ("melhor nao" in t or "melhor não" in t):
+        return "negacao"
+
+    # =====================================================
+    # CAMADA 4: Baixa Confiança
+    # =====================================================
+    if "acho que" in t:
+        return "ambiguo"
+
+    # =====================================================
+    # CAMADA 5: Ambiguidades Explícitas
+    # =====================================================
+
+    # Incerteza explícita
+    if t in ["talvez", "talvez sim", "talvez não", "talvez nao"]:
+        return "ambiguo"
+
+    if "talvez" in t:
+        return "ambiguo"
+
+    # "não sei"
+    if "nao sei" in t or "não sei" in t:
+        return "ambiguo"
+
+    # Adiamentos: "depois eu vejo", "vou pensar", etc.
+    if ("depois" in t and ("vejo" in t or "pensar" in t or "ver" in t)):
+        return "ambiguo"
+
+    # "deixa para depois" (sem "como está" = ambíguo)
+    if "deixa" in t and "depois" in t:
+        return "ambiguo"
+
+    # "pode" SOZINHO (sem verbo de ação)
+    if t == "pode":
+        return "ambiguo"
+
+    # "pode ser"
+    if "pode ser" in t:
+        return "ambiguo"
+
+    # Impossibilidade/mudança de circunstância (NÃO é negação)
+    if "nao consigo" in t or "não consigo" in t:
+        return "ambiguo"
+
+    if "nao vou conseguir" in t or "não vou conseguir" in t:
+        return "ambiguo"
+
+    # "não vou" (dupla interpretação)
+    if t == "nao vou" or t == "não vou":
+        return "ambiguo"
+
+    # "vamos ver"
+    if "vamos ver" in t or "vamos vendo" in t:
+        return "ambiguo"
+
+    # Frases complexas com múltiplas interpretações
+    # Padrão: expressão emocional + "deixa" + tempo
+    if re.search(r"(pena|triste|ruins|que pior).*deixa", t):
+        return "ambiguo"
+
+    if re.search(r"deixa.*outra hora", t):
+        return "ambiguo"
+
+    # Pedidos de remarcação/alteração
+    if ("marca" in t and "outro" in t) or ("marca" in t and "amanha" in t) or ("marca" in t and "amanhã" in t):
+        return "ambiguo"
+
+    if "coloca" in t and ("outro" in t or "amanha" in t or "amanhã" in t):
+        return "ambiguo"
+
+    if "mudar" in t and ("horario" in t or "horário" in t):
+        return "ambiguo"
+
+    # =====================================================
+    # FALLBACK: Qualquer outra coisa
+    # =====================================================
+    return "ambiguo"

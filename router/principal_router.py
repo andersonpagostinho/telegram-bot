@@ -46,6 +46,7 @@ from router.conversation_classifier import classificar_contexto_conversa
 from services.classificador_conversa import (
     classificar_contexto_mensagem,
     classificar_intencao_conversacional,
+    classificar_confirmacao_cancelamento,
 )
 from services.interpretador_conversacional import interpretar_conversa_operacional
 from utils.normalizador_humano import normalizar_intencao_humana
@@ -3631,8 +3632,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         print(f"[HANDLER_CANCELAMENTO] evento_id={cancelamento_pendente.get('evento_id')} | texto={texto_lower}", flush=True)
 
-        # "Sim" — confirma cancelamento
-        if texto_lower in ["sim", "s", "ok", "pode", "pode ser", "sim!", "yes"]:
+        # Classificar resposta do usuário
+        resultado_classificacao = classificar_confirmacao_cancelamento(texto_usuario, ctx)
+        print(f"[HANDLER_CANCELAMENTO_CLASSIFICACAO] resultado={resultado_classificacao}", flush=True)
+
+        if resultado_classificacao == "confirmacao":
             evento_id = cancelamento_pendente.get("evento_id")
 
             if evento_id:
@@ -3686,8 +3690,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "motivo": "cancelamento_falhou"
                     }
 
-        # "Não" — aborta cancelamento
-        elif texto_lower in ["não", "nao", "não quero", "nao quero", "deixa", "esquece"]:
+        elif resultado_classificacao == "negacao":
             # [PATCH_P0] Limpeza real com DELETE_FIELD
             payload_limpeza = {
                 "estado_fluxo": "idle",
@@ -3713,6 +3716,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "handled": True,
                 "resposta": "Tudo bem, não cancelei nada.",
                 "motivo": "cancelamento_abortado"
+            }
+
+        elif resultado_classificacao == "ambiguo":
+            # Resposta ambígua: NÃO cancelar, NÃO limpar,
+            # apenas repergunta mantendo cancelamento_pendente intacto
+            return {
+                "handled": False,
+                "resposta": "Desculpe, não entendi bem. Você quer confirmar o cancelamento?",
+                "motivo": "confirmacao_ambigua"
             }
 
     # =========================================================
