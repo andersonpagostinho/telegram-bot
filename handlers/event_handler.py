@@ -987,12 +987,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             alternativa = None
             sugestoes_formatadas = '\n'.join([f" {s}" for s in sugestoes]) if sugestoes else " Nenhum horário alternativo disponível."
 
-            id_dono = user_id
-            try:
-                cliente_tmp = await buscar_cliente(user_id) or {}
-                id_dono = str(cliente_tmp.get("id_negocio") or cliente_tmp.get("id_dono") or user_id)
-            except Exception as e:
-                print(f" Falha ao obter id_negocio: {e}", flush=True)
+            id_dono = dono_id  # P0.3: Use tenant já resolvido, não tenta re-obter de buscar_cliente
 
             #  Persistir agendamento pendente (data ORIGINAL) para não perder o dia
             try:
