@@ -53,7 +53,8 @@ def formatar_mensagem_conflito_profissional(
     hora: str,
     sugestoes: list,
     alternativas: list,
-    servico: str
+    servico: str,
+    frase_final: str | None = None
 ) -> str:
     """[FORMATADOR OFICIAL] Formata mensagem de conflito de agenda.
 
@@ -66,16 +67,17 @@ def formatar_mensagem_conflito_profissional(
         sugestoes: Lista de horários livres ["HH:MM - HH:MM", ...]
         alternativas: Lista de profissionais alternativas
         servico: Serviço solicitado
+        frase_final: Frase de confirmação personalizada (opcional)
 
     Returns:
         str: Mensagem formatada com markdown (Telegram)
     """
-    msg = f"A *{profissional}* já tem atendimento às *{hora}* nesse dia.\n\n"
+    msg = f"⛔ A *{profissional}* já tem atendimento às *{hora}* nesse dia.\n\n"
 
     if sugestoes:
-        msg += f"Estes horários estão livres com a *{profissional}* no mesmo dia:\n"
+        msg += f"✅ Estes horários estão livres com a *{profissional}* no mesmo dia:\n"
         for s in sugestoes[:3]:
-            msg += f"  {s}\n"
+            msg += f"🔄 {s}\n"
 
     if alternativas:
         alts_str = ", ".join([f"*{p}*" for p in alternativas])
@@ -84,7 +86,12 @@ def formatar_mensagem_conflito_profissional(
             f"*{servico}* e estão disponíveis: {alts_str}.\n"
         )
 
-    msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+    if frase_final is None:
+        frase_final = "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+    elif not frase_final.startswith("\n"):
+        frase_final = "\n" + frase_final
+
+    msg += frase_final
     return msg
 
 
@@ -440,11 +447,13 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
             except Exception as e:
                 print(f" Falha ao salvar contexto pendente no conflito: {e}")
 
-            mensagem_sugestao = (
-                f" A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
-                f"\n\n Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
-                f"{alternativa_txt}"
-                "\n\nDeseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
+            mensagem_sugestao = formatar_mensagem_conflito_profissional(
+                profissional=profissional,
+                hora=start_time.strftime("%H:%M"),
+                sugestoes=sugestoes,
+                alternativas=[],
+                servico="",
+                frase_final="Deseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
             )
 
             print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
@@ -1118,11 +1127,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             except Exception as e:
                 print(f" Falha ao montar alternativas no mesmo horário: {e}", flush=True)
 
-            mensagem_sugestao = (
-                f" A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
-                f"\n\n Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
-                f"{alternativas_txt or alternativa_txt}"
-                "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+            mensagem_sugestao = formatar_mensagem_conflito_profissional(
+                profissional=profissional,
+                hora=start_time.strftime("%H:%M"),
+                sugestoes=sugestoes,
+                alternativas=alternativa if alternativa else [],
+                servico=servico_final or ""
             )
 
             print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
@@ -1240,11 +1250,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     print(f"[PATCH_P0_CONFLITO] Falha ao obter alternativas: {e}", flush=True)
 
                 # Montar mensagem EXATAMENTE como em linhas 985-990
-                mensagem_sugestao = (
-                    f" A *{profissional}* já tem atendimento às *{start_time.strftime('%H:%M')}* nesse dia."
-                    f"\n\n Estes horários estão livres com a *{profissional}* no mesmo dia:\n{sugestoes_formatadas}"
-                    f"{alternativas_txt}"
-                    "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                mensagem_sugestao = formatar_mensagem_conflito_profissional(
+                    profissional=profissional,
+                    hora=start_time.strftime("%H:%M"),
+                    sugestoes=sugestoes,
+                    alternativas=alternativa if alternativa else [],
+                    servico=servico_final or ""
                 )
 
                 if update and hasattr(update, "message"):

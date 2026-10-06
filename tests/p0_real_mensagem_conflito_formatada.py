@@ -133,37 +133,36 @@ def test_formatar_mensagem_conflito_sem_sugestoes():
     print()
 
 
-def test_formatar_mensagem_sem_emoji():
-    """Validar que NÃO há emojis que causam problema em Windows."""
+def test_formatar_mensagem_com_emojis():
+    """Validar presença obrigatória de emojis na mensagem."""
 
     msg = formatar_mensagem_conflito_profissional(
         profissional="Bruna",
         hora="10:00",
-        sugestoes=["09:40 - 10:00"],
-        alternativas=["Joana"],
+        sugestoes=["09:40 - 10:00", "09:20 - 09:40", "10:50 - 11:10"],
+        alternativas=[],
         servico="Corte"
     )
 
-    print("[TEST 4] Validar compatibilidade Windows (sem emoji)")
+    print("[TEST 4] Validar presença de emojis")
     print("=" * 80)
     print(msg)
     print("=" * 80)
 
-    # Verificar se mensagem pode ser codificada em cp1252
-    try:
-        msg_encoded = msg.encode("cp1252")
-        print(f"[OK] Mensagem é compatível com Windows (cp1252): {len(msg_encoded)} bytes")
-    except UnicodeEncodeError as e:
-        print(f"[ERROR] ERRO: Mensagem NÃO é compatível com Windows: {e}")
-        raise
+    # VALIDAÇÕES OBRIGATÓRIAS DE EMOJI
+    assert "⛔" in msg, "[ERROR] Deve conter ⛔ (bloqueio de conflito)"
+    assert "✅" in msg, "[ERROR] Deve conter ✅ (horários disponíveis)"
+    assert "🔄" in msg, "[ERROR] Deve conter 🔄 (sugestões de horário)"
 
-    # Verificar emojis problemáticos específicos
-    problematic_chars = ["[OK]", "🧪", "📦", "[BLOCK]", "[ERROR]"]
-    for char in problematic_chars:
-        if char in msg:
-            raise AssertionError(f"[ERROR] Mensagem contém emoji problemático: {char}")
+    # Validar quantidade máxima de sugestões (máx 3, cada com 🔄)
+    emoji_count = msg.count("🔄")
+    assert emoji_count <= 3, f"[ERROR] Máximo 3 sugestões, encontradas {emoji_count}"
+    assert emoji_count > 0, "[ERROR] Deve ter pelo menos uma sugestão com 🔄"
 
-    print("[OK] TEST 4 PASSOU: Compatível com Windows (sem emoji)")
+    # Validar estrutura
+    assert msg.startswith("⛔"), "[ERROR] Mensagem deve começar com ⛔"
+
+    print(f"[OK] TEST 4 PASSOU: Emojis presentes (⛔ x1, ✅ x1, 🔄 x{emoji_count})")
     print()
 
 
@@ -207,6 +206,51 @@ def test_padroes_obrigatorios():
     print()
 
 
+def test_frases_especificas_por_local():
+    """Validar que cada local preserva sua frase histórica."""
+
+    print("[TEST 6] Validar frases específicas por local")
+    print("=" * 80)
+
+    # Local 1 (add_evento_por_voz): frase histórica específica
+    msg_local1 = formatar_mensagem_conflito_profissional(
+        profissional="Bruna",
+        hora="10:00",
+        sugestoes=["09:40 - 10:00"],
+        alternativas=[],
+        servico="",
+        frase_final="Deseja escolher outro horário com essa profissional ou prefere agendar com a alternativa?"
+    )
+
+    print("\nLocal 1 (add_evento_por_voz):")
+    print(f"Frase: {msg_local1[-80:]}")
+    assert "prefere agendar com a alternativa?" in msg_local1, "[ERROR] Local 1 deve usar 'agendar com a alternativa'"
+    print("[V] Preserva frase histórica: 'prefere agendar com a alternativa?'")
+
+    # Locais 2 e 3 (add_evento_por_gpt): frase padrão
+    msg_local2 = formatar_mensagem_conflito_profissional(
+        profissional="Bruna",
+        hora="10:00",
+        sugestoes=["09:40 - 10:00"],
+        alternativas=[],
+        servico=""
+    )
+
+    print("\nLocais 2 e 3 (add_evento_por_gpt):")
+    print(f"Frase: {msg_local2[-80:]}")
+    assert "prefere uma das alternativas?" in msg_local2, "[ERROR] Locais 2/3 devem usar 'uma das alternativas'"
+    print("[V] Usa frase padrão: 'prefere uma das alternativas?'")
+
+    # Ambos devem ter emojis
+    assert "⛔" in msg_local1 and "⛔" in msg_local2, "[ERROR] Emojis ⛔ faltando"
+    assert "✅" in msg_local1 and "✅" in msg_local2, "[ERROR] Emojis ✅ faltando"
+    assert "🔄" in msg_local1 and "🔄" in msg_local2, "[ERROR] Emojis 🔄 faltando"
+    print("[V] Ambos preservam emojis: ⛔ ✅ 🔄")
+
+    print("\n[OK] TEST 6 PASSOU: Frases específicas por local OK")
+    print()
+
+
 if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("VALIDAÇÃO OFICIAL DE MENSAGEM DE CONFLITO")
@@ -216,15 +260,17 @@ if __name__ == "__main__":
         test_formatar_mensagem_conflito_com_sugestoes_e_alternativas()
         test_formatar_mensagem_conflito_sem_alternativas()
         test_formatar_mensagem_conflito_sem_sugestoes()
-        test_formatar_mensagem_sem_emoji()
+        test_formatar_mensagem_com_emojis()
         test_padroes_obrigatorios()
+        test_frases_especificas_por_local()
 
         print("\n" + "=" * 80)
         print("RESULTADO FINAL")
         print("=" * 80)
-        print("[OK] Todos os testes passaram (5/5)")
+        print("[OK] Todos os testes passaram (6/6)")
         print("[OK] Formatador de mensagem está CERTIFICADO")
-        print("[OK] Compatível com Windows e Linux")
+        print("[OK] Emojis presentes e validados")
+        print("[OK] Frases históricas preservadas por local")
         print("[OK] Segue padrão oficial de principal_router.py")
         print("=" * 80 + "\n")
 
