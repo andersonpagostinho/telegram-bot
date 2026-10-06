@@ -675,7 +675,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         elif origem == "auto":
             #  Se já existe confirmação pendente no contexto, não pode pular confirmação
-            ctx_tmp = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+            ctx_tmp = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
             if ctx_tmp.get("aguardando_confirmacao_agendamento"):
                 print(" Confirmação pendente detectada — não vou executar modo automático.", flush=True)
                 return {"acao": None, "handled": True}
@@ -710,14 +710,25 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 print(f"[TESTE_SURI]  CONTEXTO_SALVO: profissional={repr(profissional)}", flush=True)
                 print(f"[TESTE_SURI]  CONTEXTO_SALVO: cliente_nome={repr(cliente_nome)}", flush=True)
 
-                await salvar_contexto_temporario_v2(dono_id, user_id, contexto_confirmacao)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, contexto_confirmacao)
 
-                await update.message.reply_text(
+                resposta_confirmacao = (
                     f" {descricao}\n"
                     f" {data_formatada}\n\n"
-                    f"Posso confirmar esse horário pra você?",
-                    parse_mode="Markdown"
+                    f"Posso confirmar esse horário pra você?"
                 )
+
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(resposta_confirmacao, parse_mode="Markdown")
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_ctx = (
+                        identidade.phone_number_id
+                        if identidade and hasattr(identidade, "phone_number_id")
+                        else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, resposta_confirmacao, phone_number_id=phone_number_id_ctx)
+
                 return {"acao": None, "handled": True}
 
         #  Trata profissional alternativo (contexto já carregado acima)
@@ -751,32 +762,56 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             contexto.pop("modo_escolha_horario", None)
             contexto.pop("horarios_sugeridos", None)
 
-            await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+            await salvar_contexto_temporario_v2(id_dono, cliente_id, contexto)
             print(f" Profissional substituído com sucesso: {profissional}")
         elif nomes_alternativos:
             #  Usuário não escolheu nenhuma alternativa explicitamente -> limpa
             contexto.pop("alternativa_profissional", None)
             contexto.pop("sugestoes", None)
-            await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+            await salvar_contexto_temporario_v2(id_dono, cliente_id, contexto)
         
         if not profissional:
             # Só tenta descobrir/exigir profissional se realmente precisar
             if _precisa_profissional(contexto, descricao):
                 profissional = await obter_profissional_para_evento(user_id, descricao)
                 if not profissional:
-                    await update.message.reply_text(" Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?")
+                    msg_prof = " Não consegui identificar a profissional para esse agendamento. Pode repetir mencionando quem irá atender?"
+                    if update and hasattr(update, "message"):
+                        await update.message.reply_text(msg_prof)
+                    else:
+                        from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                        phone_number_id_alt = (
+                            identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                        )
+                        await enviar_mensagem_whatsapp(user_id, msg_prof, phone_number_id=phone_number_id_alt)
                     return False
             else:
                 profissional = None  # reunião/agenda pessoal não precisa
 
         if not descricao or not data_hora_str:
-            await update.message.reply_text(" Dados insuficientes para criar o evento.")
+            msg_dados = " Dados insuficientes para criar o evento."
+            if update and hasattr(update, "message"):
+                await update.message.reply_text(msg_dados)
+            else:
+                from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                phone_number_id_alt = (
+                    identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                )
+                await enviar_mensagem_whatsapp(user_id, msg_dados, phone_number_id=phone_number_id_alt)
             return False
 
         try:
             start_time = datetime.fromisoformat(data_hora_str)
         except ValueError:
-            await update.message.reply_text(" Formato de data/hora inválido.")
+            msg_formato = " Formato de data/hora inválido."
+            if update and hasattr(update, "message"):
+                await update.message.reply_text(msg_formato)
+            else:
+                from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                phone_number_id_alt = (
+                    identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                )
+                await enviar_mensagem_whatsapp(user_id, msg_formato, phone_number_id=phone_number_id_alt)
             return False
 
         end_time = start_time + timedelta(minutes=duracao_minutos)
@@ -840,28 +875,45 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                             "Esse horário não está disponível nesse dia.\n\n"
                         )
 
-                    if update:
-                        await update.message.reply_text(
-                            texto_base
-                            + f"O horário mais próximo que tenho disponível é às {horario}.\n"
-                            + "Posso agendar pra você? "
+                    mensagem_sugestao_horario = (
+                        texto_base
+                        + f"O horário mais próximo que tenho disponível é às {horario}.\n"
+                        + "Posso agendar pra você? "
+                    )
+                    if update and hasattr(update, "message"):
+                        await update.message.reply_text(mensagem_sugestao_horario)
+                    else:
+                        from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                        phone_number_id_alt = (
+                            identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                         )
+                        await enviar_mensagem_whatsapp(user_id, mensagem_sugestao_horario, phone_number_id=phone_number_id_alt)
                     print(f"[P01_TRACE] RETURN_FALSE_RESOLVER_OK | linha=834", flush=True)
                     return False
 
                 # fallback (mantém comportamento antigo)
-                if update:
-                    await update.message.reply_text(
-                        " Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
+                msg_expediente = " Não consigo agendar nesse horário porque ele está fora do expediente configurado. Me diga outro horário que eu verifico para você."
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_expediente)
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                     )
+                    await enviar_mensagem_whatsapp(user_id, msg_expediente, phone_number_id=phone_number_id_alt)
                 print(f"[P01_TRACE] RETURN_FALSE_RESOLVER_FALHA | linha=841", flush=True)
                 return False
 
             print(f"[P01_TRACE] RETURN_FALSE_MOTIVO_OUTRO | linha=847 | motivo={validacao_funcionamento.get('motivo')}", flush=True)
-            if update:
-                await update.message.reply_text(
-                    " Não consegui validar esse horário na agenda configurada. Tente novamente."
+            msg_validacao = " Não consegui validar esse horário na agenda configurada. Tente novamente."
+            if update and hasattr(update, "message"):
+                await update.message.reply_text(msg_validacao)
+            else:
+                from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                phone_number_id_alt = (
+                    identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                 )
+                await enviar_mensagem_whatsapp(user_id, msg_validacao, phone_number_id=phone_number_id_alt)
             return False
 
         eventos_do_dia = await buscar_eventos_por_intervalo(
@@ -976,7 +1028,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     "duracao": duracao_minutos,
                 }
 
-                await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+                await salvar_contexto_temporario_v2(id_dono, cliente_id, contexto)
                 print(" Contexto pendente salvo (conflito).")
 
             except Exception as e:
@@ -1079,7 +1131,14 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             )
 
             print(f"[DEBUG mensagem enviada]: {mensagem_sugestao}")
-            await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
+            if update and hasattr(update, "message"):
+                await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
+            else:
+                from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                phone_number_id_alt = (
+                    identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                )
+                await enviar_mensagem_whatsapp(user_id, mensagem_sugestao, phone_number_id=phone_number_id_alt)
             return True  #  Não agenda nesse momento
 
         #  FASE 4: Extrair tenant_id de dados (propagado por principal_router)
@@ -1113,7 +1172,15 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         # [PATCH_P0] Detectar e tratar duplicado
         if resultado_salvamento == "duplicado":
-            await update.message.reply_text("Esse horário já está confirmado.\n\nSe precisar alterar ou cancelar, é só me avisar.")
+            msg_duplicado = "Esse horário já está confirmado.\n\nSe precisar alterar ou cancelar, é só me avisar."
+            if update and hasattr(update, "message"):
+                await update.message.reply_text(msg_duplicado)
+            else:
+                from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                phone_number_id_alt = (
+                    identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                )
+                await enviar_mensagem_whatsapp(user_id, msg_duplicado, phone_number_id=phone_number_id_alt)
             return True
 
         # [PATCH_P0] CRÍTICO: Detectar conflito_lock_existente e gerar sugestões
@@ -1185,7 +1252,14 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     "\n\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
                 )
 
-                await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(mensagem_sugestao, parse_mode="Markdown")
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, mensagem_sugestao, phone_number_id=phone_number_id_alt)
 
                 # [PATCH_P0] Salvar estado de espera por escolha de horário
                 contexto_conflito = {
@@ -1211,9 +1285,15 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
             except Exception as e:
                 print(f"[PATCH_P0_CONFLITO] Erro ao gerar sugestões: {e}", flush=True)
-                await update.message.reply_text(
-                    f" Não consegui agendar nesse horário. Tente outro horário ou profissional."
-                )
+                msg_erro_sugestoes = " Não consegui agendar nesse horário. Tente outro horário ou profissional."
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_erro_sugestoes)
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, msg_erro_sugestoes, phone_number_id=phone_number_id_alt)
                 return True
 
         # [PATCH_P0] Erro genérico (sem conflito específico)
@@ -1377,11 +1457,11 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if update and hasattr(update, 'message'):
             await update.message.reply_text(msg_sucesso)
 
-        cleanup_ok = await limpar_contexto_agendamento_v2(dono_id, user_id)
+        cleanup_ok = await limpar_contexto_agendamento_v2(dono_id, cliente_id)
         if not cleanup_ok:
             print(
                 f"[ERRO_P0_CLEAR] Falha ao limpar contexto de agendamento "
-                f"| dono={dono_id} | cliente={user_id}",
+                f"| dono={dono_id} | cliente={cliente_id}",
                 flush=True
             )
             return False
