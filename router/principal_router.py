@@ -4257,12 +4257,30 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         # 🔥 PATCH P0: Extrair termo de cancelamento
         # Remove "cancelar", "quero cancelar", etc para ficar com filtro
+        # Agora remove keywords em QUALQUER posição, não só no início
         termo = texto_usuario
-        cancelamento_keywords = ["cancelar", "quero cancelar", "gostaria de cancelar", "desistir", "cancela"]
+        cancelamento_keywords = [
+            "gostaria de cancelar",
+            "quero cancelar",
+            "preciso cancelar",
+            "pode cancelar",
+            "pode desistir",
+            "cancelar",
+            "desistir",
+            "cancela",
+        ]
+
+        # Remove keywords em qualquer posição (case-insensitive)
         for kw in cancelamento_keywords:
-            if termo.lower().startswith(kw.lower()):
-                termo = termo[len(kw):].strip()
-                break
+            while True:
+                termo_lower = termo.lower()
+                idx = termo_lower.find(kw.lower())
+                if idx == -1:
+                    break
+                termo = termo[:idx] + termo[idx + len(kw):]
+
+        # Limpar espaços múltiplos
+        termo = " ".join(termo.split()).strip()
 
         # 🔥 PATCH P0: Chamar cancelar_evento_por_texto com filtros
         from services.event_service_async import cancelar_evento_por_texto
