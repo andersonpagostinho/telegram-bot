@@ -8,7 +8,7 @@ from utils.context_manager import atualizar_contexto, limpar_contexto_agendament
 from handlers.confirmacao_pendente_handler import resolver_confirmacao_pendente
 from services.gpt_executor import executar_acao_gpt, executar_acao_gpt_resultado
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
-from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+from services.event_service_async import verificar_conflito_e_sugestoes_profissional, cancelar_evento
 from services.onboarding_service import processar_onboarding_endereco_dono, processar_resposta_onboarding_dono
 from services.gpt_service import (
     processar_com_gpt_com_acao as chamar_gpt_com_contexto,
@@ -3702,7 +3702,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             if evento_id:
                 # Cancelar evento
-                ok = await cancelar_evento(user_id, evento_id)
+                ok = await cancelar_evento(
+                    user_id=user_id,
+                    event_id=evento_id,
+                    cancelado_por_tipo="cliente",
+                )
 
                 if ok:
                     # [PATCH_P0] Limpeza real com DELETE_FIELD
