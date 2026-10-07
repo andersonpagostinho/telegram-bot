@@ -3515,8 +3515,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         except Exception as e:
             print(f"[AVISO] Erro ao resolver ator canônico: {e}", flush=True)
 
-    # [C3.15.3-D-B] Usar actor_id_whatsapp canônico para operações de sessão, fallback para user_id
-    cliente_id = actor_id_whatsapp or user_id
+    # [C3.15.3-D-B] Usar actor_id canônico da IdentidadeContexto para operações de sessão, fallback para user_id
+    # [P0.10] Usa identidade_p01.actor_id que é SEMPRE estável desde PASSO-03
+    cliente_id = identidade_p01.actor_id if identidade_p01 else user_id
 
     # P0 FIX (2026-06-28): Sessão V2 não deve ser sobrescrita por legado
     # 1. Se context.user_data já tem contexto (carregado pelo handler), usar esse
@@ -3528,6 +3529,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     else:
         # Carregar V2 se handler não carregou
         ctx = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
+
+        # [P0.10-COMPAT] Fallback para path antigo (sem prefixo whatsapp:) para compatibilidade
+        # com sessões pré-existentes que podem estar salvase em Clientes/{tenant}/Sessoes/{user_id}
+        if not ctx and cliente_id.startswith("whatsapp:"):
+            cliente_id_sem_prefixo = cliente_id.split(":")[-1]
+            ctx = await carregar_contexto_temporario_v2(dono_id, cliente_id_sem_prefixo) or {}
+            if ctx:
+                print(f"[P0.10-COMPAT] Contexto encontrado em path antigo (sem prefixo): migrado para novo path", flush=True)
+                # ⚠️ CRÍTICO: Permanecer usando o path antigo para escrita nesta requisição
+                # para manter coerência entre leitura e escrita
+                cliente_id = cliente_id_sem_prefixo
+                print(f"[P0.10-COMPAT] cliente_id revertido para path antigo: {cliente_id}", flush=True)
 
     # =========================================================
     # LOTE 3E: RESOLVER CONFIRMACAO/NEGACAO PENDENTE (EARLY)
@@ -3706,6 +3719,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     user_id=user_id,
                     event_id=evento_id,
                     cancelado_por_tipo="cliente",
+                    tenant_id=dono_id,  # [P0.10] Passar tenant_id explícito para evitar resolução via obter_tenant_id
                 )
 
                 if ok:

@@ -261,25 +261,35 @@ async def cancelar_evento(
     user_id: str,
     event_id: str,
     cancelado_por_tipo: str = "cliente",
-    motivo: str | None = None
+    motivo: str | None = None,
+    tenant_id: str | None = None
 ) -> bool:
     """
     Marca um evento como cancelado (soft delete) com auditoria.
 
     P0.1A: Validação de ownership + campos de auditoria
     Retorna: True se cancelou com sucesso, False caso contrário
+
+    Parâmetro tenant_id é opcional: se fornecido, usado diretamente.
+    Se não fornecido, resolve via obter_tenant_id (para compatibilidade).
     """
     try:
-        # Resolve o id efetivo como nos outros métodos
-        dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
-        user_id_efetivo = user_id
-        tipo_usuario = dados_usuario.get("tipo_usuario", "cliente")
-        modo = dados_usuario.get("modo_uso", "")
+        # Se tenant_id foi fornecido explicitamente (P0.10 fix), usar direto
+        if tenant_id:
+            user_id_efetivo = tenant_id
+            tipo_usuario = "cliente"  # Assumir cliente quando tenant é explícito
+            path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
+        else:
+            # Resolve o id efetivo como nos outros métodos (fallback)
+            dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+            user_id_efetivo = user_id
+            tipo_usuario = dados_usuario.get("tipo_usuario", "cliente")
+            modo = dados_usuario.get("modo_uso", "")
 
-        if tipo_usuario == "cliente" or modo == "atendimento_cliente":
-            user_id_efetivo = await obter_tenant_id(user_id)
+            if tipo_usuario == "cliente" or modo == "atendimento_cliente":
+                user_id_efetivo = await obter_tenant_id(user_id)
 
-        path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
+            path = f"Clientes/{user_id_efetivo}/Eventos/{event_id}"
 
         # 1) Buscar dados do evento ANTES de cancelar (para validar ownership)
         ev = await buscar_dado_em_path(path) or {}
