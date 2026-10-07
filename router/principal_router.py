@@ -3636,6 +3636,50 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         resultado_classificacao = classificar_confirmacao_cancelamento(texto_usuario, ctx)
         print(f"[HANDLER_CANCELAMENTO_CLASSIFICACAO] resultado={resultado_classificacao}", flush=True)
 
+        # =========================================================
+        # P0: Seleção de evento (número)
+        # =========================================================
+        if resultado_classificacao == "selecao_numero":
+            resumo_eventos = cancelamento_pendente.get("resumo_eventos", [])
+
+            # Extrair número da mensagem
+            numero_match = re.match(r"^(\d+)", texto_lower)
+            if numero_match:
+                idx = int(numero_match.group(1)) - 1
+
+                if 0 <= idx < len(resumo_eventos):
+                    ev_selecionado = resumo_eventos[idx]
+                    evento_id = ev_selecionado.get("evento_id")
+
+                    if evento_id:
+                        # Construir novo contexto com evento único
+                        novo_cancelamento = {
+                            "evento_id": evento_id,
+                            "cliente_id": cancelamento_pendente.get("cliente_id"),
+                            "resumo_evento": {
+                                "evento_id": evento_id,
+                                "descricao": ev_selecionado.get("descricao", ""),
+                                "data": ev_selecionado.get("data", ""),
+                                "hora_inicio": ev_selecionado.get("hora_inicio", ""),
+                                "profissional": ev_selecionado.get("profissional", ""),
+                            }
+                        }
+
+                        # Atualizar contexto
+                        ctx["cancelamento_pendente"] = novo_cancelamento
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        # Pedir confirmação
+                        desc = ev_selecionado.get("descricao", "Evento")
+                        data = ev_selecionado.get("data", "")
+                        hora = ev_selecionado.get("hora_inicio", "")
+
+                        return {
+                            "handled": True,
+                            "resposta": f"Tem certeza de cancelar {desc} em {data} às {hora}? (sim/não)",
+                            "motivo": "confirmacao_apos_seleção"
+                        }
+
         if resultado_classificacao == "confirmacao":
             # 🔥 P0: VALIDAÇÃO — Se há múltiplos eventos e nenhum foi selecionado, reapresentar lista
             if "resumo_eventos" in cancelamento_pendente and "evento_id" not in cancelamento_pendente:

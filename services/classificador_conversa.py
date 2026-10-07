@@ -442,6 +442,22 @@ def classificar_confirmacao_cancelamento(texto: str, ctx: dict | None = None) ->
     t = normalizar_txt(texto or "")
 
     # =====================================================
+    # CAMADA 0: Seleção de Evento (Número)
+    # =====================================================
+    # P0: Seleção por número somente se há resumo_eventos com múltiplos
+    if ctx and "cancelamento_pendente" in ctx:
+        cp = ctx.get("cancelamento_pendente", {})
+        resumo_eventos = cp.get("resumo_eventos", [])
+
+        if resumo_eventos:
+            # Tentar extrair número puro: "1", "2", "3", etc.
+            numero_match = re.match(r"^(\d+)", t)
+            if numero_match:
+                idx = int(numero_match.group(1)) - 1
+                if 0 <= idx < len(resumo_eventos):
+                    return "selecao_numero"
+
+    # =====================================================
     # CAMADA 1: Confirmações Simples (Match Exato)
     # =====================================================
     confirmacoes_simples = {"sim", "s", "ok", "claro", "isso", "isso mesmo", "mesmo"}
