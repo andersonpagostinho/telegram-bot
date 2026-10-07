@@ -3637,6 +3637,23 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         print(f"[HANDLER_CANCELAMENTO_CLASSIFICACAO] resultado={resultado_classificacao}", flush=True)
 
         if resultado_classificacao == "confirmacao":
+            # 🔥 P0: VALIDAÇÃO — Se há múltiplos eventos e nenhum foi selecionado, reapresentar lista
+            if "resumo_eventos" in cancelamento_pendente and "evento_id" not in cancelamento_pendente:
+                resumo_eventos = cancelamento_pendente.get("resumo_eventos", [])
+                linhas = []
+                for i, ev in enumerate(resumo_eventos, start=1):
+                    desc = ev.get('descricao', '(sem título)')
+                    data = ev.get('data', '????-??-??')
+                    hora = ev.get('hora_inicio', '??:??')
+                    linhas.append(f"{i}) {desc} — {data} às {hora}")
+
+                resposta = "Qual deseja cancelar?\n" + "\n".join(linhas)
+                return {
+                    "handled": True,
+                    "resposta": resposta,
+                    "motivo": "multiplos_eventos_sem_selecao"
+                }
+
             evento_id = cancelamento_pendente.get("evento_id")
 
             if evento_id:
