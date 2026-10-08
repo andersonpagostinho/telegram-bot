@@ -3715,10 +3715,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             if evento_id:
                 # Cancelar evento
-                # [P0.10-FIX] Usar identidade canônica se disponível, remover prefixo para compatibilidade com cliente_id em Firestore
+                # [P0.10-FIX] Usar identidade canônica se disponível, manter prefixo para validação de ownership em Firestore
                 user_id_para_cancelamento = (identidade_p01.actor_id if identidade_p01 and identidade_p01.actor_id else user_id)
-                # Remove prefixo (whatsapp:) para manter compatibilidade com cliente_id armazenado
-                user_id_para_cancelamento = user_id_para_cancelamento.split(":")[-1] if ":" in user_id_para_cancelamento else user_id_para_cancelamento
                 ok = await cancelar_evento(
                     user_id=user_id_para_cancelamento,
                     event_id=evento_id,
