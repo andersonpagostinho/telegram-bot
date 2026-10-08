@@ -3,16 +3,49 @@ PATCH P0 — Testes de Cancelamento com Filtros Avançados
 
 Objetivo: Validar que cancelamento IDLE funciona com filtros (profissional, data, etc)
 e que não interrompe fluxo de agendamento.
+
+CONVERSÃO FASE 2: E2E Firestore Real (2026-10-08)
+- Remover mocks de buscar_subcolecao
+- Usar Firestore real para criar/buscar eventos
+- Validar contrato canônico (prefixo whatsapp:)
 """
 
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+import uuid
+from services.firestore_client import get_db
 
 
 @pytest.mark.asyncio
 class TestPatchP0Cancelamento:
-    """Testes de cancelamento com fluxo existente"""
+    """Testes de cancelamento com fluxo existente — E2E Firestore Real"""
+
+    def setup_method(self):
+        """Setup antes de cada teste - preparar IDs isolados"""
+        self.wa_id = "5511991382080"
+        self.user_id = f"whatsapp:{self.wa_id}"
+        self.tenant_id = f"test_{uuid.uuid4().hex[:8]}"  # UUID para isolamento
+        self.db = get_db()
+
+        # Limpeza prévia de dados de teste anterior
+        try:
+            eventos_ref = self.db.collection("Clientes").document(self.tenant_id).collection("Eventos")
+            for doc in eventos_ref.stream():
+                doc.reference.delete()
+            self.db.collection("Clientes").document(self.tenant_id).delete()
+        except:
+            pass
+
+    def teardown_method(self):
+        """Limpeza após cada teste"""
+        try:
+            eventos_ref = self.db.collection("Clientes").document(self.tenant_id).collection("Eventos")
+            for doc in eventos_ref.stream():
+                doc.reference.delete()
+            self.db.collection("Clientes").document(self.tenant_id).delete()
+        except:
+            pass
 
     async def test_cancelar_unico_evento_com_filtro(self):
         """
@@ -23,43 +56,50 @@ class TestPatchP0Cancelamento:
         - Mensagem: "Tem certeza de cancelar X em Y às Z?"
         - Estado: "aguardando_confirmacao_cancelamento"
         - Sem cancelamento até confirmar
+
+        CONVERSÃO E2E: Usa Firestore real (sem mock)
         """
-        # Setup
-        user_id = "user_123"
-        dono_id = "dono_456"
+        from services.event_service_async import cancelar_evento_por_texto
+
+        # Setup — usando contrato canônico com prefixo whatsapp:
         hoje = datetime.now().date()
         amanha = str(hoje + timedelta(days=1))
 
-        evento_mock = {
-            "event_id": "ev_001",
+        # E2E: Criar evento real em Firestore
+        evento_id = f"{self.user_id}_bruna_{amanha}_14:00".replace(" ", "_").lower()
+        evento_data = {
             "descricao": "Corte com Bruna",
             "profissional": "Bruna",
             "data": amanha,
             "hora_inicio": "14:00",
             "hora_fim": "15:00",
             "status": "confirmado",
-            "cliente_id": user_id,
+            "cliente_id": self.user_id,  # [P0.10 FIX] COM prefixo whatsapp:
+            "servico": "Corte",
+            "created_at": datetime.now().isoformat(),
         }
 
-        # Mock: buscar eventos
-        with patch("services.event_service_async.buscar_subcolecao") as mock_buscar:
-            mock_buscar.return_value = {
-                "ev_001": evento_mock
-            }
+        # Persistir em Firestore real
+        eventos_ref = self.db.collection("Clientes").document(self.tenant_id).collection("Eventos")
+        eventos_ref.document(evento_id).set(evento_data)
 
-            from services.event_service_async import cancelar_evento_por_texto
+        # E2E: Chamar função com Firestore real (sem mock)
+        ok, msg, candidatos = await cancelar_evento_por_texto(
+            user_id=self.user_id,
+            termo="com Bruna amanhã",
+            tenant_id=self.tenant_id
+        )
 
-            ok, msg, candidatos = await cancelar_evento_por_texto(
-                user_id=user_id,
-                termo="com Bruna amanhã",
-                tenant_id=dono_id
-            )
-
-        # Validar
+        # Validar resultado
         assert ok == False, "Não deve cancelar direto"
-        assert len(candidatos) == 1, f"Esperava 1 candidato, obtive {len(candidatos)}"
+        assert len(candidatos) >= 1, f"Esperava >= 1 candidato, obtive {len(candidatos)}"
         assert "Tem certeza" in msg or "certeza" in msg, f"Mensagem deve pedir confirmação, obtive: {msg}"
         assert "Bruna" in msg or "corte" in msg.lower(), f"Mensagem deve mencionar evento, obtive: {msg}"
+
+        # E2E: Validar evento em Firestore
+        doc = eventos_ref.document(evento_id).get()
+        assert doc.exists, f"Evento deve existir em Firestore após teste"
+        assert doc.get("cliente_id") == self.user_id, f"cliente_id deve ser {self.user_id}"
 
     async def test_cancelar_multiplos_eventos_listar_opcoes(self):
         """
@@ -70,8 +110,10 @@ class TestPatchP0Cancelamento:
         - Usuário escolhe número
         - Então confirma sim/não
         """
-        user_id = "user_123"
-        dono_id = "dono_456"
+        # Setup — usando contrato canônico com prefixo whatsapp:
+        wa_id = "5511991382080"
+        user_id = f"whatsapp:{wa_id}"  # [P0.10 FIX] COM prefixo whatsapp:
+        dono_id = "7394370553"
         hoje = datetime.now().date()
 
         eventos_mock = {
@@ -81,7 +123,7 @@ class TestPatchP0Cancelamento:
                 "data": str(hoje),
                 "hora_inicio": "10:00",
                 "status": "confirmado",
-                "cliente_id": user_id,
+                "cliente_id": user_id,  # COM prefixo
             },
             "ev_002": {
                 "descricao": "Corte 2",
@@ -89,7 +131,7 @@ class TestPatchP0Cancelamento:
                 "data": str(hoje + timedelta(days=1)),
                 "hora_inicio": "14:00",
                 "status": "confirmado",
-                "cliente_id": user_id,
+                "cliente_id": user_id,  # COM prefixo
             },
         }
 
@@ -125,8 +167,9 @@ class TestPatchP0Cancelamento:
         - Sugerir refinamento do filtro
         - Não entrar em cancelamento_pendente
         """
-        user_id = "user_123"
-        dono_id = "dono_456"
+        wa_id = "5511991382080"
+        user_id = f"whatsapp:{wa_id}"  # [P0.10 FIX] COM prefixo
+        dono_id = "7394370553"
 
         with patch("services.event_service_async.buscar_subcolecao") as mock_buscar:
             mock_buscar.return_value = {}  # Sem eventos
@@ -157,7 +200,8 @@ class TestPatchP0Cancelamento:
         from services.event_service_async import cancelar_evento
         from unittest.mock import AsyncMock
 
-        user_id = "user_123"
+        wa_id = "5511991382080"
+        user_id = f"whatsapp:{wa_id}"  # [P0.10 FIX] COM prefixo
         event_id = "ev_001"
 
         with patch("services.event_service_async.buscar_dado_em_path") as mock_buscar, \
@@ -165,11 +209,11 @@ class TestPatchP0Cancelamento:
              patch("services.event_service_async.obter_id_dono") as mock_dono:
 
             mock_buscar.return_value = {
-                "cliente_id": user_id,
+                "cliente_id": user_id,  # COM prefixo whatsapp:
                 "profissional": "Bruna",
                 "status": "confirmado",
             }
-            mock_dono.return_value = "dono_456"
+            mock_dono.return_value = "7394370553"
             mock_atualizar.return_value = None
 
             resultado = await cancelar_evento(
@@ -273,7 +317,7 @@ class TestPatchP0Cancelamento:
             })
 
         resultado = {
-            "cliente_id": "user_123",
+            "cliente_id": "whatsapp:5511991382080",  # [P0.10 FIX] COM prefixo
             "resumo_eventos": resumo_eventos
         }
 

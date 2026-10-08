@@ -48,14 +48,30 @@ def _inicializar_firebase():
     Inicializa Firebase Admin SDK com credenciais.
 
     Tenta em ordem:
-    1. firebaseConfig.json (local)
-    2. GOOGLE_APPLICATION_CREDENTIALS (variável ambiente)
-    3. Application Default Credentials (Cloud)
+    1. FIREBASE_CREDENTIALS_B64 (variável ambiente, Base64 — evita truncamento)
+    2. firebaseConfig.json (arquivo local)
+    3. FIREBASE_CREDENTIALS (variável ambiente, JSON string)
+    4. GOOGLE_APPLICATION_CREDENTIALS (variável ambiente, path)
+    5. Application Default Credentials (Cloud)
 
     Raises:
         ValueError: Se nenhuma estratégia de autenticação funcionou
     """
     import json
+    import base64
+
+    # [FIX-TRUNCAMENTO] Estratégia 0: FIREBASE_CREDENTIALS_B64 (evita truncamento em variáveis env)
+    if os.environ.get("FIREBASE_CREDENTIALS_B64"):
+        try:
+            creds_json = os.environ.get("FIREBASE_CREDENTIALS_B64")
+            decoded = base64.b64decode(creds_json).decode('utf-8')
+            creds_dict = json.loads(decoded)
+            cred = firebase_admin.credentials.Certificate(creds_dict)
+            firebase_admin.initialize_app(cred)
+            print("[OK] Firebase inicializado com FIREBASE_CREDENTIALS_B64 (Base64 decodificado)")
+            return
+        except Exception as e:
+            print(f"[AVISO] Falha ao decodificar FIREBASE_CREDENTIALS_B64: {str(e)[:100]}")
 
     # Estratégia 1: Arquivo local
     creds_paths = [

@@ -23,9 +23,14 @@ async def test_cancelamento_idle_detectado():
     print("TEST 1: Cancelamento em contexto idle é detectado")
     print("=" * 70)
 
-    # Mock de funções
+    # Setup com identidade canônica [P0.10 FIX]
+    wa_id = "5511991382080"
+    user_id_canonico = f"whatsapp:{wa_id}"
+    dono_id = "7394370553"
+
+    # Mock de funções — refatorado com contrato real
     async def mock_obter_id_dono(user_id):
-        return "dono_teste"
+        return dono_id  # [P0.10 FIX] Retorna tenant real, não "dono_teste"
 
     async def mock_carregar_contexto(user_id, tenant_id=None):
         return {"estado_fluxo": "idle"}  # Contexto vazio, sem fluxo
@@ -53,10 +58,11 @@ async def test_cancelamento_idle_detectado():
                         try:
                             from router.principal_router import roteador_principal
 
-                            # Teste: mensagem com cancelamento em idle
+                            # Teste: mensagem com cancelamento em idle [P0.10 FIX]
                             print("\n[TESTE] Chamando roteador_principal com 'Quero cancelar com a Bruna amanhã'...")
+                            print(f"[INFO] user_id: {user_id_canonico} (COM prefixo whatsapp:)")
                             result = await roteador_principal(
-                                user_id="user_123",
+                                user_id=user_id_canonico,  # [P0.10 FIX] COM prefixo
                                 mensagem="Quero cancelar com a Bruna amanhã",
                                 update=None,
                                 context=None
@@ -89,8 +95,13 @@ async def test_saudacao_continua_normal():
     print("TEST 2: Saudação normal não entra em cancelamento")
     print("=" * 70)
 
+    # Setup com identidade canônica [P0.10 FIX]
+    wa_id = "5511991382080"
+    user_id_canonico = f"whatsapp:{wa_id}"
+    dono_id = "7394370553"
+
     async def mock_obter_id_dono(user_id):
-        return "dono_teste"
+        return dono_id  # [P0.10 FIX] Retorna tenant real
 
     async def mock_carregar_contexto(user_id, tenant_id=None):
         return {"estado_fluxo": "idle"}
@@ -116,8 +127,9 @@ async def test_saudacao_continua_normal():
                             from router.principal_router import roteador_principal
 
                             print("\n[TESTE] Chamando roteador_principal com 'Olá'...")
+                            print(f"[INFO] user_id: {user_id_canonico} (COM prefixo whatsapp:)")
                             result = await roteador_principal(
-                                user_id="user_123",
+                                user_id=user_id_canonico,  # [P0.10 FIX] COM prefixo
                                 mensagem="Olá",
                                 update=None,
                                 context=None

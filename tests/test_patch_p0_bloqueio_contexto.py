@@ -7,6 +7,7 @@ PATCH P0 — Bloqueio de Contexto Legado Sem Tenant
 import pytest
 from unittest.mock import AsyncMock, patch
 from datetime import datetime
+import uuid
 
 
 @pytest.mark.asyncio
@@ -16,16 +17,20 @@ class TestBloqueioContextoSemTenant:
     async def test_01_carregar_sem_tenant_id_retorna_vazio(self):
         """
         TEST 1: carregar sem tenant_id retorna {}
-        Entrada: actor_id="user_123", tenant_id=None
+        Entrada: actor_id="whatsapp:5511991382080", tenant_id=None
         Esperado: {} (vazio)
         """
         from utils.contexto_temporario import carregar_contexto_temporario
+
+        # Setup com identidade canônica [P0.10 FIX]
+        wa_id = "5511991382080"
+        user_id_canonico = f"whatsapp:{wa_id}"
 
         with patch("utils.contexto_temporario.buscar_dado_em_path") as mock_buscar:
             mock_buscar.return_value = {"draft_agendamento": {"servico": "corte"}}
 
             resultado = await carregar_contexto_temporario(
-                user_id="user_123",
+                user_id=user_id_canonico,  # [P0.10 FIX] COM prefixo
                 tenant_id=None  # ← SEM TENANT
             )
 
@@ -35,13 +40,17 @@ class TestBloqueioContextoSemTenant:
     async def test_02_salvar_sem_tenant_id_retorna_false(self):
         """
         TEST 2: salvar sem tenant_id retorna False
-        Entrada: user_id="user_123", contexto={...}, tenant_id=None
+        Entrada: user_id="whatsapp:5511991382080", contexto={...}, tenant_id=None
         Esperado: False (não salva)
         """
         from utils.contexto_temporario import salvar_contexto_temporario
 
+        # Setup com identidade canônica [P0.10 FIX]
+        wa_id = "5511991382080"
+        user_id_canonico = f"whatsapp:{wa_id}"
+
         resultado = await salvar_contexto_temporario(
-            user_id="user_123",
+            user_id=user_id_canonico,  # [P0.10 FIX] COM prefixo
             contexto={"draft_agendamento": {"servico": "corte"}},
             tenant_id=None  # ← SEM TENANT
         )
@@ -53,10 +62,15 @@ class TestBloqueioContextoSemTenant:
     async def test_03_salvar_com_tenant_grava_no_novo_path(self):
         """
         TEST 3: salvar com tenant_id grava em Clientes/{tenant_id}/Sessoes/{actor_id}
-        Entrada: actor_id="user_123", contexto={...}, tenant_id="dono_456"
-        Esperado: gravado em path novo
+        Entrada: actor_id="whatsapp:5511991382080", contexto={...}, tenant_id=UUID (isolado)
+        Esperado: gravado em path novo com UUID isolamento
         """
         from utils.contexto_temporario import salvar_sessao_temporaria
+
+        # Setup com UUID para isolamento (não hardcoded tenant_id) [P0.10 FIX]
+        wa_id = "5511991382080"
+        actor_id_canonico = f"whatsapp:{wa_id}"
+        tenant_id_uuid = f"test_{uuid.uuid4().hex[:8]}"  # UUID para evitar colisão
 
         with patch("utils.contexto_temporario.atualizar_dado_em_path") as mock_salvar, \
              patch("utils.contexto_temporario.buscar_dado_em_path") as mock_buscar:
@@ -65,36 +79,41 @@ class TestBloqueioContextoSemTenant:
             mock_salvar.return_value = True
 
             resultado = await salvar_sessao_temporaria(
-                actor_id="user_123",
+                actor_id=actor_id_canonico,  # [P0.10 FIX] COM prefixo
                 contexto={"draft_agendamento": {"servico": "corte"}},
-                tenant_id="dono_456"
+                tenant_id=tenant_id_uuid  # UUID para isolamento
             )
 
         # Validar: chamou atualizar_dado_em_path com path correto
         assert mock_salvar.called, "Não chamou atualizar_dado_em_path"
         call_path = mock_salvar.call_args[0][0]
-        assert "dono_456" in call_path, f"Path não contém tenant: {call_path}"
+        assert tenant_id_uuid in call_path, f"Path não contém tenant UUID: {call_path}"
         assert "Sessoes" in call_path, f"Path não usa Sessoes: {call_path}"
 
     async def test_04_carregar_com_tenant_le_do_novo_path(self):
         """
         TEST 4: carregar com tenant_id lê do path novo
-        Entrada: actor_id="user_123", tenant_id="dono_456"
-        Esperado: lê de Clientes/{tenant_id}/Sessoes/{actor_id}
+        Entrada: actor_id="whatsapp:5511991382080", tenant_id=UUID (isolado)
+        Esperado: lê de Clientes/{tenant_id}/Sessoes/{actor_id} com UUID
         """
         from utils.contexto_temporario import carregar_sessao_temporaria
 
+        # Setup com UUID para isolamento [P0.10 FIX]
+        wa_id = "5511991382080"
+        actor_id_canonico = f"whatsapp:{wa_id}"
+        tenant_id_uuid = f"test_{uuid.uuid4().hex[:8]}"
+
         contexto_esperado = {
             "draft_agendamento": {"servico": "corte"},
-            "_tenant_id_guard": "dono_456"
+            "_tenant_id_guard": tenant_id_uuid
         }
 
         with patch("utils.contexto_temporario.buscar_dado_em_path") as mock_buscar:
             mock_buscar.return_value = contexto_esperado
 
             resultado = await carregar_sessao_temporaria(
-                actor_id="user_123",
-                tenant_id="dono_456"
+                actor_id=actor_id_canonico,  # [P0.10 FIX] COM prefixo
+                tenant_id=tenant_id_uuid  # UUID para isolamento
             )
 
         # Validar: retorna contexto do novo path

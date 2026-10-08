@@ -14,6 +14,7 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 import os
+import uuid
 
 # Verificar se temos credenciais Firebase
 FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS") or \
@@ -63,9 +64,10 @@ class TestCancelamentoFirebase:
         if not self.firebase_ready:
             pytest.skip("Firebase não configurado")
 
-        # Setup
-        dono_id = "test_dono_123"
-        cliente_id = "test_cliente_456"
+        # Setup com identidade canônica e UUID para isolamento [P0.10 FIX]
+        wa_id = "5511991382080"
+        cliente_id = f"whatsapp:{wa_id}"  # [P0.10 FIX] COM prefixo whatsapp:
+        dono_id = f"test_dono_{uuid.uuid4().hex[:8]}"  # UUID para isolamento
         hoje = datetime.now().date()
         amanha = str(hoje + timedelta(days=1))
 
@@ -171,8 +173,10 @@ class TestCancelamentoFirebase:
         if not self.firebase_ready:
             pytest.skip("Firebase não configurado")
 
-        dono_id = "test_dono_789"
-        cliente_id = "test_cliente_999"
+        # Setup com identidade canônica e UUID para isolamento [P0.10 FIX]
+        wa_id = "5511991382080"
+        cliente_id = f"whatsapp:{wa_id}"  # [P0.10 FIX] COM prefixo
+        dono_id = f"test_dono_{uuid.uuid4().hex[:8]}"  # UUID para isolamento
         hoje = datetime.now().date()
         amanha = str(hoje + timedelta(days=1))
 
@@ -266,8 +270,10 @@ class TestCancelamentoFirebase:
         if not self.firebase_ready:
             pytest.skip("Firebase não configurado")
 
-        dono_id = "test_dono_multi"
-        cliente_id = "test_cliente_multi"
+        # Setup com identidade canônica e UUID para isolamento [P0.10 FIX]
+        wa_id = "5511991382080"
+        cliente_id = f"whatsapp:{wa_id}"  # [P0.10 FIX] COM prefixo
+        dono_id = f"test_dono_{uuid.uuid4().hex[:8]}"  # UUID para isolamento
         hoje = datetime.now().date()
 
         eventos_mock = [
