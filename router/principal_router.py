@@ -1401,10 +1401,24 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 draft["servico"] = servico_detectado
 
     # ---------------- data/hora ----------------
-    dt_detectado = interpretar_data_e_hora(texto)
+    dt_e_meta = interpretar_data_e_hora(texto, return_metadata=True)
+    dt_detectado = dt_e_meta.get("datetime")
 
     print(" [MESCLAR] texto=", texto, flush=True)
     print(" [MESCLAR] dt_detectado=", dt_detectado, flush=True)
+
+    # Salvar metadados temporais para D2 consultar
+    # Apenas se há informação temporal válida (não sobrescrever com dados vazios)
+    if dt_e_meta.get("data_detectada") or dt_e_meta.get("hora_detectada"):
+        ctx["_temporal_metadata"] = {
+            "data_detectada": dt_e_meta.get("data_detectada"),
+            "hora_detectada": dt_e_meta.get("hora_detectada"),
+            "data_tipo": dt_e_meta.get("data_tipo"),
+            "hora_modo": dt_e_meta.get("hora_modo"),
+            "fonte": dt_e_meta.get("fonte"),
+            "motivo_nenhum": dt_e_meta.get("motivo_nenhum"),
+        }
+        print(f" [MESCLAR_METADATA] {ctx['_temporal_metadata']}", flush=True)
 
     # =========================================================
     # 🔥 HORA INCREMENTAL
@@ -1984,6 +1998,56 @@ async def precheck_e_confirmacao_agendamento(
         )
 
     # =========================================================
+    # 🔥 VALIDAÇÃO TEMPORAL: Rejeitar horários passados
+    # =========================================================
+    dt_naive = None
+    if isinstance(data_hora, str):
+        try:
+            dt_obj = datetime.fromisoformat(data_hora)
+            if dt_obj.tzinfo is not None:
+                # Converter valor com fuso para naive em fuso Brasil
+                dt_naive = dt_obj.astimezone(pytz.timezone("America/Sao_Paulo")).replace(tzinfo=None)
+            else:
+                # Valor sem fuso: assumir que é horário local do negócio (Brasil)
+                dt_naive = dt_obj
+        except (ValueError, TypeError):
+            # Formato inválido: pular validação, deixar código downstream tratar
+            dt_naive = None
+
+    if dt_naive and dt_naive <= datetime.now(pytz.timezone("America/Sao_Paulo")).replace(tzinfo=None):
+        ctx["estado_fluxo"] = "aguardando_data"
+        ctx["modo_escolha_horario"] = False
+        ctx["horarios_sugeridos"] = []
+        ctx.pop("dados_confirmacao_agendamento", None)
+        ctx["aguardando_confirmacao_agendamento"] = False
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+        return await _send_and_stop(
+            context,
+            user_id,
+            f"Esse horário já passou 😞.\n\n"
+            f"Que tal escolher um futuro? Me diga a data e hora que você prefere."
+        )
+
+    # =========================================================
+    # ⚠️ VALIDAÇÃO: data_hora inválida após D2
+    # =========================================================
+    if dt_naive is None:
+        ctx["estado_fluxo"] = "aguardando_data"
+        ctx["modo_escolha_horario"] = False
+        ctx["horarios_sugeridos"] = []
+        ctx.pop("dados_confirmacao_agendamento", None)
+        ctx["aguardando_confirmacao_agendamento"] = False
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+        # TODO: Mensagem inteligente que detecte se falta data, hora ou ambos
+        # e responda de forma natural em português
+        return await _send_and_stop(
+            context,
+            user_id,
+            f"Desculpe, não consegui processar esse agendamento.\n\n"
+            f"Pode me dizer a data e a hora que você prefere?"
+        )
+
+    # =========================================================
     # 🔥 PRE-CHECAGEM DE CONFLITO
     # =========================================================
     print(" [PRE-CHECK] Executando verificação de conflito...", flush=True)
@@ -2109,12 +2173,12 @@ async def precheck_e_confirmacao_agendamento(
     # =========================================================
 
     ctx["estado_fluxo"] = "agendando"
+    ctx["horarios_sugeridos"] = []
 
     ctx["draft_agendamento"] = {
         "profissional": prof,
         "data_hora": data_hora,
         "servico": servico,
-        "modo_prechecagem": True
     }
 
     ctx["aguardando_confirmacao_agendamento"] = True
@@ -8132,9 +8196,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ctx["data_sem_hora"] = False
                     ctx["modo_escolha_horario"] = False
                     ctx["estado_fluxo"] = "agendando"
+                    ctx["horarios_sugeridos"] = []
 
                     draft = ctx.get("draft_agendamento") or {}
                     draft["data_hora"] = nova_data_hora
+                    draft["modo_prechecagem"] = False
                     ctx["draft_agendamento"] = draft
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
