@@ -214,15 +214,41 @@ def extrair_trecho_temporal(texto: str) -> str:
 
     return t
 
-def interpretar_data_e_hora(texto: str) -> datetime | None:
+def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> datetime | None | dict:
     """
     Interpreta data+hora.
     - Se vier apenas hora ("15:20"), retorna None (porque não deve assumir o dia).
     - Se vier "dia X ..." monta manualmente.
     - Caso geral: usa dateparser com RELATIVE_BASE no fuso BR.
+
+    Args:
+        texto: Expressão temporal em linguagem natural
+        return_metadata: Se True, retorna dict com metadados. Se False, retorna datetime | None (default)
+
+    Returns:
+        Se return_metadata=False (default):
+            datetime | None (comportamento legado preservado)
+        Se return_metadata=True:
+            dict com estrutura: {datetime, data_detectada, hora_detectada, data_tipo, hora_modo, fonte, motivo_nenhum, criado_em}
     """
+
+    # Helper para construir metadados
+    def _build_metadata(dt_result, data_detectada, hora_detectada, data_tipo=None, hora_modo=None, fonte=None, motivo=None):
+        if not return_metadata:
+            return dt_result
+        return {
+            "datetime": dt_result,
+            "data_detectada": data_detectada,
+            "hora_detectada": hora_detectada,
+            "data_tipo": data_tipo,
+            "hora_modo": hora_modo,
+            "fonte": fonte,
+            "motivo_nenhum": motivo,
+            "criado_em": agora_br_naive().isoformat(),
+        }
+
     if not texto:
-        return None
+        return _build_metadata(None, False, False, motivo="vazio")
 
     try:
         texto_original = texto
@@ -234,11 +260,13 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
 
         # ✅ Se não houver qualquer pista temporal explícita, não interpreta nada
         if not _tem_indicio_temporal(texto_norm):
-            return None
+            return _build_metadata(None, False, False, motivo="sem_pista")
 
         # ✅ Se tiver "hoje" ou "amanhã" e tiver hora, monta a data manualmente
         if ("hoje" in texto_norm or "amanh" in texto_norm):
             hora_match = re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm)
+
+            data_tipo = "hoje" if "hoje" in texto_norm else "amanha"
 
             if hora_match:
                 # Tem hora explícita → montar com hora
@@ -252,11 +280,11 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
                 dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
                 result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
                 print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
-                return result
+                return _build_metadata(result, True, True, data_tipo=data_tipo, hora_modo="explicita", fonte="manual_hoje_amanha")
             else:
                 # Sem hora explícita → retornar None (apenas data, sem hora)
                 print(f"[PARSER] fonte_parse=data_pura (hoje/amanhã sem hora) resultado=None", flush=True)
-                return None
+                return _build_metadata(None, True, False, data_tipo=data_tipo, motivo="so_data", fonte="manual_hoje_amanha_sem_hora")
 
         # ✅ Detecta dia da semana isolado ou com hora, ex:
         # "quinta", "quinta feira", "na quinta", "quinta às 10"
@@ -291,16 +319,19 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
             hora = int(m_hora.group(1)) if m_hora else 9
             minuto = int(m_hora.group(2) or 0) if m_hora else 0
 
+            hora_modo = "explicita" if m_hora else "default"
+            hora_detectada = bool(m_hora)
+
             dt_aware = FUSO_BR.localize(
                 datetime(alvo.year, alvo.month, alvo.day, hora, minuto, 0, 0)
             )
             result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
             print(f"[PARSER] fonte_parse=manual_dia_semana resultado={result}", flush=True)
-            return result
+            return _build_metadata(result, True, hora_detectada, data_tipo="dia_semana", hora_modo=hora_modo, fonte="manual_dia_semana")
 
         # ✅ Se for só hora, não decide data aqui (isso é do fluxo/sessão)
         if _so_hora(texto_norm):
-            return None
+            return _build_metadata(None, False, True, hora_modo="explicita", motivo="so_hora", fonte="so_hora_bloqueado")
 
         # Base correta (Brasil), evitando UTC no Render
         base_aware = agora_br_aware()
@@ -316,6 +347,9 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
             mes_nome = match.group(2)
             hora = int(match.group(3)) if match.group(3) else 9
             minuto = int(match.group(4)) if match.group(4) else 0
+
+            hora_modo = "explicita" if match.group(3) else "default"
+            hora_detectada = bool(match.group(3))
 
             mes = base_aware.month
             ano = base_aware.year
@@ -335,7 +369,7 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
             dt_aware = FUSO_BR.localize(datetime(ano, mes, dia, hora, minuto, 0, 0))
             result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
             print(f"[PARSER] fonte_parse=manual_dia_mes resultado={result}", flush=True)
-            return result
+            return _build_metadata(result, True, hora_detectada, data_tipo="dia_mes_ano", hora_modo=hora_modo, fonte="manual_dia_mes")
 
         # ✅ Caso geral: dateparser com base BR
         # 🧪 PATCH MÍNIMO: tentar texto completo primeiro
@@ -387,13 +421,17 @@ def interpretar_data_e_hora(texto: str) -> datetime | None:
         print(f"[PARSER] fonte_parse={fonte_parse}", flush=True)
 
         if isinstance(parsed, datetime):
-            return parsed
+            motivo = None
+            data_detectada = True
+            hora_detectada = True
+            return _build_metadata(parsed, data_detectada, hora_detectada, data_tipo="dateparser", hora_modo="parsed", fonte=fonte_parse, motivo=motivo)
 
-        return parsed
+        # Fallback: dateparser failed or returned None
+        return _build_metadata(parsed, False, False, motivo="invalido", fonte=fonte_parse)
 
     except Exception as e:
         print(f"[interpretar_data_e_hora] Erro: {e}")
-        return None
+        return _build_metadata(None, False, False, motivo="excepcao", fonte=None)
 
 def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     texto_lower = (texto or "").lower()
