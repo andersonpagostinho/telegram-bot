@@ -140,6 +140,7 @@ async def precheck_e_confirmacao_agendamento(
     # =========================================================
 
     ctx["estado_fluxo"] = "agendando"
+    ctx["modo_escolha_horario"] = False
 
     ctx["draft_agendamento"] = {
         "profissional": prof,

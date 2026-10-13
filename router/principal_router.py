@@ -6348,7 +6348,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         else:
             # [P0.1] Detectar "outra profissional" genérica mesmo durante confirmacao_pendente
             texto_norm_alt = normalizar(texto_usuario or "")
-            if "outra" in texto_norm_alt and "profissional" in texto_norm_alt:
+            if "outra" in texto_norm_alt and ("profissional" in texto_norm_alt or "pofissional" in texto_norm_alt):
                 print(
                     f" [P0.1-CONFIRMACAO_MUDANCA_PROF_GENERICA] Detectando pedido genérico de mudança de profissional",
                     flush=True
@@ -7483,7 +7483,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             eh_pedido_generico = (
                 estado_ativo == "aguardando_escolha_horario"
                 and "outra" in texto_norm_generico
-                and "profissional" in texto_norm_generico
+                and ("profissional" in texto_norm_generico or "pofissional" in texto_norm_generico)
                 and not matches  # Só genérico se NÃO há hora mencionada
                 and any(nome and normalizar(nome) not in texto_norm_generico for nome in alternativas_ctx)
             )
