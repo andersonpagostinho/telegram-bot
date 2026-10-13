@@ -3852,6 +3852,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # Carregar V2 se handler não carregou
         ctx = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
 
+        # [INSTR-1-LOAD] Instrumentação: Validar estado ao carregar
+        print(f"[INSTR-1-LOAD] estado={ctx.get('estado_fluxo')} | "
+              f"modo_escolha={ctx.get('modo_escolha_horario')}", flush=True)
+
         # [P0.10-COMPAT] Fallback para path antigo (sem prefixo whatsapp:) para compatibilidade
         # com sessões pré-existentes que podem estar salvase em Clientes/{tenant}/Sessoes/{user_id}
         if not ctx and cliente_id.startswith("whatsapp:"):
@@ -3880,6 +3884,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx = decisao_confirmacao.get("ctx_modificado") or ctx
         acao = decisao_confirmacao.get("acao")
 
+        # [INSTR-2-CONFIRMACAO] Instrumentação: Validar estado após resolver
+        print(f"[INSTR-2-CONFIRMACAO] tratado=True | estado={ctx.get('estado_fluxo')} | "
+              f"acao={acao}", flush=True)
+
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         if acao == "negar":
@@ -3890,6 +3898,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         elif acao == "confirmar":
             print(f"[LOTE_3E_CONFIRMACAO] Confirmacao detectada", flush=True)
             # Continue para fluxo normal (P0_CONFIRMACAO)
+    else:
+        # [INSTR-2-CONFIRMACAO] Instrumentação: Validar quando não tratado
+        print(f"[INSTR-2-CONFIRMACAO] tratado=False | estado={ctx.get('estado_fluxo')}", flush=True)
 
     # =========================================================
     # P1 IDENTIDADE + ONBOARDING: Resolver ator e validar guard (EXECUTAR PRIMEIRO)
@@ -3910,6 +3921,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     # Se fluxo de identidade/onboarding foi processado, retornar
     if resultado_identidade is not None:
+        # [INSTR-3-IDENTIDADE] Instrumentação: Validar quando processado
+        print(f"[INSTR-3-IDENTIDADE] handled=True | estado={ctx.get('estado_fluxo')}", flush=True)
+
         if context is not None and resultado_identidade.get("handled"):
             try:
                 await context.bot.send_message(
@@ -3921,6 +3935,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 print(f"[ERRO] Falha ao enviar mensagem: {e}", flush=True)
 
         return resultado_identidade
+
+    # Identidade não tratou, continua fluxo normal
+    # [INSTR-3-IDENTIDADE] Instrumentação: Validar quando não processado
+    print(f"[INSTR-3-IDENTIDADE] handled=False | estado={ctx.get('estado_fluxo')}", flush=True)
 
     # =========================================================
     # ⭐ CRÍTICO: Processar RESPOSTA de onboarding DEPOIS de identidade
@@ -7227,6 +7245,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # 🔥 PRIORIDADE ABSOLUTA — ESCOLHA DE HORÁRIO SUGERIDO
         # PRECISA vir antes do extrair_slots_e_mesclar
         # =========================================================
+
+        # [INSTR-4-PRE-ESCOLHA] Instrumentação: Capturar estado ANTES de [ESCOLHA PRIORIDADE TOTAL]
+        print(f"[INSTR-4-PRE-ESCOLHA] estado={ctx.get('estado_fluxo')} | "
+              f"modo_escolha={ctx.get('modo_escolha_horario')} | "
+              f"intencao={ctx.get('intencao_conversacional')} | "
+              f"draft={'sim' if ctx.get('draft_agendamento') else 'não'}", flush=True)
+
         if (
             ctx.get("modo_escolha_horario")
             or (ctx.get("estado_fluxo") or "").strip().lower() == "aguardando_escolha_horario"
