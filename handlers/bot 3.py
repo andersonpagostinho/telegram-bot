@@ -1,0 +1,1127 @@
+# handlers/bot.py
+import logging
+from datetime import datetime, timedelta
+
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+    ApplicationHandlerStop,  # ✅ PTB v20+
+)
+
+from firebase_admin import firestore
+
+# --- serviços/handlers próprios ---
+from services.firebase_service_async import (
+    buscar_cliente,
+    salvar_cliente,
+    verificar_firebase,
+    obter_id_dono,
+)
+from services.event_service_async import cancelar_evento
+from services.cadastro_inicial_service import (
+    precisa_onboarding,
+    mensagem_onboarding,
+    processar_texto_cadastro,
+)
+
+from router.principal_router import roteador_principal, eh_confirmacao, eh_desistencia_fluxo, eh_gatilho_reagendamento
+
+from handlers.task_handler import add_task, list_tasks, clear_tasks, list_tasks_by_priority
+#from handlers.email_handler import ler_emails_command, listar_emails_prioritarios, conectar_email
+from handlers.event_handler import (
+    add_agenda, list_events, confirmar_reuniao, confirmar_presenca,
+    debug_eventos, cancelar_evento_cmd, enviar_agenda_excel
+)
+from handlers.importacao_handler import importar_profissionais_handler
+from handlers.perfil_handler import (
+    set_tipo_negocio, set_estilo_mensagem, set_nome_negocio, meu_estilo,
+    set_email, meu_plano, meu_perfil, set_tipo_usuario, set_modo_uso,
+    listar_profissionais
+)
+from handlers.voice_handler import handle_voice
+from handlers.followup_handler import (
+    criar_followup, listar_followups, verificar_avisos, configurar_avisos
+)
+from handlers.test_handler import testar_firebase, testar_avisos
+
+from handlers.encaixe_handler import handle_pedido_encaixe
+from handlers.reagendamento_handler import handle_resposta_reagendamento
+from utils.contexto_temporario import (
+    carregar_contexto_temporario, salvar_contexto_temporario,
+    carregar_contexto_temporario_v2, limpar_contexto_agendamento_v2
+)
+from services.gpt_executor import executar_acao_gpt
+from utils.contexto_temporario import limpar_contexto_agendamento
+from router.principal_router import eh_gatilho_agendar
+from services.whitelist_service import verificar_com_whitelist
+
+
+# 👉 Se esses não existirem no seu repo, comente este import e os CommandHandler lá embaixo
+from handlers.report_handler import (
+    relatorio_diario,
+    relatorio_semanal,
+    enviar_relatorio_email,
+)
+
+# 🆕 F9 — Dashboard do Dono (MVP sob demanda)
+from handlers.dashboard_handler import (
+    cmd_dashboard,
+    cmd_resumo_hoje,
+    cmd_resumo_semana,
+    cmd_metricas_profissionais,
+    cmd_alertas,
+)
+
+logger = logging.getLogger(__name__)
+
+OWNER_ID = "7394370553"  # <- coloca aqui o dono desse número/bot
+
+
+# ============== HANDLERS DE MENSAGEM (ORDEM IMPORTA) ==============
+
+async def _debug_primeiro_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handler de diagnóstico (alta prioridade).
+    Apenas registra no log que um texto passou pela pilha de handlers.
+    Não responde ao usuário.
+    """
+    txt = (getattr(update.message, "text", "") or "").strip()
+    uid = str(update.effective_user.id) if update.effective_user else "?"
+    logger.info(f"🧭 [DEBUG-H0] Texto capturado: '{txt}' de {uid}")
+
+
+async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Pipeline padrão:
+    1) Atalho de cancelamento por número (estado em user_data)
+    2) Fluxo de cadastro inicial (apenas se a mensagem for de configuração)
+    3) Roteador inteligente (IA)
+    """
+    import time
+
+    user_id = str(update.message.from_user.id)
+    msg_text = (getattr(update.message, "text", "") or "").strip()
+    msg_id = update.message.message_id
+    start_ts = time.time()
+
+    print(
+        f"🔬 [MSG_START] user={user_id} "
+        f"msg_id={msg_id} "
+        f"ts={start_ts:.3f} "
+        f"texto={msg_text[:50]}",
+        flush=True
+    )
+
+    print("📥 Entrou no tratar_mensagens_gerais()")
+    import os
+    print("🧩 DEBUG FILE:", __file__)
+    print("🧩 DEBUG CWD:", os.getcwd())
+
+    # --- 1) atalho: concluir cancelamento pendente por número ---
+    # 🔥 P0: Movido para seção de confirmação (linha ~240) onde contexto tem resumo_eventos serializado
+    msg_txt = (getattr(update.message, "text", "") or "").strip()
+
+    user_id = str(update.message.from_user.id)
+    mensagem = msg_txt
+
+    # =========================================================
+    # 🔒 BLOQUEIO GLOBAL — ANTES DO ROUTER
+    # =========================================================
+    from router.principal_router import (
+        detectar_bloqueio_agenda_salao,
+        detectar_bloqueio_agenda_profissional
+    )
+    from handlers.acao_router_handler import executar_acao_por_nome
+    from services.firebase_service_async import buscar_subcolecao
+
+    # 🧵 Resolver tenant_id (dono do negócio)
+    tenant_id = await obter_id_dono(user_id)
+    print(f"[TENANT_FIX] actor_id={user_id} | tenant_id={tenant_id} | função=tratar_mensagens_gerais", flush=True)
+
+    # 📊 F1-01: AVALIAR TRANSIÇÃO DE LEAD_STATUS (DETERMINÍSTICO)
+    from services.lead_status_service import avaliar_transicao_deterministica, atualizar_lead_status
+
+    novo_status = await avaliar_transicao_deterministica(
+        cliente_actor_id=user_id,
+        tenant_id=tenant_id,
+        mensagem=msg_text
+    )
+
+    if novo_status:
+        await atualizar_lead_status(
+            cliente_actor_id=user_id,
+            tenant_id=tenant_id,
+            novo_status=novo_status,
+            motivo=f"mensagem_deterministica: {novo_status}"
+        )
+
+    # ⏸️ SEG-05B MEC-03: DETECTAR /PAUSAR E /RETOMAR
+    from services.mec03_override_service import processar_comando_pausar, processar_comando_retomar
+    from utils.pattern_matcher import eh_comando, extrair_comando
+
+    if eh_comando(msg_text):
+        comando = extrair_comando(msg_text)
+
+        if comando == "pausar":
+            sucesso, msg_pausar = await processar_comando_pausar(user_id, tenant_id)
+            await update.message.reply_text(msg_pausar, parse_mode="Markdown")
+            print(f"[MEC-03] /pausar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
+            raise ApplicationHandlerStop
+
+        if comando == "retomar":
+            sucesso, msg_retomar = await processar_comando_retomar(user_id, tenant_id)
+            await update.message.reply_text(msg_retomar, parse_mode="Markdown")
+            print(f"[MEC-03] /retomar executado: user_id={user_id} | sucesso={sucesso}", flush=True)
+            raise ApplicationHandlerStop
+
+    # ⏸️ SEG-05B MEC-03: VERIFICAR RESPONDER_AUTOMATICAMENTE ANTES DE CHAMAR GPT
+    from services.governanca_service import carregar_governanca
+
+    gov_data = await carregar_governanca(user_id, tenant_id)
+    responder_auto = gov_data.get("responder_automaticamente", True)
+    print(f"[MEC-03-BLOQUEIO] user_id={user_id} | responder_automaticamente={responder_auto}", flush=True)
+
+    if not responder_auto:
+        # Contato está pausado → verificar whitelist para permitir alguns comandos
+        permitida, detalhes_bloqueio = await verificar_com_whitelist(
+            mensagem=msg_text,
+            actor_id=user_id,
+            tenant_id=tenant_id,
+            registrar_bloqueio=True
+        )
+
+        if not permitida and detalhes_bloqueio:
+            # Mensagem bloqueada (fora da whitelist)
+            motivo = detalhes_bloqueio.get("motivo", "Mensagem não permitida")
+            categoria_esperada = detalhes_bloqueio.get("categoria_esperada", "Whitelist Classe A")
+
+            msg_resposta = (
+                f"⏸️ Você pausou as respostas automáticas.\n\n"
+                f"Atualmente, apenas comandos administrativos são permitidos.\n"
+                f"Use `/retomar` para voltar ao atendimento normal."
+            )
+
+            print(f"[MEC-03-BLOQUEIO-ATIVO] user_id={user_id} | motivo={motivo}", flush=True)
+
+            await update.message.reply_text(msg_resposta)
+            raise ApplicationHandlerStop
+
+        # Se passou na whitelist, continua o fluxo (mas o GPT não será chamado normalmente)
+        print(f"[MEC-03-PERMITIDO-WHITELIST] user_id={user_id} | mensagem permitida", flush=True)
+
+    # 🔒 VERIFICAÇÃO DE WHITELIST ORIGINAL (apenas se responder_auto=True)
+    if responder_auto:
+        permitida, detalhes_bloqueio = await verificar_com_whitelist(
+            mensagem=msg_text,
+            actor_id=user_id,
+            tenant_id=tenant_id,
+            registrar_bloqueio=True
+        )
+
+        if not permitida and detalhes_bloqueio:
+            # Mensagem bloqueada por Whitelist
+            motivo = detalhes_bloqueio.get("motivo", "Mensagem não permitida")
+            categoria_esperada = detalhes_bloqueio.get("categoria_esperada", "Whitelist Classe A")
+
+            msg_resposta = (
+                f"⏸️ Bot em modo resposta manual.\n\n"
+                f"Esperando confirmações, cancelamentos ou comandos administrativos.\n"
+                f"(Categoria: {categoria_esperada})"
+            )
+
+            print(f"[WHITELIST-BLOQUEIO] user_id={user_id} | motivo={motivo}", flush=True)
+
+            await update.message.reply_text(msg_resposta)
+            raise ApplicationHandlerStop
+
+    # 🔥 🚨 NOVO: NÃO intercepta se for intenção de agendamento
+    if eh_gatilho_agendar(mensagem):
+        payload_bloqueio = None
+    else:
+        # 🔍 busca profissionais
+        print(f"[TENANT_FIX] path_profissionais=Clientes/{tenant_id}/Profissionais", flush=True)
+        profissionais_dict = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+        nomes_profissionais = [p.get("nome") for p in profissionais_dict.values() if p.get("nome")]
+
+        # 🔥 tenta profissional primeiro
+        payload_bloqueio = detectar_bloqueio_agenda_profissional(
+            mensagem,
+            nomes_profissionais
+        )
+
+        # 🔥 fallback salão
+        if not payload_bloqueio:
+            payload_bloqueio = detectar_bloqueio_agenda_salao(mensagem)
+
+    # 🔥 execução
+    if payload_bloqueio:
+        print(f"🔒 [HANDLER BLOQUEIO GLOBAL] payload={payload_bloqueio}", flush=True)
+
+        await executar_acao_por_nome(
+            update,
+            context,
+            payload_bloqueio["acao"],
+            payload_bloqueio["dados"]
+        )
+
+        raise ApplicationHandlerStop
+    
+    # --- 1.5) confirmação pendente de agendamento ---
+    # 🔧 PATCH MT-07: Usar v2 para isolamento multi-tenant
+    # LOTE 5B: Corrigir ordem de parâmetros (dono_id primeiro, depois user_id)
+    dono_id = await obter_id_dono(user_id)
+    ctx_tmp = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+    print(
+    "🧪 [BOT-CTX]",
+    {
+        "estado_fluxo": ctx_tmp.get("estado_fluxo"),
+        "aguardando_confirmacao_agendamento": ctx_tmp.get("aguardando_confirmacao_agendamento"),
+        "dados_confirmacao_agendamento": ctx_tmp.get("dados_confirmacao_agendamento"),
+        "draft_agendamento": ctx_tmp.get("draft_agendamento"),
+        "servico": ctx_tmp.get("servico"),
+        "profissional_escolhido": ctx_tmp.get("profissional_escolhido"),
+        "data_hora": ctx_tmp.get("data_hora"),
+    },
+    flush=True,
+)
+    texto_usuario = (mensagem or "").strip().lower()
+
+    # --- 1.6) negativa durante escolha de horário por conflito ---
+    if (
+        (ctx_tmp.get("estado_fluxo") or "").strip().lower() == "aguardando_escolha_horario"
+        or ctx_tmp.get("modo_escolha_horario")
+    ):
+        if eh_desistencia_fluxo(texto_usuario):
+            print(
+                f"🧪 [BOT-DESISTENCIA-CONFLITO] texto={mensagem!r} | "
+                f"estado_fluxo={ctx_tmp.get('estado_fluxo')} | "
+                f"modo_escolha_horario={ctx_tmp.get('modo_escolha_horario')}",
+                flush=True
+            )
+
+            # 🔧 PATCH MT-07: Passar tenant_id para validação defensiva
+            await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+            await update.message.reply_text(
+                "Perfeito. Não vou agendar nada então. Quando quiser, é só me chamar."
+            )
+            raise ApplicationHandlerStop
+
+    # --- 1.7) mensagem neutra / social ---
+    mensagens_neutras = [
+        "obrigado", "obrigada", "valeu", "grato", "grata",
+        "ok", "certo", "perfeito", "entendi", "blz", "beleza"
+    ]
+
+    if texto_usuario in mensagens_neutras and not ctx_tmp.get("aguardando_confirmacao_agendamento"):
+        print(f"🧪 [BOT-MSG-NEUTRA] texto={mensagem!r}", flush=True)
+
+        await update.message.reply_text(
+            "De nada! 😊 Se precisar de algo, é só me chamar."
+        )
+
+        raise ApplicationHandlerStop
+
+    # P0-BUG-FIX: NEGAÇÃO DE CONFIRMAÇÃO DE AGENDAMENTO
+    confirmacao_pendente = ctx_tmp.get("aguardando_confirmacao_agendamento")
+
+    if confirmacao_pendente:
+        # Verificar se é negação (deve ter score >= 2)
+        if eh_desistencia_fluxo(texto_usuario):
+            print(
+                f"🧪 [BOT-NEGACAO-CONFIRMACAO] texto={mensagem!r} | "
+                f"aguardando_confirmacao_agendamento={confirmacao_pendente}",
+                flush=True
+            )
+
+            # 🔧 PATCH BUG-1: Limpar contexto de confirmação pendente
+            await limpar_contexto_agendamento_v2(tenant_id, user_id)
+            await update.message.reply_text(
+                "Tudo bem. Não vou agendar então. Quando quiser, é só me chamar."
+            )
+            raise ApplicationHandlerStop
+
+    # P0.1A: CONFIRMAÇÃO DE CANCELAMENTO (precedência alta)
+    cancelamento_pendente = ctx_tmp.get("cancelamento_pendente")
+    estado_fluxo = ctx_tmp.get("estado_fluxo", "").strip().lower()
+
+    if cancelamento_pendente and estado_fluxo == "aguardando_confirmacao_cancelamento":
+
+        # Múltiplos eventos: processar número (1/2/3/...)
+        if texto_usuario.isdigit() and "resumo_eventos" in cancelamento_pendente:
+            # Escolher entre vários eventos
+            idx = int(texto_usuario) - 1
+            resumo_eventos = cancelamento_pendente.get("resumo_eventos", [])
+
+            if 0 <= idx < len(resumo_eventos):
+                ev_selecionado = resumo_eventos[idx]
+                evento_id = ev_selecionado["evento_id"]
+
+                # Atualizar contexto para pedir confirmação do evento selecionado
+                # 🔥 P0: APENAS dados serializáveis — sem tuplas nem dicts complexos
+                context.user_data["cancelamento_pendente"] = {
+                    "evento_id": evento_id,
+                    "cliente_id": cancelamento_pendente["cliente_id"],
+                    "resumo_evento": {
+                        "evento_id": evento_id,
+                        "descricao": ev_selecionado.get("descricao", ""),
+                        "data": ev_selecionado.get("data", ""),
+                        "hora_inicio": ev_selecionado.get("hora_inicio", ""),
+                        "profissional": ev_selecionado.get("profissional", ""),
+                    }
+                }
+
+                # Sincronizar em MemoriaTemporaria
+                ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
+                ctx["cancelamento_pendente"] = context.user_data["cancelamento_pendente"]
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
+
+                await update.message.reply_text(
+                    f"Tem certeza de cancelar {ev_selecionado.get('descricao', 'Evento')} "
+                    f"em {ev_selecionado.get('data', '')} às {ev_selecionado.get('hora_inicio', '')}? (sim/não)"
+                )
+                raise ApplicationHandlerStop
+            else:
+                await update.message.reply_text("❌ Opção inválida. Tente novamente.")
+                raise ApplicationHandlerStop
+
+        # Confirmação: sim/não/desistir
+        confirmacoes_sim = ["sim", "s", "ok", "confirma", "confirmar", "pode", "pode ser", "sim!"]
+        confirmacoes_nao = ["não", "nao", "não!", "nao!", "desistir", "manter", "deixa como está", "deixa como esta", "não, obrigado", "nao, obrigado"]
+
+        if texto_usuario.lower() in confirmacoes_sim:
+            # 🔥 P0: VALIDAÇÃO — Se há múltiplos eventos e nenhum foi selecionado, reapresentar lista
+            if "resumo_eventos" in cancelamento_pendente and "evento_id" not in cancelamento_pendente:
+                resumo_eventos = cancelamento_pendente.get("resumo_eventos", [])
+                linhas = [
+                    f"{i+1}. {ev.get('descricao', '')} em {ev.get('data', '')} às {ev.get('hora_inicio', '')}"
+                    for i, ev in enumerate(resumo_eventos)
+                ]
+                msg = "Qual deseja cancelar?\n" + "\n".join(linhas)
+                await update.message.reply_text(msg)
+                raise ApplicationHandlerStop
+
+            # ✅ CANCELAR
+            evento_id = cancelamento_pendente.get("evento_id")
+
+            if evento_id:
+                ok = await cancelar_evento(
+                    user_id=user_id,
+                    event_id=evento_id,
+                    cancelado_por_tipo="cliente",
+                    motivo=None
+                )
+
+                if ok:
+                    resumo = cancelamento_pendente.get("resumo_evento", {})
+                    await update.message.reply_text(
+                        f"✅ Cancelado. {resumo.get('descricao', 'Seu evento')} em "
+                        f"{resumo.get('data', '')} às {resumo.get('hora_inicio', '')} foi cancelado."
+                    )
+                else:
+                    await update.message.reply_text(
+                        "❌ Ocorreu um erro ao cancelar. Pode tentar novamente?"
+                    )
+
+                # Limpar em ambos os contextos (MemoriaTemporaria + context.user_data)
+                ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
+                ctx.pop("cancelamento_pendente", None)
+                ctx.pop("estado_fluxo", None)
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
+
+                context.user_data.pop("cancelamento_pendente", None)
+                context.user_data.pop("estado_fluxo", None)
+
+            raise ApplicationHandlerStop
+
+        elif texto_usuario.lower() in confirmacoes_nao:
+            # ❌ ABORTAR
+            await update.message.reply_text(
+                "Tudo bem, cancelamento abortado. Seu horário continua reservado."
+            )
+
+            # Limpar em ambos os contextos (MemoriaTemporaria + context.user_data)
+            ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
+            ctx.pop("cancelamento_pendente", None)
+            ctx.pop("estado_fluxo", None)
+            await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
+
+            context.user_data.pop("cancelamento_pendente", None)
+            context.user_data.pop("estado_fluxo", None)
+
+            raise ApplicationHandlerStop
+
+    # Fim P0.1A: CONFIRMAÇÃO DE CANCELAMENTO
+
+    if ctx_tmp.get("aguardando_confirmacao_agendamento"):
+
+        if eh_confirmacao(texto_usuario):
+            print(
+                f"🧪 [BOT-CONF] texto={mensagem!r} | "
+                f"estado_fluxo={ctx_tmp.get('estado_fluxo')} | "
+                f"aguardando_confirmacao_agendamento={ctx_tmp.get('aguardando_confirmacao_agendamento')} | "
+                f"dados_confirmacao={ctx_tmp.get('dados_confirmacao_agendamento')}",
+                flush=True
+            )
+
+            # não mexe no contexto aqui; deixa o principal_router consumir e executar
+            resposta = await roteador_principal(user_id, mensagem, update, context)
+            print("🧪 [bot] resposta do router =", resposta, flush=True)
+
+            if resposta is True:
+                raise ApplicationHandlerStop
+
+            if isinstance(resposta, dict) and resposta.get("already_sent"):
+                raise ApplicationHandlerStop
+
+            if resposta and isinstance(resposta, dict) and resposta.get("acao"):
+                raise ApplicationHandlerStop
+
+            if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
+                await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
+
+            raise ApplicationHandlerStop
+
+        elif texto_usuario in ["nao", "não", "nao.", "não.", "nao!", "não!"]:
+            # P0-004 patch: adicionar tenant_id guard
+            await salvar_contexto_temporario(user_id, {
+                **ctx_tmp,
+                "aguardando_confirmacao_agendamento": False,
+                "dados_confirmacao_agendamento": None,
+                "_tenant_id_guard": tenant_id  # Guard rail P0-004
+            }, tenant_id=tenant_id)
+
+            await update.message.reply_text("Tudo bem, esse horário não foi confirmado.\n\nQual horário você prefere?")
+            raise ApplicationHandlerStop
+
+    # --- 1.8) P0 REAGENDAMENTO CONVERSACIONAL ---
+    # Detectar intenção de reagendamento
+    if eh_gatilho_reagendamento(mensagem):
+        print(f"🔄 [P0-REAGENDAMENTO] Detectado em: {mensagem!r}", flush=True)
+
+        # Estado 1: REAGENDAMENTO_INICIADO
+        estado_fluxo_current = ctx_tmp.get("estado_fluxo", "").strip().lower()
+
+        if not estado_fluxo_current or estado_fluxo_current not in [
+            "aguardando_escolha_agendamento_reagendamento",
+            "aguardando_novo_horario_reagendamento",
+            "validando_disponibilidade_reagendamento",
+            "aguardando_escolha_horario_reagendamento",
+            "aguardando_confirmacao_reagendamento"
+        ]:
+            # Novo fluxo de reagendamento
+            print(f"[P0-REAGENDAMENTO] Iniciando novo fluxo", flush=True)
+
+            # Buscar agendamentos do usuário
+            try:
+                agendamentos = await buscar_subcolecao(
+                    f"Clientes/{tenant_id}/Eventos"
+                ) or {}
+
+                # Filtrar por cliente (se for cliente) ou por dono (se for dono)
+                agendamentos_filtrados = {}
+                role = "cliente"  # Default
+
+                # Validação de ownership
+                for evt_id, evt in agendamentos.items():
+                    if evt.get("status") != "confirmado":
+                        continue
+
+                    # Cliente só vê seus próprios eventos
+                    if evt.get("cliente_id") == user_id:
+                        agendamentos_filtrados[evt_id] = evt
+
+                if not agendamentos_filtrados:
+                    await update.message.reply_text(
+                        "Você não tem agendamentos para alterar no momento."
+                    )
+                    raise ApplicationHandlerStop
+
+                # Listar agendamentos
+                opcoes_texto = "\n".join([
+                    f"{i+1}. {evt.get('servico', 'Serviço')} - "
+                    f"{evt.get('data', '')} às {evt.get('hora_inicio', '')} "
+                    f"com {evt.get('profissional', '?')}"
+                    for i, evt in enumerate(agendamentos_filtrados.values())
+                ])
+
+                # Guardar contexto
+                ctx_tmp["estado_fluxo"] = "aguardando_escolha_agendamento_reagendamento"
+                ctx_tmp["agendamentos_para_reagendar"] = list(agendamentos_filtrados.values())
+                ctx_tmp["agendamentos_ids"] = list(agendamentos_filtrados.keys())
+                ctx_tmp["ator_reagendamento"] = {
+                    "user_id": user_id,
+                    "tenant_id": tenant_id,
+                    "role": role
+                }
+
+                await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+                await update.message.reply_text(
+                    f"Qual deles você quer alterar?\n\n{opcoes_texto}"
+                )
+                raise ApplicationHandlerStop
+
+            except Exception as e:
+                print(f"❌ [P0-REAGENDAMENTO] Erro ao listar: {e}", flush=True)
+                await update.message.reply_text("Desculpe, não consegui listar seus agendamentos.")
+                raise ApplicationHandlerStop
+
+        # Estados intermediários de reagendamento
+        raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando escolha de agendamento para reagendar ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_escolha_agendamento_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_escolha_agendamento", flush=True)
+
+        try:
+            escolha_idx = int(texto_usuario.strip()) - 1
+            agendamentos = ctx_tmp.get("agendamentos_para_reagendar", [])
+
+            if not (0 <= escolha_idx < len(agendamentos)):
+                await update.message.reply_text("Opção inválida. Escolha novamente.")
+                raise ApplicationHandlerStop
+
+            agendamento_escolhido = agendamentos[escolha_idx]
+            evento_id = ctx_tmp.get("agendamentos_ids", [])[escolha_idx]
+
+            # Guardar evento sendo alterado
+            ctx_tmp["evento_id_reagendamento"] = evento_id
+            ctx_tmp["agendamento_anterior"] = agendamento_escolhido
+            ctx_tmp["estado_fluxo"] = "aguardando_novo_horario_reagendamento"
+
+            await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+            await update.message.reply_text(
+                f"Para qual data e horário você quer mudar?\n"
+                f"(Ex: 'amanhã às 15h' ou 'quinta-feira 17:00')"
+            )
+            raise ApplicationHandlerStop
+
+        except ValueError:
+            await update.message.reply_text("Por favor, escolha um número válido.")
+            raise ApplicationHandlerStop
+        except Exception as e:
+            print(f"❌ [P0-REAGENDAMENTO] Erro ao escolher: {e}", flush=True)
+            await update.message.reply_text("Desculpe, ocorreu um erro.")
+            raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando novo horário ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_novo_horario_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_novo_horario", flush=True)
+
+        try:
+            from utils.interpretador_datas import interpretar_data_e_hora
+
+            # Interpretar data/hora
+            resultado_data = interpretar_data_e_hora(mensagem)
+
+            if not resultado_data or "erro" in resultado_data:
+                await update.message.reply_text(
+                    "Não entendi o horário. Tente novamente.\n"
+                    "(Ex: 'amanhã às 15h', 'segunda 17:30')"
+                )
+                raise ApplicationHandlerStop
+
+            nova_data = resultado_data.get("data", "")
+            nova_hora = resultado_data.get("hora", "")
+            agendamento_anterior = ctx_tmp.get("agendamento_anterior", {})
+
+            # Guardar draft
+            ctx_tmp["novo_horario"] = {
+                "data": nova_data,
+                "hora": nova_hora,
+                "duracao_minutos": agendamento_anterior.get("duracao_minutos", 30),
+                "profissional": agendamento_anterior.get("profissional", ""),
+                "servico": agendamento_anterior.get("servico", "")
+            }
+            ctx_tmp["estado_fluxo"] = "validando_disponibilidade_reagendamento"
+
+            await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+            # Validar conflito via motor (transição automática)
+            # Motor já foi chamado, agora responde
+            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+
+            validacao = await verificar_conflito_e_sugestoes_profissional(
+                user_id=tenant_id,
+                data=nova_data,
+                hora_inicio=nova_hora,
+                duracao_min=agendamento_anterior.get("duracao_minutos", 30),
+                profissional=agendamento_anterior.get("profissional", ""),
+                servico=agendamento_anterior.get("servico", ""),
+                event_id=ctx_tmp.get("evento_id_reagendamento")  # Crítico: ignora evento sendo alterado
+            )
+
+            if validacao.get("conflito"):
+                # Há conflito, oferecer alternativas
+                sugestoes = validacao.get("sugestoes", [])[:3]  # Até 3 sugestões
+                sugestoes_txt = "\n".join([f"{i+1}. {s}" for i, s in enumerate(sugestoes)])
+
+                ctx_tmp["estado_fluxo"] = "aguardando_escolha_horario_reagendamento"
+                ctx_tmp["sugestoes_reagendamento"] = sugestoes
+
+                await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+                await update.message.reply_text(
+                    f"Esse horário está ocupado. Tenho essas opções:\n\n{sugestoes_txt}\n\n"
+                    f"Qual você prefere? (1, 2 ou 3)"
+                )
+            else:
+                # Sem conflito, pedir confirmação
+                ctx_tmp["estado_fluxo"] = "aguardando_confirmacao_reagendamento"
+
+                await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+                await update.message.reply_text(
+                    f"Perfeito! Vou mudar para {nova_data} às {nova_hora}.\n"
+                    f"Confirma? (sim/não)"
+                )
+
+            raise ApplicationHandlerStop
+
+        except Exception as e:
+            print(f"❌ [P0-REAGENDAMENTO] Erro ao processar horário: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            await update.message.reply_text("Desculpe, ocorreu um erro ao processar o horário.")
+            raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando escolha de alternativa (conflito) ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_escolha_horario_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_escolha_horario", flush=True)
+
+        try:
+            escolha_idx = int(texto_usuario.strip()) - 1
+            sugestoes = ctx_tmp.get("sugestoes_reagendamento", [])
+
+            if not (0 <= escolha_idx < len(sugestoes)):
+                await update.message.reply_text("Opção inválida. Escolha novamente.")
+                raise ApplicationHandlerStop
+
+            horario_selecionado = sugestoes[escolha_idx]
+            # Extrair hora (formato: "HH:MM-HH:MM")
+            nova_hora = horario_selecionado.split("-")[0].strip()
+
+            ctx_tmp["novo_horario"]["hora"] = nova_hora
+            ctx_tmp["estado_fluxo"] = "aguardando_confirmacao_reagendamento"
+
+            await salvar_contexto_temporario_v2(tenant_id, user_id, ctx_tmp)
+
+            await update.message.reply_text(
+                f"Perfeito! Vou mudar para {ctx_tmp['novo_horario']['data']} às {nova_hora}.\n"
+                f"Confirma? (sim/não)"
+            )
+            raise ApplicationHandlerStop
+
+        except ValueError:
+            await update.message.reply_text("Por favor, escolha um número válido.")
+            raise ApplicationHandlerStop
+        except Exception as e:
+            print(f"❌ [P0-REAGENDAMENTO] Erro ao escolher alternativa: {e}", flush=True)
+            await update.message.reply_text("Desculpe, ocorreu um erro.")
+            raise ApplicationHandlerStop
+
+    # --- Estado: Aguardando confirmação ---
+    if ctx_tmp.get("estado_fluxo", "").strip().lower() == "aguardando_confirmacao_reagendamento":
+        print(f"[P0-REAGENDAMENTO] Estado: aguardando_confirmacao", flush=True)
+
+        if eh_confirmacao(texto_usuario):
+            # Executar alteração
+            try:
+                from services.event_service_async import alterar_agendamento
+
+                novo_horario = ctx_tmp.get("novo_horario", {})
+                evento_id_alteracao = ctx_tmp.get("evento_id_reagendamento", "")
+                ator_info = ctx_tmp.get("ator_reagendamento", {})
+
+                resultado_alter = await alterar_agendamento(
+                    user_id=ator_info.get("user_id", user_id),
+                    event_id=evento_id_alteracao,
+                    nova_data=novo_horario.get("data", ""),
+                    nova_hora_inicio=novo_horario.get("hora", ""),
+                    nova_duracao_minutos=novo_horario.get("duracao_minutos", 30),
+                    tenant_id=tenant_id
+                )
+
+                if resultado_alter.get("ok"):
+                    # Sucesso
+                    await update.message.reply_text(
+                        f"✅ Pronto! Seu agendamento foi alterado para "
+                        f"{novo_horario.get('data', '')} às {novo_horario.get('hora', '')}."
+                    )
+
+                    # Limpar contexto
+                    await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+                else:
+                    await update.message.reply_text(
+                        f"❌ Não consegui alterar: {resultado_alter.get('motivo', 'Erro desconhecido')}"
+                    )
+                    await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+
+                raise ApplicationHandlerStop
+
+            except Exception as e:
+                print(f"❌ [P0-REAGENDAMENTO] Erro ao alterar: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                await update.message.reply_text("Desculpe, ocorreu um erro ao alterar o agendamento.")
+                await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+                raise ApplicationHandlerStop
+
+        elif eh_desistencia_fluxo(texto_usuario):
+            # Cancelar reagendamento
+            await update.message.reply_text("Certo, não vou alterar nada.")
+            await limpar_contexto_agendamento(user_id, tenant_id=tenant_id)
+            raise ApplicationHandlerStop
+
+        else:
+            await update.message.reply_text("Confirme com 'sim' ou 'não'.")
+            raise ApplicationHandlerStop
+
+    # --- 2) fluxo de configuração inicial (mas agora COM GATILHO) ---
+    # só cai aqui se a frase indicar que o dono quer configurar
+    gatilhos_config = (
+        "quero configurar",
+        "configurar negócio",
+        "configurar negocio",
+        "cadastrar serviço",
+        "cadastrar servico",
+        "cadastrar profissional",
+        "adicionar profissional",
+        "meu salão",
+        "meu salao",
+        "minha clínica",
+        "minha clinica",
+        "definir serviços",
+        "definir servicos",
+        "ajustar preços",
+        "ajustar precos",
+    )
+    eh_config = any(g in mensagem.lower() for g in gatilhos_config)
+
+    # Comando operacional: "cadastrar profissional <nome>" tem nome específico após
+    # → deve ir ao roteador, não ao onboarding (que salvaria o texto inteiro como tipo_negocio)
+    _low = mensagem.lower()
+    eh_cadastro_prof_especifico = (
+        "cadastrar profissional " in _low
+        or "adicionar profissional " in _low
+    )
+
+    if eh_config and not eh_cadastro_prof_especifico:
+        try:
+            resposta_cfg = await processar_texto_cadastro(user_id, mensagem)
+            if resposta_cfg:
+                await update.message.reply_text(resposta_cfg, parse_mode="Markdown")
+                raise ApplicationHandlerStop
+        except Exception as e:
+            logger.warning(f"[config] Erro ao processar cadastro inicial: {e}")
+            # mesmo com erro, deixa seguir pro roteador
+
+    # --- 3) roteador inteligente (IA) ---
+    try:
+        # 🔥 NÃO chamar de novo se já foi tratado antes
+        if context.user_data.get("ja_processado"):
+            raise ApplicationHandlerStop
+
+        context.user_data["ja_processado"] = True
+
+        resposta = await roteador_principal(user_id, mensagem, update, context)
+        print("🧪 [bot] resposta do router =", resposta, flush=True)
+
+        if resposta is True:
+            raise ApplicationHandlerStop
+
+        # ✅ Se o router já enviou mensagem, parar sem cair em erro falso
+        if isinstance(resposta, dict) and resposta.get("already_sent"):
+            raise ApplicationHandlerStop
+
+        # ✅ Se veio ação, o executor/event_handler assume
+        if resposta and isinstance(resposta, dict) and resposta.get("acao"):
+            raise ApplicationHandlerStop
+
+        if resposta and isinstance(resposta, dict) and resposta.get("resposta"):
+            await update.message.reply_text(resposta["resposta"], parse_mode="Markdown")
+            raise ApplicationHandlerStop
+
+    except ApplicationHandlerStop:
+        raise
+
+    except Exception as e:
+        logger.exception(f"❌ Erro no roteador_principal: {e}")
+        await update.message.reply_text("⚠️ Tive um problema para processar sua solicitação agora. Pode repetir?")
+
+    finally:
+        import time
+        dur_ms = (time.time() - start_ts) * 1000
+        print(
+            f"🔬 [MSG_END] user={user_id} "
+            f"msg_id={msg_id} "
+            f"ts={time.time():.3f} "
+            f"dur_ms={dur_ms:.1f}",
+            flush=True
+        )
+        context.user_data.pop("ja_processado", None)
+
+
+# ============== COMANDOS ==============
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.message.from_user
+    user_id = str(user.id)
+
+    # 1) ver se já conheço esse usuário
+    cliente_existente = await buscar_cliente(user_id)
+
+    if cliente_existente:
+        # reaproveita o que já estava salvo
+        tipo_usuario = cliente_existente.get("tipo_usuario") or "cliente"
+        id_negocio = cliente_existente.get("id_negocio") or OWNER_ID
+    else:
+        # usuário novo falando com ESTE número
+        if user_id == OWNER_ID:
+            # é o dono deste número
+            tipo_usuario = "dono"
+            id_negocio = user_id
+        else:
+            # qualquer outro que chegar aqui é cliente do dono
+            tipo_usuario = "cliente"
+            id_negocio = OWNER_ID
+
+        # salva só se for novo
+        dados = {
+            "nome": f"{user.first_name} {user.last_name or ''}".strip(),
+            "email": "",
+            "pagamentoAtivo": True,
+            "dataAssinatura": datetime.now().strftime("%Y-%m-%d"),
+            "proximoPagamento": (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+            "planosAtivos": ["secretaria"],
+            "tipo_usuario": tipo_usuario,
+            "modo_uso": "interno" if tipo_usuario == "dono" else "atendimento_cliente",
+            "id_negocio": id_negocio,
+            "tipo_negocio": "",
+            "estilo": ""
+        }
+        await salvar_cliente(user_id, dados)
+
+    # 2) mensagens diferentes
+    if tipo_usuario == "dono":
+        mensagem = (
+            f"👋 Olá, {user.first_name}! Detectei que você é o *dono* deste atendimento.\n\n"
+            f"Vou te ajudar a configurar por voz.\n"
+            f"👉 Diga: *quero configurar*.\n"
+            f"Assim eu cadastro o tipo de negócio, serviços (com preço e duração) e depois os profissionais."
+        )
+    else:
+        mensagem = (
+            f"👋 Olá, {user.first_name}! Você está falando com o atendimento do negócio.\n"
+            f"Pode perguntar preço ou horário, por exemplo:\n"
+            f"• tem horário amanhã?\n"
+            f"• quanto custa corte feminino?\n"
+            f"• quem faz escova?\n"
+        )
+
+    # 3) se for dono e ainda não terminou o onboarding, mostra as instruções
+    try:
+        if tipo_usuario == "dono" and await precisa_onboarding(user_id):
+            await update.message.reply_text(mensagem_onboarding(), parse_mode="Markdown")
+    except Exception as e:
+        logger.warning(f"[start] Falha ao checar onboarding: {e}")
+
+    await update.message.reply_text(mensagem, parse_mode="Markdown")
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("📖 Comando /help recebido!")
+    await update.message.reply_text(
+        "ℹ️ *Comandos disponíveis:*\n\n"
+        "🟢 *Básico*\n"
+        "/start - Inicia o bot\n"
+        "/help - Mostra esta mensagem\n"
+        "/meus_dados - Ver seus dados cadastrados\n"
+        "/meuestilo - Ver estilo e tipo de negócio salvos\n"
+        "/meuplano - Ver informações do seu plano atual\n\n"
+        "📝 *Tarefas*\n"
+        "/tarefa - Adiciona uma nova tarefa\n"
+        "/listar - Lista todas as tarefas\n"
+        "/listar_prioridade - Lista tarefas por prioridade\n"
+        "/limpar - Remove todas as tarefas\n\n"
+        "📅 *Agenda e Eventos*\n"
+        "/agenda - Adiciona um novo evento\n"
+        "/eventos - Lista eventos agendados\n"
+        "/confirmar_reuniao - Confirma uma reunião\n"
+        "/confirmar_presenca - Confirma presença em um evento\n"
+        "/debug_eventos - Verifica eventos internos\n\n"
+        "📧 *E-mails*\n"
+        "/conectar_email - Conectar seu e-mail (Google)\n"
+        "/ler_emails - Lê os últimos e-mails\n"
+        "/emails_prioritarios - Lista e-mails importantes\n"
+        "/enviar_email - Envia um e-mail\n"
+        "/meu_email - Define o e-mail de envio manual\n\n"
+        "📊 *Relatórios*\n"
+        "/relatorio_diario - Gera relatório diário\n"
+        "/relatorio_semanal - Gera relatório semanal\n"
+        "/enviar_agenda_excel - Exporta a agenda em Excel\n\n"
+        "🗣️ *Comando por voz*\n"
+        "Envie áudio com pedidos (ex.: “nova tarefa pagar contas”, “agendar corte amanhã 10h com Carla”).\n\n"
+        "🔁 *Avisos e Follow-ups*\n"
+        "/configuraravisos • /verificaravisos • /followup • /meusfollowups\n\n"
+        "🎯 *Personalização*\n"
+        "/tipo_negocio • /estilo • /nome_negocio • /listar_profissionais\n",
+        parse_mode="Markdown"
+    )
+
+
+async def meus_dados(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.message.from_user.id)
+    cliente = await buscar_cliente(user_id)
+
+    if cliente:
+        dados_cliente = "\n".join(f"{key}: {value}" for key, value in cliente.items())
+        await update.message.reply_text(f"📂 Seus dados:\n{dados_cliente}")
+    else:
+        await update.message.reply_text("⚠️ Nenhum dado encontrado para sua conta.")
+
+
+async def custos_api_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from services.firestore_client import get_db
+    user_id = str(update.message.from_user.id)
+    # [INFRA-03] Usar singleton de firestore_client em vez de criar cliente independente
+    db = get_db()
+
+    ID_DONO = OWNER_ID  # usa o mesmo
+
+    if user_id != ID_DONO:
+        await update.message.reply_text("⚠️ Este comando está disponível apenas para o administrador do sistema.")
+        return
+
+    try:
+        docs = db.collection("custos_usuarios").stream()
+
+        total_geral = 0.0
+        por_usuario = {}
+
+        for doc in docs:
+            data = doc.to_dict()
+            uid = data.get("user_id", "desconhecido")
+            custo = float(data.get("custo_usd", 0.0) or 0.0)
+
+            if uid not in por_usuario:
+                por_usuario[uid] = {"custo": 0.0, "reqs": 0}
+
+            por_usuario[uid]["custo"] += custo
+            por_usuario[uid]["reqs"] += 1
+            total_geral += custo
+
+        if not por_usuario:
+            await update.message.reply_text("🔍 Nenhum uso registrado da API ainda.")
+            return
+
+        linhas = [f"👤 {uid}: {info['reqs']} reqs – ${info['custo']:.4f}" for uid, info in por_usuario.items()]
+        texto = "\n".join(linhas)
+
+        resposta = (
+            f"📊 *Resumo total de uso da API (todos os usuários)*\n\n"
+            f"{texto}\n\n"
+            f"💰 *Total geral:* ${total_geral:.4f}"
+        )
+        await update.message.reply_text(resposta, parse_mode="Markdown")
+    except Exception as e:
+        logger.exception("❌ Erro ao consultar custos da API")
+        await update.message.reply_text("❌ Ocorreu um erro ao consultar os dados.")
+
+
+# ============== REGISTRO DOS HANDLERS ==============
+
+def register_handlers(application: Application):
+    logger.info("✅ Registrando handlers...")
+
+    # 1) DEBUG (grupo 0)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _debug_primeiro_handler), group=0)
+
+    # 2) COMANDOS
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("meus_dados", meus_dados))
+    application.add_handler(CommandHandler("meuestilo", meu_estilo))
+    application.add_handler(CommandHandler("meuplano", meu_plano))
+    application.add_handler(CommandHandler("custosapi", custos_api_handler))
+
+    # tarefas
+    application.add_handler(CommandHandler("tarefa", add_task))
+    application.add_handler(CommandHandler("listar", list_tasks))
+    application.add_handler(CommandHandler("listar_prioridade", list_tasks_by_priority))
+    application.add_handler(CommandHandler("limpar", clear_tasks))
+
+    # e-mails
+    #application.add_handler(CommandHandler(["ler_emails", "leremails"], ler_emails_command))
+    #application.add_handler(CommandHandler(["emails_prioritarios", "emailsprioritarios"], listar_emails_prioritarios))
+    #application.add_handler(CommandHandler(["conectar_email", "conectaremail"], conectar_email))
+
+    # agenda/eventos
+    application.add_handler(CommandHandler("agenda", add_agenda))
+    application.add_handler(CommandHandler("eventos", list_events))
+    application.add_handler(CommandHandler(["confirmar_reuniao", "confirmarreuniao"], confirmar_reuniao))
+    application.add_handler(CommandHandler(["confirmar_presenca", "confirmarpresenca"], confirmar_presenca))
+    application.add_handler(CommandHandler("debug_eventos", debug_eventos))
+    application.add_handler(CommandHandler("enviar_agenda_excel", enviar_agenda_excel))
+    application.add_handler(CommandHandler("cancelar", cancelar_evento_cmd))
+
+    # relatórios
+    application.add_handler(CommandHandler(["relatorio_diario", "relatoriodiario"], relatorio_diario))
+    application.add_handler(CommandHandler(["relatorio_semanal", "relatoriosemanal"], relatorio_semanal))
+    application.add_handler(CommandHandler("enviar_relatorio_email", enviar_relatorio_email))
+
+    # 🆕 F9 — Dashboard do Dono (MVP)
+    # SEGURANÇA: Todos os comandos validam role (dono only)
+    application.add_handler(CommandHandler(
+        ["dashboard", "dados", "saude"],
+        cmd_dashboard
+    ))
+    application.add_handler(CommandHandler("hoje", cmd_resumo_hoje))
+    application.add_handler(CommandHandler("semana", cmd_resumo_semana))
+    application.add_handler(CommandHandler("profissionais", cmd_metricas_profissionais))
+    application.add_handler(CommandHandler("alertas", cmd_alertas))
+
+    # perfil/negócio
+    application.add_handler(CommandHandler(["tipo_negocio", "tiponegocio"], set_tipo_negocio))
+    application.add_handler(CommandHandler(["estilo"], set_estilo_mensagem))
+    application.add_handler(CommandHandler(["nome_negocio", "nomenegocio"], set_nome_negocio))
+    application.add_handler(CommandHandler(["tipo_usuario", "tipousuario"], set_tipo_usuario))
+    application.add_handler(CommandHandler(["modo_uso", "modouso"], set_modo_uso))
+    application.add_handler(CommandHandler(["listar_profissionais", "listarprofissionais"], listar_profissionais))
+
+    # voz
+    application.add_handler(MessageHandler(filters.VOICE, handle_voice))
+
+    # followups/avisos
+    application.add_handler(CommandHandler("followup", criar_followup))
+    application.add_handler(CommandHandler("meusfollowups", listar_followups))
+    application.add_handler(CommandHandler("verificaravisos", verificar_avisos))
+    application.add_handler(CommandHandler("configuraravisos", configurar_avisos))
+    application.add_handler(CommandHandler("testaravisos", testar_avisos))
+
+    # importação (xlsx/csv)
+    application.add_handler(MessageHandler(
+        filters.Document.MimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        importar_profissionais_handler
+    ))
+    application.add_handler(MessageHandler(
+        filters.Document.MimeType("text/csv"),
+        importar_profissionais_handler
+    ))
+
+    # TEXTO LIVRE (ordem dos pipelines)
+    so_texto_nao_num = filters.TEXT & ~filters.COMMAND
+    application.add_handler(MessageHandler(so_texto_nao_num, tratar_mensagens_gerais), group=10)
+    application.add_handler(MessageHandler(so_texto_nao_num, handle_pedido_encaixe), group=20)
+    application.add_handler(MessageHandler(so_texto_nao_num, handle_resposta_reagendamento), group=21)
+
+    # testes firebase
+    application.add_handler(CommandHandler("testar_firebase", testar_firebase))
+    application.add_handler(CommandHandler("verificar_firebase", verificar_firebase))
+
+    logger.info("✅ Handlers registrados com sucesso!")
