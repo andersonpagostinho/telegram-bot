@@ -1081,6 +1081,37 @@ class BateriaP0Cancelamento:
         except Exception as e:
             print(f"[AVISO] Cleanup falhou: {e}")
 
+    async def validar_projeto_firebase(self):
+        """Validar que Firebase real está sendo usado (projeto-agente-inteligente)"""
+        try:
+            import json
+            import os
+
+            firebase_json_path = os.getenv("FIREBASE_JSON_PATH", "firebase_credentials.json")
+            if not os.path.exists(firebase_json_path):
+                raise EnvironmentError(
+                    f"[BLOQUEADO] Arquivo de credenciais não encontrado: {firebase_json_path}"
+                )
+
+            with open(firebase_json_path, 'r', encoding='utf-8') as f:
+                credentials = json.load(f)
+                project_id = credentials.get("project_id")
+
+            if not project_id:
+                raise EnvironmentError(
+                    "[BLOQUEADO] Não foi possível determinar o projeto Firebase efetivo. "
+                    "Arquivo de credenciais não contém campo 'project_id'."
+                )
+
+            if project_id == "projeto-agente-inteligente":
+                print(f"[OK] Projeto validado: PRODUÇÃO (projeto-agente-inteligente)", flush=True)
+            else:
+                print(f"[AVISO] Projeto detectado: {project_id} (não é projeto-agente-inteligente)", flush=True)
+
+        except Exception as e:
+            print(f"[ERRO_VALIDACAO] {str(e)}", flush=True)
+            raise
+
     async def run_all(self):
         """Executar bateria completa de 15 cenários"""
         print("\n" + "="*80)
@@ -1088,6 +1119,9 @@ class BateriaP0Cancelamento:
         print("="*80)
 
         try:
+            # Validar Firebase ANTES de qualquer operação
+            await self.validar_projeto_firebase()
+
             await self.setup()
             await self.cenario_1_busca_profissional_data()
             await self.cenario_2_multiplos_eventos()

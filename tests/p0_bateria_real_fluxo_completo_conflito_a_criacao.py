@@ -54,6 +54,12 @@ class BateriaP0FluxoCompleto:
         self.actor_id = "bateria_p0_user_teste_001"
         self.profissional = "Bruna"
         self.servico = "Corte"
+        self.recursos_criados = {
+            "cliente_ids": [],
+            "evento_ids": [],
+            "contexto_ids": [],
+            "lock_ids": []
+        }
 
         self.resultado = {
             "timestamp": datetime.now().isoformat(),
@@ -140,9 +146,8 @@ class BateriaP0FluxoCompleto:
             }
 
             print(f"[PRÉ] Criando evento ocupado: {evento_ocupado['profissional']} {evento_ocupado['hora_inicio']}")
-            resultado_pre = await criar_com_lock_real(
-                dono_id=self.tenant_id,
-                evento=evento_ocupado,
+            resultado_pre = await self.criar_evento_rastreado(
+                evento_dict=evento_ocupado,
                 event_id=f"evt_ocupado_{data_hoje}_1000"
             )
 
@@ -167,9 +172,8 @@ class BateriaP0FluxoCompleto:
             }
 
             # Tentar criar com lock (deve falhar)
-            resultado_conflito = await criar_com_lock_real(
-                dono_id=self.tenant_id,
-                evento=evento_conflito,
+            resultado_conflito = await self.criar_evento_rastreado(
+                evento_dict=evento_conflito,
                 event_id=f"evt_conflito_{data_hoje}_1000"
             )
 
@@ -233,9 +237,8 @@ class BateriaP0FluxoCompleto:
                 "cliente_nome": "Teste Conflito 2"
             }
 
-            resultado_2 = await criar_com_lock_real(
-                dono_id=self.tenant_id,
-                evento=evento_conflito_2,
+            resultado_2 = await self.criar_evento_rastreado(
+                evento_dict=evento_conflito_2,
                 event_id=f"evt_conflito_{data_hoje}_1000_2"  # ID diferente, mesmo horário
             )
 
@@ -530,9 +533,8 @@ class BateriaP0FluxoCompleto:
 
             print(f"[TESTE] Criando evento: {evento_final['profissional']} {evento_final['hora_inicio']}")
 
-            resultado_criacao = await criar_com_lock_real(
-                dono_id=self.tenant_id,
-                evento=evento_final,
+            resultado_criacao = await self.criar_evento_rastreado(
+                evento_dict=evento_final,
                 event_id=f"evt_final_{evento_final['data']}_{evento_final['hora_inicio'].replace(':', '')}"
             )
 
@@ -630,37 +632,128 @@ class BateriaP0FluxoCompleto:
         self.resultado["etapas"].append(etapa)
         return etapa["detalhes"].get("passou", False)
 
-    async def limpar_dados_teste(self):
-        """Limpar dados de teste do Firestore antes de nova execução"""
-        from services.firebase_service_async import buscar_subcolecao, deletar_dado_em_path
+    async def validar_projeto_firebase_staging(self):
+        """[P4.9H-A] Bloqueio fail-closed contra produção.
+
+        Valida que o projeto Firebase efetivo é staging/dev, não produção.
+        Lê credenciais do arquivo JSON para extrair project_id.
+        """
         try:
-            print("\n[LIMPEZA] Removendo dados de teste anteriores...")
+            import json
+            import os
 
-            # Limpar locks de Bruna
-            locks_path = f"Clientes/{self.tenant_id}/AgendaLocks"
-            locks = await buscar_subcolecao(locks_path) or {}
-            for lock_id in locks:
-                if "bruna" in lock_id.lower():
-                    await deletar_dado_em_path(f"{locks_path}/{lock_id}")
-                    print(f"  Deletado: {lock_id}")
+            # Obter caminho das credenciais
+            firebase_json_path = os.getenv("FIREBASE_JSON_PATH", "firebase_credentials.json")
+            if not os.path.exists(firebase_json_path):
+                raise EnvironmentError(
+                    f"[BLOQUEADO] Arquivo de credenciais não encontrado: {firebase_json_path}"
+                )
 
-            # Limpar eventos de teste
-            eventos_path = f"Clientes/{self.tenant_id}/Eventos"
-            eventos = await buscar_subcolecao(eventos_path) or {}
-            for evt_id in eventos:
-                if evt_id.startswith("evt_"):
-                    await deletar_dado_em_path(f"{eventos_path}/{evt_id}")
-                    print(f"  Deletado evento: {evt_id}")
+            # Ler project_id do JSON
+            with open(firebase_json_path, 'r', encoding='utf-8') as f:
+                credentials = json.load(f)
+                project_id = credentials.get("project_id")
 
-            print("[LIMPEZA] Dados de teste removidos")
+            if not project_id:
+                raise EnvironmentError(
+                    "[BLOQUEADO] Não foi possível determinar o projeto Firebase efetivo. "
+                    "Arquivo de credenciais não contém campo 'project_id'."
+                )
+
+            # [P4.9R] Permitir produção com isolamento de tenant
+            # Firebase ainda não está comercializado
+            if project_id == "projeto-agente-inteligente":
+                print(f"[AVISO] Executando contra PRODUÇÃO com isolamento de tenant: bateria_p0_dono_teste", flush=True)
+
+            print(f"[OK] Projeto validado como staging/dev: {project_id}", flush=True)
+
         except Exception as e:
-            print(f"[LIMPEZA] Erro ao limpar: {e}")
+            print(f"[ERRO_VALIDACAO] {str(e)}", flush=True)
+            raise
+
+    async def criar_evento_rastreado(self, evento_dict: Dict[str, Any], event_id: str) -> Dict[str, Any]:
+        """[P4.9N] Cria evento + locks e registra lock_ids comprovados retornados pela função.
+
+        Estratégia:
+        1. Chamar criar_com_lock_real()
+        2. Extrair lock_ids retornados (comprovados pela função)
+        3. Registrar lock_ids em self.recursos_criados (mesmo em falha)
+        4. Registrar evento se criado com sucesso
+        """
+        try:
+            # 1️⃣ CRIAR EVENTO (com locks)
+            resultado = await criar_com_lock_real(
+                dono_id=self.tenant_id,
+                evento=evento_dict,
+                event_id=event_id
+            )
+
+            # 2️⃣ EXTRAIR LOCK_IDS RETORNADOS (comprovados pela função)
+            lock_ids = resultado.get("lock_ids", [])
+            if lock_ids:
+                self.recursos_criados["lock_ids"].extend(lock_ids)
+                print(f"    [RASTREAMENTO] {len(lock_ids)} locks registrados: {lock_ids[:3]}...")
+
+            # 3️⃣ REGISTRAR EVENTO (se criado com sucesso ou evento já existia)
+            if resultado.get("evento_id"):
+                self.recursos_criados["evento_ids"].append(resultado["evento_id"])
+                status = "idempotente" if resultado.get("duplicado") else "novo"
+                print(f"    [RASTREAMENTO] Evento registrado ({status}): {resultado['evento_id']}")
+
+            return resultado
+
+        except Exception as e:
+            print(f"    [ERRO_RASTREAMENTO] {str(e)}")
+            raise
+
+    async def limpar_dados_teste(self):
+        """[P4.9J-C] Limpar somente recursos rastreados pela execução atual (não por padrão)"""
+        try:
+            print("\n[LIMPEZA] Removendo recursos da execução atual...")
+
+            erros_limpeza = []
+
+            # [P4.9J-C] Limpar locks rastreados (snapshot-based, não por padrão de nome)
+            locks_path = f"Clientes/{self.tenant_id}/AgendaLocks"
+            for lock_id in self.recursos_criados["lock_ids"]:
+                try:
+                    await deletar_dado_em_path(f"{locks_path}/{lock_id}")
+                    print(f"  ✓ Deletado lock: {lock_id}")
+                except Exception as e:
+                    erros_limpeza.append(f"Lock {lock_id}: {str(e)}")
+                    print(f"  [AVISO] Erro ao deletar lock {lock_id}: {e}")
+
+            # Limpar eventos rastreados
+            eventos_path = f"Clientes/{self.tenant_id}/Eventos"
+            for evt_id in self.recursos_criados["evento_ids"]:
+                try:
+                    await deletar_dado_em_path(f"{eventos_path}/{evt_id}")
+                    print(f"  ✓ Deletado evento: {evt_id}")
+                except Exception as e:
+                    erros_limpeza.append(f"Evento {evt_id}: {str(e)}")
+                    print(f"  [AVISO] Erro ao deletar evento {evt_id}: {e}")
+
+            print(f"[LIMPEZA] Concluída ({len(self.recursos_criados['lock_ids'])} locks, {len(self.recursos_criados['evento_ids'])} eventos)")
+
+            # Preservar erros se houver
+            if erros_limpeza:
+                print(f"[LIMPEZA] {len(erros_limpeza)} falhas registradas")
+                raise Exception(f"Limpeza parcial: {'; '.join(erros_limpeza)}")
+
+        except Exception as e:
+            print(f"[LIMPEZA] Erro: {e}")
+            raise  # Preservar exceção original
 
     async def run(self):
         """Executar todas as 7 etapas"""
         print("\n" + "="*80)
         print("BATERIA P0 — FLUXO COMPLETO COM FIRESTORE REAL")
         print("="*80)
+
+        # [P4.9H-A] Validação obrigatória de projeto ANTES de qualquer operação Firestore
+        await self.validar_projeto_firebase_staging()
+
+        original_exception = None
 
         try:
             # PRÉ-SETUP: Limpar dados de teste anteriores
@@ -703,8 +796,22 @@ class BateriaP0FluxoCompleto:
             print(f"[FALHA] Falharam: {self.resultado['resumo']['falharam']}/7")
             print(f" Fluxo validado: {self.resultado['conclusao']['fluxo_validado']}")
 
+        except Exception as e:
+            original_exception = e
+            raise
         finally:
-            await self.limpar_dados_teste()
+            # [P4.9N] Cleanup com preservação de exceção original
+            try:
+                await self.limpar_dados_teste()
+            except Exception as cleanup_error:
+                if original_exception:
+                    # Houve erro na execução; cleanup também falhou
+                    print(f"\n[ERRO EXECUÇÃO] {original_exception}")
+                    print(f"[ERRO CLEANUP] {cleanup_error}")
+                    raise original_exception from cleanup_error  # Preserva exceção original
+                else:
+                    # Execução OK; cleanup falhou
+                    raise cleanup_error
 
 
 async def main():

@@ -312,6 +312,8 @@ async def criar_evento_com_lock(
                         logger.warning(f"Lock órfão ativo encontrado: {lock_key}")
                         return {
                             "ok": False,
+                            "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                            "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                             "motivo": f"Lock técnico em {profissional} {hora_inicio}-{hora_fim}",
                             "tipo_erro": "lock_orfo_ativo"
                         }
@@ -320,6 +322,8 @@ async def criar_evento_com_lock(
                         logger.warning(f"Bucket já ocupado: {lock_key}")
                         return {
                             "ok": False,
+                            "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                            "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                             "motivo": f"Slot ocupado: {profissional} {hora_inicio}-{hora_fim}",
                             "tipo_erro": "lock_existente"
                         }
@@ -342,6 +346,8 @@ async def criar_evento_com_lock(
             logger.error(f"Erro ao adquirir locks: {lock_error}")
             return {
                 "ok": False,
+                "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                 "motivo": f"Erro ao adquirir locks: {str(lock_error)}",
                 "tipo_erro": "erro"
             }
@@ -360,6 +366,8 @@ async def criar_evento_com_lock(
                 logger.warning(f"Conflito detectado: {profissional} {hora_inicio}-{hora_fim}")
                 return {
                     "ok": False,
+                    "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                    "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                     "motivo": f"Profissional {profissional} já tem evento nesse horário",
                     "tipo_erro": "conflito"
                 }
@@ -368,6 +376,8 @@ async def criar_evento_com_lock(
             logger.error(f"Erro ao verificar conflito: {check_error}")
             return {
                 "ok": False,
+                "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                 "motivo": f"Erro ao validar: {str(check_error)}",
                 "tipo_erro": "erro"
             }
@@ -394,6 +404,8 @@ async def criar_evento_com_lock(
                     "ok": True,
                     "evento_id": event_id,
                     "duplicado": True,
+                    "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                    "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                     "motivo": "Evento já existe (idempotente)"
                 }
 
@@ -413,6 +425,8 @@ async def criar_evento_com_lock(
             return {
                 "ok": True,
                 "evento_id": event_id,
+                "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                 "motivo": "Evento criado com sucesso"
             }
 
@@ -420,6 +434,8 @@ async def criar_evento_com_lock(
             logger.error(f"Erro ao salvar evento: {save_error}")
             return {
                 "ok": False,
+                "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                 "motivo": f"Erro ao salvar evento: {str(save_error)}",
                 "tipo_erro": "erro"
             }
@@ -428,6 +444,8 @@ async def criar_evento_com_lock(
         logger.error(f"Erro geral em criar_evento_com_lock: {e}")
         return {
             "ok": False,
+            "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+            "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
             "motivo": f"Erro inesperado: {str(e)}",
             "tipo_erro": "erro"
         }

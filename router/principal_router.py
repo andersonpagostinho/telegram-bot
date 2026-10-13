@@ -6251,6 +6251,48 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 cliente_id=cliente_id
             )
         else:
+            # [P0.1] Detectar "outra profissional" genérica mesmo durante confirmacao_pendente
+            texto_norm_alt = normalizar(texto_usuario or "")
+            if "outra" in texto_norm_alt and "profissional" in texto_norm_alt:
+                print(
+                    f" [P0.1-CONFIRMACAO_MUDANCA_PROF_GENERICA] Detectando pedido genérico de mudança de profissional",
+                    flush=True
+                )
+
+                # Buscar alternativas disponíveis para o horário atual
+                draft = ctx.get("draft_agendamento") or {}
+                data_hora_ref = draft.get("data_hora") or ctx.get("data_hora")
+                servico_ref = draft.get("servico") or ctx.get("servico")
+                profissional_atual = draft.get("profissional") or ctx.get("profissional_escolhido")
+
+                alternativas = ctx.get("alternativa_profissional") or ctx.get("ultima_opcao_profissionais") or []
+
+                # [P0.1-FIX] Validar que alternativas ainda são relevantes para serviço/data_hora atuais
+                dados_anteriores = ctx.get("dados_anteriores") or {}
+                if alternativas and dados_anteriores:
+                    if (dados_anteriores.get("servico") != servico_ref
+                        or dados_anteriores.get("data_hora") != data_hora_ref):
+                        # Alternativas são stale — foram calculadas para contexto diferente
+                        alternativas = []
+                        ctx.pop("alternativa_profissional", None)
+                        ctx.pop("ultima_opcao_profissionais", None)
+
+                if isinstance(alternativas, str):
+                    alternativas = [alternativas]
+
+                # Filtrar para apenas profissionais diferentes da atual
+                alternativas_validas = [p for p in alternativas if p and normalizar(p) != normalizar(profissional_atual or "")]
+
+                if alternativas_validas and data_hora_ref and servico_ref:
+                    opcoes_fmt = "\n".join([f"  • {nome}" for nome in alternativas_validas])
+                    msg_menu = (
+                        f"Perfeito! Para manter *{data_hora_ref}* com *{servico_ref}*, "
+                        f"estas profissionais estão disponíveis:\n\n{opcoes_fmt}\n\n"
+                        f"Qual você prefere?"
+                    )
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                    return await _send_and_stop(context, user_id, msg_menu)
+
             print(
                 f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
                 flush=True
@@ -7323,6 +7365,16 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             if isinstance(alternativas_ctx, str):
                 alternativas_ctx = [alternativas_ctx]
+
+            # [FIX-7351] Validar que alternativas ainda são relevantes para serviço/data_hora atuais
+            dados_anteriores = ctx.get("dados_anteriores") or {}
+            if alternativas_ctx and dados_anteriores:
+                if (dados_anteriores.get("servico") != (draft_ativo.get("servico") or ctx.get("servico"))
+                    or dados_anteriores.get("data_hora") != (draft_ativo.get("data_hora") or ctx.get("data_hora"))):
+                    # Alternativas são stale
+                    alternativas_ctx = []
+                    ctx.pop("alternativa_profissional", None)
+                    ctx.pop("ultima_opcao_profissionais", None)
 
             # Detecção de pedido genérico: "outra profissional" sem nome específico
             # IMPORTANTE: Só ativar se NÃO há hora mencionada (evita ignorar "14:30 com outra profissional")
