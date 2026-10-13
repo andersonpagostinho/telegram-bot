@@ -2038,14 +2038,27 @@ async def precheck_e_confirmacao_agendamento(
         ctx.pop("dados_confirmacao_agendamento", None)
         ctx["aguardando_confirmacao_agendamento"] = False
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-        # TODO: Mensagem inteligente que detecte se falta data, hora ou ambos
-        # e responda de forma natural em português
-        return await _send_and_stop(
-            context,
-            user_id,
-            f"Desculpe, não consegui processar esse agendamento.\n\n"
-            f"Pode me dizer a data e a hora que você prefere?"
-        )
+
+        # Mensagem inteligente que detecta qual componente falta: data, hora ou ambos
+        # Opção C: usar _temporal_metadata (PRIMARY) + fallback campos legados
+        meta = ctx.get("_temporal_metadata", {})
+        data_detectada = meta.get("data_detectada") if meta else ctx.get("data_sem_hora") is True
+        hora_detectada = meta.get("hora_detectada") if meta else ctx.get("hora_confirmada") is True
+
+        if data_detectada and not hora_detectada:
+            # Apenas data foi informada, falta horário
+            msg = f"Perfeito, {montar_frase_data_legivel(data_hora)}.\n\nQual horário você prefere?"
+            ctx["estado_fluxo"] = "aguardando_horario"
+        elif hora_detectada and not data_detectada:
+            # Apenas horário foi informado, falta data
+            msg = "Ótimo, e qual dia você prefere?"
+            ctx["estado_fluxo"] = "aguardando_data"
+        else:
+            # Ambos faltando ou ambos inválidos
+            msg = "Qual data e hora você gostaria? Pode ser 'segunda às 14:30' ou 'amanhã de tarde'."
+            ctx["estado_fluxo"] = "aguardando_data_hora"
+
+        return await _send_and_stop(context, user_id, msg)
 
     # =========================================================
     # 🔥 PRE-CHECAGEM DE CONFLITO
