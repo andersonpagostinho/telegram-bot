@@ -3331,6 +3331,7 @@ def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
     - e a mensagem é curta,
     - e não é negativa,
     - e não traz novo horário,
+    - e é COMPATÍVEL com a ação pendente,
     - então assume continuidade.
     """
     ctx = ctx or {}
@@ -3348,6 +3349,27 @@ def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
     if ctx.get("intencao_conversacional") == "indefinida":
         return False
 
+    # 🔒 [FASE 2.5B] GUARD: rejeitar se intencao não foi definida (None/missing)
+    # Evita aceitar "ola" quando intencao_conversacional não foi setado
+    if not ctx.get("intencao_conversacional"):
+        return False
+
+    # 🔒 [FASE 2.5B] GUARD: rejeitar se ação é incompatível com intenção
+    # Exemplo: ultima_acao="criar_evento" + intencao="cancelar" → conflito
+    ultima_acao = ctx.get("ultima_acao", "")
+    intencao = ctx.get("intencao_conversacional", "")
+
+    # Mapa de compatibilidades: ultima_acao → intenções aceitas
+    compatibilidades = {
+        "criar_evento": ["confirmar", "confirmar_agendamento", "sim", "aceitar"],
+        "cancelamento_concluido": [],  # ação já concluída, sem aceite novo
+    }
+
+    if ultima_acao in compatibilidades:
+        intenções_aceitas = compatibilidades[ultima_acao]
+        if intencao not in intenções_aceitas:
+            return False
+
     # negativa/desistência nunca é aceite
     if eh_desistencia_fluxo(t):
         return False
@@ -3361,6 +3383,229 @@ def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
         return False
 
     return True
+
+def detectar_loop_conversacional(ctx: dict, mensagem_atual: str, resposta_proposta: str, iteracao: int = 1) -> dict:
+    """
+    [FASE 2.5B] Detector de loop conversacional.
+
+    Retorna:
+    {
+        "has_loop": bool,
+        "tipo_loop": "resposta_repetida" | "sem_progresso" | None,
+        "acao_recomendada": "invalidar_ultima_acao" | "limpar_estado_transitorio" | "reset_conversacional" | None
+    }
+
+    Critérios:
+    1. Resposta proposta == última resposta (na memória de contexto)
+    2. Estado não mudou (estado_fluxo, ultima_acao iguais)
+    3. Iteração > 1 (deu chance de progresso)
+    """
+
+    # Dados básicos: não há suficientes para detectar loop
+    if iteracao < 2:
+        return {"has_loop": False, "tipo_loop": None, "acao_recomendada": None}
+
+    estado_fluxo = ctx.get("estado_fluxo")
+    ultima_acao = ctx.get("ultima_acao")
+    ultima_resposta = ctx.get("_ultima_resposta_enviada")
+    ultimo_estado_fluxo = ctx.get("_ultimo_estado_fluxo")
+
+    # Detector 1: Resposta repetida
+    if (ultima_resposta and resposta_proposta and
+        normalizar(ultima_resposta) == normalizar(resposta_proposta) and
+        iteracao > 1):
+        return {
+            "has_loop": True,
+            "tipo_loop": "resposta_repetida",
+            "acao_recomendada": "invalidar_ultima_acao" if ultima_acao else "reset_conversacional"
+        }
+
+    # Detector 2: Estado sem progresso
+    if (ultimo_estado_fluxo == estado_fluxo and
+        estado_fluxo in ["agendando", "confirmacao_pendente", "aguardando_confirmacao_agendamento"] and
+        iteracao > 2):
+        return {
+            "has_loop": True,
+            "tipo_loop": "sem_progresso",
+            "acao_recomendada": "limpar_estado_transitorio"
+        }
+
+    return {"has_loop": False, "tipo_loop": None, "acao_recomendada": None}
+
+
+async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str) -> dict:
+    """
+    [FASE 2.5C] Recuperação seletiva e persistente de loop conversacional.
+
+    Níveis de recuperação progressivos:
+    1. Invalidar última ação (em memória)
+    2. Remover campos transitórios específicos (Firestore DELETE_FIELD)
+    3. Reset conversacional completo (Firestore + memória)
+
+    Garante que TODA remoção seja persistida em Firestore.
+    Preserva: tenant_id, histórico, rascunhos válidos, eventos persistidos.
+
+    Retorna:
+    {
+        "ctx": dict (contexto atualizado em memória),
+        "campos_removidos": list (campos DELETE_FIELD no Firestore),
+        "mensagem": str ou None,
+        "nivel": int,
+        "persistido": bool (verdadeiro se Firestore foi atualizado)
+    }
+    """
+    from datetime import datetime
+    from google.cloud import firestore
+
+    if not dono_id or not cliente_id:
+        print(f"🚨 [RECUPERACAO LOOP] tenant/ator inválido: dono_id={dono_id} | cliente_id={cliente_id}", flush=True)
+        return {
+            "ctx": ctx,
+            "campos_removidos": [],
+            "mensagem": None,
+            "nivel": 0,
+            "persistido": False
+        }
+
+    path = f"Clientes/{dono_id}/Sessoes/{cliente_id}"
+
+    # ═══════════════════════════════════════════════════════════════
+    # NÍVEL 1: Invalidar última ação (em memória)
+    # ═══════════════════════════════════════════════════════════════
+    if acao == "invalidar_ultima_acao":
+        ctx.pop("ultima_acao", None)
+        ctx["_iteracao_confirmacao"] = 1  # Reset contador
+
+        print(f"[RECUPERACAO LOOP NIVEL1] path={path} | acao_invalidada | em_memoria=True", flush=True)
+
+        return {
+            "ctx": ctx,
+            "campos_removidos": ["ultima_acao"],
+            "mensagem": None,  # Continua fluxo normal
+            "nivel": 1,
+            "persistido": False  # Nível 1 é apenas em memória
+        }
+
+    # ═══════════════════════════════════════════════════════════════
+    # NÍVEL 2: Remover campos transitórios (Firestore DELETE_FIELD)
+    # ═══════════════════════════════════════════════════════════════
+    if acao == "limpar_estado_transitorio":
+        campos_remover = [
+            "modo_escolha_horario",
+            "modo_conversa",
+            "aguardando_confirmacao_agendamento",
+            "aguardando_confirmacao_servico_sugerido",
+            "horarios_sugeridos",
+            "sugestoes",
+            "alternativa_profissional",
+            "ultima_opcao_profissionais"
+        ]
+
+        # Em memória
+        for campo in campos_remover:
+            ctx.pop(campo, None)
+
+        ctx["estado_fluxo"] = "idle"
+        ctx["_iteracao_confirmacao"] = 1
+
+        # Persistir no Firestore com DELETE_FIELD
+        payload = {
+            "estado_fluxo": "idle",
+            "_updated_at": datetime.now().isoformat(),
+        }
+        for campo in campos_remover:
+            payload[campo] = firestore.DELETE_FIELD
+
+        try:
+            from services.firebase_service_async import atualizar_dado_em_path
+            sucesso = await atualizar_dado_em_path(path, payload)
+            print(
+                f"[RECUPERACAO LOOP NIVEL2] path={path} | "
+                f"campos_removidos={len(campos_remover)} | "
+                f"persistido={sucesso}",
+                flush=True
+            )
+            return {
+                "ctx": ctx,
+                "campos_removidos": campos_remover,
+                "mensagem": "Desculpa, acho que me confundi um pouquinho aqui 😅 Podemos tentar de novo? Me conta mais uma vez o que você gostaria de fazer que eu te ajudo! 💜",
+                "nivel": 2,
+                "persistido": sucesso
+            }
+        except Exception as e:
+            print(f"🚨 [RECUPERACAO NIVEL2 ERRO] path={path} | erro={str(e)}", flush=True)
+            # Continua para nível 3
+            pass
+
+    # ═══════════════════════════════════════════════════════════════
+    # NÍVEL 3: Reset conversacional (último recurso)
+    # ═══════════════════════════════════════════════════════════════
+    if acao == "reset_conversacional":
+        campos_remover_nivel3 = [
+            "ultima_acao",
+            "intencao_conversacional",
+            "objetivo_conversacional",
+            "interpretacao_conversacional",
+            "confianca_intencao_conversacional",
+            "modo_conversa",
+            "modo_escolha_horario",
+            "horarios_sugeridos",
+            "sugestoes",
+            "alternativa_profissional",
+            "ultima_opcao_profissionais",
+            "aguardando_confirmacao_agendamento",
+            "aguardando_confirmacao_servico_sugerido"
+        ]
+
+        # Em memória
+        for campo in campos_remover_nivel3:
+            ctx.pop(campo, None)
+
+        ctx["estado_fluxo"] = "idle"
+        ctx["_iteracao_confirmacao"] = 1
+
+        # Persistir com DELETE_FIELD
+        payload = {
+            "estado_fluxo": "idle",
+            "_updated_at": datetime.now().isoformat(),
+        }
+        for campo in campos_remover_nivel3:
+            payload[campo] = firestore.DELETE_FIELD
+
+        try:
+            from services.firebase_service_async import atualizar_dado_em_path
+            sucesso = await atualizar_dado_em_path(path, payload)
+            print(
+                f"[RECUPERACAO LOOP NIVEL3] path={path} | "
+                f"campos_removidos={len(campos_remover_nivel3)} | "
+                f"persistido={sucesso}",
+                flush=True
+            )
+            return {
+                "ctx": ctx,
+                "campos_removidos": campos_remover_nivel3,
+                "mensagem": "Desculpa, acho que me confundi um pouquinho aqui 😅 Podemos tentar de novo? Me conta mais uma vez o que você gostaria de fazer que eu te ajudo! 💜",
+                "nivel": 3,
+                "persistido": sucesso
+            }
+        except Exception as e:
+            print(f"🚨 [RECUPERACAO NIVEL3 ERRO] path={path} | erro={str(e)}", flush=True)
+            return {
+                "ctx": ctx,
+                "campos_removidos": [],
+                "mensagem": None,
+                "nivel": 0,
+                "persistido": False
+            }
+
+    return {
+        "ctx": ctx,
+        "campos_removidos": [],
+        "mensagem": None,
+        "nivel": 0,
+        "persistido": False
+    }
+
 
 def eh_reacao_a_sugestao(txt: str, ctx: dict) -> bool:
     """
@@ -6327,10 +6572,88 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             )
 
         if resultado and resultado.get("resposta"):
+            resposta_proposta = resultado.get("resposta")
+
+            # ═══════════════════════════════════════════════════════════
+            # [FASE 2.5C] DETECTOR DE LOOP ANTES DE ENVIAR RESPOSTA
+            # ═══════════════════════════════════════════════════════════
+            iteracao = ctx.get("_iteracao_confirmacao", 1)
+            loop_info = detectar_loop_conversacional(
+                ctx,
+                texto_usuario,
+                resposta_proposta,
+                iteracao
+            )
+
+            if loop_info.get("has_loop"):
+                print(
+                    f"🔁 [LOOP DETECTADO] tipo={loop_info.get('tipo_loop')} | "
+                    f"iteracao={iteracao} | acao_recomendada={loop_info.get('acao_recomendada')}",
+                    flush=True
+                )
+
+                # [FASE 2.5C] RECUPERAR DO LOOP
+                resultado_recuperacao = await recuperar_de_loop(
+                    ctx,
+                    loop_info.get("acao_recomendada"),
+                    dono_id,
+                    cliente_id
+                )
+
+                ctx = resultado_recuperacao.get("ctx", ctx)
+                mensagem_recuperacao = resultado_recuperacao.get("mensagem")
+                nivel_recuperacao = resultado_recuperacao.get("nivel")
+                persistido = resultado_recuperacao.get("persistido")
+
+                print(
+                    f"✅ [RECUPERACAO LOOP] nivel={nivel_recuperacao} | "
+                    f"persistido={persistido} | "
+                    f"campos_removidos={len(resultado_recuperacao.get('campos_removidos', []))}",
+                    flush=True
+                )
+
+                # Salvar contexto atualizado (sem rastreamento de loop)
+                ctx.pop("_ultima_resposta_enviada", None)
+                ctx.pop("_ultimo_estado_fluxo", None)
+                ctx.pop("_iteracao_confirmacao", None)
+
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                # [FASE 2.5D] Enviar mensagem de recuperação
+                # APENAS SE: persistência bem-sucedida + sem rascunho válido + não foi aviso anterior
+                if (
+                    mensagem_recuperacao
+                    and persistido  # ✅ Só envia se persistência bem-sucedida
+                    and not ctx.get("draft_agendamento")  # ✅ Não envia se rascunho válido existe
+                    and not ctx.get("_aviso_recuperacao_enviado")  # ✅ Evita duplicação
+                ):
+                    # Marcar que aviso foi enviado para este episódio
+                    ctx["_aviso_recuperacao_enviado"] = True
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        mensagem_recuperacao
+                    )
+                else:
+                    # Nível 1 ou rascunho válido: continuar fluxo normal (sem mensagem)
+                    return
+
+            # ═══════════════════════════════════════════════════════════
+            # SEM LOOP: ATUALIZAR RASTREAMENTO E ENVIAR RESPOSTA
+            # ═══════════════════════════════════════════════════════════
+            ctx["_ultima_resposta_enviada"] = resposta_proposta
+            ctx["_ultimo_estado_fluxo"] = ctx.get("estado_fluxo")
+            ctx["_iteracao_confirmacao"] = iteracao + 1
+
+            # Salvar contexto (com rastreamento de loop para próxima iteração)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
             return await _send_and_stop(
                 context,
                 user_id,
-                resultado.get("resposta")
+                resposta_proposta
             )
 
     # =========================================================
@@ -6984,10 +7307,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 raise ApplicationHandlerStop
 
             # =====================================================
-            # 🔥 ESCOLHA DE PROFISSIONAL ALTERNATIVA NO CONFLITO
-            # Ex.: "troque para Bruna", "pode ser a Bruna", "com Joana"
-            # Mantém serviço + data_hora original e troca só profissional.
+            # [FASE 2.4D] DETECÇÃO DE PEDIDO GENÉRICO DE TROCA DE PROFISSIONAL
+            # Ex.: "queria manter o horário com outra profissional"
+            # Sem nome específico, mas com alternativas disponíveis
             # =====================================================
+            texto_norm_generico = normalizar(texto_usuario or "")
+            estado_ativo = (ctx.get("estado_fluxo") or "").strip().lower()
+            draft_ativo = ctx.get("draft_agendamento") or {}
+
             alternativas_ctx = (
                 ctx.get("alternativa_profissional")
                 or ctx.get("ultima_opcao_profissionais")
@@ -6997,6 +7324,37 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if isinstance(alternativas_ctx, str):
                 alternativas_ctx = [alternativas_ctx]
 
+            # Detecção de pedido genérico: "outra profissional" sem nome específico
+            # IMPORTANTE: Só ativar se NÃO há hora mencionada (evita ignorar "14:30 com outra profissional")
+            eh_pedido_generico = (
+                estado_ativo == "aguardando_escolha_horario"
+                and "outra" in texto_norm_generico
+                and "profissional" in texto_norm_generico
+                and not matches  # Só genérico se NÃO há hora mencionada
+                and any(nome and normalizar(nome) not in texto_norm_generico for nome in alternativas_ctx)
+            )
+
+            if eh_pedido_generico and alternativas_ctx:
+                servico_ref = draft_ativo.get("servico") or ctx.get("servico")
+                data_hora_ref = draft_ativo.get("data_hora") or ctx.get("data_hora")
+
+                if servico_ref and data_hora_ref and alternativas_ctx:
+                    opcoes_formatadas = "\n".join([f"  • {nome}" for nome in alternativas_ctx])
+                    msg_menu = (
+                        f"Perfeito! Para manter *{data_hora_ref}* com *{servico_ref}*, "
+                        f"estas profissionais estão disponíveis:\n\n{opcoes_formatadas}\n\n"
+                        f"Qual você prefere?"
+                    )
+
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    return await _send_and_stop(context, user_id, msg_menu)
+
+            # =====================================================
+            # 🔥 ESCOLHA DE PROFISSIONAL ALTERNATIVA NO CONFLITO
+            # Ex.: "troque para Bruna", "pode ser a Bruna", "com Joana"
+            # Mantém serviço + data_hora original e troca só profissional.
+            # =====================================================
             texto_norm_alt = normalizar(texto_usuario or "")
 
             profissional_alt_escolhida = None
