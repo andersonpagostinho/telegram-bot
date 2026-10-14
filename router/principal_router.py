@@ -6365,6 +6365,47 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         )
 
     # =========================================================
+    # P0: CONSULTA DE PROFISSIONAIS DURANTE AGENDANDO
+    # Responder quando usuário pergunta quais profissionais têm o serviço do draft
+    # =========================================================
+    if (
+        ctx.get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
+        and ctx.get("estado_fluxo") == "agendando"
+        and not eh_confirmacao_pendente_ativa(ctx)
+    ):
+        draft = ctx.get("draft_agendamento") or {}
+        servico_draft = draft.get("servico")
+        prof_atual = draft.get("profissional") or ctx.get("profissional_escolhido")
+
+        if servico_draft:
+            profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+            nomes_filtrados = []
+            for p in profs_dict.values():
+                nome = (p.get("nome") or "").strip()
+                if not nome:
+                    continue
+
+                servicos_prof = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+                if normalizar(servico_draft) in servicos_prof:
+                    if normalizar(nome) != normalizar(prof_atual or ""):
+                        nomes_filtrados.append(nome)
+
+            if nomes_filtrados:
+                lista = ", ".join(sorted(set(nomes_filtrados)))
+                resposta = (
+                    f"Para *{servico_draft}* eu tenho: {lista}.\n"
+                    "Qual você prefere?"
+                )
+                return await _send_and_stop(context, user_id, resposta)
+            else:
+                resposta = (
+                    f"Só tenho a {prof_atual} para {servico_draft}. "
+                    "Quer escolher outro serviço ou profissional?"
+                )
+                return await _send_and_stop(context, user_id, resposta)
+
+    # =========================================================
     # 🔥 ALTERAÇÃO DE DRAFT DURANTE CONFIRMAÇÃO PENDENTE
     # =========================================================
     if eh_confirmacao_pendente_ativa(ctx):
