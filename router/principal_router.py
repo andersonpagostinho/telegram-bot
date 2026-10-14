@@ -5658,7 +5658,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if (
             alteracao
             and alteracao.get("tipo") == "profissional"
-            and ctx.get("estado_fluxo") == "aguardando_profissional"
+            and ctx.get("estado_fluxo") in ["aguardando_profissional", "agendando"]
         ):
             profissional_escolhido = alteracao.get("valor")
 
