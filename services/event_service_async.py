@@ -84,6 +84,32 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
             )
             return False
 
+        # =====================================================
+        # 🚫 VALIDAÇÃO: Evento no Passado
+        # =====================================================
+        data_str = evento.get("data")
+        hora_str = evento.get("hora_inicio")
+        if data_str and hora_str:
+            try:
+                # Parse datetime SEM fuso (como vem do GPT/handler)
+                start_time_naive = datetime.fromisoformat(f"{data_str}T{hora_str}:00")
+
+                # Localizar para São Paulo (fuso oficial do negócio)
+                start_time_local = FUSO_BR.localize(start_time_naive)
+
+                # Comparar com agora (com fuso)
+                agora_local = datetime.now(FUSO_BR)
+
+                # Rejeitar se evento é no passado ou no instante atual
+                if start_time_local <= agora_local:
+                    logger.error(f"[PAST_TIME_BLOCKED] Evento rejeitado: {data_str}T{hora_str} <= agora {agora_local}")
+                    print(f"[PAST_TIME_BLOCKED] Evento bloqueado: {data_str}T{hora_str}", flush=True)
+                    return False
+            except (ValueError, TypeError) as e:
+                # Se houver erro ao parsear, logar mas não bloquear
+                # Deixar ser tratado por validações posteriores
+                logger.warning(f"[PAST_TIME_CHECK_ERROR] Erro ao validar data/hora: {e}")
+
         def normalizar_hora_para_grade(hora_str: str) -> str:
             try:
                 h, m = map(int, str(hora_str).split(":"))
