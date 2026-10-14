@@ -2773,10 +2773,9 @@ async def resolver_alteracao_draft_agendamento(
             )
 
         valido = await validar_profissional_para_servico(
-            dono_id=user_id,
+            dono_id=dono_id,
             profissional=novo_profissional,
-            servico=servico,
-        tenant_id=dono_id
+            servico=servico
         )
 
         print(f"[TYPE_AUDIT_2163] valido={type(valido)} value={repr(valido)}", flush=True)
