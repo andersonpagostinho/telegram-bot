@@ -1935,67 +1935,8 @@ async def precheck_e_confirmacao_agendamento(
             cliente_id, dono_id=dono_id
         )
 
-    # =========================================================
-    # 🔥 VALIDAR COMPATIBILIDADE ANTES DE CONFLITO
-    # =========================================================
-    valido = await validar_profissional_para_servico(
-        dono_id=dono_id,
-        profissional=prof,
-        servico=servico,
-        tenant_id=dono_id
-    )
-
-    print(f"[PRE-CHECK COMPATIBILIDADE] prof={prof} | servico={servico} | ok={valido.get('ok')}", flush=True)
-    if not valido.get("ok"):
-        # 🔥 PATCH P0: Profissional não atende serviço
-        # Ao invés de pergunta "Quer escolher?", listar opções válidas imediatamente
-
-        from services.profissional_service import buscar_profissionais_por_servico
-
-        # Buscar profissionais que ATENDEM esse serviço
-        profissionais_validos = await buscar_profissionais_por_servico(
-            servicos=[servico],
-            user_id=user_id
-        )
-
-        # Montar resposta com opções válidas
-        if profissionais_validos:
-            lista_validos = list(profissionais_validos.keys())
-            lista_str = ", ".join(lista_validos)
-            resposta = (
-                f"*{prof}* não atende {servico}.\n"
-                f"Para *{servico}*, posso verificar com: {lista_str}.\n"
-                f"Qual você prefere?"
-            )
-        else:
-            # Sem ninguém que atenda esse serviço
-            resposta = (
-                f"*{prof}* não atende {servico}.\n"
-                f"Infelizmente, nenhum profissional oferece esse serviço no momento."
-            )
-            lista_validos = []
-
-        # 🔥 Salvar contexto com motivo_estado
-        draft = ctx.get("draft_agendamento") or {}
-        draft["servico"] = servico
-        draft["data_hora"] = data_hora
-        draft["profissional"] = None  # Não preencher com profissional inválido
-
-        ctx["draft_agendamento"] = draft
-        ctx["servico"] = servico
-        ctx["data_hora"] = data_hora
-        ctx["estado_fluxo"] = "aguardando_profissional"
-        ctx["motivo_estado"] = "profissional_nao_atende_servico"
-        ctx["profissional_rejeitado"] = prof
-        ctx["profissionais_validos"] = lista_validos
-
-        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-        return await _send_and_stop(
-            context,
-            user_id,
-            resposta,
-            parse_mode=None
-        )
+    # Validação já executada em linha 1868
+    # Prosseguir para verificação de conflito
 
     # =========================================================
     # 🔥 VALIDAÇÃO TEMPORAL: Rejeitar horários passados
@@ -2706,7 +2647,7 @@ async def resolver_alteracao_draft_agendamento(
 
             try:
                 profissionais = await buscar_subcolecao(
-                    f"Clientes/{user_id}/Profissionais"
+                    f"Clientes/{dono_id}/Profissionais"
                 )
 
                 nomes_profissionais = []
@@ -3220,7 +3161,7 @@ async def resolver_alteracao_draft_agendamento(
             )
 
         valido = await validar_profissional_para_servico(
-            dono_id=user_id,
+            dono_id=dono_id,
             profissional=profissional,
             servico=novo_servico
         )
