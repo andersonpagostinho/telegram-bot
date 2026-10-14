@@ -5628,7 +5628,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         and ctx.get("objetivo_conversacional") == "ajustar_draft_existente"
         and (
             not bloquear_ajuste_por_fluxo_operacional
-            or ctx.get("tipo_ajuste_incremental") == "horario"
+            or ctx.get("tipo_ajuste_incremental") in ["horario", "profissional"]
         )
         and not ctx.get("clareza_periodo_hora_resolvida")
     ):
