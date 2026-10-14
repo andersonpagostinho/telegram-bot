@@ -10,9 +10,10 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str) -> st
     ).strip()
     texto_normalizado = re.sub(r"\s+", " ", texto_normalizado)
 
-    dono_id = await obter_id_dono(user_id)
-    if not dono_id:
-        return None
+    try:
+        dono_id = await obter_id_dono(user_id)
+    except Exception:
+        dono_id = user_id
 
     profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
