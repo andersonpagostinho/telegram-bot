@@ -2421,6 +2421,22 @@ async def detectar_alteracao_draft_agendamento(
                     "valor": data_nova
                 }
 
+    # =====================================================
+    # 🔥 troca de profissional GENERICA (sem nome especifico)
+    # Se usuario disse "outra profissional" mas nao especificou qual,
+    # retornar tipo=profissional valor=None para que [MUDANCA DE PROFISSIONAL]
+    # possa oferecer menu de alternativas
+    # =====================================================
+    if any(x in t for x in ["outra profissional", "outra prof", "profissional diferente"]):
+        print(
+            f"🧪 [DETECTAR_ALTERACAO] tipo=profissional generico | valor=None | texto={texto_usuario}",
+            flush=True
+        )
+        return {
+            "tipo": "profissional",
+            "valor": None
+        }
+
     return None
 
 async def resolver_alteracao_draft_agendamento(
@@ -2625,6 +2641,42 @@ async def resolver_alteracao_draft_agendamento(
     # =====================================================
     if alteracao.get("tipo") == "profissional":
         novo_profissional = alteracao.get("valor")
+
+        # =====================================================
+        # 🔥 PROFISSIONAL GENERICO (valor=None, usuario disse "outra" sem especificar)
+        # Apresentar menu de alternativas disponíveis
+        # =====================================================
+        if novo_profissional is None:
+            alternativas = ctx.get("alternativa_profissional") or ctx.get("ultima_opcao_profissionais") or []
+
+            if alternativas:
+                profissional_atual = (
+                    draft.get("profissional")
+                    or ctx.get("profissional_escolhido")
+                )
+                # Filtrar para não incluir a profissional atual
+                alternativas_validas = [
+                    p for p in alternativas
+                    if p and normalizar(p) != normalizar(profissional_atual or "")
+                ]
+
+                if alternativas_validas:
+                    opcoes_fmt = "\n".join([f"  • {nome}" for nome in alternativas_validas])
+                    msg_menu = (
+                        f"Perfeito! Para manter *{servico}* em *{formatar_data_hora_br(data_hora)}*, "
+                        f"qual profissional você prefere?\n\n{opcoes_fmt}"
+                    )
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                    return await _send_and_stop(context, user_id, msg_menu)
+
+            # Sem alternativas: perguntar qual profissional específico
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            return await _send_and_stop(
+                context,
+                user_id,
+                f"Entendi que você quer outra profissional. Qual profissional você prefere para {servico}?",
+                parse_mode=None
+            )
 
         dt_novo = interpretar_data_e_hora(texto_usuario)
         if dt_novo is not None:
