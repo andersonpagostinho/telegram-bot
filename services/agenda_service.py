@@ -243,7 +243,7 @@ async def obter_janela_funcionamento(
         print(f"[AGENDA_JANELA] Usando dono_id fornecido: {dono_id}", flush=True)
     else:
         # Fallback: se dono_id não fornecido, tentar resolver via obter_id_dono
-        from services.identidade_service import obter_id_dono
+        from services.firebase_service_async import obter_id_dono
         salao_id = await obter_id_dono(user_id)
         if not salao_id:
             salao_id = user_id  # Último recurso
