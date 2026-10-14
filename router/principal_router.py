@@ -2656,7 +2656,9 @@ async def resolver_alteracao_draft_agendamento(
         ])
 
         if tem_pedido_servico_explicito:
-            servico_detectado = await encontrar_servico_mais_proximo(texto_usuario, user_id)
+            print(f"[DEBUG P0.1] ANTES encontrar_servico_mais_proximo: user_id={user_id}, dono_id={dono_id}, cliente_id={cliente_id}", flush=True)
+            servico_detectado = await encontrar_servico_mais_proximo(texto_usuario, user_id, dono_id)
+            print(f"[DEBUG P0.1] DEPOIS encontrar_servico_mais_proximo: resultado={servico_detectado}", flush=True)
 
             if (
                 servico_detectado

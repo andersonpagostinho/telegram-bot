@@ -1,0 +1,311 @@
+{
+  "meta": {
+    "descricao": "Cenários de agendamento REAIS para testar extração de dados a partir de entrada nova",
+    "base_patterns": 25,
+    "total_cenarios": 98,
+    "nota": "Cada cenário é uma PRIMEIRA MENSAGEM (estado idle, sem contexto prévio)",
+    "profissionais_disponiveis": ["Bruna", "Gloria", "Joana", "Amanda", "Carla", "Larissa"],
+    "servicos_disponiveis": ["corte", "escova", "hidratação", "coloração", "manicure", "pedicure"],
+    "data_base": "2026-10-14"
+  },
+  "cenarios": [
+    {
+      "id": "A01",
+      "categoria": "agendamento_completo",
+      "frase": "quero corte com bruna para hoje às 16 horas",
+      "esperado": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "data": "2026-10-14",
+        "hora": "16:00",
+        "status": "sucesso"
+      },
+      "porque": "Frase REAL de produção que descobrimos quebrada - desencadeia erro se encontrar_servico_mais_proximo falha"
+    },
+    {
+      "id": "A02",
+      "categoria": "agendamento_completo",
+      "frase": "quero agendar escova com gloria amanhã às 10 horas",
+      "esperado": {
+        "servico": "escova",
+        "profissional": "gloria",
+        "data": "2026-10-15",
+        "hora": "10:00",
+        "status": "sucesso"
+      },
+      "porque": "Padrão com dia relativo 'amanhã'"
+    },
+    {
+      "id": "A03",
+      "categoria": "agendamento_completo",
+      "frase": "preciso agendar manicure com larissa segunda às 14 horas",
+      "esperado": {
+        "servico": "manicure",
+        "profissional": "larissa",
+        "status": "sucesso"
+      },
+      "porque": "Dia da semana relativo 'segunda'"
+    },
+    {
+      "id": "A04",
+      "categoria": "agendamento_completo",
+      "frase": "gostaria de um hidratação com carla sexta-feira à tarde",
+      "esperado": {
+        "servico": "hidratação",
+        "profissional": "carla",
+        "status": "aguardando_hora"
+      },
+      "porque": "Hora vaga 'à tarde' - sistema deveria pedir hora específica"
+    },
+    {
+      "id": "A05",
+      "categoria": "agendamento_curto",
+      "frase": "quero corte",
+      "esperado": {
+        "servico": "corte",
+        "profissional": null,
+        "status": "aguardando_profissional"
+      },
+      "porque": "Frase MÍNIMA - apenas serviço, sem profissional"
+    },
+    {
+      "id": "A06",
+      "categoria": "agendamento_curto",
+      "frase": "agendar com bruna",
+      "esperado": {
+        "servico": null,
+        "profissional": "bruna",
+        "status": "aguardando_servico"
+      },
+      "porque": "Apenas profissional, sem serviço"
+    },
+    {
+      "id": "A07",
+      "categoria": "agendamento_curto",
+      "frase": "para amanhã às 9",
+      "esperado": {
+        "servico": null,
+        "profissional": null,
+        "data": "2026-10-15",
+        "hora": "09:00",
+        "status": "aguardando_contexto"
+      },
+      "porque": "Apenas data/hora, sem serviço ou profissional"
+    },
+    {
+      "id": "A08",
+      "categoria": "agendamento_em_etapas",
+      "frase": "quero corte",
+      "seguida_de": "com bruna",
+      "seguida_de_2": "para amanhã às 15",
+      "esperado_final": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "data": "2026-10-15",
+        "hora": "15:00",
+        "status": "sucesso"
+      },
+      "porque": "Usuário completa informação em múltiplas mensagens (comum em UX real)"
+    },
+    {
+      "id": "A09",
+      "categoria": "agendamento_erros_digitacao",
+      "frase": "quero corte com bruna amanha as 9",
+      "esperado": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "status": "sucesso"
+      },
+      "porque": "Sem acentos (comum em mobile) - deveria ainda funcionar com unidecode()"
+    },
+    {
+      "id": "A10",
+      "categoria": "agendamento_erros_digitacao",
+      "frase": "quero corte com BRUNA AMANHÃ ÀS 9",
+      "esperado": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "status": "sucesso"
+      },
+      "porque": "Tudo maiúscula - deveria normalizar"
+    },
+    {
+      "id": "A11",
+      "categoria": "agendamento_erros_digitacao",
+      "frase": "qro corte cm bruna amh 9h",
+      "esperado": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "status": "parcial"
+      },
+      "porque": "Abreviações/gíria - teste de robustez fuzzy match"
+    },
+    {
+      "id": "A12",
+      "categoria": "agendamento_multiplo",
+      "frase": "quero corte com bruna amanhã às 15 e escova com carla às 16",
+      "esperado": {
+        "primeiro": {
+          "servico": "corte",
+          "profissional": "bruna",
+          "hora": "15:00"
+        },
+        "segundo": {
+          "servico": "escova",
+          "profissional": "carla",
+          "hora": "16:00"
+        },
+        "status": "multiplos_agendamentos"
+      },
+      "porque": "Duas solicitações na mesma frase - teste de parsing complexo"
+    },
+    {
+      "id": "B01",
+      "categoria": "profissional_invalido",
+      "frase": "quero corte com pessoa_inexistente",
+      "esperado": {
+        "servico": "corte",
+        "profissional": "pessoa_inexistente",
+        "status": "erro_profissional_invalida"
+      },
+      "porque": "Profissional não cadastrada - deveria rejeitar e listar opções"
+    },
+    {
+      "id": "B02",
+      "categoria": "servico_invalido",
+      "frase": "quero depilação com bruna",
+      "esperado": {
+        "servico": "depilacao",
+        "profissional": "bruna",
+        "status": "erro_servico_invalido"
+      },
+      "porque": "Serviço não oferecido - deveria rejeitar"
+    },
+    {
+      "id": "B03",
+      "categoria": "ambiguo_nome_profissional",
+      "frase": "agendar com carla",
+      "esperado": {
+        "servico": null,
+        "profissional": "carla",
+        "status": "aguardando_servico"
+      },
+      "porque": "Carla existe, mas qual serviço? Sistema deveria pedir"
+    },
+    {
+      "id": "C01",
+      "categoria": "contexto_dependente_rejeicao",
+      "frase": "outra profissional",
+      "contexto_previo": {
+        "estado": "confirmacao_pendente",
+        "servico": "corte",
+        "profissional_atual": "bruna"
+      },
+      "esperado": {
+        "tipo": "alteracao_profissional",
+        "profissional_anterior": "bruna",
+        "status": "aguardando_nova_prof"
+      },
+      "porque": "P0.1 - detecta 'outra profissional' SÓ em estado confirmacao_pendente - ESTE É O ERRO REAL"
+    },
+    {
+      "id": "C02",
+      "categoria": "contexto_dependente_hora",
+      "frase": "prefiro às 17 horas",
+      "contexto_previo": {
+        "estado": "agendando",
+        "servico": "escova",
+        "profissional": "gloria"
+      },
+      "esperado": {
+        "tipo": "alteracao_hora",
+        "hora_anterior": "15:00",
+        "hora_nova": "17:00"
+      },
+      "porque": "Ajuste incremental - deveria reutilizar serviço/prof do contexto"
+    },
+    {
+      "id": "D01",
+      "categoria": "cancelamento",
+      "frase": "quero cancelar com bruna amanhã",
+      "esperado": {
+        "tipo": "cancelamento",
+        "profissional": "bruna",
+        "data": "2026-10-15",
+        "status": "sucesso"
+      },
+      "porque": "Detecção de intenção de cancelamento"
+    },
+    {
+      "id": "D02",
+      "categoria": "confirmacao",
+      "frase": "sim, confirma",
+      "contexto_previo": {
+        "aguardando_confirmacao": true,
+        "servico": "corte",
+        "profissional": "bruna"
+      },
+      "esperado": {
+        "tipo": "confirmacao",
+        "status": "evento_criado"
+      },
+      "porque": "Confirmação de agendamento pendente"
+    },
+    {
+      "id": "D03",
+      "categoria": "informativo",
+      "frase": "bruna é boa mesmo?",
+      "contexto_previo": {
+        "estado": "agendando",
+        "profissional": "bruna"
+      },
+      "esperado": {
+        "tipo": "pergunta_contexto",
+        "status": "respondido_sem_interrupcao"
+      },
+      "porque": "Pergunta sobre profissional - NÃO deve limpar contexto"
+    },
+    {
+      "id": "E01",
+      "categoria": "bordos_hora",
+      "frase": "quero corte com amanda às 8",
+      "esperado": {
+        "servico": "corte",
+        "profissional": "amanda",
+        "hora": "08:00",
+        "status": "validar_disponibilidade"
+      },
+      "porque": "Hora limite de abertura"
+    },
+    {
+      "id": "E02",
+      "categoria": "bordos_hora",
+      "frase": "agendar com joana às 21 horas",
+      "esperado": {
+        "servico": null,
+        "profissional": "joana",
+        "hora": "21:00",
+        "status": "hora_invalida"
+      },
+      "porque": "Hora limite após fechamento"
+    },
+    {
+      "id": "E03",
+      "categoria": "bordos_data",
+      "frase": "quero para 5 dias atrás",
+      "esperado": {
+        "status": "erro_data_passada"
+      },
+      "porque": "Data retroativa - deveria rejeitar"
+    },
+    {
+      "id": "E04",
+      "categoria": "bordos_data",
+      "frase": "agendar para daqui 2 anos",
+      "esperado": {
+        "status": "parcial"
+      },
+      "porque": "Data muito distante - teste de parsing"
+    }
+  ]
+}

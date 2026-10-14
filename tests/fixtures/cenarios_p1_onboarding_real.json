@@ -1,0 +1,349 @@
+{
+  "meta": {
+    "descricao": "Cenários P1 - ONBOARDING + OPERACIONAL para novo dono",
+    "base_patterns": 36,
+    "total_cenarios": 48,
+    "nota": "P1 testa primeira vez que NOVO dono usa sistema - autenticação, criação de profissionais, acesso a recurso",
+    "fases": [
+      "P1.1: Autenticação e Identificação",
+      "P1.2: Onboarding Operacional",
+      "P1.3: Operações Normais",
+      "P1.4: Robustez (entradas com erro)"
+    ]
+  },
+  "cenarios": [
+    {
+      "id": "P1_01",
+      "fase": "P1.1_autenticacao",
+      "frase": "Olá, quero usar o sistema de agendamento",
+      "contexto": {
+        "novo_dono": true,
+        "primeiro_acesso": true
+      },
+      "esperado": {
+        "tipo": "onboarding_novo_dono",
+        "acao": "pedir_validacao_identidade",
+        "status": "aguardando_confirmacao"
+      },
+      "porque": "Novo dono - sistema deve iniciar fluxo de autenticação"
+    },
+    {
+      "id": "P1_02",
+      "fase": "P1.1_autenticacao",
+      "frase": "Olá, quero usar NeoEve",
+      "contexto": {
+        "novo_dono": true
+      },
+      "esperado": {
+        "tipo": "onboarding_novo_dono",
+        "status": "aguardando_confirmacao"
+      },
+      "porque": "Variação: novo dono usando nome do produto"
+    },
+    {
+      "id": "P1_03",
+      "fase": "P1.2_operacional",
+      "frase": "Cadastrar profissional Renata",
+      "contexto": {
+        "dono_confirmado": true,
+        "primeira_prof": true
+      },
+      "esperado": {
+        "tipo": "cadastro_profissional",
+        "profissional": "Renata",
+        "status": "aguardando_servicos"
+      },
+      "porque": "Dono criando primeira profissional"
+    },
+    {
+      "id": "P1_04",
+      "fase": "P1.2_operacional",
+      "frase": "Minha agenda de hoje",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "tipo": "consulta_agenda",
+        "periodo": "hoje",
+        "status": "respondido"
+      },
+      "porque": "Dono consultando sua própria agenda"
+    },
+    {
+      "id": "P1_05",
+      "fase": "P1.2_operacional",
+      "frase": "Minha agenda completa",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "tipo": "consulta_agenda",
+        "periodo": "completo",
+        "status": "respondido"
+      },
+      "porque": "Consultando período completo"
+    },
+    {
+      "id": "P1_06",
+      "fase": "P1.3_operacional",
+      "frase": "Quero agendar Corte + Escova com Carla na segunda-feira às 14h",
+      "contexto": {
+        "dono_confirmado": true,
+        "profissional_cadastrada": "Carla"
+      },
+      "esperado": {
+        "tipo": "agendamento",
+        "servicos": ["Corte", "Escova"],
+        "profissional": "Carla",
+        "data": "segunda-feira",
+        "hora": "14:00",
+        "status": "aguardando_confirmacao"
+      },
+      "porque": "Dono agendando para si mesmo (múltiplos serviços)"
+    },
+    {
+      "id": "P1_07",
+      "fase": "P1.3_operacional",
+      "frase": "Oi! Tudo certo? Meu filho quer fazer corte amanhã. Pode ser?",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "tipo": "agendamento_dependente",
+        "cliente": "filho",
+        "servico": "corte",
+        "data": "amanha",
+        "status": "aguardando_prof_hora"
+      },
+      "porque": "Dono agendando para DEPENDENTE (filho)"
+    },
+    {
+      "id": "P1_08",
+      "fase": "P1.3_operacional",
+      "frase": "Oi! Tudo certo? Meu filho quer fazer corte. Pode ser amanhã?",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "tipo": "agendamento_dependente",
+        "cliente": "filho",
+        "status": "sucesso"
+      },
+      "porque": "Variação: ordem das informações"
+    },
+    {
+      "id": "P1_09",
+      "fase": "P1.3_operacional",
+      "frase": "corte amanhã às 10h com bruna e escova sexta às 15h também",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "tipo": "multiplos_agendamentos",
+        "agendamentos": [
+          {
+            "servico": "corte",
+            "data": "amanha",
+            "hora": "10:00",
+            "profissional": "bruna"
+          },
+          {
+            "servico": "escova",
+            "data": "sexta",
+            "hora": "15:00"
+          }
+        ],
+        "status": "sucesso"
+      },
+      "porque": "Dono com dois agendamentos simultaneamente"
+    },
+    {
+      "id": "P1_10",
+      "fase": "P1.3_operacional",
+      "frase": "corte amanhã às 10h e escova sexta às 15h",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "tipo": "multiplos_agendamentos",
+        "status": "sucesso"
+      },
+      "porque": "Variação: sintaxe diferente"
+    },
+    {
+      "id": "P1_11",
+      "fase": "P1.3_operacional",
+      "frase": "Cancelar agendamento evento_bruna_001",
+      "contexto": {
+        "dono_confirmado": true,
+        "evento_existente": "evento_bruna_001"
+      },
+      "esperado": {
+        "tipo": "cancelamento",
+        "evento_id": "evento_bruna_001",
+        "status": "cancelado"
+      },
+      "porque": "Dono cancelando agendamento específico"
+    },
+    {
+      "id": "P1_12",
+      "fase": "P1.3_operacional",
+      "frase": "Pode deixar. Li tudo. Sim, pode confirmar esse horário. Obrigado!",
+      "contexto": {
+        "dono_confirmado": true,
+        "aguardando_confirmacao": true
+      },
+      "esperado": {
+        "tipo": "confirmacao_verbose",
+        "status": "confirmado"
+      },
+      "porque": "Confirmação com texto extra/ruído"
+    },
+    {
+      "id": "P1_13",
+      "fase": "P1.3_operacional",
+      "frase": "Qual é o horário de funcionamento padrão?",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "tipo": "pergunta_configuracao",
+        "status": "respondido_com_info"
+      },
+      "porque": "Dono perguntando sobre configuração"
+    },
+    {
+      "id": "P1_14",
+      "fase": "P1.4_robustez",
+      "frase": "quro faze corti com a brunna amanha as dez",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "data": "amanha",
+        "hora": "10:00",
+        "status": "sucesso"
+      },
+      "porque": "ROBUSTEZ: Erros de digitação múltiplos (quro, faze, corti, brunna, dez)"
+    },
+    {
+      "id": "P1_15",
+      "fase": "P1.4_robustez",
+      "frase": "quero fazer com ela amanhã",
+      "contexto": {
+        "dono_confirmado": true,
+        "profissional_anterior": "bruna"
+      },
+      "esperado": {
+        "profissional": "bruna",
+        "data": "amanha",
+        "status": "aguardando_servico_hora"
+      },
+      "porque": "Referência contextual 'ela' - reutilizar profissional anterior"
+    },
+    {
+      "id": "P1_16",
+      "fase": "P1.4_robustez",
+      "frase": "marca com a mesma profissional",
+      "contexto": {
+        "dono_confirmado": true,
+        "profissional_anterior": "gloria"
+      },
+      "esperado": {
+        "profissional": "gloria",
+        "status": "aguardando_servico_data"
+      },
+      "porque": "Referência 'mesma profissional' - reutilizar contexto"
+    },
+    {
+      "id": "P1_17",
+      "fase": "P1.4_robustez",
+      "frase": "Entendi tudo que você explicou, mas não quero mais marcar esse horário.",
+      "contexto": {
+        "dono_confirmado": true,
+        "aguardando_confirmacao": true
+      },
+      "esperado": {
+        "tipo": "negacao",
+        "status": "cancelado_retorna_menu"
+      },
+      "porque": "Rejeição da confirmação - voltar ao menu"
+    },
+    {
+      "id": "P1_18",
+      "fase": "P1.4_robustez",
+      "frase": "(Reconectando ao onboarding)",
+      "contexto": {
+        "reconectando": true,
+        "sessao_anterior_incompleta": true
+      },
+      "esperado": {
+        "tipo": "reconexao",
+        "status": "retomar_contexto"
+      },
+      "porque": "Continuação após desconexão - retomar estado anterior"
+    },
+    {
+      "id": "P1_19",
+      "fase": "P1.4_robustez",
+      "frase": "agendar corte com bruna",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "status": "aguardando_data_hora"
+      },
+      "porque": "Mínimo: apenas serviço e profissional"
+    },
+    {
+      "id": "P1_20",
+      "fase": "P1.4_robustez",
+      "frase": "agendar corte com bruna amanhã 10h",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "servico": "corte",
+        "profissional": "bruna",
+        "data": "amanha",
+        "hora": "10:00",
+        "status": "sucesso"
+      },
+      "porque": "Completo: todos os dados"
+    },
+    {
+      "id": "P1_21",
+      "fase": "P1.3_operacional",
+      "frase": "quero corte para amanha as 9 com carla",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "servico": "corte",
+        "profissional": "carla",
+        "data": "amanha",
+        "hora": "09:00",
+        "status": "sucesso"
+      },
+      "porque": "Padrão com 'para' em vez de 'com'"
+    },
+    {
+      "id": "P1_22",
+      "fase": "P1.4_robustez",
+      "frase": "amanh 15h",
+      "contexto": {
+        "dono_confirmado": true
+      },
+      "esperado": {
+        "data": "amanha",
+        "hora": "15:00",
+        "status": "aguardando_servico_prof"
+      },
+      "porque": "Mínimo extremo: apenas data e hora"
+    }
+  ]
+}
