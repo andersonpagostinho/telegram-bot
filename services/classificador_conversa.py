@@ -59,6 +59,12 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         t
     )
 
+    # P0: Contexto de serviço via draft (quando texto não menciona serviço explicitamente)
+    # Permite que perguntas durante agendamento considerem o serviço do draft
+    # Ex: "quais você tem?" com draft={servico: "corte"} → tem contexto
+    servico_do_draft = (ctx or {}).get("draft_agendamento", {}).get("servico")
+    tem_contexto_servico_ou_draft = tem_contexto_servico or bool(servico_do_draft)
+
     # Ajuste sobre algo anterior
     tem_ajuste = _tem(
         r"\b(mais cedo|mais tarde|outro|outra|trocar|mudar|adiantar|atrasar|pensei melhor|melhor)\b",
@@ -125,6 +131,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         "tem_pedido": tem_pedido,
         "tem_indefinido": tem_indefinido,
         "tem_contexto_servico": tem_contexto_servico,
+        "tem_contexto_servico_ou_draft": tem_contexto_servico_ou_draft,
         "tem_ajuste": tem_ajuste,
         "tem_cancelamento": tem_cancelamento,
         "tem_social": tem_social,
@@ -364,7 +371,8 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     if f["tem_pergunta"] and tem_posessivo_servico:
         return {"intencao_conversacional": "consultar_agendamentos_usuario", "confianca": 85, "features": f}
 
-    if f["tem_pergunta"] and f["tem_contexto_servico"]:
+    # P0: Usar contexto_servico_ou_draft para permitir perguntas com contexto do draft
+    if f["tem_pergunta"] and f.get("tem_contexto_servico_ou_draft"):
         return {"intencao_conversacional": "consulta_disponibilidade_servico", "confianca": 85, "features": f}
 
     if f["tem_pedido"] and f["tem_contexto_servico"] and f["tem_tempo"]:

@@ -2364,11 +2364,28 @@ async def detectar_alteracao_draft_agendamento(
             }
 
     # =====================================================
+    # 🔥 troca de profissional GENERICA (sem nome especifico)
+    # DEVE VENCER sobre busca de serviço!
+    # Se usuario disse "outra profissional" mas nao especificou qual,
+    # retornar tipo=profissional valor=None para que [MUDANCA DE PROFISSIONAL]
+    # possa oferecer menu de alternativas
+    # =====================================================
+    if any(x in t for x in ["outra profissional", "outra prof", "profissional diferente"]):
+        print(
+            f"[DETECTAR_ALTERACAO] tipo=profissional generico | valor=None | texto={texto_usuario}",
+            flush=True
+        )
+        return {
+            "tipo": "profissional",
+            "valor": None
+        }
+
+    # =====================================================
     # 🔥 troca de serviço
     # =====================================================
     servico_detectado = await encontrar_servico_mais_proximo(
         texto_usuario,
-        dono_id
+        dono_id=dono_id
     )
 
     if servico_detectado:
@@ -2390,7 +2407,7 @@ async def detectar_alteracao_draft_agendamento(
                     hora_explicita = f"{h:02d}:{m:02d}:00"
 
             print(
-                f"🧪 [ALTERACAO_DRAFT_SERVICO_FINAL] "
+                f"[ALTERACAO_DRAFT_SERVICO_FINAL] "
                 f"servico_detectado={servico_detectado} "
                 f"| hora_explicita={hora_explicita} "
                 f"| texto={texto_usuario}",
@@ -2420,22 +2437,6 @@ async def detectar_alteracao_draft_agendamento(
                     "tipo": "data",
                     "valor": data_nova
                 }
-
-    # =====================================================
-    # 🔥 troca de profissional GENERICA (sem nome especifico)
-    # Se usuario disse "outra profissional" mas nao especificou qual,
-    # retornar tipo=profissional valor=None para que [MUDANCA DE PROFISSIONAL]
-    # possa oferecer menu de alternativas
-    # =====================================================
-    if any(x in t for x in ["outra profissional", "outra prof", "profissional diferente"]):
-        print(
-            f"🧪 [DETECTAR_ALTERACAO] tipo=profissional generico | valor=None | texto={texto_usuario}",
-            flush=True
-        )
-        return {
-            "tipo": "profissional",
-            "valor": None
-        }
 
     return None
 
@@ -6979,7 +6980,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         quer_servicos = bool(quer_menu_serv or tnorm == "quais")
         quer_profissionais = False
     else:
-        quer_profissionais = bool(quer_menu_prof or quem_faz_generico)
+        # P0: Detectar "quais você tem?" durante agendando com draft
+        tem_draft = bool(ctx.get("draft_agendamento"))
+        pergunta_profissionais_draft = (
+            tem_draft
+            and tnorm in ("quais voce tem", "quais você tem", "quais profissionais", "quem tem", "quem atende", "quais outras", "quais alternativas")
+        )
+        quer_profissionais = bool(quer_menu_prof or quem_faz_generico or pergunta_profissionais_draft)
         quer_servicos = bool(quer_menu_serv and not quer_profissionais)
 
     if quer_profissionais or quer_servicos or (quem_faz_generico and estado_fluxo == "idle"):
@@ -7000,6 +7007,38 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         # 🔎 Resolve profissional (nome explícito OU pronome "ela/dela" via contexto)
         prof_citado = resolver_profissional_referenciado(tnorm, profs_dict, ctx)
+
+        # P0: Filtrar profissionais pelo serviço do draft quando pergunta "quais você tem?"
+        if pergunta_profissionais_draft:
+            servico_draft = (ctx.get("draft_agendamento") or {}).get("servico")
+            prof_atual = (ctx.get("draft_agendamento") or {}).get("profissional") or ctx.get("profissional_escolhido")
+
+            if servico_draft:
+                nomes_filtrados = []
+                for p in profs_dict.values():
+                    nome = (p.get("nome") or "").strip()
+                    if not nome:
+                        continue
+
+                    # Verifica se profissional faz o serviço do draft
+                    servicos_prof = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+                    if normalizar(servico_draft) in servicos_prof or servico_draft.lower() in servicos_prof:
+                        # Exclui a profissional atual, se ela estiver na lista
+                        if normalizar(nome) != normalizar(prof_atual or ""):
+                            nomes_filtrados.append(nome)
+
+                if nomes_filtrados:
+                    txt = f"*Para {servico_draft}, eu tenho:*\n- " + "\n- ".join(sorted(set(nomes_filtrados)))
+                    menu_dentro_do_fluxo = True  # Forçar pergunta mesmo se não está em aguardando
+                else:
+                    # Nenhuma alternativa → perguntar se quer mudar de serviço
+                    txt = f"Só tenho a {prof_atual} para {servico_draft}. Quer escolher outro serviço ou profissional?"
+                    menu_dentro_do_fluxo = False  # Não fazer pergunta automática
+
+                if menu_dentro_do_fluxo and nomes_filtrados:
+                    txt += "\n\nQual você prefere?"
+
+                return await _send_and_stop(context, user_id, txt)
 
         if quer_servicos and not quer_profissionais:
             if prof_citado:
