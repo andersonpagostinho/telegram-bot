@@ -2588,7 +2588,8 @@ async def resolver_alteracao_draft_agendamento(
             duracao_min=duracao,
             profissional=profissional,
             servico=servico,
-            direcao=direcao
+            direcao=direcao,
+            dono_id=dono_id
         )
 
         if not resultado:
@@ -2851,7 +2852,8 @@ async def resolver_alteracao_draft_agendamento(
             data_iso=data,
             hora_inicio=hora,
             duracao_min=duracao,
-            profissional=novo_profissional
+            profissional=novo_profissional,
+            dono_id=dono_id
         )
 
         if not validacao.get("permitido"):
@@ -3055,7 +3057,8 @@ async def resolver_alteracao_draft_agendamento(
             data_iso=nova_data,
             hora_inicio=hora,
             duracao_min=duracao,
-            profissional=profissional
+            profissional=profissional,
+            dono_id=dono_id
         )
 
         if not validacao.get("permitido"):
@@ -3388,12 +3391,14 @@ async def buscar_horario_ajuste_no_dia(
     duracao_min: int,
     profissional: str,
     servico: str,
-    direcao: str
+    direcao: str,
+    dono_id: str | None = None
 ):
     janela = await obter_janela_funcionamento(
         user_id=user_id,
         data_str=data,
-        profissional=profissional
+        profissional=profissional,
+        dono_id=dono_id
     )
 
     if not janela or not janela.get("aberto"):
@@ -3432,7 +3437,9 @@ async def buscar_horario_ajuste_no_dia(
             hora_inicio=hora,
             duracao_min=duracao_min,
             profissional=profissional
-        )
+        ,
+                    dono_id=dono_id
+                )
 
         if not permitido or not permitido.get("permitido"):
             continue
@@ -7765,6 +7772,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     data_iso=data_ref,
                     hora_inicio=hora_ref,
                     duracao_min=estimar_duracao(servico) if servico else 0,
+                    dono_id=dono_id
                 )
 
                 if not validacao_horario.get("permitido"):
@@ -7870,6 +7878,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             user_id=id_dono,
                             data_str=data_ref if 'data_ref' in locals() else data,
                             profissional=profissional if 'profissional' in locals() else (prof if 'prof' in locals() else None),
+                            dono_id=dono_id
                         )
 
                         origem_janela = (janela.get("origem") or "").strip().lower()
@@ -9278,7 +9287,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 user_id=user_id,
                 data_str=data_ref,
                 profissional=prof
-            )
+            ,
+                    dono_id=dono_id
+                )
 
             if not janela_data.get("aberto"):
                 origem = janela_data.get("origem")
@@ -9397,6 +9408,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     data_iso=data_ref,
                     hora_inicio=h,
                     duracao_min=duracao_servico,
+                
+                    dono_id=dono_id
                 )
 
                 if validacao_horario.get("permitido"):
@@ -9792,6 +9805,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     data_iso=data_ref,
                     hora_inicio=h,
                     duracao_min=duracao_servico,
+                
+                    dono_id=dono_id
                 )
 
                 if validacao_horario.get("permitido"):
@@ -9943,7 +9958,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 data_iso=data_ref,
                 hora_inicio=hora_ref,
                 duracao_min=estimar_duracao(servico),
-            )
+            
+                    dono_id=dono_id
+                )
 
             if not validacao.get("permitido"):
 
@@ -9977,7 +9994,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         user_id=id_dono,
                         data_str=data_ref,
                         profissional=None,
-                    )
+                    
+                    dono_id=dono_id
+                )
 
                     fim_janela = janela.get("fim") if janela.get("aberto") else None
                     limite = fim_janela or "o horário configurado"
@@ -10552,7 +10571,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         data_iso=data_ref,
                         hora_inicio=hora_ref,
                         duracao_min=estimar_duracao(servico),
-                    )
+                    
+                    dono_id=dono_id
+                )
 
                     if not validacao.get("permitido"):
                         print(" [BLOQUEIO] confirmação impedida por horário inválido", flush=True)
@@ -10621,6 +10642,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     data_iso=data_ref,
                     hora_inicio=hora_ref,
                     duracao_min=estimar_duracao(servico),
+                
+                    dono_id=dono_id
                 )
 
                 print(f" [EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
@@ -10653,6 +10676,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             user_id=id_dono,
                             data_str=data_ref if 'data_ref' in locals() else data,
                             profissional=profissional if 'profissional' in locals() else (prof if 'prof' in locals() else None),
+                            dono_id=dono_id
                         )
 
                         origem_janela = (janela.get("origem") or "").strip().lower()
@@ -11396,7 +11420,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 hora_inicio=hora_ref,
                 duracao_min=estimar_duracao(servico_validacao),
                 profissional=profissional_validacao,
-            )
+            
+                    dono_id=dono_id
+                )
 
             if not validacao.get("permitido"):
                 motivo = validacao.get("motivo")
@@ -11489,7 +11515,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 user_id=id_dono,
                 data_str=data_ref,
                 profissional=prof_ref
-            )
+            ,
+                    dono_id=dono_id
+                )
 
             print(f" [PRECHECK JANELA-BASE] janela={janela}", flush=True)
 
@@ -11664,7 +11692,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 data_iso=data_ref,
                 hora_inicio=hora_ref,
                 duracao_min=estimar_duracao(servico_check),
-            )
+            
+                    dono_id=dono_id
+                )
 
             print(
                 f"🧪 [P0 CHECK] permitido={validacao_p0.get('permitido')} | motivo={validacao_p0.get('motivo')}",
@@ -11934,7 +11964,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             hora_inicio=hora_str,
                             duracao_min=duracao_minutos,
                             profissional=profissional
-                        )
+                        ,
+                    dono_id=dono_id
+                )
 
                         if not validacao_exp.get("permitido"):
                             print(f" [AGUARDANDO_HORARIO] Fora do expediente | motivo={validacao_exp.get('motivo')}", flush=True)
@@ -12364,7 +12396,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         data_iso=data_ref,
                         hora_inicio=hora_ref,
                         duracao_min=dados.get("duracao") or estimar_duracao(servico),
-                    )
+                    
+                    dono_id=dono_id
+                )
 
                     if not validacao.get("permitido"):
                         tentativa = await resolver_fora_do_expediente(
@@ -12396,6 +12430,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 user_id=id_dono,
                                 data_str=data_ref if 'data_ref' in locals() else data,
                                 profissional=profissional if 'profissional' in locals() else (prof if 'prof' in locals() else None),
+                                dono_id=dono_id
                             )
 
                             origem_janela = (janela.get("origem") or "").strip().lower()

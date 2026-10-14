@@ -211,7 +211,8 @@ async def validar_data_funcionamento(user_id: str, data_iso: str) -> dict[str, A
 async def obter_janela_funcionamento(
     user_id: str,
     data_str: str,
-    profissional: str | None = None
+    profissional: str | None = None,
+    dono_id: str | None = None
 ) -> dict[str, Any]:
     """
     Retorna a janela real de funcionamento considerando:
@@ -236,7 +237,19 @@ async def obter_janela_funcionamento(
     # =========================================================
     # 1) LER AGENDA DO SALÃO
     # =========================================================
-    path_salao = f"Clientes/{user_id}/configuracao/agenda_funcionamento"
+    # [P0-TENANT] Usar dono_id (proprietário do salão) em vez de user_id (cliente)
+    if dono_id:
+        salao_id = dono_id
+        print(f"[AGENDA_JANELA] Usando dono_id fornecido: {dono_id}", flush=True)
+    else:
+        # Fallback: se dono_id não fornecido, tentar resolver via obter_id_dono
+        from services.identidade_service import obter_id_dono
+        salao_id = await obter_id_dono(user_id)
+        if not salao_id:
+            salao_id = user_id  # Último recurso
+        print(f"[AGENDA_JANELA_FALLBACK] dono_id não fornecido. Resolvido: {user_id} → {salao_id}", flush=True)
+
+    path_salao = f"Clientes/{salao_id}/configuracao/agenda_funcionamento"
     cfg_salao = await buscar_dado_em_path(path_salao) or {}
 
     agenda_padrao_salao = cfg_salao.get("agenda_padrao") or {}
@@ -499,7 +512,8 @@ async def validar_horario_funcionamento(
     data_iso: str,
     hora_inicio: str,
     duracao_min: int,
-    profissional: str | None = None
+    profissional: str | None = None,
+    dono_id: str | None = None
 ) -> dict[str, Any]:
     """
     Valida se o horário e o intervalo cabem na janela real da data.
@@ -513,7 +527,8 @@ async def validar_horario_funcionamento(
     regra = await obter_janela_funcionamento(
         user_id=user_id,
         data_str=data_iso,
-        profissional=profissional
+        profissional=profissional,
+        dono_id=dono_id
     )
     print("[AGENDA JANELA REAL]:", regra, flush=True)
 
