@@ -1146,8 +1146,15 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 await enviar_mensagem_whatsapp(user_id, mensagem_sugestao, phone_number_id=phone_number_id_alt)
             return True  #  Não agenda nesse momento
 
-        #  FASE 4: Extrair tenant_id de dados (propagado por principal_router)
-        tenant_id = (dados or {}).get("tenant_id") or dono_id
+        #  FASE 4: Extrair tenant_id com prioridades seguras
+        # [P0.3-C1] Prioridade: identidade (WhatsApp validado) > dados (router) > dono_id (fallback)
+        tenant_id = None
+        if identidade and identidade.tenant_id:
+            tenant_id = identidade.tenant_id
+        elif (dados or {}).get("tenant_id"):
+            tenant_id = (dados or {}).get("tenant_id")
+        elif dono_id:
+            tenant_id = dono_id
 
         evento_data = {
             "descricao": descricao,
@@ -1306,6 +1313,49 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if not resultado_salvamento:
             print(f"[PATCH_P0] Salvamento falhou (resultado_salvamento={resultado_salvamento})", flush=True)
             print(f"[P01_TRACE] RETURN_TRUE_SALVAR_FALHOU | linha=1212 | resultado_salvamento={resultado_salvamento}", flush=True)
+
+            # [P0.3-C2] Detectar se falha foi por tenant_id inválido
+            if not tenant_id:
+                # Tenant não pôde ser resolvido
+                # Tentar obter nome da dona para mensagem de contingência
+                print(f"[P0.3-C2] Tentando obter nome da dona para mensagem de contingência", flush=True)
+                nome_dona = "Dona do salão"
+
+                # Usar dono_id (tentado anteriormente) para buscar nome
+                if dono_id:
+                    try:
+                        from services.firebase_service_async import buscar_cliente
+                        dona_info = await buscar_cliente(dono_id)
+                        if dona_info and dona_info.get("nome"):
+                            nome_dona = dona_info.get("nome")
+                            print(f"[P0.3-C2] Nome da dona obtido: {nome_dona}", flush=True)
+                    except Exception as e:
+                        print(f"[P0.3-C2] Erro ao buscar nome da dona: {e}", flush=True)
+
+                msg_erro = (
+                    "Não consegui identificar sua agenda no momento. 😕\n\n"
+                    f"Se o problema continuar, por favor, envie uma mensagem para a *{nome_dona}*."
+                )
+            else:
+                # Tenant válido, falha é outro motivo (horário passou ou outro)
+                # [P0.2 FIX] Usar mensagem específica para horário passado
+                msg_erro = (
+                    "Entendi! Mas esse horário já passou 😅\n\n"
+                    "Deixa eu sugerir outras opções:\n"
+                    "• *Amanhã no mesmo horário*?\n"
+                    "• *Outro dia/horário*?\n"
+                    "• Com *outra profissional*?"
+                )
+
+            if update and hasattr(update, "message"):
+                await update.message.reply_text(msg_erro, parse_mode="Markdown")
+            else:
+                from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                phone_number_id_alt = (
+                    identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                )
+                await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
+
             return True
 
         #  Sucesso real — só chega aqui se não houve conflito/erro
