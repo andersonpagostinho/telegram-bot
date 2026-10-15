@@ -203,12 +203,118 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
         # Questões sobre repetição
         "pergunta_amanha_mesmo_horario": firestore.DELETE_FIELD,
         "data_hora_pendente": firestore.DELETE_FIELD,
+
+        # Rastreamento de atividade
+        "_last_client_activity": firestore.DELETE_FIELD,
     }
 
     print(f"[PATCH_P0_CLEAR] path={path} | dono={dono_id} | cliente={cliente_id}", flush=True)
     print(f"[PATCH_P0_CLEAR] DELETE_FIELD count: {len([v for v in payload.values() if v is firestore.DELETE_FIELD])}", flush=True)
 
     return await atualizar_dado_em_path(path, payload)
+
+
+async def limpar_contexto_agendamento_v2_transacional(
+    dono_id: str,
+    cliente_id: str
+) -> bool:
+    """[TIMEOUT-RULE] Limpeza com transação Firestore.
+
+    Protege contra race condition: se evento for criado DURANTE a limpeza,
+    a transação detecta mudança e aborta (evento é preservado).
+
+    Retorna True se limpeza foi bem-sucedida.
+    Retorna False se transação abortou (evento foi criado).
+    """
+    import asyncio
+    from google.cloud import firestore
+
+    def operacao_transacional():
+        """Executado em thread síncrona (Firestore SDKpython não é async)."""
+        db = get_db()
+
+        @firestore.transactional
+        def limpar_com_transacao(transaction):
+            """[TIMEOUT-PROTECT] Dentro da transação, CAS implícito contra mudanças."""
+            path = f"Clientes/{dono_id}/Sessoes/{cliente_id}"
+            sessao_ref = db.document(path)
+
+            # LEITURA dentro da transação (Firestore rastreia isso para CAS)
+            sessao_doc = transaction.get(sessao_ref)
+
+            if not sessao_doc.exists:
+                print(f"[TIMEOUT-ALREADY-GONE] Sessão já foi deletada", flush=True)
+                return True
+
+            sessao_data = sessao_doc.to_dict() or {}
+
+            # VALIDAÇÃO: evento foi criado ENTRE nossa leitura inicial e agora?
+            # Se sim, transação será abortada pelo Firestore
+            if sessao_data.get("evento_criado"):
+                print(f"[TIMEOUT-TRANSACTION-ABORT] evento_criado=True, abortando limpeza", flush=True)
+                return False
+
+            # ESCRITA (transacional)
+            payload = {
+                "estado_fluxo": "idle",
+                "modo_escolha_horario": firestore.DELETE_FIELD,
+                "horarios_sugeridos": firestore.DELETE_FIELD,
+                "sugestoes": firestore.DELETE_FIELD,
+                "draft_agendamento": firestore.DELETE_FIELD,
+                "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
+                "dados_anteriores": firestore.DELETE_FIELD,
+                "profissional_escolhido": firestore.DELETE_FIELD,
+                "data_hora": firestore.DELETE_FIELD,
+                "servico": firestore.DELETE_FIELD,
+                "hora_confirmada": firestore.DELETE_FIELD,
+                "evento_criado": firestore.DELETE_FIELD,
+                "duracao": firestore.DELETE_FIELD,
+                "cancelamento_pendente": firestore.DELETE_FIELD,
+                "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
+                "candidatos_cancelamento": firestore.DELETE_FIELD,
+                "interpretacao_conversacional": firestore.DELETE_FIELD,
+                "intencao_conversacional": firestore.DELETE_FIELD,
+                "confianca_intencao_conversacional": firestore.DELETE_FIELD,
+                "objetivo_conversacional": firestore.DELETE_FIELD,
+                "tipo_ajuste_incremental": firestore.DELETE_FIELD,
+                "modo_conversa": firestore.DELETE_FIELD,
+                "alternativa_profissional": firestore.DELETE_FIELD,
+                "ultima_opcao_profissionais": firestore.DELETE_FIELD,
+                "ultima_consulta": firestore.DELETE_FIELD,
+                "ultima_intencao": firestore.DELETE_FIELD,
+                "pergunta_amanha_mesmo_horario": firestore.DELETE_FIELD,
+                "data_hora_pendente": firestore.DELETE_FIELD,
+                "_last_client_activity": firestore.DELETE_FIELD,
+            }
+
+            transaction.update(sessao_ref, payload)
+            print(f"[TIMEOUT-TRANSACTION-COMMIT] Limpeza aplicada atomicamente", flush=True)
+            return True
+
+        # EXECUTAR TRANSAÇÃO
+        transaction = db.transaction()
+        try:
+            resultado = limpar_com_transacao(transaction)
+            return resultado
+        except firestore.TransactionAbortedException as e:
+            print(f"[TIMEOUT-TRANSACTION-FIRESTORE-ABORT] Conflito de sessão: {e}", flush=True)
+            return False
+        except Exception as e:
+            print(f"[TIMEOUT-TRANSACTION-ERROR] Erro na transação: {e}", flush=True)
+            return False
+
+    try:
+        # Firestore Python SDK é síncrono, usar asyncio.to_thread como em identidade_service.py
+        resultado = await asyncio.to_thread(operacao_transacional)
+        if resultado:
+            print(f"[TIMEOUT-CLEANUP-SUCCESS] Contexto limpo com proteção transacional", flush=True)
+            return True
+        else:
+            print(f"[TIMEOUT-CLEANUP-FAILED] Transação abortou (evento foi criado durante limpeza)", flush=True)
+            return False
+    except Exception as e:
+        print(f"[TIMEOUT-CLEANUP-EXCEPTION] Exceção geral: {e}", flush=True)
+        return False
 
 
 # ========== VERSÃO LEGADA (DEPRECADA) — APENAS COMPATIBILIDADE ==========

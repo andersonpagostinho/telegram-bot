@@ -3826,6 +3826,176 @@ def eh_continuacao_de_agendamento(txt: str, ctx: dict) -> bool:
     return False
 
 
+async def _validar_expiração_sessao(
+    ctx: dict,
+    dono_id: str,
+    cliente_id: str,
+    user_id: str,
+    context
+) -> dict:
+    """[TIMEOUT-RULE] Validar expiração de sessão (60 minutos sem atividade relevante do cliente).
+
+    Contrato de retorno estruturado:
+    {
+        "expirou": bool,
+        "tipo_aviso": "timeout_comprovado" | "draft_obsoleto" | None,
+        "mensagem": str ou None,
+        "evento_criado": bool
+    }
+
+    Protege contra:
+    - Draft obsoleto (data já passou)
+    - Modo escolha travado sem sugestões válidas
+    - Fluxo ativo por muito tempo sem mensagem do cliente
+
+    Retorna {"expirou": True} se limpeza foi bem-sucedida.
+    Retorna {"expirou": False} se válido ou se evento foi criado (continuar normalmente).
+    """
+    from datetime import timezone
+    import dateutil.parser
+
+    TIMEOUT_SECONDS = 3600  # 60 minutos
+
+    # Se em idle, não há timeout
+    estado_fluxo = ctx.get("estado_fluxo", "idle").strip().lower()
+    if estado_fluxo == "idle":
+        return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
+
+    timestamp_atividade = ctx.get("_last_client_activity")
+
+    # ===== CASO 1: Sem timestamp confiável =====
+    if not timestamp_atividade:
+        print(f"[TIMEOUT-WARN] Sessão sem _last_client_activity | "
+              f"dono={dono_id} | cliente={cliente_id}", flush=True)
+
+        # Verificar se há estado obsoleto que justifique limpeza
+        draft = ctx.get("draft_agendamento", {})
+
+        # Validação 1: Draft tem data que já passou?
+        if draft.get("data_hora"):
+            try:
+                data_draft = datetime.fromisoformat(draft["data_hora"])
+                agora = datetime.now(timezone.utc)
+
+                if data_draft <= agora:
+                    print(f"[TIMEOUT-STALE-DRAFT] Draft obsoleto | "
+                          f"data={draft['data_hora']} <= agora={agora}", flush=True)
+
+                    # Limpar com proteção transacional
+                    from utils.contexto_temporario import limpar_contexto_agendamento_v2_transacional
+                    resultado = await limpar_contexto_agendamento_v2_transacional(dono_id, cliente_id)
+
+                    if resultado:
+                        mensagem_draft_obsoleto = (
+                            "Oi! 😊 Percebi que seu agendamento anterior não foi concluído e encerrei "
+                            "aquele atendimento para podermos recomeçar com as informações atualizadas.\n\n"
+                            "Não se preocupe: essa recuperação não cancela nenhum agendamento já confirmado.\n\n"
+                            "Quando quiser, é só me chamar novamente para começarmos do zero. "
+                            "Estou à disposição! 💜"
+                        )
+                        return {
+                            "expirou": True,
+                            "tipo_aviso": "draft_obsoleto",
+                            "mensagem": mensagem_draft_obsoleto,
+                            "evento_criado": False
+                        }
+                    else:
+                        return {
+                            "expirou": False,
+                            "tipo_aviso": None,
+                            "mensagem": None,
+                            "evento_criado": True
+                        }
+            except Exception as e:
+                print(f"[TIMEOUT-STALE-CHECK-ERROR] {e}", flush=True)
+
+        # Sem timestamp e sem draft obsoleto: não expirar (conservador)
+        return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
+
+    # ===== CASO 2: Com timestamp válido =====
+    try:
+        ts_atividade = dateutil.parser.isoparse(timestamp_atividade)
+        agora = datetime.now(timezone.utc)
+        tempo_decorrido = (agora - ts_atividade).total_seconds()
+
+        print(f"[TIMEOUT-CHECK] tempo={tempo_decorrido/60:.1f}min | "
+              f"estado={estado_fluxo} | ativo_em={timestamp_atividade}", flush=True)
+
+        # Se >= 60 minutos, expirou
+        if tempo_decorrido >= TIMEOUT_SECONDS:
+            print(f"[TIMEOUT-EXPIRED] {tempo_decorrido/3600:.1f}h sem atividade, verificando evento...", flush=True)
+
+            # ANTES de limpar: verificar se evento foi criado
+            # (construir event_id esperado usando mesmo algoritmo que salvar_evento)
+            draft = ctx.get("draft_agendamento", {})
+            cliente_id_draft = ctx.get("cliente_id") or cliente_id
+            profissional = draft.get("profissional", "").strip()
+            data = draft.get("data", "").strip()
+            hora_inicio = draft.get("hora_inicio", "").strip()
+
+            evento_existe = False
+            if cliente_id_draft and profissional and data and hora_inicio:
+                try:
+                    # Normalizar hora como faz salvar_evento()
+                    h, m = map(int, str(hora_inicio).split(":"))
+                    m = (m // 20) * 20
+                    hora_normalizada = f"{h:02d}:{m:02d}"
+
+                    # Construir event_id (mesmo algoritmo)
+                    base_id = f"{cliente_id_draft}_{profissional}_{data}_{hora_normalizada}"
+                    event_id = base_id.replace(" ", "_").lower()
+
+                    # Verificar em Firestore
+                    from services.firebase_service_async import buscar_dado_em_path
+                    path_evento = f"Clientes/{dono_id}/Eventos/{event_id}"
+                    evento = await buscar_dado_em_path(path_evento)
+
+                    if evento:
+                        print(f"[TIMEOUT-EVENTO-EXISTE] Evento já criado | event_id={event_id}", flush=True)
+                        evento_existe = True
+                except Exception as e:
+                    print(f"[TIMEOUT-EVENTO-CHECK-ERROR] {e}", flush=True)
+
+            if evento_existe:
+                # Não expirar, evento foi criado com sucesso
+                return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": True}
+
+            # Seguro de limpar: sem evento pendente
+            from utils.contexto_temporario import limpar_contexto_agendamento_v2_transacional
+            resultado = await limpar_contexto_agendamento_v2_transacional(dono_id, cliente_id)
+
+            if resultado:
+                print(f"[TIMEOUT-CLEANED] Contexto limpo, fluxo reiniciado", flush=True)
+
+                mensagem_timeout = (
+                    "Oi! 😊 Como ficamos 1 hora sem atividade, encerrei esse atendimento como não concluído.\n\n"
+                    "Não se preocupe: esse atendimento não gerou um novo agendamento, e nenhum agendamento já "
+                    "confirmado foi cancelado.\n\n"
+                    "Quando quiser, é só me chamar novamente para começarmos do zero. Estou à disposição! 💜"
+                )
+                return {
+                    "expirou": True,
+                    "tipo_aviso": "timeout_comprovado",
+                    "mensagem": mensagem_timeout,
+                    "evento_criado": False
+                }
+            else:
+                print(f"[TIMEOUT-TRANSACAO-FALHOU] Transação abortou (evento criado durante limpeza)", flush=True)
+                return {
+                    "expirou": False,
+                    "tipo_aviso": None,
+                    "mensagem": None,
+                    "evento_criado": True
+                }
+
+        return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
+
+    except Exception as e:
+        print(f"[TIMEOUT-ERROR] Erro ao validar expiração: {e}", flush=True)
+        # Em caso de erro, assume válido (conservador)
+        return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
+
+
 # ----------------------------
 # Router principal
 # ----------------------------
@@ -3928,6 +4098,35 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # para manter coerência entre leitura e escrita
                 cliente_id = cliente_id_sem_prefixo
                 print(f"[P0.10-COMPAT] cliente_id revertido para path antigo: {cliente_id}", flush=True)
+
+    # ➕ [TIMEOUT-RULE] VALIDAR EXPIRAÇÃO DE SESSÃO (ANTES de processar fluxo antigo)
+    # CRÍTICO: fazer ANTES de modo_escolha_horario, sugestões, draft, confirmação, etc
+    resultado_timeout = await _validar_expiração_sessao(
+        ctx,
+        dono_id,
+        cliente_id,
+        user_id,
+        context
+    )
+
+    if resultado_timeout.get("expirou"):
+        print(f"[SESSION_TIMEOUT] Sessão expirada | tipo={resultado_timeout.get('tipo_aviso')}", flush=True)
+        mensagem = resultado_timeout.get("mensagem", "Reiniciamos a conversa 🔄\n\nComo posso ajudar?")
+        return await _send_and_stop(
+            context,
+            user_id,
+            mensagem
+        )
+
+    # ➕ [ACTIVITY-TRACK] REGISTRAR ATIVIDADE DESTA MENSAGEM
+    # CRÍTICO: fazer APÓS validação de expiração, ANTES de processar fluxo
+    # Apenas para mensagens reais do cliente (não webhooks, não respostas internas)
+    if not ctx.get("_last_client_activity"):
+        from datetime import timezone
+        ctx["_last_client_activity"] = datetime.now(timezone.utc).isoformat()
+        print(f"[ACTIVITY-NEW] Primeira atividade registrada: {ctx['_last_client_activity']}", flush=True)
+    else:
+        print(f"[ACTIVITY-EXISTS] Mantendo timestamp anterior: {ctx.get('_last_client_activity')}", flush=True)
 
     # =========================================================
     # LOTE 3E: RESOLVER CONFIRMACAO/NEGACAO PENDENTE (EARLY)
