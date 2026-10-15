@@ -43,3 +43,7 @@ yarn.lock
 
 # WhatsApp Web Session
 data/
+
+firebase_credentials*.json
+* 2.*
+*(1).*
