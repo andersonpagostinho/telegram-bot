@@ -13,6 +13,7 @@ from telegram.ext import ContextTypes
 from utils.tts_utils import responder_em_audio
 from utils.formatters import formatar_horario_atual, gerar_sugestoes_de_horario, adaptar_genero
 from utils.mensagens_agendamento import montar_mensagem_confirmacao_sucesso
+from utils.interpretador_datas import FUSO_BR, agora_br_naive
 from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
 from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario
@@ -1175,6 +1176,34 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         print(f"[TESTE_SURI]  EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
         print(f"[TESTE_SURI]  EVENTO_DATA: profissional={repr(evento_data.get('profissional'))}", flush=True)
         print(f"[TESTE_SURI]  EVENTO_DATA: descricao={repr(evento_data.get('descricao'))}", flush=True)
+
+        # =========================================================
+        # 🚫 VALIDAÇÃO PRÉ-SALVA: Rejeitar horário no passado ANTES de tentar salvar
+        # =========================================================
+        try:
+            dt_naive = start_time.replace(tzinfo=None)
+            dt_local = FUSO_BR.localize(dt_naive)
+            agora_local = datetime.now(FUSO_BR)
+
+            if dt_local <= agora_local:
+                print(f"[PAST_TIME_BLOCKED_PRE] Horário no passado detectado pré-salva: {dt_local} <= {agora_local}", flush=True)
+                msg_erro = (
+                    f"Esse horário já passou 😅\n\n"
+                    f"Quer agendar para *amanhã no mesmo horário* ou prefere outro horário?"
+                )
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_erro, parse_mode="Markdown")
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
+                return True  # Resposta foi enviada ao usuário
+        except (ValueError, TypeError, Exception) as e:
+            # Horário inválido ou ambíguo: não bloqueia aqui, deixa salvar_evento() validar
+            # (para compatibilidade com conversão em salvar_evento() que já trata isso)
+            print(f"[PAST_TIME_CHECK_ERROR_PRE] Erro ao validar data/hora pré-salva: {e}", flush=True)
 
         print(f"[P01_TRACE] PASSOU_VALIDACAO_EXPEDIENTE | linha=849", flush=True)
         print(" Disparando salvar_evento com:", evento_data)

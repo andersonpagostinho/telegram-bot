@@ -247,7 +247,7 @@ async def obter_janela_funcionamento(
         salao_id = await obter_id_dono(user_id)
         if not salao_id:
             salao_id = user_id  # Último recurso
-        print(f"[AGENDA_JANELA_FALLBACK] dono_id não fornecido. Resolvido: {user_id} → {salao_id}", flush=True)
+        print(f"[AGENDA_JANELA_FALLBACK] dono_id nao fornecido. Resolvido: {user_id} -> {salao_id}", flush=True)
 
     path_salao = f"Clientes/{salao_id}/configuracao/agenda_funcionamento"
     cfg_salao = await buscar_dado_em_path(path_salao) or {}
