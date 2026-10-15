@@ -174,6 +174,68 @@ Causa real: Interpretação de fala, não bug de código
 
 ---
 
+## 📐 Auditoria de Estrutura Pré-Alteração
+
+**OBRIGATÓRIO:** Antes de sugerir qualquer alteração de código, fazer auditoria visual da estrutura do projeto.
+
+### Procedimento Obrigatório
+
+Antes de alterar QUALQUER coisa:
+
+1. ✅ **Mapear estrutura de diretórios**
+   - Listar arquivos em `utils/`, `services/`, `handlers/`
+   - Verificar padrões de nomenclatura
+   - Procurar por utilitários relacionados ao problema
+
+2. ✅ **Procurar por serviços/funções similares**
+   - Se o problema é datetime → procurar `*datas*.py`, `*tempo*.py`, `*time*.py`
+   - Se o problema é contexto → procurar `contexto*.py`, `session*.py`
+   - Se o problema é Firebase → procurar `firebase*.py`, `firestore*.py`
+
+3. ✅ **Ler o serviço/utilidade encontrado**
+   - Entender contrato (imports, tipos, assinaturas)
+   - Verificar se já resolve o problema
+   - Identificar padrões e convenções estabelecidas
+
+4. ✅ **Validar alinhamento**
+   - A solução proposta usa as funções/padrões existentes?
+   - Ou contradiz o que já está implementado?
+   - Ou há outra abordagem já padronizada no projeto?
+
+### Exemplo Real (Correção P0)
+
+**❌ ERRADO (o que quase aconteceu):**
+```
+Problema: "Erro ao comparar datas"
+Solução imediata: "Use datetime.fromisoformat()"
+Sem verificar se já existe solução no projeto
+```
+
+**✅ CORRETO (o que deveria ter feito):**
+```
+Problema: "Erro ao comparar datas"
+Estrutura: Procurar por *datas*.py, *time*.py
+Encontrado: utils/interpretador_datas.py
+Contrato: 
+  - agora_br_aware() → datetime aware (Brasil)
+  - dateutil.parser.isoparse() → parser tolerante
+Decisão: Usar dateutil.parser.isoparse() + validação de tzinfo
+```
+
+### Por Que Essa Regra?
+
+```
+PADRÃO ERRADO:
+Investigação → Sugerir alteração → Descobrir que já existe solução → Refazer
+
+PADRÃO CORRETO:
+Auditoria de estrutura → Entender padrões → Sugerir alteração alinhada
+```
+
+**Resultado:** economia de tempo de investigação, soluções alinhadas com o projeto, sem refatorações desnecessárias.
+
+---
+
 ## 🔍 Buscar Antes de Criar
 
 Antes de criar QUALQUER COISA:
