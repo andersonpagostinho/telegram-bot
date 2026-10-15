@@ -4136,7 +4136,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # CRÍTICO: fazer APÓS validação de expiração, ANTES de processar fluxo
     # Apenas para mensagens reais do cliente (não webhooks, não respostas internas)
     if not ctx.get("_last_client_activity"):
-        from datetime import timezone
+        from datetime import datetime, timezone
         ctx["_last_client_activity"] = datetime.now(timezone.utc).isoformat()
         print(f"[ACTIVITY-NEW] Primeira atividade registrada: {ctx['_last_client_activity']}", flush=True)
     else:

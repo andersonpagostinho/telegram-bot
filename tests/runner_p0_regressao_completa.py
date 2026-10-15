@@ -1,7 +1,7 @@
 """
 Runner Agregado P0 — Regressão Completa
-Executa todas as 9 baterias P0 certificadas em sequência
-Total esperado: 174/174 PASS
+Executa todas as 10 baterias P0 certificadas em sequência
+Total esperado: 180/180 PASS (174 + 6 gap test)
 
 Baterias:
 1. p0_bateria_real_fluxo_completo_conflito_a_criacao.py — 7
@@ -13,6 +13,7 @@ Baterias:
 7. p0_real_notificacoes_e2e.py — 20
 8. p0_real_admin_dono_completo.py — 25
 9. p0_real_profissional_completo.py — 30
+10. runner_p0_outra_profissional_gap.py — 6 (novo: gap "outra profissional")
 """
 
 import sys
@@ -36,6 +37,7 @@ BATERIAS_P0 = [
     ("p0_real_notificacoes_e2e.py", 20, "resultado_p0_notificacoes_e2e.json"),
     ("p0_real_admin_dono_completo.py", 25, "resultado_p0_admin_dono.json"),
     ("p0_real_profissional_completo.py", 30, "resultado_p0_profissional.json"),
+    ("runner_p0_outra_profissional_gap.py", 6, "resultado_p0_outra_profissional_gap.json"),  # Gap test
 ]
 
 TOTAL_CENARIOS_ESPERADOS = sum(cenarios for _, cenarios, _ in BATERIAS_P0)
@@ -43,7 +45,7 @@ TOTAL_CENARIOS_ESPERADOS = sum(cenarios for _, cenarios, _ in BATERIAS_P0)
 
 def print_header():
     print("=" * 80)
-    print("REGRESSÃO COMPLETA P0 — 174/174 PASS ESPERADOS")
+    print("REGRESSÃO COMPLETA P0 — 180/180 PASS ESPERADOS (174 + 6 gap test)")
     print("=" * 80)
     print()
 
