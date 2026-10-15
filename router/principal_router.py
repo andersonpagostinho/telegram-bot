@@ -3851,7 +3851,7 @@ async def _validar_expiração_sessao(
     Retorna {"expirou": True} se limpeza foi bem-sucedida.
     Retorna {"expirou": False} se válido ou se evento foi criado (continuar normalmente).
     """
-    from datetime import timezone
+    from datetime import datetime, timezone
     import dateutil.parser
 
     TIMEOUT_SECONDS = 3600  # 60 minutos
@@ -3874,12 +3874,19 @@ async def _validar_expiração_sessao(
         # Validação 1: Draft tem data que já passou?
         if draft.get("data_hora"):
             try:
-                data_draft = datetime.fromisoformat(draft["data_hora"])
+                data_draft = dateutil.parser.isoparse(draft["data_hora"])
+
+                # Validar que data_draft tem fuso (contrato normal = ISO com timezone)
+                if data_draft.tzinfo is None or data_draft.utcoffset() is None:
+                    print(f"[TIMEOUT-STALE-CHECK-WARN] Draft sem fuso (ambíguo) | "
+                          f"data={draft['data_hora']}", flush=True)
+                    return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
+
                 agora = datetime.now(timezone.utc)
 
                 if data_draft <= agora:
                     print(f"[TIMEOUT-STALE-DRAFT] Draft obsoleto | "
-                          f"data={draft['data_hora']} <= agora={agora}", flush=True)
+                          f"data={draft['data_hora']} <= agora={agora.isoformat()}", flush=True)
 
                     # Limpar com proteção transacional
                     from utils.contexto_temporario import limpar_contexto_agendamento_v2_transacional
@@ -3915,6 +3922,13 @@ async def _validar_expiração_sessao(
     # ===== CASO 2: Com timestamp válido =====
     try:
         ts_atividade = dateutil.parser.isoparse(timestamp_atividade)
+
+        # Validar que ts_atividade tem fuso (contrato normal = ISO com timezone UTC)
+        if ts_atividade.tzinfo is None or ts_atividade.utcoffset() is None:
+            print(f"[TIMEOUT-ACTIVITY-CHECK-WARN] Timestamp sem fuso (ambíguo) | "
+                  f"timestamp={timestamp_atividade}", flush=True)
+            return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
+
         agora = datetime.now(timezone.utc)
         tempo_decorrido = (agora - ts_atividade).total_seconds()
 
