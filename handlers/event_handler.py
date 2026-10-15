@@ -1324,7 +1324,6 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 # Usar dono_id (tentado anteriormente) para buscar nome
                 if dono_id:
                     try:
-                        from services.firebase_service_async import buscar_cliente
                         dona_info = await buscar_cliente(dono_id)
                         if dona_info and dona_info.get("nome"):
                             nome_dona = dona_info.get("nome")
