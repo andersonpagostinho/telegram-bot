@@ -333,7 +333,17 @@ def validate_whatsapp_signature(signature: str, body: str, secret: str) -> bool:
 def health_check():
     return "🤖 Bot Online!", 200
 
-# ✅ ROTA PARA O CRON EXTERNO “ACORDAR” O APP
+# ✅ FASE 1A: Rota de saúde independente (sem processar notificações)
+@app.route("/health", methods=["GET", "POST"])
+def health_check_cron():
+    """Endpoint de saúde rápido - valida autenticação e retorna OK sem processar notificações."""
+    token = request.args.get("token") or request.headers.get("X-CRON-TOKEN")
+    if token != CRON_TOKEN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    return jsonify({"ok": True, "message": "health ok"}), 200
+
+# ✅ ROTA PARA O CRON EXTERNO "ACORDAR" O APP
 @app.route("/cron/ping", methods=["GET", "POST"])
 def cron_ping():
     # 1) segurança simples
