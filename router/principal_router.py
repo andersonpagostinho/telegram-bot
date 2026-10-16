@@ -4101,6 +4101,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         print(f"[INSTR-1-LOAD] estado={ctx.get('estado_fluxo')} | "
               f"modo_escolha={ctx.get('modo_escolha_horario')}", flush=True)
 
+        # 🔥 P1 FIX: Limpeza defensiva — se estado=idle mas modo_escolha=True, remover estado residual
+        if ctx.get("estado_fluxo") == "idle" and ctx.get("modo_escolha_horario"):
+            campos_residuais = ["modo_escolha_horario", "horarios_sugeridos", "sugestoes", "alternativa_profissional", "ultima_opcao_profissionais"]
+            for campo in campos_residuais:
+                if campo in ctx:
+                    ctx.pop(campo)
+            print(f"[P1-LIMPEZA-RESIDUAL] Removidos campos de modo_escolha com estado=idle | campos={campos_residuais}", flush=True)
+
         # [P0.10-COMPAT] Fallback para path antigo (sem prefixo whatsapp:) para compatibilidade
         # com sessões pré-existentes que podem estar salvase em Clientes/{tenant}/Sessoes/{user_id}
         if not ctx and cliente_id.startswith("whatsapp:"):
@@ -4135,12 +4143,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # ➕ [ACTIVITY-TRACK] REGISTRAR ATIVIDADE DESTA MENSAGEM
     # CRÍTICO: fazer APÓS validação de expiração, ANTES de processar fluxo
     # Apenas para mensagens reais do cliente (não webhooks, não respostas internas)
-    if not ctx.get("_last_client_activity"):
-        from datetime import datetime, timezone
-        ctx["_last_client_activity"] = datetime.now(timezone.utc).isoformat()
-        print(f"[ACTIVITY-NEW] Primeira atividade registrada: {ctx['_last_client_activity']}", flush=True)
+    # 🔥 P0 FIX: Sempre atualizar timestamp a cada mensagem (não apenas primeira vez)
+    from datetime import datetime, timezone
+    ts_atividade_anterior = ctx.get("_last_client_activity")
+    ctx["_last_client_activity"] = datetime.now(timezone.utc).isoformat()
+
+    if ts_atividade_anterior:
+        print(f"[ACTIVITY-UPDATED] Anterior: {ts_atividade_anterior} | Novo: {ctx['_last_client_activity']}", flush=True)
     else:
-        print(f"[ACTIVITY-EXISTS] Mantendo timestamp anterior: {ctx.get('_last_client_activity')}", flush=True)
+        print(f"[ACTIVITY-NEW] Primeira atividade registrada: {ctx['_last_client_activity']}", flush=True)
 
     # =========================================================
     # LOTE 3E: RESOLVER CONFIRMACAO/NEGACAO PENDENTE (EARLY)
