@@ -278,7 +278,7 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
                 minuto = int(hora_match.group(2) or 0)
 
                 dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
-                result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+                result = dt_aware.replace(tzinfo=None)
                 print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
                 return _build_metadata(result, True, True, data_tipo=data_tipo, hora_modo="explicita", fonte="manual_hoje_amanha")
             else:
@@ -325,7 +325,7 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
             dt_aware = FUSO_BR.localize(
                 datetime(alvo.year, alvo.month, alvo.day, hora, minuto, 0, 0)
             )
-            result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            result = dt_aware.replace(tzinfo=None)
             print(f"[PARSER] fonte_parse=manual_dia_semana resultado={result}", flush=True)
             return _build_metadata(result, True, hora_detectada, data_tipo="dia_semana", hora_modo=hora_modo, fonte="manual_dia_semana")
 
@@ -367,7 +367,7 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
                     ano += 1
 
             dt_aware = FUSO_BR.localize(datetime(ano, mes, dia, hora, minuto, 0, 0))
-            result = dt_aware.astimezone(FUSO_BR).replace(tzinfo=None)
+            result = dt_aware.replace(tzinfo=None)
             print(f"[PARSER] fonte_parse=manual_dia_mes resultado={result}", flush=True)
             return _build_metadata(result, True, hora_detectada, data_tipo="dia_mes_ano", hora_modo=hora_modo, fonte="manual_dia_mes")
 
