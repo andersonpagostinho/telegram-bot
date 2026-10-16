@@ -30,12 +30,17 @@ from scheduler.daily_summary import start_daily_summary
 #from scheduler.email_to_event_loop import loop_verificacao_emails
 from handlers import register_handlers
 
-# 💡 TENTAR importar a função que processa notificações diretamente
-# (se não existir, a rota vai só dizer "não achei")
+# 💡 TENTAR importar funções do scheduler
+# (se não existirem, a rota vai só dizer "não achei")
 try:
     from scheduler.notificacoes_scheduler import processar_notificacoes_agendadas
 except Exception:
     processar_notificacoes_agendadas = None
+
+try:
+    from scheduler.notificacoes_scheduler import verificar_e_avisar_sessoes_expiradas
+except Exception:
+    verificar_e_avisar_sessoes_expiradas = None
 
 # 🔧 Setup inicial
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -336,26 +341,47 @@ def cron_ping():
     if token != CRON_TOKEN:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
-    # 2) tenta rodar o processamento de notificações
+    # 2) tenta rodar os processamentos de notificações
     try:
-        # se você tem a função direta
+        resultados = {}
+
+        # 2a) Processar notificações agendadas
         if processar_notificacoes_agendadas is not None:
-            # pode ser sync ou async
             if asyncio.iscoroutinefunction(processar_notificacoes_agendadas):
-                # se o bot já tem loop rodando, usamos ele
                 if bot_loop is not None:
                     fut = asyncio.run_coroutine_threadsafe(processar_notificacoes_agendadas(), bot_loop)
                     fut.result(timeout=30)
                 else:
                     asyncio.run(processar_notificacoes_agendadas())
             else:
-                # função normal
                 processar_notificacoes_agendadas()
-            return jsonify({"ok": True, "message": "notificacoes processadas"}), 200
+            resultados["notificacoes_agendadas"] = "ok"
+            logger.info("✅ processar_notificacoes_agendadas() completada")
         else:
-            # fallback: pelo menos confirma que acordou
-            logger.info("⚠️ /cron/ping chamado, mas não há processar_notificacoes_agendadas para rodar.")
-            return jsonify({"ok": True, "message": "cron ping ok (sem processamento direto)"}), 200
+            logger.info("⚠️ processar_notificacoes_agendadas não está disponível")
+            resultados["notificacoes_agendadas"] = "unavailable"
+
+        # 2b) Verificar e avisar sessões expiradas (P0 PROATIVO)
+        if verificar_e_avisar_sessoes_expiradas is not None:
+            if asyncio.iscoroutinefunction(verificar_e_avisar_sessoes_expiradas):
+                if bot_loop is not None:
+                    fut = asyncio.run_coroutine_threadsafe(verificar_e_avisar_sessoes_expiradas(), bot_loop)
+                    fut.result(timeout=30)
+                else:
+                    asyncio.run(verificar_e_avisar_sessoes_expiradas())
+            else:
+                verificar_e_avisar_sessoes_expiradas()
+            resultados["sessoes_expiradas"] = "ok"
+            logger.info("✅ verificar_e_avisar_sessoes_expiradas() completada")
+        else:
+            logger.info("⚠️ verificar_e_avisar_sessoes_expiradas não está disponível")
+            resultados["sessoes_expiradas"] = "unavailable"
+
+        # 2c) Retornar resultado consolidado
+        if any(r == "ok" for r in resultados.values()):
+            return jsonify({"ok": True, "message": "processamentos completados", "results": resultados}), 200
+        else:
+            return jsonify({"ok": True, "message": "cron ping ok (sem processamentos disponíveis)", "results": resultados}), 200
 
     except Exception as e:
         logger.error(f"❌ Erro ao executar cron/ping: {e}", exc_info=True)
