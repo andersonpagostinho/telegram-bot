@@ -112,10 +112,11 @@ async def processar_notificacoes_agendadas():
         clientes = await buscar_subcolecao("Clientes") or {}
         agora = datetime.now(FUSO_BR)
 
-        for user_id in clientes.keys():
+        for user_id, doc_cli in clientes.items():
             # 🔐 VALIDAÇÃO DE TENANT: processar apenas donos
+            # ✅ FASE 2: Reutilizar documento já carregado em L112, remover releitura redundante
             try:
-                doc_cli = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+                doc_cli = doc_cli or {}
                 tipo_usuario = (doc_cli.get("tipo_usuario") or "").strip().lower()
 
                 if tipo_usuario != "dono":
