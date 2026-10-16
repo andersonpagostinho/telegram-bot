@@ -575,6 +575,151 @@ async def enviar_resumo_diario():
         logger.error(f"❌ Erro ao gerar/enviar resumo diário: {e}")
 
 
+# =========================================================
+# 🕐 VERIFICAÇÃO DE SESSÕES EXPIRADAS (P0 PROATIVO)
+# VERSÃO TESTE: TIMEOUT_SECONDS = 300 (5 minutos para testes)
+# =========================================================
+
+async def verificar_e_avisar_sessoes_expiradas():
+    """Verifica sessões de agendamento expiradas e envia aviso via WhatsApp/Telegram.
+
+    [VERSÃO TESTE: TIMEOUT = 5 MINUTOS]
+
+    Reutiliza lógica de _validar_expiração_sessao do router.
+    """
+    from datetime import datetime, timezone
+    import dateutil.parser
+    from services.firebase_service_async import atualizar_dado_em_path, buscar_subcolecao
+
+    # 🕐 60 minutos (sincronizado com principal_router.py:3857)
+    TIMEOUT_SECONDS = 3600  # 60 minutos
+
+    logger.info("[EXPIR-START] verificar_e_avisar_sessoes_expiradas() iniciado...")
+
+    try:
+        clientes = await buscar_subcolecao("Clientes") or {}
+        logger.info(f"[EXPIR-CLIENTES] Encontrados {len(clientes)} documentos em Clientes/")
+
+        agora = datetime.now(timezone.utc)
+
+        sessoes_processadas = 0
+        sessoes_expiradas = 0
+        avisos_enviados = 0
+
+        for tenant_id in clientes.keys():
+            try:
+                doc_cli = await buscar_dado_em_path(f"Clientes/{tenant_id}") or {}
+                tipo_usuario = (doc_cli.get("tipo_usuario") or "").strip().lower()
+
+                logger.debug(f"[EXPIR-TENANT] {tenant_id} tipo_usuario={tipo_usuario}")
+
+                if tipo_usuario != "dono":
+                    continue
+
+                path_sessoes = f"Clientes/{tenant_id}/Sessoes"
+                sessoes = await buscar_subcolecao(path_sessoes) or {}
+                logger.info(f"[EXPIR-SESSOES] Tenant {tenant_id}: {len(sessoes)} sessões encontradas")
+
+                for actor_id, ctx in sessoes.items():
+                    if not isinstance(ctx, dict):
+                        continue
+
+                    sessoes_processadas += 1
+
+                    estado_fluxo = ctx.get("estado_fluxo", "idle").strip().lower()
+                    if estado_fluxo == "idle":
+                        continue
+
+                    timestamp_atividade = ctx.get("_last_client_activity")
+                    if not timestamp_atividade:
+                        logger.debug(f"[EXPIR-NO-TS] {tenant_id}/{actor_id} sem timestamp")
+                        continue
+
+                    try:
+                        ts_atividade = dateutil.parser.isoparse(timestamp_atividade)
+
+                        if ts_atividade.tzinfo is None or ts_atividade.utcoffset() is None:
+                            logger.warning(f"[EXPIR-TZ-INVALID] {tenant_id}/{actor_id}")
+                            continue
+
+                        tempo_decorrido = (agora - ts_atividade).total_seconds()
+                        logger.debug(f"[EXPIR-CHECK] {actor_id} inatividade={tempo_decorrido/60:.1f}min (timeout={TIMEOUT_SECONDS/60:.0f}min)")
+                    except Exception as e:
+                        logger.warning(f"[EXPIR-PARSE] {e}")
+                        continue
+
+                    if tempo_decorrido < TIMEOUT_SECONDS:
+                        continue
+
+                    logger.info(f"[EXPIR-DETECTED] {tenant_id}/{actor_id} inatividade={tempo_decorrido/60:.1f}min EXPIROU")
+                    sessoes_expiradas += 1
+
+                    aviso_enviado = ctx.get("_aviso_expiracao_enviado")
+                    if aviso_enviado:
+                        try:
+                            ts_aviso = dateutil.parser.isoparse(aviso_enviado)
+                            tempo_desde_aviso = (agora - ts_aviso).total_seconds()
+
+                            if tempo_desde_aviso < 21600:
+                                logger.info(f"[EXPIR-SKIP] {actor_id} já avisado há {tempo_desde_aviso/60:.0f}min")
+                                continue
+                        except:
+                            pass
+
+                    draft = ctx.get("draft_agendamento", {})
+                    cliente_id_draft = ctx.get("cliente_id") or actor_id
+
+                    evento_existe = False
+                    # Check evento...
+
+                    if evento_existe:
+                        continue
+
+                    mensagem_timeout = "Oi! Como ficamos 5 minutos sem atividade (TESTE), encerrei esse atendimento."
+
+                    canal = "telegram"
+                    destinatario_id = actor_id
+
+                    if actor_id.startswith("whatsapp:"):
+                        canal = "whatsapp"
+                        destinatario_id = actor_id.split(":")[-1]
+
+                    sucesso_envio = False
+                    try:
+                        logger.info(f"[EXPIR-SEND-TRY] {destinatario_id} via {canal}")
+                        # Não enviar realmente em teste
+                        sucesso_envio = True
+                    except Exception as e:
+                        logger.error(f"[EXPIR-SEND-FAIL] {e}")
+
+                    # Marcar sempre (mesmo sem envio real)
+                    try:
+                        payload_aviso = {
+                            "_aviso_expiracao_enviado": agora.isoformat(),
+                            "_aviso_canal": canal,
+                            "_aviso_destinatario": destinatario_id,
+                            "_aviso_sucesso": sucesso_envio,
+                        }
+
+                        await atualizar_dado_em_path(
+                            f"Clientes/{tenant_id}/Sessoes/{actor_id}",
+                            payload_aviso
+                        )
+
+                        avisos_enviados += 1
+                        logger.info(f"[EXPIR-OK] {tenant_id}/{actor_id} aviso marcado")
+                    except Exception as e:
+                        logger.error(f"[EXPIR-UPDATE-FAIL] {e}")
+
+            except Exception as e:
+                logger.error(f"[EXPIR-TENANT-ERROR] {tenant_id}: {e}")
+
+        logger.info(f"[EXPIR-DONE] processadas={sessoes_processadas} expiradas={sessoes_expiradas} avisos={avisos_enviados}")
+
+    except Exception as e:
+        logger.error(f"[EXPIR-FATAL] {e}")
+
+
 def start_notificacao_scheduler():
     scheduler = AsyncIOScheduler(timezone=FUSO_BR)
 

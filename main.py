@@ -30,12 +30,17 @@ from scheduler.daily_summary import start_daily_summary
 #from scheduler.email_to_event_loop import loop_verificacao_emails
 from handlers import register_handlers
 
-# 💡 TENTAR importar a função que processa notificações diretamente
-# (se não existir, a rota vai só dizer "não achei")
+# 💡 TENTAR importar funções do scheduler
+# (se não existirem, a rota vai só dizer "não achei")
 try:
     from scheduler.notificacoes_scheduler import processar_notificacoes_agendadas
 except Exception:
     processar_notificacoes_agendadas = None
+
+try:
+    from scheduler.notificacoes_scheduler import verificar_e_avisar_sessoes_expiradas
+except Exception:
+    verificar_e_avisar_sessoes_expiradas = None
 
 # 🔧 Setup inicial
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
