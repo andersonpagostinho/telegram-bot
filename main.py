@@ -42,6 +42,14 @@ try:
 except Exception:
     verificar_e_avisar_sessoes_expiradas = None
 
+# 🔒 FASE 4.1: Lock para execução única global
+try:
+    from services.cron_lock_service import tentar_claim_cron, liberar_cron_lock
+except Exception as e:
+    logger.error(f"❌ Erro ao importar cron_lock_service: {e}")
+    tentar_claim_cron = None
+    liberar_cron_lock = None
+
 # 🔧 Setup inicial
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
@@ -205,26 +213,67 @@ def whatsapp_webhook_post():
 
                 for msg in messages:
                     msg_id = msg.get("id")
-
-                    if msg_id and msg_id in whatsapp_processed_ids:
-                        logger.debug(f"⏭️ Mensagem duplicada ignorada: {msg_id}")
-                        continue
-
-                    if msg_id:
-                        whatsapp_processed_ids.add(msg_id)
-
                     from_number = msg.get("from")
                     text_body = msg.get("text", {}).get("body", "")
 
-                    logger.info(f"📱 WhatsApp - De: {from_number}, Texto: {text_body}")
-                    logger.info(f"📞 Endpoint: {phone_number_id}, Remetente: {from_number}")
+                    logger.info(f"📱 WhatsApp - De: {from_number}, Texto: {text_body[:50]}")
+                    logger.info(f"📞 Endpoint: {phone_number_id}, msg_id: {msg_id}")
 
                     # ✅ PROCESSAMENTO: Resolver tenant e chamar router
-                    if not phone_number_id or not from_number or not text_body:
-                        logger.warning(f"[WA] Dados incompletos: phone_number_id={bool(phone_number_id)} from={bool(from_number)} text={bool(text_body)}")
+                    if not phone_number_id or not from_number or not text_body or not msg_id:
+                        logger.warning(f"[WA] Dados incompletos: phone_number_id={bool(phone_number_id)} from={bool(from_number)} text={bool(text_body)} msg_id={bool(msg_id)}")
                         continue
 
                     try:
+                        # ✅ [WA-P0] FASE 1: Consultar Firestore (fonte de verdade)
+                        from services.whatsapp_msg_state_service import consultar_status, marcar_processando, marcar_concluida, marcar_falha_permanente, marcar_falha_recuperavel, marcar_envio_desconhecido
+                        import time
+
+                        timestamp_webhook = time.time()
+
+                        # Verificar se já foi processada (Firestore é verdade)
+                        status_atual = None
+                        if bot_loop is not None:
+                            future_status = asyncio.run_coroutine_threadsafe(
+                                consultar_status(phone_number_id, msg_id),
+                                bot_loop
+                            )
+                            status_atual = future_status.result(timeout=5)
+                        else:
+                            status_atual = asyncio.run(consultar_status(phone_number_id, msg_id))
+
+                        if status_atual == "CONCLUIDA":
+                            logger.info(f"[WA-P0] Mensagem já processada (CONCLUIDA): {phone_number_id}/{msg_id}")
+                            continue
+
+                        # ✅ [WA-P0] FASE 2: Tentar marcar como PROCESSANDO (atomicamente)
+                        try:
+                            if bot_loop is not None:
+                                future_mark = asyncio.run_coroutine_threadsafe(
+                                    marcar_processando(phone_number_id, msg_id, timestamp_webhook),
+                                    bot_loop
+                                )
+                                ganhou_disputa = future_mark.result(timeout=5)
+                            else:
+                                ganhou_disputa = asyncio.run(marcar_processando(phone_number_id, msg_id, timestamp_webhook))
+                        except Exception as e:
+                            # Outra instância já está processando (AlreadyExists)
+                            if "AlreadyExists" in str(type(e).__name__):
+                                logger.info(f"[WA-P0] Outra instância processando: {phone_number_id}/{msg_id}")
+                                continue
+                            # Quota ou erro de persistência: aceitar webhook, deixar Meta retentar
+                            elif "429" in str(e) or "Quota" in str(e):
+                                logger.error(f"[WA-P0] Quota ao adquirir msg: {e}")
+                                return 200
+                            # Outras falhas: aceitar webhook, deixar Meta retentar
+                            else:
+                                logger.error(f"[WA-P0] Erro ao adquirir msg: {e}")
+                                return 200
+
+                        if not ganhou_disputa:
+                            logger.info(f"[WA-P0] Outra instância processando: {phone_number_id}/{msg_id}")
+                            continue
+
                         # ✅ Resolver tenant pelo endpoint
                         from services.whatsapp_endpoint_service import resolver_tenant_por_endpoint
                         tenant_id = resolver_tenant_por_endpoint(phone_number_id)
@@ -237,35 +286,47 @@ def whatsapp_webhook_post():
                         from router.principal_router import roteador_principal
 
                         # Usar bot_loop se disponível (thread-safe)
-                        if bot_loop is not None:
-                            future = asyncio.run_coroutine_threadsafe(
-                                roteador_principal(
-                                    user_id=from_number,
-                                    mensagem=text_body,
-                                    tenant_id=tenant_id,
-                                    phone_number_id=phone_number_id,
-                                    update=None,
-                                    context=None
-                                ),
-                                bot_loop
-                            )
-                            try:
-                                resposta = future.result(timeout=30)
-                            except Exception as router_e:
-                                logger.error(f"[WA] Erro no roteador: {router_e}")
-                                resposta = "Desculpa, ocorreu um erro ao processar sua mensagem."
-                        else:
-                            logger.warning("[WA] bot_loop não disponível, tentando asyncio.run()")
-                            resposta = asyncio.run(
-                                roteador_principal(
-                                    user_id=from_number,
-                                    mensagem=text_body,
-                                    tenant_id=tenant_id,
-                                    phone_number_id=phone_number_id,
-                                    update=None,
-                                    context=None
+                        try:
+                            if bot_loop is not None:
+                                future = asyncio.run_coroutine_threadsafe(
+                                    roteador_principal(
+                                        user_id=from_number,
+                                        mensagem=text_body,
+                                        tenant_id=tenant_id,
+                                        phone_number_id=phone_number_id,
+                                        update=None,
+                                        context=None
+                                    ),
+                                    bot_loop
                                 )
-                            )
+                                try:
+                                    resposta = future.result(timeout=30)
+                                except Exception as router_e:
+                                    logger.error(f"[WA] Erro no roteador: {router_e}")
+                                    resposta = "Desculpa, ocorreu um erro ao processar sua mensagem."
+                            else:
+                                logger.warning("[WA] bot_loop não disponível, tentando asyncio.run()")
+                                resposta = asyncio.run(
+                                    roteador_principal(
+                                        user_id=from_number,
+                                        mensagem=text_body,
+                                        tenant_id=tenant_id,
+                                        phone_number_id=phone_number_id,
+                                        update=None,
+                                        context=None
+                                    )
+                                )
+                        except Exception as router_error:
+                            logger.error(f"[WA] Erro crítico no roteador: {router_error}")
+                            # ✅ [WA-P0] Marcar como FALHA_RECUPERAVEL (router falhou ANTES de enviar)
+                            if bot_loop is not None:
+                                asyncio.run_coroutine_threadsafe(
+                                    marcar_falha_recuperavel(phone_number_id, msg_id, str(router_error), timestamp_webhook),
+                                    bot_loop
+                                ).result(timeout=5)
+                            else:
+                                asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, str(router_error), timestamp_webhook))
+                            continue
 
                         # ✅ Enviar resposta via WhatsApp
                         if resposta:
@@ -289,17 +350,93 @@ def whatsapp_webhook_post():
                                         )
                                     )
 
+                                    # ✅ [WA-P0] FASE 3: Atualizar status baseado no resultado do envio
                                     if resultado.get("success"):
                                         logger.info(f"[WA] ✅ Resposta enviada: message_id={resultado.get('message_id')} to={from_number}")
+                                        # [NOVO] try/except para persistência CONCLUIDA
+                                        try:
+                                            if bot_loop is not None:
+                                                asyncio.run_coroutine_threadsafe(
+                                                    marcar_concluida(phone_number_id, msg_id, resultado.get("message_id"), timestamp_webhook),
+                                                    bot_loop
+                                                ).result(timeout=5)
+                                            else:
+                                                asyncio.run(marcar_concluida(phone_number_id, msg_id, resultado.get("message_id"), timestamp_webhook))
+                                            logger.info(f"[WA] Status CONCLUIDA persistido: {phone_number_id}/{msg_id}")
+                                        except Exception as e:
+                                            # Envio foi aceito por Meta, deixar PROCESSANDO
+                                            logger.error(f"[WA] Falha ao persistir CONCLUIDA (envio OK): {e}")
+                                            # Cleanup vai adiar lease, não vai reprocessar
+
                                     else:
-                                        logger.error(f"[WA] ❌ Falha ao enviar: {resultado.get('error')} status={resultado.get('status_code')}")
+                                        status_code = resultado.get("status_code", 500)
+                                        erro = resultado.get("error", "Unknown error")
+
+                                        logger.error(f"[WA] ❌ Falha ao enviar: {erro} status={status_code}")
+
+                                        # Classificar erro
+                                        if status_code in [400, 403, 404]:
+                                            # Erro permanente
+                                            logger.warning(f"[WA-P0] FALHA_PERMANENTE: {status_code} {erro}")
+                                            if bot_loop is not None:
+                                                asyncio.run_coroutine_threadsafe(
+                                                    marcar_falha_permanente(phone_number_id, msg_id, erro, timestamp_webhook),
+                                                    bot_loop
+                                                ).result(timeout=5)
+                                            else:
+                                                asyncio.run(marcar_falha_permanente(phone_number_id, msg_id, erro, timestamp_webhook))
+
+                                        elif status_code in [429, 500, 503]:
+                                            # Erro recuperável
+                                            logger.warning(f"[WA-P0] FALHA_RECUPERAVEL: {status_code} {erro}")
+                                            if bot_loop is not None:
+                                                asyncio.run_coroutine_threadsafe(
+                                                    marcar_falha_recuperavel(phone_number_id, msg_id, erro, timestamp_webhook),
+                                                    bot_loop
+                                                ).result(timeout=5)
+                                            else:
+                                                asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, erro, timestamp_webhook))
+
+                                        elif status_code == 504:
+                                            # Timeout - resultado desconhecido
+                                            logger.warning(f"[WA-P0] ENVIO_DESCONHECIDO: timeout")
+                                            if bot_loop is not None:
+                                                asyncio.run_coroutine_threadsafe(
+                                                    marcar_envio_desconhecido(phone_number_id, msg_id, "Timeout na Meta API", timestamp_webhook),
+                                                    bot_loop
+                                                ).result(timeout=5)
+                                            else:
+                                                asyncio.run(marcar_envio_desconhecido(phone_number_id, msg_id, "Timeout na Meta API", timestamp_webhook))
+
+                                        else:
+                                            # Erro indeterminado
+                                            logger.warning(f"[WA-P0] ENVIO_DESCONHECIDO: {status_code} {erro}")
+                                            if bot_loop is not None:
+                                                asyncio.run_coroutine_threadsafe(
+                                                    marcar_envio_desconhecido(phone_number_id, msg_id, erro, timestamp_webhook),
+                                                    bot_loop
+                                                ).result(timeout=5)
+                                            else:
+                                                asyncio.run(marcar_envio_desconhecido(phone_number_id, msg_id, erro, timestamp_webhook))
                                 else:
                                     logger.debug(f"[WA] Resposta sem texto (já enviada por outro canal ou é ação interna): {resposta}")
 
                             except Exception as send_e:
                                 logger.error(f"[WA] Exceção ao enviar resposta: {send_e}")
+                                # Falha ao enviar - pode ser timeout
+                                if bot_loop is not None:
+                                    asyncio.run_coroutine_threadsafe(
+                                        marcar_envio_desconhecido(phone_number_id, msg_id, str(send_e), timestamp_webhook),
+                                        bot_loop
+                                    ).result(timeout=5)
+                                else:
+                                    asyncio.run(marcar_envio_desconhecido(phone_number_id, msg_id, str(send_e), timestamp_webhook))
+
                         else:
                             logger.warning(f"[WA] Roteador retornou resposta vazia para {from_number}")
+
+                        # ✅ [WA-P0] FASE 4: Adicionar à memória como cache (APÓS sucesso no Firestore)
+                        whatsapp_processed_ids.add(msg_id)
 
                     except Exception as e:
                         logger.error(f"[WA] Erro ao processar mensagem de {from_number}: {e}", exc_info=True)
@@ -351,7 +488,30 @@ def cron_ping():
     if token != CRON_TOKEN:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
-    # 2) tenta rodar o processamento de notificações
+    # 2) FASE 4.1: Verificar lock global
+    lock_id = None
+    try:
+        if tentar_claim_cron is not None and bot_loop is not None:
+            # Tentar obter lock (assíncrono)
+            lock_result = asyncio.run_coroutine_threadsafe(tentar_claim_cron(), bot_loop).result(timeout=5)
+            lock_acquired, lock_info = lock_result
+
+            if not lock_acquired:
+                logger.warning(f"[CRON] Execução rejeitada: {lock_info}")
+                return jsonify({
+                    "ok": True,
+                    "message": f"processing_in_progress ({lock_info})",
+                    "skipped": True
+                }), 200
+
+            lock_id = lock_info
+        else:
+            logger.info("[CRON] Lock service não disponível, continuando sem proteção")
+    except Exception as e:
+        logger.warning(f"[CRON] Erro ao obter lock (continuando anyway): {e}")
+        # Continuar mesmo se lock falhar
+
+    # 3) tenta rodar o processamento de notificações
     try:
         # se você tem a função direta
         if processar_notificacoes_agendadas is not None:
@@ -360,7 +520,12 @@ def cron_ping():
                 # se o bot já tem loop rodando, usamos ele
                 if bot_loop is not None:
                     fut = asyncio.run_coroutine_threadsafe(processar_notificacoes_agendadas(), bot_loop)
-                    fut.result(timeout=30)
+                    try:
+                        fut.result(timeout=30)
+                    except asyncio.TimeoutError:
+                        logger.error("[CRON] Timeout após 30s (coroutine continua em background)")
+                        # NOTA: Coroutine continua rodando, não é cancelada
+                        # Lock será liberado por expiração automática (120s)
                 else:
                     asyncio.run(processar_notificacoes_agendadas())
             else:
@@ -375,6 +540,15 @@ def cron_ping():
     except Exception as e:
         logger.error(f"❌ Erro ao executar cron/ping: {e}", exc_info=True)
         return jsonify({"ok": False, "error": str(e)}), 500
+
+    finally:
+        # 4) Liberar lock após conclusão
+        if lock_id is not None and liberar_cron_lock is not None and bot_loop is not None:
+            try:
+                asyncio.run_coroutine_threadsafe(liberar_cron_lock(lock_id), bot_loop).result(timeout=5)
+            except Exception as e:
+                logger.warning(f"[CRON] Erro ao liberar lock: {e}")
+                # Lock será expirado automaticamente de qualquer forma
 
 # 🔗 Configura webhook no Telegram
 async def setup_webhook():

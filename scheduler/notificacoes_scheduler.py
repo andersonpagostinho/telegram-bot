@@ -330,6 +330,14 @@ async def processar_notificacoes_agendadas():
                     except Exception as mark_e:
                         logger.error(f"[IDEMPOT] Erro ao marcar erro: {mark_e}")
 
+        # ✅ [WA-P0] CLEANUP: Processar mensagens WhatsApp expiradas
+        # Executado a cada /cron/ping (288x/dia) junto com processamento de notificações
+        try:
+            from services.whatsapp_msg_state_service import cleanup_expirados
+            await cleanup_expirados()
+        except Exception as cleanup_e:
+            logger.error(f"[WA-CLEANUP] Erro durante cleanup: {cleanup_e}")
+
     except Exception as e:
         logger.error(f"❌ Erro na rotina de notificações: {e}")
 
@@ -757,5 +765,5 @@ def start_notificacao_scheduler():
     )
 
     scheduler.start()
-    print("✅ Scheduler de notificações iniciado (loop a cada 1 min, resumo 08:00, recorrência 08:00).")
-    logger.info("✅ Scheduler de notificações iniciado (loop a cada 1 min, resumo 08:00, recorrência 08:00).")
+    print("✅ Scheduler de notificações iniciado (resumo 08:00, recorrência 08:00, /cron/ping 288x/dia).")
+    logger.info("✅ Scheduler de notificações iniciado (resumo 08:00, recorrência 08:00, /cron/ping 288x/dia).")
