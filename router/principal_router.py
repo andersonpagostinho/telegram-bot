@@ -4103,10 +4103,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         # 🔥 P1 FIX: Limpeza defensiva — se estado=idle mas modo_escolha=True, remover estado residual
         if ctx.get("estado_fluxo") == "idle" and ctx.get("modo_escolha_horario"):
-            campos_residuais = ["modo_escolha_horario", "horarios_sugeridos", "sugestoes", "alternativa_profissional", "ultima_opcao_profissionais"]
+            campos_residuais = ["modo_escolha_horario", "horarios_sugeridos", "sugestoes", "alternativa_profissional", "ultima_opcao_profissionais", "profissional_escolhido"]
             for campo in campos_residuais:
                 if campo in ctx:
                     ctx.pop(campo)
+            # 🔥 P1 FIX EXTRA: Limpar também draft_agendamento para evitar reintrodução via fallback
+            if isinstance(ctx.get("draft_agendamento"), dict):
+                ctx["draft_agendamento"].pop("profissional", None)
             print(f"[P1-LIMPEZA-RESIDUAL] Removidos campos de modo_escolha com estado=idle | campos={campos_residuais}", flush=True)
 
         # [P0.10-COMPAT] Fallback para path antigo (sem prefixo whatsapp:) para compatibilidade
