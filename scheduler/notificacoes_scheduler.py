@@ -10,6 +10,7 @@ from services.firebase_service_async import (
     buscar_dado_em_path,
     buscar_notificacoes_pendentes,
     obter_id_dono,
+    get_async_client,
 )
 from services.notificacoes_idempotencia_service import (
     tentar_claim_notificacao,
@@ -108,8 +109,14 @@ async def processar_notificacoes_agendadas():
         processo_id = str(uuid.uuid4())
         logger.info(f"[IDEMPOT] Sessão de processamento: {processo_id}")
 
-        # aqui vêm TODOS os documentos de Clientes (dono + clientes)
-        clientes = await buscar_subcolecao("Clientes") or {}
+        # 🔍 FASE 3: Carregar APENAS donos via Firestore filter
+        # Antes: buscar_subcolecao() carregava TODOS (dono + clientes + vazio)
+        # Depois: .where("tipo_usuario", "==", "dono") carrega apenas donos
+        clientes = {}
+        query = get_async_client().collection("Clientes").where("tipo_usuario", "==", "dono")
+        async for doc in query.stream():
+            clientes[doc.id] = doc.to_dict()
+
         agora = datetime.now(FUSO_BR)
 
         for user_id, doc_cli in clientes.items():
