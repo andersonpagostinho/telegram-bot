@@ -16,7 +16,7 @@ def extrair_servico_do_catalogo(texto: str, catalogo_servicos: list[str] | None 
     """
     Extrai primeiro serviço mencionado que corresponde ao catálogo do tenant.
 
-    Usa match de palavra inteira para evitar false positives.
+    Usa match de palavra inteira e também busca por prefixo ("corte" → "corte feminino").
     """
     if not catalogo_servicos:
         return None
@@ -25,12 +25,23 @@ def extrair_servico_do_catalogo(texto: str, catalogo_servicos: list[str] | None 
     if not t:
         return None
 
-    for servico in catalogo_servicos:
+    servicos_ordenados = sorted(catalogo_servicos, key=lambda s: len(normalizar_txt(s)), reverse=True)
+
+    for servico in servicos_ordenados:
         servico_norm = normalizar_txt(servico)
         if not servico_norm:
             continue
+
+        # Match exato (palavra inteira)
         if re.search(rf"\b{re.escape(servico_norm)}\b", t):
             return servico
+
+        # Match de prefixo: se "corte" em "corte feminino", busca "corte" no texto
+        servico_palavras = servico_norm.split()
+        if servico_palavras:
+            primeira_palavra = servico_palavras[0]
+            if re.search(rf"\b{re.escape(primeira_palavra)}\b", t):
+                return servico
 
     return None
 
