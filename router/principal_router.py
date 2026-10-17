@@ -12039,6 +12039,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "aguardando_profissional",
         "aguardando_data",
         "aguardando_horario",
+        "aguardando_escolha_horario",
         "agendando",
         "ajustando_agendamento"
     ]
@@ -12167,6 +12168,165 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 user_id,
                 mensagem
             )
+
+        # 🔥 BLOCO ESPECÍFICO — AGUARDANDO ESCOLHA DE PROFISSIONAL (APÓS CONFLITO)
+        if ctx.get("estado_fluxo") == "aguardando_escolha_horario":
+
+            print(
+                f"🚨 [AGUARDANDO_ESCOLHA_HORARIO] entrou | "
+                f"texto={texto_usuario} | "
+                f"alternativas={ctx.get('alternativa_profissional')} | "
+                f"draft={ctx.get('draft_agendamento')}",
+                flush=True
+            )
+
+            texto_norm = normalizar(texto_usuario or "")
+            alternativas_ctx = (
+                ctx.get("alternativa_profissional")
+                or ctx.get("ultima_opcao_profissionais")
+                or []
+            )
+
+            if isinstance(alternativas_ctx, str):
+                alternativas_ctx = [alternativas_ctx]
+
+            # 1) Detectar desistência
+            if eh_desistencia_fluxo(texto_usuario):
+                ctx["estado_fluxo"] = "idle"
+                ctx["aguardando_confirmacao_agendamento"] = False
+                ctx["alternativa_profissional"] = None
+                ctx["ultima_opcao_profissionais"] = None
+                ctx["draft_agendamento"] = None
+                ctx["dados_confirmacao_agendamento"] = None
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    "Sem problemas! Avise quando precisar 😊"
+                )
+
+            # 2) Detectar pedido genérico: "outra profissional" sem nome específico
+            eh_pedido_generico = (
+                "outra" in texto_norm
+                and ("profissional" in texto_norm or "pofissional" in texto_norm)
+                and any(nome and normalizar(nome) not in texto_norm for nome in alternativas_ctx)
+            )
+
+            if eh_pedido_generico and alternativas_ctx:
+                draft = ctx.get("draft_agendamento") or {}
+                servico_ref = draft.get("servico") or ctx.get("servico")
+                data_hora_ref = draft.get("data_hora") or ctx.get("data_hora")
+
+                if servico_ref and data_hora_ref and alternativas_ctx:
+                    opcoes_formatadas = "\n".join([f"  • {nome}" for nome in alternativas_ctx])
+                    msg_menu = (
+                        f"Perfeito! Para manter *{formatar_data_hora_br(data_hora_ref)}* "
+                        f"com *{servico_ref}*, estas profissionais estão disponíveis:\n\n"
+                        f"{opcoes_formatadas}\n\n"
+                        f"Qual você prefere?"
+                    )
+
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                    return await _send_and_stop(context, user_id, msg_menu)
+
+            # 3) Detectar escolha de profissional específica
+            profissional_escolhida = None
+            for nome_alt in alternativas_ctx:
+                if normalizar(nome_alt) in texto_norm:
+                    profissional_escolhida = nome_alt
+                    break
+
+            if profissional_escolhida:
+                draft = ctx.get("draft_agendamento") or {}
+                servico = draft.get("servico") or ctx.get("servico")
+                data_hora = draft.get("data_hora") or ctx.get("data_hora")
+
+                if servico and data_hora:
+                    # Validar disponibilidade ANTES de confirmar
+                    dt_obj = datetime.fromisoformat(data_hora)
+                    data_str = dt_obj.strftime("%Y-%m-%d")
+                    hora_str = dt_obj.strftime("%H:%M")
+                    duracao_minutos = estimar_duracao(servico)
+
+                    conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                        user_id=user_id,
+                        data=data_str,
+                        hora_inicio=hora_str,
+                        duracao_min=duracao_minutos,
+                        profissional=profissional_escolhida,
+                        servico=servico,
+                        tenant_id=dono_id
+                    )
+
+                    if conflito_info.get("conflito"):
+                        # Profissional escolhida está ocupada nesse horário
+                        sugestoes = conflito_info.get("sugestoes") or []
+                        sugestoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes)
+                        sugestao_formatada = (
+                            f"\n\n📌 *Horários disponíveis com {profissional_escolhida}:*\n{sugestoes_txt}"
+                            if sugestoes_txt
+                            else ""
+                        )
+
+                        ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"⚠ {profissional_escolhida} está ocupada nesse horário.{sugestao_formatada}\n\n"
+                            f"Quer um desses horários ou prefere outra profissional?"
+                        )
+
+                    # ✅ Disponível: atualizar contexto e confirmar
+                    draft["profissional"] = profissional_escolhida
+                    ctx["draft_agendamento"] = draft
+                    ctx["profissional_escolhido"] = profissional_escolhida
+                    ctx["estado_fluxo"] = "agendando"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+                    ctx["tipo_ajuste_incremental"] = None
+                    ctx["objetivo_conversacional"] = None
+                    ctx["dados_confirmacao_agendamento"] = {
+                        "profissional": profissional_escolhida,
+                        "servico": servico,
+                        "data_hora": data_hora,
+                        "duracao": duracao_minutos,
+                        "descricao": formatar_descricao_evento(servico, profissional_escolhida),
+                    }
+
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    msg_p1 = await gerar_resposta_p1({
+                        "tipo": "confirmar_agendamento",
+                        "servico": servico,
+                        "profissional": profissional_escolhida,
+                        "data_hora": data_hora,
+                        "data_hora_legivel": formatar_data_hora_br(data_hora),
+                        "duracao": duracao_minutos,
+                        "origem": "escolha_profissional_apos_conflito",
+                    })
+
+                    mensagem = (
+                        msg_p1
+                        or (
+                            f"Perfeito — seguimos com *{profissional_escolhida}* "
+                            f"para *{servico}* em *{formatar_data_hora_br(data_hora)}*.\n"
+                            f"Posso confirmar?"
+                        )
+                    )
+
+                    return await _send_and_stop(context, user_id, mensagem)
+
+            # 4) Nenhum padrão reconhecido → pedir esclarecimento
+            if alternativas_ctx:
+                opcoes_str = ", ".join(alternativas_ctx)
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Não entendi bem. Você quer trocar para: {opcoes_str}?\n\nDigite o nome da profissional ou diga 'outra'."
+                )
 
         # 🔥 BLOCO DE CAPTURA DE "SÓ HORA"
         if ctx.get("estado_fluxo") == "aguardando_horario":
