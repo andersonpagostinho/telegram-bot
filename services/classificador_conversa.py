@@ -12,7 +12,30 @@ def _tem(regex: str, t: str) -> bool:
     return bool(re.search(regex, t, flags=re.IGNORECASE))
 
 
-def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
+def extrair_servico_do_catalogo(texto: str, catalogo_servicos: list[str] | None = None) -> str | None:
+    """
+    Extrai primeiro serviço mencionado que corresponde ao catálogo do tenant.
+
+    Usa match de palavra inteira para evitar false positives.
+    """
+    if not catalogo_servicos:
+        return None
+
+    t = normalizar_txt(texto)
+    if not t:
+        return None
+
+    for servico in catalogo_servicos:
+        servico_norm = normalizar_txt(servico)
+        if not servico_norm:
+            continue
+        if re.search(rf"\b{re.escape(servico_norm)}\b", t):
+            return servico
+
+    return None
+
+
+def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
 
@@ -52,17 +75,14 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
     )
 
     # Domínio de serviço/beleza/atendimento
-    tem_contexto_servico = _tem(
-        r"\b(cabelo|unha|mao|mão|pe|pé|sobrancelha|barba|pele|rosto|raiz|mecha|"
-        r"escova|corte|progressiva|hidratacao|hidratação|luzes|depilacao|depilação|"
-        r"alongamento|manicure|pedicure|botox|coloracao|coloração)\b",
-        t
-    )
+    # Usar catálogo dinâmico do tenant se disponível
+    servico_mencionado = extrair_servico_do_catalogo(t, catalogo_servicos)
+    tem_contexto_servico = bool(servico_mencionado)
 
     # P0: Contexto de serviço via draft (quando texto não menciona serviço explicitamente)
     # Permite que perguntas durante agendamento considerem o serviço do draft
     # Ex: "quais você tem?" com draft={servico: "corte"} → tem contexto
-    servico_do_draft = (ctx or {}).get("draft_agendamento", {}).get("servico")
+    servico_do_draft = ((ctx or {}).get("draft_agendamento") or {}).get("servico")
     tem_contexto_servico_ou_draft = tem_contexto_servico or bool(servico_do_draft)
 
     # Ajuste sobre algo anterior
@@ -73,7 +93,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
 
     # Cancelamento/desistência
     tem_cancelamento = _tem(
-        r"\b(cancelar|desmarcar|nao vou|não vou|nao consigo|não consigo|nao precisa|não precisa|deixa pra la|deixa pra lá)\b",
+        r"\b(cancelar|cancela|desmarcar|nao vou|não vou|nao consigo|não consigo|nao precisa|não precisa|deixa pra la|deixa pra lá)\b",
         t
     )
 
@@ -132,6 +152,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         "tem_indefinido": tem_indefinido,
         "tem_contexto_servico": tem_contexto_servico,
         "tem_contexto_servico_ou_draft": tem_contexto_servico_ou_draft,
+        "servico_mencionado": servico_mencionado,
         "tem_ajuste": tem_ajuste,
         "tem_cancelamento": tem_cancelamento,
         "tem_social": tem_social,
@@ -139,10 +160,10 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None) -> dict:
         "tem_duvida_confianca_profissional": tem_duvida_confianca_profissional,
     }
     
-def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
+def classificar_contexto_mensagem(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
-    f = extrair_features_conversa(t, ctx)
+    f = extrair_features_conversa(t, ctx, catalogo_servicos=catalogo_servicos)
 
     if not t:
         return {"modo_conversa": "neutro", "confianca": 0, "motivo": "texto_vazio", "features": f}
@@ -252,7 +273,7 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None) -> dict:
         "features": f,
     }
 
-def detectar_tipo_ajuste_incremental(texto: str) -> str:
+def detectar_tipo_ajuste_incremental(texto: str, catalogo_servicos: list[str] | None = None) -> str:
     t = normalizar_txt(texto)
 
     if _tem(r"\b(com\s+[a-zA-ZÀ-ÿ]+|trocar para|outra profissional|outro profissional)\b", t):
@@ -277,19 +298,18 @@ def detectar_tipo_ajuste_incremental(texto: str) -> str:
     ):
         return "data"
 
-    # serviço
-    if _tem(
-        r"\b(corte|escova|hidratacao|hidratação|luzes|coloracao|coloração|manicure|pedicure|unha)\b",
-        t
-    ):
-        return "servico"
+    # serviço — usar catálogo dinâmico do tenant
+    if catalogo_servicos:
+        servico_mencionado = extrair_servico_do_catalogo(t, catalogo_servicos)
+        if servico_mencionado:
+            return "servico"
 
     return "indefinido"
 
-def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> dict:
+def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
-    f = extrair_features_conversa(t, ctx)
+    f = extrair_features_conversa(t, ctx, catalogo_servicos=catalogo_servicos)
 
     # 🔒 RESPECT LOTE_3B: Se LOTE_3B já setou intenção P0 determinística, respeitá-la
     # (LOTE_3B é mais preciso que classificador genérico)
@@ -331,9 +351,32 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None) -> 
     if f["tem_cancelamento"]:
         return {"intencao_conversacional": "cancelamento", "confianca": 90, "features": f}
 
+    # 🔒 NOVO: Detectar novo agendamento APENAS se todas as condições se cumprem (conservador)
+    # Novo agendamento com serviço explicitamente mencionado
+    servico_mencionado = f.get("servico_mencionado")
+    if servico_mencionado and f["tem_pedido"] and f["tem_tempo"]:
+        servico_draft = (ctx.get("draft_agendamento") or {}).get("servico")
+
+        if servico_draft and servico_mencionado != servico_draft:
+            return {
+                "intencao_conversacional": "agendamento_direto",
+                "tipo_ajuste_incremental": None,
+                "confianca": 85,
+                "features": f,
+                "motivo": "novo_servico_diferente_draft"
+            }
+        elif not servico_draft:
+            return {
+                "intencao_conversacional": "agendamento_direto",
+                "tipo_ajuste_incremental": None,
+                "confianca": 85,
+                "features": f,
+                "motivo": "novo_servico_sem_draft"
+            }
+
     if (f["tem_ajuste"] or f.get("tem_ref_profissional")) and (f["tem_fluxo_ativo"] or f["tem_draft"]):
 
-        tipo_ajuste = detectar_tipo_ajuste_incremental(texto)
+        tipo_ajuste = detectar_tipo_ajuste_incremental(texto, catalogo_servicos=catalogo_servicos)
 
         return {
             "intencao_conversacional": "ajuste_incremental",

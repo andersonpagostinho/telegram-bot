@@ -4436,6 +4436,21 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "motivo": "confirmacao_ambigua"
             }
 
+    # ═══════════════════════════════════════════════════════════
+    # ✅ CARREGAR PROFISSIONAIS E CATÁLOGO (UMA VEZ, REUSO)
+    # ═══════════════════════════════════════════════════════════
+    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+
+    catalogo_servicos = []
+    for p in profs_dict.values():
+        for s in (p.get("servicos") or []):
+            s = str(s).strip()
+            if s:
+                catalogo_servicos.append(s)
+    catalogo_servicos = sorted(set(catalogo_servicos))
+
+    print(f"[CATALOGO_TENANT] tenant={dono_id} | n_profs={len(profs_dict)} | servicos={catalogo_servicos}", flush=True)
+
     # =========================================================
     # ✅ CLASSIFICAÇÃO SEMÂNTICA ANTECIPADA
     # Executar ANTES de PATCH_P0 para ter acesso a intenção real
@@ -4446,7 +4461,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     if ctx_para_classificacao.get("motivo_estado") == "profissional_nao_atende_servico":
         ctx_para_classificacao.pop("estado_fluxo", None)
 
-    class_intencao = classificar_intencao_conversacional(texto_usuario, ctx_para_classificacao)
+    class_intencao = classificar_intencao_conversacional(texto_usuario, ctx_para_classificacao, catalogo_servicos=catalogo_servicos)
 
     print(f"[INTENÇÃO_ANTECIPADA] {class_intencao}", flush=True)
 
@@ -5074,7 +5089,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         print(f" [INTENÇÃO CONVERSACIONAL] REUTILIZADA: {class_intencao}", flush=True)
     else:
         # Fallback: classificar agora (não deveria acontecer, mas por segurança)
-        class_intencao = classificar_intencao_conversacional(texto_usuario, ctx)
+        class_intencao = classificar_intencao_conversacional(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
         print(f" [INTENÇÃO CONVERSACIONAL] CLASSIFICADA: {class_intencao}", flush=True)
 
     preservar_continuidade_data = (
@@ -7125,20 +7140,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     # ✅ (A0) Intercept binário: "ela faz X?" / "quem faz X?"
     # =========================================================
-    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-
-    # catálogo global (união)
-    catalogo_global = []
-    for p in profs_dict.values():
-        for s in (p.get("servicos") or []):
-            s = str(s).strip()
-            if s:
-                catalogo_global.append(s)
-    catalogo_global = sorted(set(catalogo_global), key=lambda x: normalizar(x))
+    # Nota: profs_dict e catalogo_servicos já carregados acima (linha ~4440)
 
     # 1) "quem faz X?" -> retorna profissionais que fazem
     if "quem faz" in tnorm or "quem atende" in tnorm:
-        serv_alvo = extrair_servico_alvo_binario(tnorm, catalogo_global)
+        serv_alvo = extrair_servico_alvo_binario(tnorm, catalogo_servicos)
         if serv_alvo:
             fazem = []
             for p in profs_dict.values():
@@ -7168,7 +7174,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     servs_prof = [str(s).strip() for s in (p.get("servicos") or []) if str(s).strip()]
                     break
 
-            serv_alvo = extrair_servico_alvo_binario(tnorm, servs_prof or catalogo_global)
+            serv_alvo = extrair_servico_alvo_binario(tnorm, servs_prof or catalogo_servicos)
             if serv_alvo:
                 tem = any(normalizar(serv_alvo) == normalizar(x) for x in (servs_prof or []))
                 if tem:
