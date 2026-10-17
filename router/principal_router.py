@@ -1267,11 +1267,30 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
     def _match_servico(lista_servs):
         nonlocal servico_detectado
-        for s in lista_servs or []:
+        if not lista_servs:
+            return False
+
+        # Ordenar por tamanho (maior/específico primeiro) para evitar "corte" pegar antes de "corte feminino"
+        lista_ord = sorted(lista_servs, key=lambda s: len(normalizar(str(s))), reverse=True)
+
+        for s in lista_ord:
             s_norm = normalizar(str(s))
-            if s_norm and s_norm in tnorm:
+            if not s_norm:
+                continue
+
+            # 1. Match exato (palavra inteira)
+            if re.search(rf"\b{re.escape(s_norm)}\b", tnorm):
                 servico_detectado = str(s).strip()
                 return True
+
+            # 2. Match de prefixo: "corte" → "corte feminino"
+            s_palavras = s_norm.split()
+            if s_palavras:
+                primeira_palavra = s_palavras[0]
+                if re.search(rf"\b{re.escape(primeira_palavra)}\b", tnorm):
+                    servico_detectado = str(s).strip()
+                    return True
+
         return False
 
     # 1) serviços do profissional detectado
