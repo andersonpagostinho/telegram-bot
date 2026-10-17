@@ -7885,7 +7885,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # Detecção de pedido genérico: "outra profissional" sem nome específico
             # IMPORTANTE: Só ativar se NÃO há hora mencionada (evita ignorar "14:30 com outra profissional")
             eh_pedido_generico = (
-                estado_ativo == "aguardando_escolha_horario"
+                (estado_ativo == "aguardando_escolha_horario"
+                 or (estado_ativo == "agendando" and ctx.get("modo_escolha_horario")))
                 and "outra" in texto_norm_generico
                 and ("profissional" in texto_norm_generico or "pofissional" in texto_norm_generico)
                 and not matches  # Só genérico se NÃO há hora mencionada
