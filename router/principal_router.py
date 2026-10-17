@@ -2389,7 +2389,7 @@ async def detectar_alteracao_draft_agendamento(
     # retornar tipo=profissional valor=None para que [MUDANCA DE PROFISSIONAL]
     # possa oferecer menu de alternativas
     # =====================================================
-    if any(x in t for x in ["outra profissional", "outra prof", "profissional diferente", "outra pessoa", "outra mulher"]):
+    if any(x in t for x in ["outra profissional", "outra prof", "profissional diferente"]):
         print(
             f"[DETECTAR_ALTERACAO] tipo=profissional generico | valor=None | texto={texto_usuario}",
             flush=True
@@ -6722,7 +6722,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         else:
             # [P0.1] Detectar "outra profissional" genérica mesmo durante confirmacao_pendente
             texto_norm_alt = normalizar(texto_usuario or "")
-            if "outra" in texto_norm_alt and any(x in texto_norm_alt for x in ["profissional", "pofissional", "pessoa", "mulher"]):
+            if "outra" in texto_norm_alt and ("profissional" in texto_norm_alt or "pofissional" in texto_norm_alt):
                 print(
                     f" [P0.1-CONFIRMACAO_MUDANCA_PROF_GENERICA] Detectando pedido genérico de mudança de profissional",
                     flush=True
