@@ -726,7 +726,7 @@ async def executar_acao_gpt(
                     f"✅ Estes horários estão livres com a *{prof}* no mesmo dia:\n"
                     f"{(sugestoes_formatadas or 'Sem sugestões disponíveis.')}"
                     f"{alternativas_txt}\n\n"
-                    f"Deseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                    f"Você prefere outro horário ou manter o horário com outra profissional?"
                 )
 
                 # [P0.3] Retornar dict

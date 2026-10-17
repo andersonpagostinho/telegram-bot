@@ -6117,7 +6117,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 f"*{servico_slot}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
                             )
 
-                        msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                        msg += "\nVocê prefere outro horário ou manter o horário com outra profissional?"
 
                         return await _send_and_stop(context, user_id, msg)
 
@@ -6287,9 +6287,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 f"*{servico_escolhido}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
                             )
 
-                        msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                        msg += "\nVocê prefere outro horário ou manter o horário com outra profissional?"
 
-                        return await _send_and_stop(context, user_id, msg)                    
+                        return await _send_and_stop(context, user_id, msg)
 
                     ctx["estado_fluxo"] = "agendando"
                     ctx["aguardando_confirmacao_agendamento"] = True
@@ -6530,7 +6530,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             f"*{servico_slot}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
                         )
 
-                    msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                    msg += "\nVocê prefere outro horário ou manter o horário com outra profissional?"
 
                     return await _send_and_stop(context, user_id, msg)
 
@@ -7590,7 +7590,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 f"*{servico_ref}* e estão disponíveis: *{', '.join(alternativas)}*.\n"
                             )
 
-                        msg += "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+                        msg += "\nVocê prefere outro horário ou manter o horário com outra profissional?"
 
                         return await _send_and_stop(context, user_id, msg)
 

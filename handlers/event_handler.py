@@ -88,7 +88,7 @@ def formatar_mensagem_conflito_profissional(
         )
 
     if frase_final is None:
-        frase_final = "\nDeseja escolher outro horário com essa profissional ou prefere uma das alternativas?"
+        frase_final = "\nVocê prefere outro horário ou manter o horário com outra profissional?"
     elif not frase_final.startswith("\n"):
         frase_final = "\n" + frase_final
 
