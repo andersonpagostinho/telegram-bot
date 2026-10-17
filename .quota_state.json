@@ -1,0 +1,8 @@
+{
+  "quota_available": 100000,
+  "quota_used": 0,
+  "quota_percent": 0,
+  "last_check": "2026-10-17T10:31:08.818754",
+  "alerted_at_70": false,
+  "quota_recovered": true
+}

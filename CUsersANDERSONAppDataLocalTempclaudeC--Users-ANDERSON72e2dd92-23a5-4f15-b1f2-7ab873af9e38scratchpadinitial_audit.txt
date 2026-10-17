@@ -1,0 +1,32 @@
+AUDIT_TENANT_PROPAGACAO.txt
+=============================
+
+Analisando funções críticas com/sem tenant_id...
+
+services/gpt_service.py:47:async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
+services/gpt_service.py:92:async def tratar_mensagem_usuario(user_id, mensagem):
+services/gpt_service.py:108:async def processar_com_gpt_com_acao(
+services/gpt_service.py:3294:async def organizar_semana_com_gpt(
+services/gpt_service.py:3363:async def interpretar_linguagem_operacional_gpt(texto: str, ctx: dict) -> dict:
+services/gpt_service.py:3429:async def gerar_resposta_humana_agendamento(contexto_decisao: dict) -> str:
+services/gpt_service.py:3669:async def gerar_resposta_p1(contexto_decisao: dict) -> str:
+services/informacao_service.py:13:def formatar_nomes_humanos(profs: list[str]) -> str:
+services/informacao_service.py:27:def formatar_resposta_disponibilidade(
+services/informacao_service.py:71:async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | None:
+handlers/acao_router_handler.py:10:async def executar_acao_por_nome(update, context, acao, dados):
+handlers/acao_router_handler.py:685:async def consultar_preco_servico(update, context, dados):
+handlers/acao_router_handler.py:740:async def consultar_tabela_geral_de_precos(update, user_id):
+services/profissional_service.py:12:async def buscar_profissionais_por_servico(servicos: list[str], user_id: str) -> dict:
+services/profissional_service.py:42:async def buscar_profissionais_disponiveis_no_horario(
+services/profissional_service.py:109:async def obter_profissional_para_evento(user_id: str, descricao_evento: str) -> str | None:
+services/profissional_service.py:131:def gerar_mensagem_profissionais_disponiveis(
+services/profissional_service.py:156:async def listar_servicos_cadastrados(user_id: str) -> list[str]:
+services/profissional_service.py:170:async def obter_precos_servico(user_id: str, servico: str, profissional: str | None = None):
+services/profissional_service.py:207:async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None) -> str | None:
+services/profissional_service.py:243:async def consultar_todos_precos(user_id: str) -> str:
+services/onboarding_service.py:25:async def processar_onboarding_endereco_dono(
+services/onboarding_service.py:119:def _extrair_endereco(texto: str) -> dict:
+services/onboarding_service.py:179:def _normalizar_endereco(texto: str) -> str:
+services/onboarding_service.py:194:async def buscar_endereco_negocio(tenant_id: str):
+services/onboarding_service.py:211:async def salvar_endereco_negocio(tenant_id: str, endereco: dict):
+services/onboarding_service.py:228:async def processar_resposta_onboarding_dono(

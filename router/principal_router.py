@@ -10661,7 +10661,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     # ⛔ INTERCEPTAÇÃO: usuário digitou só hora sem data definida
     # =========================================================
-    if estado_fluxo == "aguardando_data":
+    # 🔒 P0 FIX: Respeitar data_sem_hora já setada (ex: CASO 3 em extrair_slots)
+    # Evita re-parsing que pode inserir default 09:00 novamente
+    if estado_fluxo == "aguardando_data" and not ctx.get("data_sem_hora"):
         draft = ctx.get("draft_agendamento") or {}
         data_hora_ctx = draft.get("data_hora") or ctx.get("data_hora")
 
