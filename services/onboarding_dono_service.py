@@ -60,6 +60,10 @@ async def _criar_agenda_funcionamento_firestore(tenant_id: str, agenda_padrao_st
         if not _validar_formato_hora(inicio_str) or not _validar_formato_hora(fim_str):
             raise ValueError(f"Horários inválidos: inicio='{inicio_str}', fim='{fim_str}'")
 
+        # Normalizar para HH:MM (com zero à esquerda)
+        inicio_str = _normalizar_hora(inicio_str)
+        fim_str = _normalizar_hora(fim_str)
+
         # Criar configuração com padrão: seg-sáb aberto, domingo fechado
         agenda_config = {
             "agenda_padrao": {
@@ -88,26 +92,81 @@ async def _criar_agenda_funcionamento_firestore(tenant_id: str, agenda_padrao_st
         raise
 
 
-def _validar_formato_hora(hora_str: str) -> bool:
+def _normalizar_hora(hora_str: str) -> str:
     """
-    Valida se string está em formato HH:MM.
+    Normaliza hora para formato HH:MM.
 
     Args:
-        hora_str: String como "09:00" ou "18:30"
+        hora_str: String como "9:00" ou "09:00"
 
     Returns:
-        True se válido, False caso contrário
+        String normalizada como "09:00"
     """
+    partes = hora_str.split(":")
+    horas = partes[0].zfill(2)
+    minutos = partes[1].zfill(2)
+    return f"{horas}:{minutos}"
+
+
+def _validar_formato_hora(hora_str: str) -> bool:
+    """
+    Valida se string está em formato H:MM ou HH:MM (sem espaços).
+
+    Rejeita:
+    - None ou tipos não-string
+    - Espaços externos ou internos
+    - Componentes não-numéricos
+    - Horas fora de 00-23
+    - Minutos fora de 00-59
+    - Componentes com menos de 1 ou mais de 2 dígitos
+
+    Args:
+        hora_str: String como "9:00", "09:00" ou "18:30"
+
+    Returns:
+        True se válido (formato H:MM ou HH:MM), False caso contrário
+    """
+    # Rejeitar tipos não-string
+    if not isinstance(hora_str, str):
+        return False
+
+    # Rejeitar strings vazias
+    if not hora_str:
+        return False
+
+    # Rejeitar espaços externos
+    if hora_str != hora_str.strip():
+        return False
+
     try:
         partes = hora_str.split(":")
+
+        # Deve ter exatamente 2 partes
         if len(partes) != 2:
             return False
 
-        horas = int(partes[0])
-        minutos = int(partes[1])
+        hora_part = partes[0].strip()  # Remove espaços internos
+        minuto_part = partes[1].strip()
 
+        # Rejeitar se strip removeu caracteres (espaços internos)
+        if hora_part != partes[0] or minuto_part != partes[1]:
+            return False
+
+        # Componentes não podem estar vazios
+        if not hora_part or not minuto_part:
+            return False
+
+        # Hora: 1-2 dígitos, Minuto: EXATAMENTE 2 dígitos (MM)
+        if len(hora_part) > 2 or len(minuto_part) != 2:
+            return False
+
+        # Converter para int (rejeita não-numéricos)
+        horas = int(hora_part)
+        minutos = int(minuto_part)
+
+        # Validar intervalos
         return 0 <= horas <= 23 and 0 <= minutos <= 59
-    except (ValueError, IndexError):
+    except (ValueError, IndexError, AttributeError):
         return False
 
 
