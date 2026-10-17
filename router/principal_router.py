@@ -7057,6 +7057,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             "descobrir_servico_para_consulta",
             "consultar_agendamentos_usuario",
         ]
+        and ctx.get("intencao_conversacional") != "ajuste_incremental"  # 🔒 P0.1 FIX: não aceitar ajuste incremental em continuidade_pendente
         and eh_aceite
     ):
         print(
