@@ -5092,9 +5092,19 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         class_intencao = classificar_intencao_conversacional(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
         print(f" [INTENÇÃO CONVERSACIONAL] CLASSIFICADA: {class_intencao}", flush=True)
 
+    # 🔥 FASE 2 FIX: Permitir novo serviço mesmo em aguardando_data
+    # Se nova classificação é agendamento_direto com serviço diferente do draft,
+    # NÃO preservar continuidade — permite atualização
+    novo_servico_identificado = (
+        class_intencao.get("intencao_conversacional") == "agendamento_direto"
+        and class_intencao.get("features", {}).get("servico_mencionado") is not None
+        and class_intencao.get("features", {}).get("servico_mencionado") != ctx.get("draft_agendamento", {}).get("servico")
+    )
+
     preservar_continuidade_data = (
         ctx.get("estado_fluxo") == "aguardando_data"
         and bool(ctx.get("draft_agendamento"))
+        and not novo_servico_identificado  # ← NÃO preservar se novo serviço foi identificado
     )
 
     preservar_confirmacao_pendente = (
