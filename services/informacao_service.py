@@ -253,7 +253,7 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
                 for serv_id, serv_dados in servicos_negocio.items():
                     serv_nome = unidecode((serv_dados.get("nome") or "").lower().strip())
                     if serv_nome == servico_norm:
-                        duracao = serv_dados.get("duracao_minutos", 30)
+                        duracao = serv_dados.get("duracao", 30)
                         break
             except Exception:
                 pass
