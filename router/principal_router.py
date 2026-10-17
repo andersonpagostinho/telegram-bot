@@ -4916,8 +4916,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     # =========================================================
     # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
+    # 🔒 P0 FIX: Passar catalogo_servicos específico do tenant
     # =========================================================
-    class_ctx = classificar_contexto_mensagem(texto_usuario, ctx)
+    class_ctx = classificar_contexto_mensagem(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
 
     print(f" [CLASSIFICADOR CONTEXTO] {class_ctx}", flush=True)
 
