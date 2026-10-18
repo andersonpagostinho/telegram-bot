@@ -45,8 +45,8 @@ class TestFix1Expediente:
         assert resultado.get("_erro_validacao") is not None, \
             f"Domingo deveria ser rejeitado, mas resultado foi: {resultado}"
 
-        assert "não abre" in resultado.get("_erro_validacao", "").lower(), \
-            "Mensagem de erro deveria mencionar que não abre"
+        assert "fechado" in resultado.get("_erro_validacao", "").lower(), \
+            "Mensagem de erro deveria mencionar que está fechado"
 
         assert resultado.get("data_hora") is None, \
             "data_hora não deveria ser atribuído se dia está fechado"

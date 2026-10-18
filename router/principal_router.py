@@ -1768,7 +1768,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
                         return {
                             **ctx,
-                            "_erro_validacao": f"O estabelecimento não abre em {data_iso}. Escolha outro dia.",
+                            "_erro_validacao": "Hoje não vai dar para agendar, porque o salão está fechado. 😊\n\nMas vamos encontrar outro dia para você fazer seu corte!\n\nQual dia fica melhor para você? 💇‍♀️",
                             "draft_agendamento": draft
                         }
                 except Exception as e:

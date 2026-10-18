@@ -71,8 +71,9 @@ async def test_aceita_dia_valido_amanha():
     E2E test: Usuário diz 'quero agendar para amanhã' (segunda 19/10)
     Sistema deve aceitar (segunda é dia de funcionamento)
     """
+    import uuid
     tenant_id = "7394370553"
-    actor_id = "whatsapp:test_amanha"
+    actor_id = "whatsapp:" + uuid.uuid4().hex[:8]
 
     # Setup: sessão vazia (estado_fluxo deve ser string)
     ctx = {
