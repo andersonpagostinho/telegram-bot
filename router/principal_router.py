@@ -1775,6 +1775,9 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                     print(f"[VALIDACAO EXPEDIENTE] Erro ao validar: {e}", flush=True)
                     # Continuar mesmo se validação falhar (falha aberta)
 
+                # [FIX A1] Limpar erro de validação anterior quando data passa validação
+                ctx.pop("_erro_validacao", None)
+
                 ctx["data_hora"] = iso
                 draft["data_hora"] = iso
                 ctx["hora_confirmada"] = False
@@ -9164,7 +9167,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     if ctx.get("pergunta_amanha_mesmo_horario") and (
         eh_confirmacao(texto_lower) or "amanha" in texto_lower or "amanhã" in texto_lower
     ):
-        base_iso = ctx.get("data_hora_pendente") or (ctx.get("ultima_consulta") or {}).get("data_hora")
+        # [FIX A2] Priorizar data_hora atual sobre pendente para evitar reutilizar hora de data rejeitada
+        base_iso = ctx.get("data_hora") or ctx.get("data_hora_pendente") or (ctx.get("ultima_consulta") or {}).get("data_hora")
         if not base_iso:
             ctx["estado_fluxo"] = "aguardando_data"
             ctx["pergunta_amanha_mesmo_horario"] = False
@@ -9206,6 +9210,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         nova_dt = base_dt + timedelta(days=1)
         nova_iso = nova_dt.replace(second=0, microsecond=0).isoformat()
+
+        # [FIX A3] Validar se nova hora é placeholder (00:00:00 após data sem horário)
+        if nova_iso.endswith("T00:00:00"):
+            ctx["hora_confirmada"] = False
+            ctx["data_sem_hora"] = True
 
         draft_local = ctx.get("draft_agendamento") or {}
         prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
