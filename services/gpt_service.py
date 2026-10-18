@@ -526,28 +526,33 @@ async def processar_com_gpt_com_acao(
                         # [PROBLEMA B FIX] Se data foi mencionada mas sem hora explícita,
                         # precisa usar hoje/amanhã/data_mencionada em vez de reutilizar data antiga
                         if data_foi_mencionada and not dt:
-                            # Data mencionada (ex: "hoje") mas sem hora explícita (sem "às 15:00")
+                            # Data mencionada (ex: "hoje", "amanhã") mas sem hora explícita (sem "às 15:00")
                             # Resolver manualmente a data para poder usá-la
+                            from datetime import timedelta
                             metadata = interpretar_data_e_hora(texto_usuario, return_metadata=True)
-                            if metadata and metadata.get("data_tipo") == "hoje":
-                                # Usar dia de hoje com hora 00:00 (ou reutilizar hora anterior)
+                            data_tipo = metadata and metadata.get("data_tipo")
+
+                            if metadata and data_tipo in ("hoje", "amanha"):
+                                # Usar dia de hoje/amanhã com hora 00:00 (ou reutilizar hora anterior)
                                 today = datetime.now(pytz.timezone("America/Sao_Paulo")).date()
+                                target_date = today if data_tipo == "hoje" else (today + timedelta(days=1))
+
                                 data_hora_existente = (contexto_salvo or {}).get("data_hora")
 
                                 if data_hora_existente:
-                                    # Extrair hora da data anterior e usar com data de hoje
+                                    # Extrair hora da data anterior e usar com a data detectada
                                     try:
                                         base_dt = datetime.fromisoformat(str(data_hora_existente))
-                                        dt = datetime(today.year, today.month, today.day,
+                                        dt = datetime(target_date.year, target_date.month, target_date.day,
                                                      base_dt.hour, base_dt.minute, 0, 0)
                                     except:
                                         # Se falhar, usar meia-noite
-                                        dt = datetime(today.year, today.month, today.day, 0, 0, 0, 0)
+                                        dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, 0)
                                 else:
                                     # Sem hora anterior, usar meia-noite
-                                    dt = datetime(today.year, today.month, today.day, 0, 0, 0, 0)
+                                    dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, 0)
 
-                                print(f"[PROBLEMA B FIX] Data mencionada 'hoje' sem hora | dt resolvido={dt}", flush=True)
+                                print(f"[PROBLEMA B FIX] Data mencionada '{data_tipo}' sem hora | dt resolvido={dt}", flush=True)
 
                         if dt:
                             # 🔥 Regra P0: Dado explícito novo > contexto salvo antigo

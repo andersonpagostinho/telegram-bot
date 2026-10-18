@@ -1439,12 +1439,22 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
         }
         print(f" [MESCLAR_METADATA] {ctx['_temporal_metadata']}", flush=True)
 
-    # [PROBLEMA B FIX] Resolver "hoje" manualmente quando data foi mencionada mas sem hora explícita
-    if dt_e_meta.get("data_detectada") and not dt_detectado and dt_e_meta.get("data_tipo") == "hoje":
-        today = datetime.now(pytz.timezone("America/Sao_Paulo")).date()
-        # Usar meia-noite como padrão quando data é detectada mas sem hora
-        dt_detectado = datetime(today.year, today.month, today.day, 0, 0, 0, 0)
-        print(f"[PROBLEMA B FIX] Resolvido manualmente: 'hoje' → {dt_detectado.isoformat()}", flush=True)
+    # [PROBLEMA B FIX] Resolver "hoje"/"amanhã" manualmente quando data foi mencionada mas sem hora explícita
+    if dt_e_meta.get("data_detectada") and not dt_detectado:
+        from datetime import timedelta
+        data_tipo = dt_e_meta.get("data_tipo")
+        if data_tipo in ("hoje", "amanha"):
+            tz = pytz.timezone("America/Sao_Paulo")
+            today = datetime.now(tz).date()
+
+            if data_tipo == "hoje":
+                target_date = today
+            else:  # amanha
+                target_date = today + timedelta(days=1)
+
+            # Usar meia-noite como padrão quando data é detectada mas sem hora
+            dt_detectado = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, 0)
+            print(f"[PROBLEMA B FIX] Resolvido manualmente: '{data_tipo}' → {dt_detectado.isoformat()}", flush=True)
 
     # =========================================================
     # 🔥 HORA INCREMENTAL
