@@ -9170,6 +9170,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # 🔥 EXTRAÇÃO PRINCIPAL
         # =========================================================
 
+        # Limpar erro de validação antigo antes de novo parse
+        # Se houver novo erro, será setado novamente
+        ctx.pop("_erro_validacao", None)
+
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
 
         # =========================================================
