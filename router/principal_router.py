@@ -1711,11 +1711,12 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
             # [PROBLEMA B FIX] Não reutilizar hora anterior se data foi mencionada SEM hora explícita
             # Ex: "quero agendar para hoje" (sem "às 15:00") → NÃO usar 09:00 antigo
+            # GENÉRICO: funciona para QUALQUER data_tipo (hoje, amanha, dia_semana, dia_mes_ano, etc.)
+            # quando hora_detectada=False (nenhuma hora foi mencionada pelo usuário)
             data_tipo = dt_e_meta.get("data_tipo")
             data_foi_mencionada_sem_hora = (
                 dt_e_meta.get("data_detectada")
                 and not dt_e_meta.get("hora_detectada")
-                and data_tipo in ("hoje", "amanha")
             )
 
             if data_hora_anterior and "T" in str(data_hora_anterior) and not data_foi_mencionada_sem_hora:
