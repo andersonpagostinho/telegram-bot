@@ -332,7 +332,7 @@ async def obter_janela_funcionamento(
     # =========================================================
     # 7) LER PROFISSIONAIS
     # =========================================================
-    profissionais = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+    profissionais = await buscar_subcolecao(f"Clientes/{salao_id}/Profissionais") or {}
 
     # tenta chave direta
     dados_prof = profissionais.get(profissional)
@@ -364,7 +364,7 @@ async def obter_janela_funcionamento(
     agenda_padrao_prof = agenda_prof.get("agenda_padrao") or {}
 
     excecoes_prof = await buscar_subcolecao(
-        f"Clientes/{user_id}/Profissionais/{profissional}/AgendaExcecoes"
+        f"Clientes/{salao_id}/Profissionais/{profissional}/AgendaExcecoes"
     ) or {}
 
     print(f"[JANELA] profissional={profissional}", flush=True)
