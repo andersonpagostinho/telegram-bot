@@ -1,0 +1,64 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\dev\neoeve
+configfile: pytest.ini
+plugins: anyio-4.8.0, asyncio-1.4.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 0 items
+
+============================ no tests ran in 0.08s ============================
+python : ERROR: file or directory not found: tests/test_patch_p0_cancelamento_firebase
+No linha:1 caractere:320
++ ...  }; cd C:\dev\neoeve; python executor_p0_174_completo.py 2>&1 | Tee-O ...
++                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ERROR: file or ...amento_firebase:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+
+================================================================================
+🔥 EXECUÇÃO P0 174 COMPLETA — VALIDAÇÃO FIRESTORE REAL
+================================================================================
+
+📊 Arquivos P0 encontrados: 61
+📈 Total estimado de testes: 472
+
+Arquivos P0 a executar (top 20):
+  53 testes: test_p01_firebase_real_simple.py
+  20 testes: test_p01_identidade_contexto.py
+  20 testes: test_p0_classificar_confirmacao_cancelamento.py
+  18 testes: test_patch_p0_cancelamento.py
+  18 testes: test_p01_confirmacao_pendente_outra_prof.py
+  18 testes: test_p01_confirmacao_firebase_real.py
+  16 testes: test_p0_servicos_dinamicos.py
+  12 testes: test_p0_extracao_termo_cancelamento.py
+  12 testes: test_p03_gate_validation.py
+  11 testes: test_wa_p0_firebase_real_optimized.py
+  11 testes: test_wa_p0_firebase_real.py
+  10 testes: test_p0_p1_fixes_implementation.py
+  10 testes: test_patch_p0_bloqueio_contexto.py
+  10 testes: test_wa_p0_deduplicacao.py
+  10 testes: test_p0_selecao_evento_cancelamento.py
+   9 testes: test_c310_fase1_indice_derivado.py
+   9 testes: test_p05_v3_logica.py
+   9 testes: test_p0_cancelar_evento_passado.py
+   8 testes: test_p0_gap_outra_profissional_agendando_sem_confirmacao.py
+   8 testes: test_p0_quais_voce_tem.py
+  ... e 41 arquivos adicionais
+
+================================================================================
+⏱️  EXECUÇÃO INICIANDO...
+================================================================================
+Timeout: 300s por arquivo (testes E2E com Firestore real)
+Modo: Validação completa até confirmação de evento
+
+
+================================================================================
+📋 RESUMO DA EXECUÇÃO P0 174
+================================================================================
+Duração total: 0.9 segundos (0.0 minutos)
+Status: ❌ FALHAS DETECTADAS
+
+[REPORT] Salvo em: EXECUCAO_P0_174_2026_10_18.json
+

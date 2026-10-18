@@ -98,8 +98,9 @@ class TestFix2Cancelamento:
         """
         from router.principal_router import roteador_principal
         from services.firebase_service_async import atualizar_dado_em_path
+        import uuid
 
-        tenant_id = "test_" + datetime.now().strftime("%s")
+        tenant_id = "test_" + uuid.uuid4().hex[:8]
         actor_id = "whatsapp:test_5511991382080"
 
         # Setup: criar sessão com draft ativo
@@ -127,8 +128,7 @@ class TestFix2Cancelamento:
             resultado = await roteador_principal(
                 user_id=actor_id,
                 mensagem="cancelar",
-                tenant_id=tenant_id,
-                dono_id=tenant_id
+                tenant_id=tenant_id
             )
 
             # Verificar resposta é de abandono de draft, NÃO erro de "evento não encontrado"
@@ -153,8 +153,9 @@ class TestFix2Cancelamento:
         """
         from router.principal_router import roteador_principal
         from services.firebase_service_async import atualizar_dado_em_path
+        import uuid
 
-        tenant_id = "test_" + datetime.now().strftime("%s")
+        tenant_id = "test_" + uuid.uuid4().hex[:8]
         actor_id = "whatsapp:test_5511991382080"
 
         # Setup: criar sessão SEM draft ativo
@@ -178,8 +179,7 @@ class TestFix2Cancelamento:
             resultado = await roteador_principal(
                 user_id=actor_id,
                 mensagem="cancelar",
-                tenant_id=tenant_id,
-                dono_id=tenant_id
+                tenant_id=tenant_id
             )
 
             resposta = resultado.get("resposta", "").lower()

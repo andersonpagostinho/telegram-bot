@@ -1,0 +1,2209 @@
+{
+  "total_files": 54,
+  "files": [
+    {
+      "file": "test_p012_eh_pedido_generico_fix.py",
+      "pass": 6,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP012EhPedidoGenericoFix",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP012EhPedidoGenericoFix",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP012EhPedidoGenericoFix",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP012EhPedidoGenericoFix",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP012EhPedidoGenericoFix",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP012EhPedidoGenericoFix",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p012_fallback_removido.py",
+      "pass": 6,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_1_tenant_explicito_valido",
+          "status": "PASS"
+        },
+        {
+          "name": "test_2_tenant_resolvido_por_obter_id_dono",
+          "status": "PASS"
+        },
+        {
+          "name": "test_3_tenant_nao_resolvido_origem",
+          "status": "PASS"
+        },
+        {
+          "name": "test_4_tenant_nao_resolvido_sem_leitura_user_id",
+          "status": "PASS"
+        },
+        {
+          "name": "test_5_config_ausente_vs_tenant_nao_resolvido",
+          "status": "PASS"
+        },
+        {
+          "name": "test_6_consumidores_nao_criam_disponibilidade_ficticia",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "pass": 0,
+      "fail": 0,
+      "error": 19,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteFb",
+          "status": "ERROR"
+        }
+      ]
+    },
+    {
+      "file": "test_p01_confirmacao_pendente_outra_prof.py",
+      "pass": 18,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ConfirmacaoPendenteOutraProf",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ProtecaoConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ProtecaoConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01ProtecaoConfirmacao",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p01_firebase_real_simple.py",
+      "pass": 53,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01Fb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestFase24fFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificadorFb",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p01_gate_validacao_commit.py",
+      "pass": 6,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP01GateValidacaoCommit",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01GateValidacaoCommit",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01GateValidacaoCommit",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01GateValidacaoCommit",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01GateValidacaoCommit",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP01GateValidacaoCommit",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p01_identidade_contexto.py",
+      "pass": 20,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestT1_WhatsApp_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT1_WhatsApp_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT1_WhatsApp_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT1_WhatsApp_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT1_WhatsApp_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT2_Telegram_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT2_Telegram_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT2_Telegram_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT2_Telegram_Identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT3_Isolamento_Tenant",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT3_Isolamento_Tenant",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_Campos_Obrigat\u00f3rios",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_Campos_Obrigat\u00f3rios",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_Campos_Obrigat\u00f3rios",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_Campos_Obrigat\u00f3rios",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_Campos_Obrigat\u00f3rios",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_Campos_Obrigat\u00f3rios",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_Campos_Obrigat\u00f3rios",
+          "status": "PASS"
+        },
+        {
+          "name": "TestIntegracaoBasica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestIntegracaoBasica",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p01_outra_profissional_firebase_real.py",
+      "pass": 0,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": []
+    },
+    {
+      "file": "test_p02_code_fix.py",
+      "pass": 3,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_p02_fix_is_applied",
+          "status": "FAIL"
+        },
+        {
+          "name": "test_p02_fix_structure",
+          "status": "PASS"
+        },
+        {
+          "name": "test_p02_fix_preserves_contract",
+          "status": "PASS"
+        },
+        {
+          "name": "test_p02_fix_no_duplicates",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p02_executor_multicanal.py",
+      "pass": 6,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestT1_WhatsAppSemTelegramUpdate",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT1_WhatsAppSemTelegramUpdate",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT2_TelegramCompatibilidade",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT3_IdentidadePreservada",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT4_UpdateNoneBlocker",
+          "status": "PASS"
+        },
+        {
+          "name": "TestT5_AcaoReal_CriarEvento",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestT6_RegressaoTelegram",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p02_fix_verification.py",
+      "pass": 4,
+      "fail": 3,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_t1_past_time_is_rejected",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t2_fix_code_is_present",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t3_error_message_sent_on_telegram_failure",
+          "status": "FAIL"
+        },
+        {
+          "name": "test_t4_error_message_sent_on_whatsapp_failure",
+          "status": "FAIL"
+        },
+        {
+          "name": "test_t5_success_flow_unaffected",
+          "status": "FAIL"
+        },
+        {
+          "name": "test_t6_executor_contract_preserved",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t7_bot_respects_acao_contract",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p03_cadeia_completa.py",
+      "pass": 5,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP03CadeiaCompleta",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03CadeiaCompleta",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03CadeiaCompleta",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03CadeiaCompleta",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03CadeiaCompleta",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p03_gate_validation.py",
+      "pass": 12,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_gate_t1_tenant_from_identidade",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t2_tenant_from_dados",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t3_tenant_fallback_dono_id",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t4_tenant_none_all_paths",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t5_nome_dona_encontrado",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t6_nome_dona_fallback",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t7_buscar_cliente_exception",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t8_whatsapp_response",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t9_telegram_response",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t10_p02_preserved",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t11_failure_not_success",
+          "status": "PASS"
+        },
+        {
+          "name": "test_gate_t12_success_unaffected",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p03_mensagem_whatsapp_humanizada 2.py",
+      "pass": 0,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_p03_montar_mensagem_confirmacao_sucesso_humanizada",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "file": "test_p03_resultado_acao.py",
+      "pass": 7,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP03ResultadoAcao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03ResultadoAcao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03BuscartarefasDoUsuario",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03PreConfirmarAgendamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03CriarEvento",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP03AlreadySent",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03TelegramCompat",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP03Nao_Duplicacao",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_completo_validacao.py",
+      "pass": 1,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_protecoes_completas",
+          "status": "PASS"
+        },
+        {
+          "name": "test_sem_indentacao_errada",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_correcao2_user_data_cleanup.py",
+      "pass": 4,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_user_data_cleanup_remove_transitorio_preserva_legitimo",
+          "status": "PASS"
+        },
+        {
+          "name": "test_user_data_cleanup_none_context",
+          "status": "PASS"
+        },
+        {
+          "name": "test_user_data_cleanup_empty_user_data",
+          "status": "PASS"
+        },
+        {
+          "name": "test_user_data_not_cleaned_on_creation_failure",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_corre\u00e7\u00e3o_cirurgica.py",
+      "pass": 0,
+      "fail": 4,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP04CorrecaoCircurgicaAgendaFechada",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP04CorrecaoCircurgicaExcecao",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP04RegressaoTelegram",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP04NenhombreTagP04",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_delete_field_real.py",
+      "pass": 1,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_delete_field_realmente_remove_campos",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_diagnostico_cleanup_real_tenant.py",
+      "pass": 1,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_p04_diagnostico_cleanup_tenant_real",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_e2e_full_scenario_trace.py",
+      "pass": 1,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_p04_e2e_full_scenario_with_firestore_trace",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_gate_direto.py",
+      "pass": 2,
+      "fail": 2,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP04Gate",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP04Gate",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP04Gate",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP04Gate",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_gate_simples.py",
+      "pass": 5,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_protecoes_presentes",
+          "status": "PASS"
+        },
+        {
+          "name": "test_sem_reply_text_desprotegido",
+          "status": "PASS"
+        },
+        {
+          "name": "test_integridade_arquivo",
+          "status": "PASS"
+        },
+        {
+          "name": "test_nenhuma_alteracao_colateral",
+          "status": "PASS"
+        },
+        {
+          "name": "test_attribute_error_n\u00e3o_vai_ocorrer",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_identidade_phone_number_id.py",
+      "pass": 3,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_identidade_contexto_tem_phone_number_id",
+          "status": "PASS"
+        },
+        {
+          "name": "test_criar_identidade_whatsapp_preserva_phone_number_id",
+          "status": "PASS"
+        },
+        {
+          "name": "test_identidade_default_phone_number_id_none",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p04_validacao_final.py",
+      "pass": 0,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": []
+    },
+    {
+      "file": "test_p056_regra_x1_adjacencia.py",
+      "pass": 7,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_t1_novo_termina_no_inicio_evento",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t2_novo_comeca_no_fim_evento",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t3_novo_termina_no_inicio_evento2",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t4_novo_comeca_no_fim_evento2",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t5_sobreposicao_real",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t6_sem_adjacencia_nem_sobreposicao",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t7_cenario_original",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p05_v3_logica.py",
+      "pass": 9,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3Logica",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p05_v3_reiteration_vs_novo.py",
+      "pass": 8,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP05V3ReitervationVsNovo",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p08_2_contrato_unitario_confirmacao.py",
+      "pass": 0,
+      "fail": 6,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestContratoUnitarioConfirmacao",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestContratoUnitarioConfirmacao",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestContratoUnitarioConfirmacao",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestContratoUnitarioConfirmacao",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestContratoUnitarioConfirmacao",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestContratoUnitarioConfirmacao",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "file": "test_p08_3_integracao_confirmacao.py",
+      "pass": 1,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestIntegracaoConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestIntegracaoConfirmacao",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_bloqueio_promocao_cliente_dono_firebase_real.py",
+      "pass": 0,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": []
+    },
+    {
+      "file": "test_p0_cancelamento_e2e_firebase_real.py",
+      "pass": 2,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP0CancelamentoE2EFirebaseReal",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0CancelamentoE2EFirebaseReal",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_cancelamento_idle.py",
+      "pass": 2,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_cancelamento_idle_detectado",
+          "status": "PASS"
+        },
+        {
+          "name": "test_saudacao_continua_normal",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_cancelar_evento_passado.py",
+      "pass": 9,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        },
+        {
+          "name": "TestCancelarEventoPassado",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_classificar_confirmacao_cancelamento.py",
+      "pass": 20,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestConfirmacaoCancelamento",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_data_sem_hora_fix.py",
+      "pass": 4,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_01_bloco_aguardando_data_skipped",
+          "status": "PASS"
+        },
+        {
+          "name": "test_02_data_hora_permanece_00_00",
+          "status": "PASS"
+        },
+        {
+          "name": "test_03_contexto_com_servico_profissional",
+          "status": "PASS"
+        },
+        {
+          "name": "test_04_sem_data_sem_hora_bloco_executa",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_e2e_whatsapp_confirmacao_completo.py",
+      "pass": 0,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_e2e_whatsapp_confirmacao_completo",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_extracao_termo_cancelamento.py",
+      "pass": 12,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtracaoTermoCancelamento",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_firebase_real_tenant_isolation.py",
+      "pass": 2,
+      "fail": 2,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP0TenantIsolationFirebaseReal",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP0TenantIsolationFirebaseReal",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0TenantIsolationFirebaseReal",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP0ContextoTemporarioGuardrails",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_gap_outra_profissional_agendando_sem_confirmacao.py",
+      "pass": 8,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0GapOutraProfissionalAgendandoSemConfirmacao",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_hotfix_contexto_agendamento.py",
+      "pass": 6,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_a_agendamento_explicito_idle",
+          "status": "PASS"
+        },
+        {
+          "name": "test_b_protecao_conflito",
+          "status": "PASS"
+        },
+        {
+          "name": "test_c_consulta_informativa",
+          "status": "PASS"
+        },
+        {
+          "name": "test_d_servico_inexistente",
+          "status": "PASS"
+        },
+        {
+          "name": "test_e_isolamento_tenants",
+          "status": "PASS"
+        },
+        {
+          "name": "test_f_ambiguidade_estado",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_multiplos_eventos_sem_selecao.py",
+      "pass": 3,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestMultiplosEventosSemSelecao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestMultiplosEventosSemSelecao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestMultiplosEventosSemSelecao",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_outra_profissional_gap.py",
+      "pass": 6,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestOutraProfissionalGap",
+          "status": "PASS"
+        },
+        {
+          "name": "TestOutraProfissionalGap",
+          "status": "PASS"
+        },
+        {
+          "name": "TestOutraProfissionalGap",
+          "status": "PASS"
+        },
+        {
+          "name": "TestOutraProfissionalGap",
+          "status": "PASS"
+        },
+        {
+          "name": "TestOutraProfissionalGap",
+          "status": "PASS"
+        },
+        {
+          "name": "TestOutraProfissionalGap",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_p1_fixes_implementation.py",
+      "pass": 10,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP0ActivityUpdate",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0ActivityUpdate",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0ActivityUpdate",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0ActivityUpdate",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP1ResidualCleanup",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP1ResidualCleanup",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP1ResidualCleanup",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP1ResidualCleanup",
+          "status": "PASS"
+        },
+        {
+          "name": "TestDraftReintroducao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0P1Integration",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_patch_logic.py",
+      "pass": 2,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_p0_patch_logic_reiteracao",
+          "status": "PASS"
+        },
+        {
+          "name": "test_p0_patch_logic_alteracao",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_quais_voce_tem.py",
+      "pass": 8,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_t1_outra_profissional_contrato",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t2_quais_voce_tem_detecta",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t3_filtragem_servico",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t4_exclusao_profissional_atual",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t5_sem_alternativas_pergunta",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t6_fora_draft_normal",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t7_variacoes_padrao",
+          "status": "PASS"
+        },
+        {
+          "name": "test_t8_escolha_explicita",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_reiteration_vs_alteracao.py",
+      "pass": 2,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_caso_a_reiteration",
+          "status": "PASS"
+        },
+        {
+          "name": "test_caso_b_alteracao",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_selecao_evento_cancelamento.py",
+      "pass": 10,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        },
+        {
+          "name": "TestSele\u00e7\u00e3oEventoCancelamento",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_servicos_dinamicos.py",
+      "pass": 16,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestExtrairServicoDoCatalogo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtrairServicoDoCatalogo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtrairServicoDoCatalogo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtrairServicoDoCatalogo",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtrairFeatures",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtrairFeatures",
+          "status": "PASS"
+        },
+        {
+          "name": "TestExtrairFeatures",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificarIntencao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificarIntencao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificarIntencao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestClassificarIntencao",
+          "status": "PASS"
+        },
+        {
+          "name": "TestIsolamentoMultiTenant",
+          "status": "PASS"
+        },
+        {
+          "name": "TestIsolamentoMultiTenant",
+          "status": "PASS"
+        },
+        {
+          "name": "TestIsolamentoMultiTenant",
+          "status": "PASS"
+        },
+        {
+          "name": "TestDetectarTipoAjuste",
+          "status": "PASS"
+        },
+        {
+          "name": "TestDetectarTipoAjuste",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_sessao_expirada_teste_rapido.py",
+      "pass": 1,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestSessaoExpiradaRapido",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestSessaoExpiradaRapido",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_sessao_v2_nao_sobrescrita_por_legado_firebase_real.py",
+      "pass": 0,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": []
+    },
+    {
+      "file": "test_p0_unboundlocalerror_dono_id_fix.py",
+      "pass": 1,
+      "fail": 1,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "test_roteador_principal_dono_id_defined",
+          "status": "PASS"
+        },
+        {
+          "name": "test_roteador_principal_tenant_id_fallback",
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "file": "test_p0_wa_outbound_implementation.py",
+      "pass": 6,
+      "fail": 0,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP0WAOutbound",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0WAOutbound",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0WAOutbound",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0WAOutbound",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0WAOutbound",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0WAOutbound",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "file": "test_p0a_reutilizar_user_id.py",
+      "pass": 1,
+      "fail": 4,
+      "error": 0,
+      "skipped": 0,
+      "test_names": [
+        {
+          "name": "TestP0AReutilizarUserID",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP0AReutilizarUserID",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP0AReutilizarUserID",
+          "status": "PASS"
+        },
+        {
+          "name": "TestP0AReutilizarUserID",
+          "status": "FAIL"
+        },
+        {
+          "name": "TestP0ARegressao",
+          "status": "FAIL"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "pass": 320,
+    "fail": 30,
+    "error": 37,
+    "skipped": 0
+  },
+  "failures": [
+    {
+      "file": "test_p02_code_fix.py",
+      "test": "test_p02_fix_is_applied",
+      "line": "tests/test_p02_code_fix.py::test_p02_fix_is_applied FAILED               [ 25%]"
+    },
+    {
+      "file": "test_p02_executor_multicanal.py",
+      "test": "TestT5_AcaoReal_CriarEvento",
+      "line": "tests/test_p02_executor_multicanal.py::TestT5_AcaoReal_CriarEvento::test_confirmacao_agendamento_whatsapp FAILED [ 85%]"
+    },
+    {
+      "file": "test_p02_fix_verification.py",
+      "test": "test_t3_error_message_sent_on_telegram_failure",
+      "line": "tests/test_p02_fix_verification.py::test_t3_error_message_sent_on_telegram_failure FAILED [ 42%]"
+    },
+    {
+      "file": "test_p02_fix_verification.py",
+      "test": "test_t4_error_message_sent_on_whatsapp_failure",
+      "line": "tests/test_p02_fix_verification.py::test_t4_error_message_sent_on_whatsapp_failure FAILED [ 57%]"
+    },
+    {
+      "file": "test_p02_fix_verification.py",
+      "test": "test_t5_success_flow_unaffected",
+      "line": "tests/test_p02_fix_verification.py::test_t5_success_flow_unaffected FAILED [ 71%]"
+    },
+    {
+      "file": "test_p03_mensagem_whatsapp_humanizada 2.py",
+      "test": "test_p03_montar_mensagem_confirmacao_sucesso_humanizada",
+      "line": "tests/test_p03_mensagem_whatsapp_humanizada 2.py::test_p03_montar_mensagem_confirmacao_sucesso_humanizada FAILED [100%]"
+    },
+    {
+      "file": "test_p03_resultado_acao.py",
+      "test": "TestP03CriarEvento",
+      "line": "tests/test_p03_resultado_acao.py::TestP03CriarEvento::test_criar_evento_retorna_resultado FAILED [ 62%]"
+    },
+    {
+      "file": "test_p04_completo_validacao.py",
+      "test": "test_sem_indentacao_errada",
+      "line": "tests/test_p04_completo_validacao.py::test_sem_indentacao_errada FAILED  [100%]"
+    },
+    {
+      "file": "test_p04_corre\u00e7\u00e3o_cirurgica.py",
+      "test": "TestP04CorrecaoCircurgicaAgendaFechada",
+      "line": "tests/test_p04_corre\u00e7\u00e3o_cirurgica.py::TestP04CorrecaoCircurgicaAgendaFechada::test_agenda_fechada_com_update_none FAILED [ 25%]"
+    },
+    {
+      "file": "test_p04_corre\u00e7\u00e3o_cirurgica.py",
+      "test": "TestP04CorrecaoCircurgicaExcecao",
+      "line": "tests/test_p04_corre\u00e7\u00e3o_cirurgica.py::TestP04CorrecaoCircurgicaExcecao::test_excecao_geral_com_update_none FAILED [ 50%]"
+    },
+    {
+      "file": "test_p04_corre\u00e7\u00e3o_cirurgica.py",
+      "test": "TestP04RegressaoTelegram",
+      "line": "tests/test_p04_corre\u00e7\u00e3o_cirurgica.py::TestP04RegressaoTelegram::test_telegram_reply_text_executado FAILED [ 75%]"
+    },
+    {
+      "file": "test_p04_corre\u00e7\u00e3o_cirurgica.py",
+      "test": "TestP04NenhombreTagP04",
+      "line": "tests/test_p04_corre\u00e7\u00e3o_cirurgica.py::TestP04NenhombreTagP04::test_tags_p04_presentes FAILED [100%]"
+    },
+    {
+      "file": "test_p04_gate_direto.py",
+      "test": "TestP04Gate",
+      "line": "tests/test_p04_gate_direto.py::TestP04Gate::test_ponto1_agenda_fechada_update_none FAILED [ 25%]"
+    },
+    {
+      "file": "test_p04_gate_direto.py",
+      "test": "TestP04Gate",
+      "line": "tests/test_p04_gate_direto.py::TestP04Gate::test_ponto2_excecao_geral_update_none FAILED [ 50%]"
+    },
+    {
+      "file": "test_p08_2_contrato_unitario_confirmacao.py",
+      "test": "TestContratoUnitarioConfirmacao",
+      "line": "tests/test_p08_2_contrato_unitario_confirmacao.py::TestContratoUnitarioConfirmacao::test_u1_template_exato_hoje FAILED [ 16%]"
+    },
+    {
+      "file": "test_p08_2_contrato_unitario_confirmacao.py",
+      "test": "TestContratoUnitarioConfirmacao",
+      "line": "tests/test_p08_2_contrato_unitario_confirmacao.py::TestContratoUnitarioConfirmacao::test_u1_template_exato_amanha FAILED [ 33%]"
+    },
+    {
+      "file": "test_p08_2_contrato_unitario_confirmacao.py",
+      "test": "TestContratoUnitarioConfirmacao",
+      "line": "tests/test_p08_2_contrato_unitario_confirmacao.py::TestContratoUnitarioConfirmacao::test_u1_template_exato_data_futura FAILED [ 50%]"
+    },
+    {
+      "file": "test_p08_2_contrato_unitario_confirmacao.py",
+      "test": "TestContratoUnitarioConfirmacao",
+      "line": "tests/test_p08_2_contrato_unitario_confirmacao.py::TestContratoUnitarioConfirmacao::test_u2_fallback_data_invalida FAILED [ 66%]"
+    },
+    {
+      "file": "test_p08_2_contrato_unitario_confirmacao.py",
+      "test": "TestContratoUnitarioConfirmacao",
+      "line": "tests/test_p08_2_contrato_unitario_confirmacao.py::TestContratoUnitarioConfirmacao::test_regressao_pronto_com_virgula FAILED [ 83%]"
+    },
+    {
+      "file": "test_p08_2_contrato_unitario_confirmacao.py",
+      "test": "TestContratoUnitarioConfirmacao",
+      "line": "tests/test_p08_2_contrato_unitario_confirmacao.py::TestContratoUnitarioConfirmacao::test_regressao_ficou_agendada FAILED [100%]"
+    },
+    {
+      "file": "test_p08_3_integracao_confirmacao.py",
+      "test": "TestIntegracaoConfirmacao",
+      "line": "tests/test_p08_3_integracao_confirmacao.py::TestIntegracaoConfirmacao::test_i2_whatsapp_mensagem_exata FAILED [ 66%]"
+    },
+    {
+      "file": "test_p0_e2e_whatsapp_confirmacao_completo.py",
+      "test": "test_e2e_whatsapp_confirmacao_completo",
+      "line": "tests/test_p0_e2e_whatsapp_confirmacao_completo.py::test_e2e_whatsapp_confirmacao_completo FAILED [100%]"
+    },
+    {
+      "file": "test_p0_firebase_real_tenant_isolation.py",
+      "test": "TestP0TenantIsolationFirebaseReal",
+      "line": "tests/test_p0_firebase_real_tenant_isolation.py::TestP0TenantIsolationFirebaseReal::test_1_processar_salva_contexto_com_tenant_id FAILED [ 25%]"
+    },
+    {
+      "file": "test_p0_firebase_real_tenant_isolation.py",
+      "test": "TestP0TenantIsolationFirebaseReal",
+      "line": "tests/test_p0_firebase_real_tenant_isolation.py::TestP0TenantIsolationFirebaseReal::test_3_limpar_contexto_respeita_tenant_id FAILED [ 75%]"
+    },
+    {
+      "file": "test_p0_sessao_expirada_teste_rapido.py",
+      "test": "TestSessaoExpiradaRapido",
+      "line": "tests/test_p0_sessao_expirada_teste_rapido.py::TestSessaoExpiradaRapido::test_sessao_expira_em_5min FAILED [ 50%]"
+    },
+    {
+      "file": "test_p0_unboundlocalerror_dono_id_fix.py",
+      "test": "test_roteador_principal_tenant_id_fallback",
+      "line": "tests/test_p0_unboundlocalerror_dono_id_fix.py::test_roteador_principal_tenant_id_fallback FAILED [100%]"
+    },
+    {
+      "file": "test_p0a_reutilizar_user_id.py",
+      "test": "TestP0AReutilizarUserID",
+      "line": "tests/test_p0a_reutilizar_user_id.py::TestP0AReutilizarUserID::test_cenario_a_whatsapp_com_identidade_valida FAILED [ 20%]"
+    },
+    {
+      "file": "test_p0a_reutilizar_user_id.py",
+      "test": "TestP0AReutilizarUserID",
+      "line": "tests/test_p0a_reutilizar_user_id.py::TestP0AReutilizarUserID::test_cenario_b_telegram_sem_identidade FAILED [ 40%]"
+    },
+    {
+      "file": "test_p0a_reutilizar_user_id.py",
+      "test": "TestP0AReutilizarUserID",
+      "line": "tests/test_p0a_reutilizar_user_id.py::TestP0AReutilizarUserID::test_fallback_dados_se_user_id_falta FAILED [ 80%]"
+    },
+    {
+      "file": "test_p0a_reutilizar_user_id.py",
+      "test": "TestP0ARegressao",
+      "line": "tests/test_p0a_reutilizar_user_id.py::TestP0ARegressao::test_outra_acao_nao_afetada FAILED [100%]"
+    }
+  ],
+  "errors": [
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_01_deteccao_outra_profissional_basica ERROR [  5%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_02_alternativas_validas_filtra_profissional ERROR [ 11%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_03_menu_preserva_data_hora_exata ERROR [ 16%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_04_sem_alternativas_nao_menu ERROR [ 22%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_05_sem_data_nao_menu ERROR [ 27%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_06_sem_servico_nao_menu ERROR [ 33%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_07_fallback_contexto_se_draft_vazio ERROR [ 38%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_08_alternativa_profissional_como_string ERROR [ 44%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_09_nao_detecta_sem_outra ERROR [ 50%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_10_nao_detecta_sem_profissional ERROR [ 55%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_11_normalizacao_acentos ERROR [ 61%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_12_menu_formato_correto ERROR [ 66%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_13_ultima_opcao_como_fallback ERROR [ 72%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_14_confirmacao_sem_outra_profissional ERROR [ 77%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_15_validacoes_completas ERROR [ 83%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_16_confirmacao_sim_nao_ativa_p01 ERROR [ 88%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_17_confirmacao_aceitar_nao_ativa ERROR [ 94%]"
+    },
+    {
+      "file": "test_p01_confirmacao_firebase_real.py",
+      "test": "TestP01ConfirmacaoPendenteFb",
+      "line": "tests/test_p01_confirmacao_firebase_real.py::TestP01ConfirmacaoPendenteFb::test_18_contexto_sem_alternativas_invalido ERROR [100%]"
+    }
+  ]
+}

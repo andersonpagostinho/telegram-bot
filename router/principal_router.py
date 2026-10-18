@@ -9042,6 +9042,25 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
 
+        # =========================================================
+        # 🔴 BLOQUEIO: ERRO DE VALIDAÇÃO — EXPEDIENTE REJEITADO
+        # =========================================================
+        if ctx.get("_erro_validacao"):
+            erro_msg = ctx.get("_erro_validacao", "Erro na validação. Tente outra data.")
+            print(f"[BLOQUEIO ERRO VALIDACAO] {erro_msg}", flush=True)
+
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+            return await _send_and_stop_ctx(
+                context,
+                user_id,
+                erro_msg,
+                ctx,
+                texto_usuario,
+                cliente_id,
+                dono_id=dono_id
+            )
+
         # 🔥 P0: em confirmação pendente, sincronizar dados_confirmacao após extração
         if ctx.get("aguardando_confirmacao_agendamento") and ctx.get("data_hora"):
             dados_conf = ctx.get("dados_confirmacao_agendamento") or {}

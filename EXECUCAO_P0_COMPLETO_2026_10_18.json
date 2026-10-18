@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-10-18T13:22:37.666194",
+  "total_arquivos": 7,
+  "total_testes_estimado": 18,
+  "duracao_segundos": 0.748449,
+  "exit_code": 4,
+  "arquivos": [
+    {
+      "arquivo": "tests\\test_c310_fase1_indice_derivado.py",
+      "path": "tests\\test_c310_fase1_indice_derivado.py"
+    },
+    {
+      "arquivo": "tests\\test_p0_p1_fixes_implementation.py",
+      "path": "tests\\test_p0_p1_fixes_implementation.py"
+    },
+    {
+      "arquivo": "tests\\test_p02_code_fix.py",
+      "path": "tests\\test_p02_code_fix.py"
+    },
+    {
+      "arquivo": "tests\\test_p0_patch_logic.py",
+      "path": "tests\\test_p0_patch_logic.py"
+    },
+    {
+      "arquivo": "tests\\test_p03_mensagem_whatsapp_humanizada 2.py",
+      "path": "tests\\test_p03_mensagem_whatsapp_humanizada 2.py"
+    },
+    {
+      "arquivo": "tests\\test_p04_e2e_full_scenario_trace.py",
+      "path": "tests\\test_p04_e2e_full_scenario_trace.py"
+    },
+    {
+      "arquivo": "tests\\test_p04_diagnostico_cleanup_real_tenant.py",
+      "path": "tests\\test_p04_diagnostico_cleanup_real_tenant.py"
+    }
+  ]
+}

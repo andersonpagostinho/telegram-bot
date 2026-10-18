@@ -56,12 +56,12 @@ class TestP01ConfirmacaoPendenteFb:
     """P0.1 com Firebase Real - 18 testes"""
 
     @pytest.fixture(autouse=True)
-    async def setup(self, firebase_sync):
+    async def setup(self, firebase_contexto):
         """Setup para cada teste"""
-        self.fs = firebase_sync
-        self.fs.limpar_sync()
+        self.fc = firebase_contexto
+        await self.fc.limpar()
         yield
-        self.fs.limpar_sync()
+        await self.fc.limpar()
 
     # ===== TESTES BASICOS (1-3) =====
 
@@ -79,8 +79,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Bruna", "Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         assert ctx_carregado is not None
         assert "alternativa_profissional" in ctx_carregado
@@ -102,8 +102,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Bruna", "Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         profissional_atual = ctx_carregado.get("draft_agendamento", {}).get("profissional")
         alternativas = ctx_carregado.get("ultima_opcao_profissionais", [])
@@ -131,8 +131,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         data_carregada = ctx_carregado.get("draft_agendamento", {}).get("data_hora")
         assert data_carregada == data_hora_ref
@@ -151,8 +151,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Bruna"]  # Apenas atual
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         profissional_atual = ctx_carregado.get("draft_agendamento", {}).get("profissional")
         alternativas = ctx_carregado.get("ultima_opcao_profissionais", [])
@@ -176,8 +176,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         data_hora = ctx_carregado.get("draft_agendamento", {}).get("data_hora")
         assert data_hora is None
@@ -194,8 +194,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         servico = ctx_carregado.get("draft_agendamento", {}).get("servico")
         assert servico is None
@@ -213,8 +213,8 @@ class TestP01ConfirmacaoPendenteFb:
             # draft_agendamento ausente
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         draft = ctx_carregado.get("draft_agendamento") or {}
         servico = draft.get("servico") or ctx_carregado.get("servico")
@@ -233,8 +233,8 @@ class TestP01ConfirmacaoPendenteFb:
             }
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         alt = ctx_carregado.get("alternativa_profissional")
         assert alt == "Gloria"
@@ -245,7 +245,7 @@ class TestP01ConfirmacaoPendenteFb:
     async def test_09_nao_detecta_sem_outra(self):
         """T9: Sem 'outra', sem deteccao"""
         ctx = {"ultima_opcao_profissionais": ["Gloria", "Joana"]}
-        self.fs.salvar_sync(ctx)
+        await self.fc.salvar(ctx)
 
         texto = "profissional"  # Sem "outra"
         texto_norm = normalizar(texto)
@@ -257,7 +257,7 @@ class TestP01ConfirmacaoPendenteFb:
     async def test_10_nao_detecta_sem_profissional(self):
         """T10: Sem 'profissional', sem deteccao"""
         ctx = {"ultima_opcao_profissionais": ["Gloria", "Joana"]}
-        self.fs.salvar_sync(ctx)
+        await self.fc.salvar(ctx)
 
         texto = "outra"  # Sem "profissional"
         texto_norm = normalizar(texto)
@@ -271,7 +271,7 @@ class TestP01ConfirmacaoPendenteFb:
     async def test_11_normalizacao_acentos(self):
         """T11: Normalizacao de acentos"""
         ctx = {"ultima_opcao_profissionais": ["Gloria"]}
-        self.fs.salvar_sync(ctx)
+        await self.fc.salvar(ctx)
 
         texto = "outra profissional"  # Normal
         texto_norm = normalizar(texto)
@@ -294,8 +294,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         alternativas = ctx_carregado.get("ultima_opcao_profissionais", [])
         assert isinstance(alternativas, list)
@@ -308,8 +308,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Bruna", "Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         alternativas = ctx_carregado.get("ultima_opcao_profissionais")
         assert alternativas is not None
@@ -327,8 +327,8 @@ class TestP01ConfirmacaoPendenteFb:
             }
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         assert ctx_carregado.get("aguardando_confirmacao_agendamento") == True
 
@@ -346,8 +346,8 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Bruna", "Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         assert ctx_carregado.get("estado_fluxo") == "agandando"
         assert ctx_carregado.get("aguardando_confirmacao_agendamento") == True
@@ -361,7 +361,7 @@ class TestP01ConfirmacaoPendenteFb:
             "ultima_opcao_profissionais": ["Gloria", "Joana"]
         }
 
-        self.fs.salvar_sync(ctx)
+        await self.fc.salvar(ctx)
 
         # Simular resposta "Sim"
         texto = "sim"
@@ -374,7 +374,7 @@ class TestP01ConfirmacaoPendenteFb:
     async def test_17_confirmacao_aceitar_nao_ativa(self):
         """T17: 'Aceitar' nao ativa P0.1"""
         ctx = {"ultima_opcao_profissionais": ["Gloria", "Joana"]}
-        self.fs.salvar_sync(ctx)
+        await self.fc.salvar(ctx)
 
         texto = "aceitar"
         texto_norm = normalizar(texto)
@@ -393,8 +393,8 @@ class TestP01ConfirmacaoPendenteFb:
             # ultima_opcao_profissionais ausente
         }
 
-        self.fs.salvar_sync(ctx)
-        ctx_carregado = self.fs.carregar_sync()
+        await self.fc.salvar(ctx)
+        ctx_carregado = await self.fc.carregar()
 
         alternativas = ctx_carregado.get("ultima_opcao_profissionais")
         assert alternativas is None or len(alternativas) == 0

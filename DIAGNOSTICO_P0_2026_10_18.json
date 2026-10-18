@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-10-18T13:08:51.044188",
+  "total_testes": 6,
+  "testes": [],
+  "resumo": {
+    "coletados": 0,
+    "passed": 0,
+    "failed": 0,
+    "timeout": 0,
+    "erro_importacao": 0,
+    "padroes_erro": {}
+  }
+}

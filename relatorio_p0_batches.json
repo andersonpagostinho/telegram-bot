@@ -1,0 +1,107 @@
+{
+  "data": "2026-10-18T13:02:15.227809",
+  "total_testes": 54,
+  "lotes": [
+    {
+      "numero": 1,
+      "testes": [
+        "test_p012_eh_pedido_generico_fix.py",
+        "test_p012_fallback_removido.py",
+        "test_p01_confirmacao_firebase_real.py",
+        "test_p01_confirmacao_pendente_outra_prof.py",
+        "test_p01_firebase_real_simple.py",
+        "test_p01_gate_validacao_commit.py",
+        "test_p01_identidade_contexto.py",
+        "test_p01_outra_profissional_firebase_real.py",
+        "test_p02_code_fix.py",
+        "test_p02_executor_multicanal.py"
+      ],
+      "passaram": 0,
+      "falharam": 0
+    },
+    {
+      "numero": 2,
+      "testes": [
+        "test_p02_fix_verification.py",
+        "test_p03_cadeia_completa.py",
+        "test_p03_gate_validation.py",
+        "test_p03_mensagem_whatsapp_humanizada 2.py",
+        "test_p03_resultado_acao.py",
+        "test_p04_completo_validacao.py",
+        "test_p04_correcao2_user_data_cleanup.py",
+        "test_p04_correção_cirurgica.py",
+        "test_p04_delete_field_real.py",
+        "test_p04_diagnostico_cleanup_real_tenant.py"
+      ],
+      "passaram": 0,
+      "falharam": 0
+    },
+    {
+      "numero": 3,
+      "testes": [
+        "test_p04_e2e_full_scenario_trace.py",
+        "test_p04_gate_direto.py",
+        "test_p04_gate_simples.py",
+        "test_p04_identidade_phone_number_id.py",
+        "test_p04_validacao_final.py",
+        "test_p056_regra_x1_adjacencia.py",
+        "test_p05_v3_logica.py",
+        "test_p05_v3_reiteration_vs_novo.py",
+        "test_p08_2_contrato_unitario_confirmacao.py",
+        "test_p08_3_integracao_confirmacao.py"
+      ],
+      "passaram": 0,
+      "falharam": 0
+    },
+    {
+      "numero": 4,
+      "testes": [
+        "test_p0_bloqueio_promocao_cliente_dono_firebase_real.py",
+        "test_p0_cancelamento_e2e_firebase_real.py",
+        "test_p0_cancelamento_idle.py",
+        "test_p0_cancelar_evento_passado.py",
+        "test_p0_classificar_confirmacao_cancelamento.py",
+        "test_p0_data_sem_hora_fix.py",
+        "test_p0_e2e_whatsapp_confirmacao_completo.py",
+        "test_p0_extracao_termo_cancelamento.py",
+        "test_p0_firebase_real_tenant_isolation.py",
+        "test_p0_gap_outra_profissional_agendando_sem_confirmacao.py"
+      ],
+      "passaram": 0,
+      "falharam": 0
+    },
+    {
+      "numero": 5,
+      "testes": [
+        "test_p0_hotfix_contexto_agendamento.py",
+        "test_p0_multiplos_eventos_sem_selecao.py",
+        "test_p0_outra_profissional_gap.py",
+        "test_p0_p1_fixes_implementation.py",
+        "test_p0_patch_logic.py",
+        "test_p0_quais_voce_tem.py",
+        "test_p0_reiteration_vs_alteracao.py",
+        "test_p0_selecao_evento_cancelamento.py",
+        "test_p0_servicos_dinamicos.py",
+        "test_p0_sessao_expirada_teste_rapido.py"
+      ],
+      "passaram": 0,
+      "falharam": 0
+    },
+    {
+      "numero": 6,
+      "testes": [
+        "test_p0_sessao_v2_nao_sobrescrita_por_legado_firebase_real.py",
+        "test_p0_unboundlocalerror_dono_id_fix.py",
+        "test_p0_wa_outbound_implementation.py",
+        "test_p0a_reutilizar_user_id.py"
+      ],
+      "passaram": 0,
+      "falharam": 0
+    }
+  ],
+  "resumo": {
+    "total_passou": 0,
+    "total_falhou": 0,
+    "testes_com_erro": []
+  }
+}

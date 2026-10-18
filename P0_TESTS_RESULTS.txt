@@ -1,0 +1,18 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\dev\neoeve
+configfile: pytest.ini
+plugins: anyio-4.8.0, asyncio-1.4.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+python : ERROR: file or directory not found: tests/test_p0*.py
+No linha:1 caractere:320
++ ... dev\neoeve; python -m pytest tests/test_p0*.py -v --tb=short 2>&1 | T ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ERROR: file or ...sts/test_p0*.py:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+collecting ... collected 0 items
+
+============================ no tests ran in 0.01s ============================

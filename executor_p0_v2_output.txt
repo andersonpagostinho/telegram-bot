@@ -1,0 +1,50 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\dev\neoeve
+configfile: pytest.ini
+plugins: anyio-4.8.0, asyncio-1.4.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+python : ERROR: file or directory not found: tests\test_p03_mensagem_whatsapp_humanizada
+No linha:1 caractere:320
++ ... h {} } }; cd C:\dev\neoeve; python executor_p0_174_v2.py 2>&1 | Tee-O ...
++                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ERROR: file or ...sapp_humanizada:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+collecting ... collected 0 items
+
+============================ no tests ran in 0.01s ============================
+
+================================================================================
+🔥 EXECUÇÃO P0 — VALIDAÇÃO FIRESTORE REAL (v2)
+================================================================================
+
+📊 Arquivos P0 encontrados (existentes): 7
+📈 Total estimado de testes: 18
+
+Arquivos P0 a executar (top 20):
+   5 testes: test_c310_fase1_indice_derivado.py
+   4 testes: test_p0_p1_fixes_implementation.py
+   4 testes: test_p02_code_fix.py
+   2 testes: test_p0_patch_logic.py
+   1 testes: test_p03_mensagem_whatsapp_humanizada 2.py
+   1 testes: test_p04_e2e_full_scenario_trace.py
+   1 testes: test_p04_diagnostico_cleanup_real_tenant.py
+
+================================================================================
+⏱️  EXECUÇÃO INICIANDO...
+================================================================================
+Arquivos com testes: 7
+Modo: Validação completa até Firestore
+
+
+================================================================================
+📋 RESUMO DA EXECUÇÃO P0
+================================================================================
+Duração total: 0.7 segundos (0.0 minutos)
+Status: ❌ FALHAS
+
+[REPORT] Salvo em: EXECUCAO_P0_COMPLETO_2026_10_18.json
+

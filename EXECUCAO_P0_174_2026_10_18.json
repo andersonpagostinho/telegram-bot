@@ -1,0 +1,253 @@
+{
+  "timestamp": "2026-10-18T13:21:50.536367",
+  "total_arquivos": 61,
+  "total_testes_estimado": 472,
+  "duracao_segundos": 0.891443,
+  "exit_code": 4,
+  "arquivos": [
+    {
+      "arquivo": "test_p01_firebase_real_simple.py",
+      "testes": 53
+    },
+    {
+      "arquivo": "test_p01_identidade_contexto.py",
+      "testes": 20
+    },
+    {
+      "arquivo": "test_p0_classificar_confirmacao_cancelamento.py",
+      "testes": 20
+    },
+    {
+      "arquivo": "test_patch_p0_cancelamento.py",
+      "testes": 18
+    },
+    {
+      "arquivo": "test_p01_confirmacao_pendente_outra_prof.py",
+      "testes": 18
+    },
+    {
+      "arquivo": "test_p01_confirmacao_firebase_real.py",
+      "testes": 18
+    },
+    {
+      "arquivo": "test_p0_servicos_dinamicos.py",
+      "testes": 16
+    },
+    {
+      "arquivo": "test_p0_extracao_termo_cancelamento.py",
+      "testes": 12
+    },
+    {
+      "arquivo": "test_p03_gate_validation.py",
+      "testes": 12
+    },
+    {
+      "arquivo": "test_wa_p0_firebase_real_optimized.py",
+      "testes": 11
+    },
+    {
+      "arquivo": "test_wa_p0_firebase_real.py",
+      "testes": 11
+    },
+    {
+      "arquivo": "test_p0_p1_fixes_implementation.py",
+      "testes": 10
+    },
+    {
+      "arquivo": "test_patch_p0_bloqueio_contexto.py",
+      "testes": 10
+    },
+    {
+      "arquivo": "test_wa_p0_deduplicacao.py",
+      "testes": 10
+    },
+    {
+      "arquivo": "test_p0_selecao_evento_cancelamento.py",
+      "testes": 10
+    },
+    {
+      "arquivo": "test_c310_fase1_indice_derivado.py",
+      "testes": 9
+    },
+    {
+      "arquivo": "test_p05_v3_logica.py",
+      "testes": 9
+    },
+    {
+      "arquivo": "test_p0_cancelar_evento_passado.py",
+      "testes": 9
+    },
+    {
+      "arquivo": "test_p0_gap_outra_profissional_agendando_sem_confirmacao.py",
+      "testes": 8
+    },
+    {
+      "arquivo": "test_p0_quais_voce_tem.py",
+      "testes": 8
+    },
+    {
+      "arquivo": "test_p03_resultado_acao.py",
+      "testes": 8
+    },
+    {
+      "arquivo": "test_p05_v3_reiteration_vs_novo.py",
+      "testes": 8
+    },
+    {
+      "arquivo": "test_patch_p05_semantico.py",
+      "testes": 7
+    },
+    {
+      "arquivo": "test_p02_fix_verification.py",
+      "testes": 7
+    },
+    {
+      "arquivo": "test_p056_regra_x1_adjacencia.py",
+      "testes": 7
+    },
+    {
+      "arquivo": "test_p02_executor_multicanal.py",
+      "testes": 7
+    },
+    {
+      "arquivo": "test_patch_p0_cancelamento_firebase 2.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p0_wa_outbound_implementation.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p01_gate_validacao_commit.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p012_eh_pedido_generico_fix.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p012_fallback_removido.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p0_hotfix_contexto_agendamento.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p08_2_contrato_unitario_confirmacao.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_patch_p05_semantico_firestore_real.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_patch_p05_semantico_firestore_v2.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p0_outra_profissional_gap.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p0_firebase_real_tenant_isolation.py",
+      "testes": 6
+    },
+    {
+      "arquivo": "test_p04_gate_simples.py",
+      "testes": 5
+    },
+    {
+      "arquivo": "test_p03_cadeia_completa.py",
+      "testes": 5
+    },
+    {
+      "arquivo": "test_p0a_reutilizar_user_id.py",
+      "testes": 5
+    },
+    {
+      "arquivo": "test_gate_p011_fallback_audit.py",
+      "testes": 5
+    },
+    {
+      "arquivo": "test_p02_code_fix.py",
+      "testes": 4
+    },
+    {
+      "arquivo": "test_p04_correcao2_user_data_cleanup.py",
+      "testes": 4
+    },
+    {
+      "arquivo": "test_p04_gate_direto.py",
+      "testes": 4
+    },
+    {
+      "arquivo": "test_p04_correção_cirurgica.py",
+      "testes": 4
+    },
+    {
+      "arquivo": "test_p0_data_sem_hora_fix.py",
+      "testes": 4
+    },
+    {
+      "arquivo": "test_p08_3_integracao_confirmacao.py",
+      "testes": 3
+    },
+    {
+      "arquivo": "test_p0_multiplos_eventos_sem_selecao.py",
+      "testes": 3
+    },
+    {
+      "arquivo": "test_p04_identidade_phone_number_id.py",
+      "testes": 3
+    },
+    {
+      "arquivo": "test_p0_patch_logic.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p0_cancelamento_idle.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p0_sessao_expirada_teste_rapido.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p04_e2e_full_scenario_trace.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p0_unboundlocalerror_dono_id_fix.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p04_completo_validacao.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p0_reiteration_vs_alteracao.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p04_delete_field_real.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p0_cancelamento_e2e_firebase_real.py",
+      "testes": 2
+    },
+    {
+      "arquivo": "test_p03_mensagem_whatsapp_humanizada 2.py",
+      "testes": 1
+    },
+    {
+      "arquivo": "test_p04_diagnostico_cleanup_real_tenant.py",
+      "testes": 1
+    },
+    {
+      "arquivo": "test_p0_e2e_whatsapp_confirmacao_completo.py",
+      "testes": 1
+    }
+  ]
+}
