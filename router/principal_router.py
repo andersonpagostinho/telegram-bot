@@ -2935,40 +2935,36 @@ async def resolver_alteracao_draft_agendamento(
                 )
 
                 if not conflito_anterior.get("conflito"):
-                    draft["profissional"] = profissional_anterior
+                    # ⚠️ P0.1.9 FIX: NÃO sugerir profissional residual automaticamente
+                    # Oferecer horários alternativos COM a profissional solicitada
+                    # SÓ oferecer outra profissional se cliente pedir explicitamente
+
+                    # Manter contexto com profissional solicitada
+                    draft["profissional"] = novo_profissional
                     draft["servico"] = servico
                     draft["data_hora"] = data_hora
                     draft["modo_prechecagem"] = True
 
                     ctx["draft_agendamento"] = draft
-                    ctx["profissional_escolhido"] = profissional_anterior
+                    ctx["profissional_escolhido"] = novo_profissional
                     ctx["servico"] = servico
                     ctx["data_hora"] = data_hora
-                    ctx["estado_fluxo"] = "agendando"
-                    ctx["aguardando_confirmacao_agendamento"] = True
-                    ctx["dados_confirmacao_agendamento"] = {
-                        "origem": "confirmacao_pendente",
-                        "profissional": profissional_anterior,
-                        "servico": servico,
-                        "data_hora": data_hora,
-                        "duracao": duracao,
-                        "descricao": f"{servico.capitalize()} com {profissional_anterior}",
-                    }
-
-                    ctx["interpretacao_conversacional"] = None
-                    ctx["intencao_conversacional"] = None
-                    ctx["objetivo_conversacional"] = None
+                    ctx["estado_fluxo"] = "aguardando_horario"  # Cliente aguarda para escolher horário
+                    ctx["aguardando_confirmacao_agendamento"] = False
                     ctx["tipo_ajuste_incremental"] = None
+                    ctx["objetivo_conversacional"] = None
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
+                    sugestoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes) if sugestoes else ""
                     return await _send_and_stop(
                         context,
                         user_id,
                         (
-                            f"{novo_profissional} já está ocupada às {hora} para {servico}.\n\n"
-                            f"{profissional_anterior} continua disponível nesse horário.\n\n"
-                            "Quer manter com ela?"
+                            f"⛔ {novo_profissional} já tem atendimento às {hora} nesse dia.\n\n"
+                            f"✅ Estes horários estão livres com {novo_profissional} no mesmo dia:\n"
+                            f"{sugestoes_txt}\n\n"
+                            f"Você prefere outro horário ou manter o horário com outra profissional?"
                         ),
                         parse_mode=None
                     )
