@@ -1403,7 +1403,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 if serv_cat in texto_norm_multiplos:
                     servicos_mencionados.append(serv_cat)
 
-            print(f"🧪 [MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
+            # print(f"🧪 [MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
 
             if len(servicos_mencionados) > 1:
                 ctx["servicos_opcao"] = servicos_mencionados
@@ -1414,7 +1414,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                     draft["servico"] = None
                     ctx["draft_agendamento"] = draft
 
-                print(f"🧪 [MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
+                # print(f"🧪 [MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
             else:
                 ctx["servico"] = servico_detectado
                 draft["servico"] = servico_detectado
@@ -2264,7 +2264,7 @@ async def precheck_e_confirmacao_agendamento(
         else:
             # ✅ OBRIGATÓRIO: Se vazio ou None, salvar None
             ctx["clienteprofile"] = None
-            print(f"[P1.2A] ⚠️ ClienteProfile vazio para {user_id}", flush=True)
+            # print(f"[P1.2A] ⚠️ ClienteProfile vazio para {user_id}", flush=True)
 
     except Exception as e:
         # ✅ OBRIGATÓRIO: Em caso de erro, salvar None e não quebrar fluxo
@@ -3611,7 +3611,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
     from google.cloud import firestore
 
     if not dono_id or not cliente_id:
-        print(f"🚨 [RECUPERACAO LOOP] tenant/ator inválido: dono_id={dono_id} | cliente_id={cliente_id}", flush=True)
+        # print(f"🚨 [RECUPERACAO LOOP] tenant/ator inválido: dono_id={dono_id} | cliente_id={cliente_id}", flush=True)
         return {
             "ctx": ctx,
             "campos_removidos": [],
@@ -3686,7 +3686,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
                 "persistido": sucesso
             }
         except Exception as e:
-            print(f"🚨 [RECUPERACAO NIVEL2 ERRO] path={path} | erro={str(e)}", flush=True)
+            # print(f"🚨 [RECUPERACAO NIVEL2 ERRO] path={path} | erro={str(e)}", flush=True)
             # Continua para nível 3
             pass
 
@@ -3742,7 +3742,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
                 "persistido": sucesso
             }
         except Exception as e:
-            print(f"🚨 [RECUPERACAO NIVEL3 ERRO] path={path} | erro={str(e)}", flush=True)
+            # print(f"🚨 [RECUPERACAO NIVEL3 ERRO] path={path} | erro={str(e)}", flush=True)
             return {
                 "ctx": ctx,
                 "campos_removidos": [],
@@ -5254,10 +5254,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             profissionais_catalogo=[],
         )
 
-        print(
-            f"🧠 [INTERPRETADOR CONVERSACIONAL] {interpretacao_conv}",
-            flush=True
-        )
+        # print(
+        #     f"🧠 [INTERPRETADOR CONVERSACIONAL] {interpretacao_conv}",
+        #     flush=True
+        # )
 
         if interpretacao_conv.get("intencao") != "indefinida":
             ctx["interpretacao_conversacional"] = interpretacao_conv
