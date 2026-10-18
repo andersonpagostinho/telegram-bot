@@ -1749,6 +1749,31 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 )
 
                 iso = dt_final.isoformat()
+                data_iso = dt_final.date().isoformat()
+
+                # [FIX 1] Validar se o estabelecimento funciona nessa data
+                try:
+                    validacao = await validar_data_funcionamento(cliente_id or "unknown", data_iso, tenant_id=dono_id)
+                    if not validacao.get("permitido"):
+                        motivo = validacao.get("motivo")
+                        regra = validacao.get("regra", {})
+                        print(f"[VALIDACAO EXPEDIENTE] Data rejeitada: {motivo} | data={data_iso} | regra={regra}", flush=True)
+
+                        # Rejeitar agendamento para data fechada
+                        ctx["estado_fluxo"] = "aguardando_data"
+                        ctx["data_hora"] = None
+                        draft["data_hora"] = None
+                        ctx["hora_confirmada"] = False
+                        ctx["data_sem_hora"] = False
+
+                        return {
+                            **ctx,
+                            "_erro_validacao": f"O estabelecimento não abre em {data_iso}. Escolha outro dia.",
+                            "draft_agendamento": draft
+                        }
+                except Exception as e:
+                    print(f"[VALIDACAO EXPEDIENTE] Erro ao validar: {e}", flush=True)
+                    # Continuar mesmo se validação falhar (falha aberta)
 
                 ctx["data_hora"] = iso
                 draft["data_hora"] = iso
@@ -5010,9 +5035,41 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     features = class_ctx.get("features", {})
     tem_cancelamento = features.get("tem_cancelamento", False)
 
-    # 🔥 PATCH P0: Cancelamento vence qualquer draft de agendamento
-    if tem_cancelamento:
-        print(f"[P0-CANCELAMENTO_VENCE] Cancelamento detectado, limpando draft anterior", flush=True)
+    # [FIX 2] Preservar estado original ANTES de alterar para "idle"
+    estado_fluxo_original = ctx.get("estado_fluxo")
+
+    # Estados que indicam um agendamento em andamento (draft ativo)
+    ACTIVE_SCHEDULING_STATES = {
+        "agendando",
+        "aguardando_profissional",
+        "aguardando_servico",
+        "aguardando_data",
+        "aguardando_horario",
+        "aguardando_data_hora",
+        "aguardando_escolha_horario",
+        "aguardando_clareza_periodo_hora",
+    }
+
+    # [FIX 2] Se cancelamento em draft ativo: abandonar draft, não procurar eventos
+    if tem_cancelamento and estado_fluxo_original in ACTIVE_SCHEDULING_STATES:
+        print(f"[FIX 2-CANCELAMENTO_DRAFT] Draft ativo detectado ({estado_fluxo_original}), abandonando em vez de buscar eventos", flush=True)
+
+        # Limpar draft
+        ctx.pop("draft_agendamento", None)
+        ctx.pop("aguardando_confirmacao_agendamento", None)
+        ctx.pop("dados_confirmacao_agendamento", None)
+        ctx.pop("horarios_sugeridos", None)
+        ctx.pop("profissional_escolhido", None)
+        ctx["estado_fluxo"] = "idle"
+
+        # Confirmar abandono do draft (não cancelamento de evento)
+        mensagem_abandono = "Tudo bem! Cancelei o agendamento. Posso ajudar em algo mais?"
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+        return await _send_and_stop(context, user_id, mensagem_abandono)
+
+    # 🔥 PATCH P0: Cancelamento vence qualquer draft de agendamento (se não estava em draft ativo)
+    if tem_cancelamento and estado_fluxo_original not in ACTIVE_SCHEDULING_STATES:
+        print(f"[P0-CANCELAMENTO_VENCE] Cancelamento detectado (sem draft ativo), limpando e procurando eventos", flush=True)
         ctx.pop("draft_agendamento", None)
         ctx.pop("aguardando_confirmacao_agendamento", None)
         ctx.pop("dados_confirmacao_agendamento", None)
