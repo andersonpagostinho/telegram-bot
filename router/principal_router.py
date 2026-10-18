@@ -207,7 +207,7 @@ def resolver_proximo_passo_real(
         and not tem_resposta_informativa
     ):
         print(
-            "🛡 [CONSULTA PURA] resolver_proximo_passo_real bloqueado — "
+            "[CONSULTA PURA] resolver_proximo_passo_real bloqueado — "
             "não perguntar data/hora",
             flush=True
         )
@@ -1190,7 +1190,7 @@ def _audit_confirmacao(tag: str, ctx: dict, texto_usuario: str = ""):
         dados_conf = ctx.get("dados_confirmacao_agendamento") or {}
 
         print(
-            f"🧪 [AUDIT-CONF:{tag}] "
+            f"[AUDIT-CONF:{tag}] "
             f"texto={texto_usuario!r} | "
             f"estado_fluxo={ctx.get('estado_fluxo')} | "
             f"aguardando_confirmacao_agendamento={ctx.get('aguardando_confirmacao_agendamento')} | "
@@ -1202,7 +1202,7 @@ def _audit_confirmacao(tag: str, ctx: dict, texto_usuario: str = ""):
         )
 
         print(
-            f"🧪 [AUDIT-CONF:{tag}:DRAFT] "
+            f"[AUDIT-CONF:{tag}:DRAFT] "
             f"profissional={draft.get('profissional')} | "
             f"servico={draft.get('servico')} | "
             f"data_hora={draft.get('data_hora')} | "
@@ -1211,7 +1211,7 @@ def _audit_confirmacao(tag: str, ctx: dict, texto_usuario: str = ""):
         )
 
         print(
-            f"🧪 [AUDIT-CONF:{tag}:DADOS_CONF] "
+            f"[AUDIT-CONF:{tag}:DADOS_CONF] "
             f"profissional={dados_conf.get('profissional')} | "
             f"servico={dados_conf.get('servico')} | "
             f"data_hora={dados_conf.get('data_hora')} | "
@@ -1380,7 +1380,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
         if eh_consulta_pura_servico and not tem_resposta_informativa:
             print(
-                f"🛡 [CONSULTA PURA] serviço detectado='{servico_detectado}', "
+                f"[CONSULTA PURA] serviço detectado='{servico_detectado}', "
                 "mas não entra em ctx['servico'] nem draft_agendamento",
                 flush=True
             )
@@ -1403,7 +1403,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 if serv_cat in texto_norm_multiplos:
                     servicos_mencionados.append(serv_cat)
 
-            # print(f"🧪 [MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
+            # print(f"[MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
 
             if len(servicos_mencionados) > 1:
                 ctx["servicos_opcao"] = servicos_mencionados
@@ -1414,7 +1414,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                     draft["servico"] = None
                     ctx["draft_agendamento"] = draft
 
-                # print(f"🧪 [MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
+                # print(f"[MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
             else:
                 ctx["servico"] = servico_detectado
                 draft["servico"] = servico_detectado
@@ -1438,6 +1438,13 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
             "motivo_nenhum": dt_e_meta.get("motivo_nenhum"),
         }
         print(f" [MESCLAR_METADATA] {ctx['_temporal_metadata']}", flush=True)
+
+    # [PROBLEMA B FIX] Resolver "hoje" manualmente quando data foi mencionada mas sem hora explícita
+    if dt_e_meta.get("data_detectada") and not dt_detectado and dt_e_meta.get("data_tipo") == "hoje":
+        today = datetime.now(pytz.timezone("America/Sao_Paulo")).date()
+        # Usar meia-noite como padrão quando data é detectada mas sem hora
+        dt_detectado = datetime(today.year, today.month, today.day, 0, 0, 0, 0)
+        print(f"[PROBLEMA B FIX] Resolvido manualmente: 'hoje' → {dt_detectado.isoformat()}", flush=True)
 
     # =========================================================
     # 🔥 HORA INCREMENTAL
@@ -1498,7 +1505,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                     ctx["data_sem_hora"] = True
 
                     print(
-                        f"🧠 [P1 INCONSISTENCIA PERIODO/HORA] periodo={periodo_legivel} | hora={hora_explicita}",
+                        f"[P1 INCONSISTENCIA PERIODO/HORA] periodo={periodo_legivel} | hora={hora_explicita}",
                         flush=True
                     )
 
@@ -1524,7 +1531,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                     ctx["tipo_ajuste_incremental"] = "horario"
 
                     print(
-                        f"🧠 [HORA_INCREMENTAL] reutilizando data_ctx={data_ctx} hora={hora:02d}:{minuto:02d}",
+                        f"[HORA_INCREMENTAL] reutilizando data_ctx={data_ctx} hora={hora:02d}:{minuto:02d}",
                         flush=True
                     )
 
@@ -1581,7 +1588,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
         )
 
         print(
-            "🧠 [MULTI-HORARIO] removendo hora arbitrária do parser",
+            "[MULTI-HORARIO] removendo hora arbitrária do parser",
             flush=True
         )
 
@@ -1710,7 +1717,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 ctx["data_sem_hora"] = False
 
                 print(
-                    f"🧠 [DATA_SEM_HORA] preservando hora anterior={hora_anterior} | iso={iso}",
+                    f"[DATA_SEM_HORA] preservando hora anterior={hora_anterior} | iso={iso}",
                     flush=True
                 )
 
@@ -1730,7 +1737,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 ctx["data_sem_hora"] = True
 
                 print(
-                    f"🧠 [DATA_SEM_HORA] sem hora anterior válida | iso={iso}",
+                    f"[DATA_SEM_HORA] sem hora anterior válida | iso={iso}",
                     flush=True
                 )
 
@@ -2331,7 +2338,7 @@ async def detectar_alteracao_draft_agendamento(
 
             if normalizar(nome) != normalizar(profissional_atual or ""):
                 print(
-                    f"🧪 [DETECTAR_ALTERACAO] tipo=profissional | novo={nome} | atual={profissional_atual}",
+                    f"[DETECTAR_ALTERACAO] tipo=profissional | novo={nome} | atual={profissional_atual}",
                     flush=True
                 )
                 return {
@@ -2914,7 +2921,7 @@ async def resolver_alteracao_draft_agendamento(
             )
 
             print(
-                f"🧪 [TROCA_PROF_CONFLITO] novo={novo_profissional} | "
+                f"[TROCA_PROF_CONFLITO] novo={novo_profissional} | "
                 f"anterior={profissional_anterior} | "
                 f"draft={draft} | dados_conf={ctx.get('dados_confirmacao_agendamento')}",
                 flush=True
@@ -3139,7 +3146,7 @@ async def resolver_alteracao_draft_agendamento(
         }
 
         print(
-            "🧪 [ALTERACAO_DATA_FINAL]",
+            "[ALTERACAO_DATA_FINAL]",
             {
                 "ctx_data_hora": ctx.get("data_hora"),
                 "draft": ctx.get("draft_agendamento"),
@@ -3218,7 +3225,7 @@ async def resolver_alteracao_draft_agendamento(
         # é inferência espúria. Não validar catálogo, não trocar serviço.
         if not alteracao_servico_explicita:
             print(
-                "🛡 [P0 BLOQUEIO SERVICO ESPURIO CONFIRMACAO] "
+                "[P0 BLOQUEIO SERVICO ESPURIO CONFIRMACAO] "
                 f"texto={texto_usuario!r} | "
                 f"alteracao={alteracao} | "
                 f"servico_oficial={servico_oficial_guard} | "
@@ -3611,7 +3618,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
     from google.cloud import firestore
 
     if not dono_id or not cliente_id:
-        # print(f"🚨 [RECUPERACAO LOOP] tenant/ator inválido: dono_id={dono_id} | cliente_id={cliente_id}", flush=True)
+        # print(f"[RECUPERACAO LOOP] tenant/ator inválido: dono_id={dono_id} | cliente_id={cliente_id}", flush=True)
         return {
             "ctx": ctx,
             "campos_removidos": [],
@@ -3687,7 +3694,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
                 "persistido": sucesso
             }
         except Exception as e:
-            # print(f"🚨 [RECUPERACAO NIVEL2 ERRO] path={path} | erro={str(e)}", flush=True)
+            # print(f"[RECUPERACAO NIVEL2 ERRO] path={path} | erro={str(e)}", flush=True)
             # Continua para nível 3
             pass
 
@@ -3743,7 +3750,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
                 "persistido": sucesso
             }
         except Exception as e:
-            # print(f"🚨 [RECUPERACAO NIVEL3 ERRO] path={path} | erro={str(e)}", flush=True)
+            # print(f"[RECUPERACAO NIVEL3 ERRO] path={path} | erro={str(e)}", flush=True)
             return {
                 "ctx": ctx,
                 "campos_removidos": [],
@@ -4276,7 +4283,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         print(
-            f"🧠 [NORMALIZADOR_HUMANO] sinais={sinais_humanos}",
+            f"[NORMALIZADOR_HUMANO] sinais={sinais_humanos}",
             flush=True
         )
 
@@ -5139,7 +5146,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     if (preservar_continuidade_data or preservar_confirmacao_pendente) and not eh_lateral:
         print(
-            "🔒 [CONTEXTO PRESERVADO] fluxo crítico ativo — não sobrescrevendo intenção",
+            "[CONTEXTO PRESERVADO] fluxo crítico ativo — não sobrescrevendo intenção",
             flush=True
         )
 
@@ -5243,7 +5250,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         }
 
         print(
-            f"🔒 [INTERPRETADOR PRESERVADO] {interpretacao_conv}",
+            f"[INTERPRETADOR PRESERVADO] {interpretacao_conv}",
             flush=True
         )
 
@@ -5256,7 +5263,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
 
         # print(
-        #     f"🧠 [INTERPRETADOR CONVERSACIONAL] {interpretacao_conv}",
+        #     f"[INTERPRETADOR CONVERSACIONAL] {interpretacao_conv}",
         #     flush=True
         # )
 
@@ -7059,7 +7066,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         and eh_aceite
     ):
         print(
-            f"🔥 [CONTINUIDADE PENDENTE] ultima_acao={ctx.get('ultima_acao')}",
+            f"[CONTINUIDADE PENDENTE] ultima_acao={ctx.get('ultima_acao')}",
             flush=True
         )
 
@@ -7097,7 +7104,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             if loop_info.get("has_loop"):
                 print(
-                    f"🔁 [LOOP DETECTADO] tipo={loop_info.get('tipo_loop')} | "
+                    f"[LOOP DETECTADO] tipo={loop_info.get('tipo_loop')} | "
                     f"iteracao={iteracao} | acao_recomendada={loop_info.get('acao_recomendada')}",
                     flush=True
                 )
@@ -7455,7 +7462,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     try:
         print(
-            f"🧪 [B-INICIO] texto={texto_usuario} | "
+            f"[B-INICIO] texto={texto_usuario} | "
             f"estado_fluxo={ctx.get('estado_fluxo')} | "
             f"modo_escolha_horario={ctx.get('modo_escolha_horario')} | "
             f"horarios_sugeridos={ctx.get('horarios_sugeridos')} | "
@@ -7465,7 +7472,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
 
         print(
-            f"🧪 [ANTES IF ESCOLHA] cond1={ctx.get('modo_escolha_horario')} | "
+            f"[ANTES IF ESCOLHA] cond1={ctx.get('modo_escolha_horario')} | "
             f"cond2={(ctx.get('estado_fluxo') or '').strip().lower() == 'aguardando_escolha_horario'} | "
             f"estado_fluxo_raw={ctx.get('estado_fluxo')}",
             flush=True
@@ -7665,7 +7672,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             or (ctx.get("estado_fluxo") or "").strip().lower() == "aguardando_escolha_horario"
         ):
             print(
-                f"🧪 [ESCOLHA PRIORIDADE TOTAL] texto={texto_usuario} | "
+                f"[ESCOLHA PRIORIDADE TOTAL] texto={texto_usuario} | "
                 f"estado_fluxo={ctx.get('estado_fluxo')} | "
                 f"modo_escolha_horario={ctx.get('modo_escolha_horario')} | "
                 f"horarios_sugeridos={ctx.get('horarios_sugeridos')} | "
@@ -8249,7 +8256,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         profissional = resolvido["profissional"]
 
                         print(
-                            f"🔥 [ESCOLHA_HORARIO_CONFIRMACAO_CURTA] nova_data_hora={nova_data_hora} | "
+                            f"[ESCOLHA_HORARIO_CONFIRMACAO_CURTA] nova_data_hora={nova_data_hora} | "
                             f"estado_fluxo={ctx.get('estado_fluxo')} | "
                             f"profissional={profissional} | "
                             f"servico={servico}",
@@ -8368,7 +8375,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         profissional = resolvido["profissional"]
 
                         print(
-                            f"🔥 [ESCOLHA_HORARIO_PAR_VALIDO] nova_data_hora={nova_data_hora} | "
+                            f"[ESCOLHA_HORARIO_PAR_VALIDO] nova_data_hora={nova_data_hora} | "
                             f"estado_fluxo={ctx.get('estado_fluxo')} | "
                             f"profissional={profissional} | "
                             f"servico={servico}",
@@ -8490,7 +8497,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             ctx["dados_confirmacao_agendamento"] = None
 
                         print(
-                            f"🔥 [ESCOLHA_HORARIO] nova_data_hora={nova_data_hora} | "
+                            f"[ESCOLHA_HORARIO] nova_data_hora={nova_data_hora} | "
                             f"estado_fluxo={ctx.get('estado_fluxo')} | "
                             f"ctx_data_hora={ctx.get('data_hora')} | "
                             f"draft_data_hora={(ctx.get('draft_agendamento') or {}).get('data_hora')} | "
@@ -8931,7 +8938,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
 
         print(
-            f"🧠 [CLASSIFICADOR CONVERSA] {classificacao_conversa}",
+            f"[CLASSIFICADOR CONVERSA] {classificacao_conversa}",
             flush=True
         )
         # =========================================================
@@ -8940,7 +8947,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if classificacao_conversa.get("tipo") == "mensagem_pessoal":
 
             print(
-                "🧠 [CLASSIFICADOR] mensagem pessoal detectada — handoff silencioso",
+                "[CLASSIFICADOR] mensagem pessoal detectada — handoff silencioso",
                 flush=True
             )
 
@@ -9221,7 +9228,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
         print(
-            "🧪 [SAVE-CONF]",
+            "[SAVE-CONF]",
             {
                 "estado_fluxo": ctx.get("estado_fluxo"),
                 "aguardando_confirmacao_agendamento": ctx.get("aguardando_confirmacao_agendamento"),
@@ -9386,7 +9393,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 and bool(ctx.get("hora_confirmada"))
             ):
                 print(
-                    "🔥 [FAST_PATH_SERVICO_SUGERIDO] draft operacional pronto",
+                    "[FAST_PATH_SERVICO_SUGERIDO] draft operacional pronto",
                     flush=True
                 )
 
@@ -9402,7 +9409,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["estado_fluxo"] = "agendando"
 
                 print(
-                    "🔥 [NORMALIZACAO_ESTADO] migrado para agendando",
+                    "[NORMALIZACAO_ESTADO] migrado para agendando",
                     flush=True
                 )
 
@@ -10352,7 +10359,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 )
 
         print(
-            f"🧪 [CHECK AUTO_PROF] "
+            f"[CHECK AUTO_PROF] "
             f"data_hora={data_hora} | "
             f"servico={servico} | "
             f"prof={prof} | "
@@ -10372,7 +10379,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ):
 
             print(
-                "🔥 [PROFISSIONAL_INDIFERENTE] buscando automático",
+                "[PROFISSIONAL_INDIFERENTE] buscando automático",
                 flush=True
             )
 
@@ -10468,7 +10475,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             and ctx.get("dados_confirmacao_agendamento")
         ):
             print(
-                "🔒 [SKIP REVALIDACAO] confirmação já pronta",
+                "[SKIP REVALIDACAO] confirmação já pronta",
                 flush=True
             )
 
@@ -11124,7 +11131,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     if ctx.get("estado_fluxo") == "aguardando_clareza_periodo_hora":
         print(
-            "🛑 [P1 BLOQUEIO] impedindo reprocessamento após inconsistência período/hora",
+            "[P1 BLOQUEIO] impedindo reprocessamento após inconsistência período/hora",
             flush=True
         )
 
@@ -11163,7 +11170,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
     ):
         print(
-            "🔥 [SKIP DATA_COMPLEXA] fluxo operacional prioritário",
+            "[SKIP DATA_COMPLEXA] fluxo operacional prioritário",
             flush=True
         )
         skip_data_complexa = True
@@ -11197,7 +11204,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             )
 
             print(
-                f"🔁 [AJUSTE_INCREMENTAL] draft preservado={draft_existente}",
+                f"[AJUSTE_INCREMENTAL] draft preservado={draft_existente}",
                 flush=True
             )
 
@@ -11260,7 +11267,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         and ctx.get("draft_agendamento")
     ):
         print(
-            "🛑 [SKIP MESCLAR] ajuste incremental de data ativo",
+            "[SKIP MESCLAR] ajuste incremental de data ativo",
             flush=True
         )
 
@@ -11289,7 +11296,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     )
 
     print(
-        f"🧪 [CHECK AUTO_PROF POS-EXTRACAO] "
+        f"[CHECK AUTO_PROF POS-EXTRACAO] "
         f"data_hora={data_hora_auto} | "
         f"servico={servico_auto} | "
         f"prof={prof_auto} | "
@@ -11309,7 +11316,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             servico=servico_auto
         )
 
-        print(f"🧪 [VALIDAR_PROF_AUTO] prof={prof_auto} | servico={servico_auto} | ok={valido_auto.get('ok')}", flush=True)
+        print(f"[VALIDAR_PROF_AUTO] prof={prof_auto} | servico={servico_auto} | ok={valido_auto.get('ok')}", flush=True)
         if not valido_auto.get("ok"):
             # Profissional incompatível — resposta específica ANTES de FLOW GUARD
             prof_rejeitado = prof_auto
@@ -11331,7 +11338,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     user_id=user_id
                 )
                 lista_validos = list(profissionais_validos.keys()) if profissionais_validos else []
-                print(f"🧪 [PATCH P1 BUSCA OK] servico={servico_auto} | validos={lista_validos}", flush=True)
+                print(f"[PATCH P1 BUSCA OK] servico={servico_auto} | validos={lista_validos}", flush=True)
             except Exception as e:
                 # Fallback determinístico: buscar manualmente se função falhar
                 print(f"⚠️ [PATCH P1 FALLBACK] Erro ao buscar profissionais ({str(e)}), usando fallback", flush=True)
@@ -11347,7 +11354,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             lista_validos.append(nome)
 
                     lista_validos = sorted(lista_validos)
-                    print(f"🧪 [PATCH P1 FALLBACK OK] servico={servico_auto} | validos={lista_validos}", flush=True)
+                    print(f"[PATCH P1 FALLBACK OK] servico={servico_auto} | validos={lista_validos}", flush=True)
                 except Exception as e2:
                     print(f"❌ [PATCH P1 FALLBACK ERRO] Ainda falhou: {str(e2)}", flush=True)
                     lista_validos = []
@@ -11378,9 +11385,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 )
 
             prof_rejeitado_com_resposta_especifica = resposta_especifica
-            print(f"🧪 [PATCH P1 COMPLETO] prof={prof_rejeitado} não atende {servico_auto} | validos={lista_validos}", flush=True)
+            print(f"[PATCH P1 COMPLETO] prof={prof_rejeitado} não atende {servico_auto} | validos={lista_validos}", flush=True)
 
-            print(f"🧪 [PROF REJEITADO] {prof_rejeitado} não atende {servico_auto}", flush=True)
+            print(f"[PROF REJEITADO] {prof_rejeitado} não atende {servico_auto}", flush=True)
 
     # 🛡 GUARDA CONTRA CONSULTA PURA
     eh_consulta_pura = (
@@ -11390,7 +11397,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     if eh_consulta_pura:
         print(
-            "🛡 [AUTO-PROF BLOQUEADO] consulta pura não pode virar agendamento",
+            "[AUTO-PROF BLOQUEADO] consulta pura não pode virar agendamento",
             flush=True
         )
 
@@ -11426,7 +11433,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 profissionais_compativeis.append(nome)
 
         print(
-            f"🧪 [AUTO_PROF FILTRO] servico_auto={servico_auto} | "
+            f"[AUTO_PROF FILTRO] servico_auto={servico_auto} | "
             f"disponiveis={list(disponiveis_dict.keys())} | "
             f"compativeis={profissionais_compativeis}",
             flush=True
@@ -11437,7 +11444,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if profissionais_compativeis:
 
             print(
-                f"🧪 [P0 MULTI-PROF] compativeis={profissionais_compativeis} | total={len(profissionais_compativeis)}",
+                f"[P0 MULTI-PROF] compativeis={profissionais_compativeis} | total={len(profissionais_compativeis)}",
                 flush=True
             )
 
@@ -11611,7 +11618,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 }
 
                 print(
-                    f"🔁 [AJUSTE_INCREMENTAL] draft recomposto={ctx.get('draft_agendamento')}",
+                    f"[AJUSTE_INCREMENTAL] draft recomposto={ctx.get('draft_agendamento')}",
                     flush=True
                 )
 
@@ -12028,7 +12035,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 )
 
             print(
-                f"🧪 [P0 CHECK] permitido={validacao_p0.get('permitido')} | motivo={validacao_p0.get('motivo')}",
+                f"[P0 CHECK] permitido={validacao_p0.get('permitido')} | motivo={validacao_p0.get('motivo')}",
                 flush=True
             )
 
@@ -12237,7 +12244,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if ctx.get("estado_fluxo") == "aguardando_escolha_horario":
 
             print(
-                f"🚨 [AGUARDANDO_ESCOLHA_HORARIO] entrou | "
+                f"[AGUARDANDO_ESCOLHA_HORARIO] entrou | "
                 f"texto={texto_usuario} | "
                 f"alternativas={ctx.get('alternativa_profissional')} | "
                 f"draft={ctx.get('draft_agendamento')}",
@@ -12396,7 +12403,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if ctx.get("estado_fluxo") == "aguardando_horario":
 
             print(
-                f"🚨 [AGUARDANDO_HORARIO] entrou | "
+                f"[AGUARDANDO_HORARIO] entrou | "
                 f"texto={texto_usuario} | "
                 f"estado_fluxo={ctx.get('estado_fluxo')} | "
                 f"ctx_data_hora={ctx.get('data_hora')} | "
