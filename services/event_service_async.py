@@ -204,7 +204,8 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
                     canal="telegram",
                     minutos_antes=30,
                     destinatario_user_id=cliente_id,  # 🔑 notifica o CLIENTE
-                    alvo_evento={"data": data_ev, "hora_inicio": hora_ev, "descricao": descricao_ev}
+                    alvo_evento={"data": data_ev, "hora_inicio": hora_ev, "descricao": descricao_ev},
+                    tenant_id=tenant_id,
                 )
             except Exception as e:
                 print(f"⚠️ Erro ao agendar notificação para cliente {cliente_id}: {e}")

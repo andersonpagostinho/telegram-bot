@@ -15,19 +15,29 @@ async def criar_notificacao_agendada(
     minutos_antes: int = 30,
     destinatario_user_id: str | None = None,  # 👈 quem vai receber o aviso (se None, usa user_id)
     alvo_evento: dict | None = None,          # 👈 dados extras p/ construir a mensagem no worker
+    tenant_id: str | None = None,             # 👈 NOVO: tenant canônico para isolamento multi-tenant
 ) -> bool:
     """
     Cria uma notificação agendada para disparar X minutos antes do evento.
 
-    Compatível com o uso antigo (sem destinatario_user_id) e pronto para o scheduler novo.
+    Compatível com o uso antigo (sem tenant_id) mas agora com isolamento multi-tenant.
 
     - user_id: quem está operando (dono/atendente)
     - destinatario_user_id: (opcional) quem receberá a notificação. Se não informado, notifica o próprio user_id.
+    - tenant_id: (opcional) tenant canônico. Se não fornecido, usa user_id como fallback (compatibilidade).
     - alvo_evento: (opcional) dict com dados do evento (ex: {"data": "...", "hora_inicio": "...", "profissional": "..."}).
     """
     try:
-        # destino real do aviso (cliente ou dono). Se não vier, mantém o comportamento antigo.
+        # destino real do aviso (cliente ou dono)
         destino = destinatario_user_id or user_id
+
+        # tenant canônico — preferir tenant_id se fornecido, senão usar user_id (compatibilidade legada)
+        tenant_persistencia = tenant_id or user_id
+
+        # Verificação de segurança: não permitir gravação em Clientes/None
+        if not destino or not tenant_persistencia:
+            print(f"❌ Erro ao criar notificação: destino={destino} ou tenant={tenant_persistencia} é None")
+            return False
 
         # horário do evento e horário da notificação (X minutos antes)
         data_evento = datetime.fromisoformat(f"{data}T{hora_inicio}")
@@ -50,11 +60,12 @@ async def criar_notificacao_agendada(
             # metadados úteis para debug/auditoria
             "destinatario": destino,
             "origem_user": user_id,
+            "tenant_id": tenant_persistencia,
         }
 
         id_notificacao = str(uuid.uuid4())
         await salvar_dado_em_path(
-            f"Clientes/{destino}/NotificacoesAgendadas/{id_notificacao}",
+            f"Clientes/{tenant_persistencia}/NotificacoesAgendadas/{id_notificacao}",
             notificacao
         )
 

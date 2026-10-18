@@ -91,27 +91,45 @@ def intervalo_dentro_do_expediente(
     return exp_ini <= hi and hora_fim <= exp_fim
 
 
-async def obter_config_agenda(user_id: str) -> dict[str, Any]:
+async def obter_config_agenda(user_id: str, tenant_id: str | None = None) -> dict[str, Any]:
     """
-    Busca configuração de agenda do tenant no caminho real do Firestore:
-    Clientes/{user_id}/configuracao/agenda_funcionamento
+    Busca configuração de agenda do tenant (salão) no Firestore.
+
+    Path: Clientes/{tenant_id}/configuracao/agenda_funcionamento
+
+    Se tenant_id fornecido explicitamente, usa direto.
+    Se não fornecido, tenta resolver via obter_id_dono(user_id).
+    Se não consegue resolver, retorna configuração vazia (seguro, sem fallback para user_id).
+
+    Args:
+        user_id: Identificador do cliente
+        tenant_id: Identificador do salão (tenant). Se None, tenta resolver.
     """
-    path = f"Clientes/{user_id}/configuracao/agenda_funcionamento"
+    # Resolver o tenant (salão proprietário)
+    resolved_tenant_id = tenant_id
+    if not resolved_tenant_id:
+        from services.firebase_service_async import obter_id_dono
+        resolved_tenant_id = await obter_id_dono(user_id)
+
+    # Se tenant ainda não foi resolvido, retornar config vazia (seguro)
+    if not resolved_tenant_id:
+        return {
+            "agenda_padrao": {},
+            "excecoes_data": {},
+        }
+
+    path = f"Clientes/{resolved_tenant_id}/configuracao/agenda_funcionamento"
     doc = await buscar_dado_em_path(path) or {}
 
     agenda_padrao = doc.get("agenda_padrao") or {}
     excecoes_data = doc.get("excecoes_data") or {}
-
-    print("🧪 CONFIG RAW:", doc, flush=True)
-    print("🧪 CONFIG agenda_padrao:", agenda_padrao, flush=True)
-    print("🧪 CONFIG excecoes_data:", excecoes_data, flush=True)
 
     return {
         "agenda_padrao": agenda_padrao,
         "excecoes_data": excecoes_data,
     }
 
-async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, Any]:
+async def obter_regra_agenda_da_data(user_id: str, data_iso: str, tenant_id: str | None = None) -> dict[str, Any]:
     """
     Resolve a regra final da agenda para uma data específica.
 
@@ -130,7 +148,7 @@ async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, A
     }
     """
     try:
-        cfg = await obter_config_agenda(user_id)
+        cfg = await obter_config_agenda(user_id, tenant_id=tenant_id)
         agenda_padrao = cfg.get("agenda_padrao") or {}
         excecoes_data = cfg.get("excecoes_data") or {}
 
@@ -188,11 +206,11 @@ async def obter_regra_agenda_da_data(user_id: str, data_iso: str) -> dict[str, A
         }
 
 
-async def validar_data_funcionamento(user_id: str, data_iso: str) -> dict[str, Any]:
+async def validar_data_funcionamento(user_id: str, data_iso: str, tenant_id: str | None = None) -> dict[str, Any]:
     """
     Valida se a data pode receber agendamento.
     """
-    regra = await obter_regra_agenda_da_data(user_id, data_iso)
+    regra = await obter_regra_agenda_da_data(user_id, data_iso, tenant_id=tenant_id)
 
     if not regra.get("aberto"):
         return {
@@ -242,12 +260,21 @@ async def obter_janela_funcionamento(
         salao_id = dono_id
         print(f"[AGENDA_JANELA] Usando dono_id fornecido: {dono_id}", flush=True)
     else:
-        # Fallback: se dono_id não fornecido, tentar resolver via obter_id_dono
+        # Tentar resolver via obter_id_dono
         from services.firebase_service_async import obter_id_dono
         salao_id = await obter_id_dono(user_id)
         if not salao_id:
-            salao_id = user_id  # Último recurso
-        print(f"[AGENDA_JANELA_FALLBACK] dono_id nao fornecido. Resolvido: {user_id} -> {salao_id}", flush=True)
+            # Tenant não resolvido — retornar resultado seguro
+            print(f"[AGENDA_JANELA] Tenant não resolvido para user_id={user_id}. Retornando fechado.", flush=True)
+            return {
+                "aberto": False,
+                "inicio": None,
+                "fim": None,
+                "origem": "tenant_nao_resolvido",
+                "tipo": "erro_identidade",
+                "motivo": "usuario_nao_vinculado"
+            }
+        print(f"[AGENDA_JANELA] dono_id nao fornecido. Resolvido via obter_id_dono: {user_id} -> {salao_id}", flush=True)
 
     path_salao = f"Clientes/{salao_id}/configuracao/agenda_funcionamento"
     cfg_salao = await buscar_dado_em_path(path_salao) or {}

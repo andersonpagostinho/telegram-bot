@@ -241,7 +241,8 @@ async def add_agenda(update: Update, context: ContextTypes.DEFAULT_TYPE):
             canal="telegram",
             minutos_antes=30,
             destinatario_user_id=user_id,  # dono recebe o aviso
-            alvo_evento={"data": data, "hora_inicio": hora_inicio}
+            alvo_evento={"data": data, "hora_inicio": hora_inicio},
+            tenant_id=tenant_id,
         )
     else:
         await update.message.reply_text(" Ocorreu um erro ao tentar salvar o evento.")
@@ -494,7 +495,8 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     canal="telegram",
                     minutos_antes=30,
                     destinatario_user_id=user_id,  # dono recebe
-                    alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")}
+                    alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")},
+                    tenant_id=dono_id,
                 )
                 
             except Exception as e:
@@ -836,11 +838,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         print(f"[P01_TRACE] ANTES_VALIDAR_EXPEDIENTE | user_id={dono_id} | data={start_time.strftime('%Y-%m-%d')} | hora={start_time.strftime('%H:%M')} | duracao={duracao_minutos} | profissional={profissional} | confirmado={dados.get('confirmado')}", flush=True)
 
         validacao_funcionamento = await validar_horario_funcionamento(
-            user_id=dono_id,
+            user_id=user_id,
             data_iso=start_time.strftime("%Y-%m-%d"),
             hora_inicio=start_time.strftime("%H:%M"),
             duracao_min=duracao_minutos,
             profissional=profissional,
+            dono_id=dono_id,
         )
 
         print(f"[P01_TRACE] RESULTADO_VALIDAR_EXPEDIENTE | resultado={validacao_funcionamento} | permitido={validacao_funcionamento.get('permitido')} | motivo={validacao_funcionamento.get('motivo')}", flush=True)
@@ -855,7 +858,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 hora_ref = start_time.strftime("%H:%M")
 
                 tentativa = await resolver_fora_do_expediente(
-                    user_id=dono_id,
+                    user_id=user_id,
                     data_iso=data_ref,
                     hora_inicio=hora_ref,
                     duracao_min=duracao_minutos,
@@ -1496,7 +1499,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 canal="telegram",
                 minutos_antes=30,
                 destinatario_user_id=destinatario,
-                alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")}
+                alvo_evento={"data": start_time.strftime("%Y-%m-%d"), "hora_inicio": start_time.strftime("%H:%M")},
+                tenant_id=id_dono_notif,
             )
 
         except Exception as e:
