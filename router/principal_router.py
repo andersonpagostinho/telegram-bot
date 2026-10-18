@@ -3497,6 +3497,12 @@ def eh_aceite_de_acao_pendente(txt: str, ctx: dict) -> bool:
     if not ctx.get("ultima_acao"):
         return False
 
+    # 🔒 GUARD: rejeitar saudações genéricas ("ola", "oi", "e tal", etc)
+    # Essas são entradas sociais, não confirmação de ação
+    saudacoes_genericas = ["ola", "oi", "olá", "e tal", "ta", "tá", "ok"]
+    if t in saudacoes_genericas:
+        return False
+
     # 🔒 GUARD: entrada indefinida nunca é aceite de ação pendente
     # "ola", "oi", etc. são conversação social, não confirmação operacional
     if ctx.get("intencao_conversacional") == "indefinida":
