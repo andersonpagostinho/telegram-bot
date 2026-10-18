@@ -262,32 +262,9 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
         if not _tem_indicio_temporal(texto_norm):
             return _build_metadata(None, False, False, motivo="sem_pista")
 
-        # ✅ Se tiver "hoje" ou "amanhã" e tiver hora, monta a data manualmente
-        if ("hoje" in texto_norm or "amanh" in texto_norm):
-            hora_match = re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm)
-
-            data_tipo = "hoje" if "hoje" in texto_norm else "amanha"
-
-            if hora_match:
-                # Tem hora explícita → montar com hora
-                base = agora_br_aware()
-                if "amanh" in texto_norm:
-                    base = base + timedelta(days=1)
-
-                hora = int(hora_match.group(1))
-                minuto = int(hora_match.group(2) or 0)
-
-                dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
-                result = dt_aware.replace(tzinfo=None)
-                print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
-                return _build_metadata(result, True, True, data_tipo=data_tipo, hora_modo="explicita", fonte="manual_hoje_amanha")
-            else:
-                # Sem hora explícita → retornar None (apenas data, sem hora)
-                print(f"[PARSER] fonte_parse=data_pura (hoje/amanhã sem hora) resultado=None", flush=True)
-                return _build_metadata(None, True, False, data_tipo=data_tipo, motivo="so_data", fonte="manual_hoje_amanha_sem_hora")
-
-        # ✅ Detecta dia da semana isolado ou com hora, ex:
-        # "quinta", "quinta feira", "na quinta", "quinta às 10"
+        # 🔥 PRIORIDADE 1: Detecta dia da semana isolado ou com hora
+        # (MOVIDO ANTES de "hoje/amanhã" para dar prioridade a menção explícita de dia)
+        # ex: "quinta", "quinta feira", "na quinta", "quinta às 10"
         dias_semana = {
             "segunda": 0,
             "terca": 1,
@@ -328,6 +305,31 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
             result = dt_aware.replace(tzinfo=None)
             print(f"[PARSER] fonte_parse=manual_dia_semana resultado={result}", flush=True)
             return _build_metadata(result, True, hora_detectada, data_tipo="dia_semana", hora_modo=hora_modo, fonte="manual_dia_semana")
+
+        # 🔥 PRIORIDADE 2: Se tiver "hoje" ou "amanhã" e tiver hora, monta a data manualmente
+        # (Agora vem DEPOIS de dia_semana para dar menos prioridade)
+        if ("hoje" in texto_norm or "amanh" in texto_norm):
+            hora_match = re.search(r"\b([01]?\d|2[0-3])(?::([0-5]\d))?\b", texto_norm)
+
+            data_tipo = "hoje" if "hoje" in texto_norm else "amanha"
+
+            if hora_match:
+                # Tem hora explícita → montar com hora
+                base = agora_br_aware()
+                if "amanh" in texto_norm:
+                    base = base + timedelta(days=1)
+
+                hora = int(hora_match.group(1))
+                minuto = int(hora_match.group(2) or 0)
+
+                dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
+                result = dt_aware.replace(tzinfo=None)
+                print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
+                return _build_metadata(result, True, True, data_tipo=data_tipo, hora_modo="explicita", fonte="manual_hoje_amanha")
+            else:
+                # Sem hora explícita → retornar None (apenas data, sem hora)
+                print(f"[PARSER] fonte_parse=data_pura (hoje/amanhã sem hora) resultado=None", flush=True)
+                return _build_metadata(None, True, False, data_tipo=data_tipo, motivo="so_data", fonte="manual_hoje_amanha_sem_hora")
 
         # ✅ Se for só hora, não decide data aqui (isso é do fluxo/sessão)
         if _so_hora(texto_norm):

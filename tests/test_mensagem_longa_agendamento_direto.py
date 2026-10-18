@@ -17,7 +17,6 @@ from services.firebase_service_async import atualizar_dado_em_path, buscar_dado_
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="KNOWN ISSUE: parser de datas detecta segunda em vez de terça na mensagem complexa. Lógica agendamento_direto está OK, problema é no date parser. Investigar separadamente.")
 async def test_agendamento_direto_mensagem_longa_ate_confirmacao():
     """
     Fluxo completo: UMA mensagem longa com todos os dados de agendamento.

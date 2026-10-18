@@ -9210,6 +9210,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
 
+        # 🔴 DEBUG: Rastrear data após extração
+        print(f" [DEBUG DATA_POS_EXTRACAO] data_hora={ctx.get('data_hora')} | draft={ctx.get('draft_agendamento', {}).get('data_hora')}", flush=True)
+
         # =========================================================
         # 🔴 BLOQUEIO: ERRO DE VALIDAÇÃO — EXPEDIENTE REJEITADO
         # =========================================================
