@@ -579,13 +579,23 @@ def eh_consulta(txt: str) -> bool:
 
     return any(g in t for g in gatilhos_consulta)
 
-def eh_gatilho_agendar(txt: str) -> bool:
+def eh_gatilho_agendar(txt: str, intencao_conversacional: str | None = None) -> bool:
     """
-    Gatilho explícito de agendar (decisão final do usuário).
+    Gatilho explícito de agendar (decisão final do usuário ou novo agendamento direto).
+    Reconhece gatilhos textuais ("pode agendar", etc.) ou intenção pré-classificada como agendamento_direto.
     """
     t = (txt or "").strip().lower()
     gatilhos = ["pode agendar", "pode marcar", "agende", "marque"]
-    return any(g in t for g in gatilhos)
+
+    # Gatilhos textuais explícitos
+    if any(g in t for g in gatilhos):
+        return True
+
+    # Novo agendamento classificado como agendamento_direto — dispara extração de slots
+    if intencao_conversacional == "agendamento_direto":
+        return True
+
+    return False
 
 def eh_gatilho_reagendamento(txt: str) -> bool:
     """
@@ -5078,9 +5088,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] Iniciando bloco de consulta informativa", flush=True)
 
     estado_fluxo = ctx.get("estado_fluxo")
+    intencao_conv = ctx.get("intencao_conversacional")
     print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] estado_fluxo={estado_fluxo}", flush=True)
+    print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] intencao_conversacional={intencao_conv}", flush=True)
 
-    if not estado_fluxo or estado_fluxo == "idle":
+    # SKIP: Se é agendamento_direto em idle, não processar como consulta informativa
+    if intencao_conv == "agendamento_direto" and estado_fluxo == "idle":
+        print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] SKIP: agendamento_direto detectado — vai para bloco de agendamento", flush=True)
+        resposta_informativa = None
+    elif not estado_fluxo or estado_fluxo == "idle":
         print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)", flush=True)
 
         from services.informacao_service import responder_consulta_informativa
@@ -5088,8 +5104,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: {resposta_informativa is not None} | tipo={type(resposta_informativa)}", flush=True)
+    else:
+        resposta_informativa = None
 
-        if resposta_informativa:
+    if resposta_informativa:
             # Detectar se há intenção simultânea de agendamento + consulta
             tem_agendar = any(x in normalizar(mensagem) for x in [
                 "agendar", "marcar", "horario", "horário", "dá para", "da para",
@@ -7412,7 +7430,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     # 2) "ela faz X?" / "tem X?" -> responde sim/não (com base no profissional referenciado)
     # Só roda se houver pista de binário
-    if any(x in tnorm for x in ["faz ", "tem ", "trabalha com", "oferece ", "atende "]):
+    # ⚠️ SKIP se é agendamento_direto — esses blocos são para consultas, não para agendamentos
+    intencao_conv_binario = ctx.get("intencao_conversacional")
+    estado_fluxo_binario = ctx.get("estado_fluxo")
+
+    if (
+        any(x in tnorm for x in ["faz ", "tem ", "trabalha com", "oferece ", "atende "])
+        and not (intencao_conv_binario == "agendamento_direto" and estado_fluxo_binario == "idle")
+    ):
         prof_ref = resolver_profissional_referenciado(tnorm, profs_dict, ctx)
         if prof_ref:
             # catálogo do profissional
@@ -8964,7 +8989,16 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             )
 
         # novo pedido de agendamento não deve herdar resíduos de conflito/confirmação anterior
-        if eh_gatilho_agendar(texto_lower):
+        # Permitir agendamento_direto apenas em estado idle (novo fluxo)
+        estado_fluxo_param = ctx.get("estado_fluxo")
+        intencao_param = ctx.get("intencao_conversacional") if estado_fluxo_param == "idle" else None
+
+        print(f" [DEBUG eh_gatilho_agendar] estado_fluxo={estado_fluxo_param}, intencao_param={intencao_param}, texto_lower={texto_lower[:50] if texto_lower else 'VAZIO'}", flush=True)
+
+        eh_gatilho = eh_gatilho_agendar(texto_lower, intencao_param)
+        print(f" [DEBUG eh_gatilho_agendar] resultado={eh_gatilho}", flush=True)
+
+        if eh_gatilho:
             tnorm_msg = normalizar(texto_usuario)
 
             profs_dict_tmp = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
