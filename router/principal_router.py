@@ -6878,7 +6878,16 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         print(" [GUARD_AGUARDANDO_DATA] EXECUTOU ANTES DA EXTRAÇÃO PRINCIPAL", flush=True)
 
-        dt = interpretar_data_e_hora(texto_usuario)
+        resultado = interpretar_data_e_hora(texto_usuario, return_metadata=True)
+
+
+        # Desempacota resultado (pode ser dict com metadata ou apenas datetime)
+        if isinstance(resultado, dict):
+            dt = resultado.get("datetime")
+            metadata = resultado
+        else:
+            dt = resultado
+            metadata = {}
 
         if dt:
 
@@ -6910,6 +6919,40 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             elif data_hora_antiga and "T" in data_hora_antiga:
                 hora_preferida = data_hora_antiga.split("T")[1][:5]
                 nova_data_hora = f"{data_iso}T{hora_preferida}:00"
+
+            # =====================================================
+            # 🔥 CRÍTICO: Se data SEM hora real (fallback), PEDIR HORÁRIO
+            # Usa metadata hora_detectada ao invés de tem_hora_real()
+            # SEMPRE pedir se hora_detectada=False (não confia em data_hora_antiga)
+            # =====================================================
+
+            if metadata.get("hora_detectada") == False:
+
+                ctx["estado_fluxo"] = "aguardando_horario"
+                ctx["hora_confirmada"] = False
+                ctx["data_sem_hora"] = True
+
+                data_iso_str = dt.strftime("%Y-%m-%d")
+                ctx["data_hora"] = f"{data_iso_str}T00:00:00"
+
+                draft = ctx.get("draft_agendamento") or {}
+                draft["data_hora"] = f"{data_iso_str}T00:00:00"
+                ctx["draft_agendamento"] = draft
+
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                msg_p1 = await gerar_resposta_p1({
+                    "tipo": "pedir_horario",
+                    "servico": draft.get("servico") or ctx.get("servico"),
+                    "profissional": draft.get("profissional") or ctx.get("profissional_escolhido"),
+                    "data": data_iso_str,
+                    "origem": "guard_aguardando_data_sem_hora",
+                })
+
+                data_formatada = formatar_data_hora_br(data_iso_str + "T12:00:00")
+                mensagem = msg_p1 or f"Perfeito, para *{data_formatada}* 😊 Qual horário você prefere?"
+
+                return await _send_and_stop(context, user_id, mensagem)
 
             # =====================================================
             # 🔥 AINDA FALTAM DADOS → NÃO CALCULA DISPONIBILIDADE
