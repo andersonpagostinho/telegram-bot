@@ -1709,7 +1709,16 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
             hora_anterior = None
 
-            if data_hora_anterior and "T" in str(data_hora_anterior):
+            # [PROBLEMA B FIX] Não reutilizar hora anterior se data foi mencionada SEM hora explícita
+            # Ex: "quero agendar para hoje" (sem "às 15:00") → NÃO usar 09:00 antigo
+            data_tipo = dt_e_meta.get("data_tipo")
+            data_foi_mencionada_sem_hora = (
+                dt_e_meta.get("data_detectada")
+                and not dt_e_meta.get("hora_detectada")
+                and data_tipo in ("hoje", "amanha")
+            )
+
+            if data_hora_anterior and "T" in str(data_hora_anterior) and not data_foi_mencionada_sem_hora:
                 hora_ant = str(data_hora_anterior).split("T")[1][:5]
 
                 if hora_ant and hora_ant != "00:00":
