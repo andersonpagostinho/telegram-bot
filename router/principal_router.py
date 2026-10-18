@@ -5473,7 +5473,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # ✅ Só deixa a sessão legada assumir quando NÃO estamos no fluxo novo de agendamento
     if (not intencao_catalogo) and sessao and sessao.get("estado") and estado_fluxo != "agendando":
         print(f" Sessão ativa: {sessao['estado']}")
-        resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem)
+        resposta_fluxo = await tratar_mensagem_gpt(user_id, mensagem, tenant_id=dono_id)
         await atualizar_contexto(user_id, {"usuario": mensagem, "bot": resposta_fluxo})
         return resposta_fluxo
 
@@ -12776,7 +12776,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         return await _send_and_stop(context, user_id, resposta_texto)
 
-    resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA)
+    resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA, tenant_id=dono_id)
 
     # 🔥 BLOQUEIO: se GPT respondeu algo direto, NÃO entra no fluxo
     if resposta_gpt and resposta_gpt.get("resposta") and not resposta_gpt.get("acao"):

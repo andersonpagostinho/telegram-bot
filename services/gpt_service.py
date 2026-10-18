@@ -89,7 +89,7 @@ async def processar_com_gpt(texto_usuario, user_id="desconhecido"):
         return "❌ Houve um erro ao processar com a IA."
 
 
-async def tratar_mensagem_usuario(user_id, mensagem):
+async def tratar_mensagem_usuario(user_id, mensagem, tenant_id: str = None):
     print("🔥 [gpt_service] Entrou no tratar_mensagem_usuario via importlib")
 
     # 👇 Essa linha mostra de onde a função está sendo chamada
@@ -101,7 +101,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
     # Carrega a função original dinamicamente
     acao_handler = importlib.import_module("handlers.acao_handler")
-    return await acao_handler.tratar_mensagem_usuario(user_id, mensagem)
+    return await acao_handler.tratar_mensagem_usuario(user_id, mensagem, tenant_id=tenant_id)
 
 
 # ✅ GPT com contexto e resposta estruturada em JSON (ação + dados)
@@ -110,6 +110,7 @@ async def processar_com_gpt_com_acao(
     contexto: dict,
     instrucao: str,
     user_id: str | None = None,
+    tenant_id: str | None = None,
 ):
     print("🚨 [gpt_service] Arquivo carregado", flush=True)
     try:
@@ -124,9 +125,10 @@ async def processar_com_gpt_com_acao(
 
         user_id = uid
 
-        # --- Obter tenant_id uma vez no início (necessário para carregar_contexto_temporario) ---
-        from services.firebase_service_async import obter_id_dono
-        tenant_id = await obter_id_dono(user_id)
+        # --- tenant_id deve ser passado explicitamente (WhatsApp webhook) ---
+        # Se não foi passado, permanece None (guard bloqueará persistência)
+        if not tenant_id:
+            print(f"[AVISO] tenant_id não foi passado para processar_com_gpt_com_acao. Persistência será bloqueada.", flush=True)
 
         # --- GARANTIR CONTEXTO COM PROFISSIONAIS ---
         contexto = contexto or {}
@@ -247,7 +249,7 @@ async def processar_com_gpt_com_acao(
                 )
 
                 if quer_agendar and uid != "desconhecido" and not fluxo_operacional_ativo:
-                    await salvar_contexto_temporario(uid, {"estado_fluxo": "idle"})
+                    await salvar_contexto_temporario(uid, {"estado_fluxo": "idle"}, tenant_id=tenant_id)
                     ctx["estado_fluxo"] = "idle"
                     contexto_salvo = ctx
 
@@ -472,7 +474,7 @@ async def processar_com_gpt_com_acao(
                 else:
                     print("🛡️ [GPT_SERVICE CONSULTA PURA] não salvando serviço operacional em dados_update", flush=True)
 
-                # 2) interpretar data/hora (corrigido)
+                # 2) interpretar data/hora (corrigido com detecção de data sem hora)
                 try:
                     texto_hora_only = (texto_usuario or "").strip().lower()
 
@@ -491,6 +493,11 @@ async def processar_com_gpt_com_acao(
                         or re.search(r"\b\d{1,2}h(?:\d{2})?\b", texto_hora_only)
                         or m
                     )
+
+                    # [PROBLEMA B FIX] Detectar se data foi mencionada mesmo sem hora explícita
+                    # Ex: "quero marcar corte hoje" → data_detectada=True, hora_detectada=False
+                    metadata_data = interpretar_data_e_hora(texto_usuario, return_metadata=True)
+                    data_foi_mencionada = metadata_data and metadata_data.get("data_detectada", False)
 
                     # =========================================================
                     # CASO 1: usuário digitou só o horário (ex: "11")
@@ -516,12 +523,39 @@ async def processar_com_gpt_com_acao(
                     # =========================================================
                         dt = interpretar_data_e_hora(texto_usuario)
 
+                        # [PROBLEMA B FIX] Se data foi mencionada mas sem hora explícita,
+                        # precisa usar hoje/amanhã/data_mencionada em vez de reutilizar data antiga
+                        if data_foi_mencionada and not dt:
+                            # Data mencionada (ex: "hoje") mas sem hora explícita (sem "às 15:00")
+                            # Resolver manualmente a data para poder usá-la
+                            metadata = interpretar_data_e_hora(texto_usuario, return_metadata=True)
+                            if metadata and metadata.get("data_tipo") == "hoje":
+                                # Usar dia de hoje com hora 00:00 (ou reutilizar hora anterior)
+                                today = datetime.now(pytz.timezone("America/Sao_Paulo")).date()
+                                data_hora_existente = (contexto_salvo or {}).get("data_hora")
+
+                                if data_hora_existente:
+                                    # Extrair hora da data anterior e usar com data de hoje
+                                    try:
+                                        base_dt = datetime.fromisoformat(str(data_hora_existente))
+                                        dt = datetime(today.year, today.month, today.day,
+                                                     base_dt.hour, base_dt.minute, 0, 0)
+                                    except:
+                                        # Se falhar, usar meia-noite
+                                        dt = datetime(today.year, today.month, today.day, 0, 0, 0, 0)
+                                else:
+                                    # Sem hora anterior, usar meia-noite
+                                    dt = datetime(today.year, today.month, today.day, 0, 0, 0, 0)
+
+                                print(f"[PROBLEMA B FIX] Data mencionada 'hoje' sem hora | dt resolvido={dt}", flush=True)
+
                         if dt:
                             # 🔥 Regra P0: Dado explícito novo > contexto salvo antigo
                             data_hora_existente = (contexto_salvo or {}).get("data_hora")
 
-                            if dt and tem_hora_explicita:
-                                # Usuário foi explícito: usar resultado do parser SEMPRE
+                            if dt and (tem_hora_explicita or data_foi_mencionada):
+                                # Usuário foi explícito COM HORA ou mencionou data (mesmo sem hora explícita)
+                                # NUNCA reutilizar data antiga nesses casos
                                 nova_data_hora = dt.isoformat()
                                 dados_update["data_hora"] = nova_data_hora
 
@@ -535,13 +569,14 @@ async def processar_com_gpt_com_acao(
                                 ultima_consulta["data_hora"] = nova_data_hora
                                 dados_update["ultima_consulta"] = ultima_consulta
 
-                                dados_update["hora_confirmada"] = True
-                                dados_update["data_sem_hora"] = False
+                                dados_update["hora_confirmada"] = tem_hora_explicita
+                                dados_update["data_sem_hora"] = not tem_hora_explicita
 
-                                print(f"🛡️ [MERGE_DATA_HORA] explícita={tem_hora_explicita} | dt_parser={dt} | antigo={data_hora_existente} | final={nova_data_hora}", flush=True)
+                                print(f"🛡️ [MERGE_DATA_HORA] PROBLEMA B FIX | data_mencionada={data_foi_mencionada} | tem_hora={tem_hora_explicita} | dt_parser={dt} | antigo={data_hora_existente} | final={nova_data_hora}", flush=True)
 
-                            elif data_hora_existente:
-                                # Sem hora explícita: usar contexto anterior
+                            elif data_hora_existente and not data_foi_mencionada:
+                                # Sem hora explícita E sem mudança de data mencionada: usar contexto anterior
+                                # Mas NUNCA se data foi explicitamente mencionada (mesmo que sem hora)
                                 dados_update["data_hora"] = data_hora_existente
 
                             else:
@@ -747,7 +782,7 @@ async def processar_com_gpt_com_acao(
                             contexto_base["hora_confirmada"] = dados_update["hora_confirmada"]
 
                         contexto_base.update(dados_update)
-                        await salvar_contexto_temporario(uid, contexto_base)
+                        await salvar_contexto_temporario(uid, contexto_base, tenant_id=tenant_id)
                         contexto_salvo = contexto_base
 
                         print(
@@ -761,7 +796,7 @@ async def processar_com_gpt_com_acao(
                             f"⚠️ Falha ao higienizar contexto antes do GPT: {e}",
                             flush=True,
                         )
-                        await salvar_contexto_temporario(uid, dados_update)
+                        await salvar_contexto_temporario(uid, dados_update, tenant_id=tenant_id)
                         contexto_salvo = {**(contexto_salvo or {}), **dados_update}
                         print(
                             f"💾 Contexto atualizado antes do GPT: {dados_update}",
@@ -1059,7 +1094,7 @@ async def processar_com_gpt_com_acao(
                             },
                         }
                     )
-                    await salvar_contexto_temporario(uid, contexto_tmp)
+                    await salvar_contexto_temporario(uid, contexto_tmp, tenant_id=tenant_id)
 
                     return {
                         "resposta": (
@@ -1330,7 +1365,7 @@ async def processar_com_gpt_com_acao(
             if nova_data_iso != contexto_salvo.get("data_hora"):
                 contexto_salvo["data_hora"] = nova_data_iso
                 print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
-                await salvar_contexto_temporario(user_id, contexto_salvo)
+                await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
         # 🧠 Extração antecipada
         texto_normalizado = unidecode.unidecode(
@@ -1417,7 +1452,7 @@ async def processar_com_gpt_com_acao(
                 second=0, microsecond=0
             ).isoformat()
 
-        await salvar_contexto_temporario(user_id, contexto_salvo)
+        await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
         # 🗂️ Detectar pedido de todos os preços
         gatilhos_todos_precos = [
@@ -1535,7 +1570,7 @@ async def processar_com_gpt_com_acao(
                         contexto_salvo["data_hora"] = nova_data_hora
                         contexto_salvo["hora_confirmada"] = True
                         print(f"🕓 Horário confirmado manualmente: {nova_data_hora}")
-                        await salvar_contexto_temporario(user_id, contexto_salvo)
+                        await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
                         break
 
                 print(
@@ -1714,7 +1749,7 @@ async def processar_com_gpt_com_acao(
                     "data_hora": contexto_salvo.get("data_hora"),
                     "duracao": estimar_duracao(contexto_salvo.get("servico", "")),
                 }
-                await salvar_contexto_temporario(user_id, contexto_salvo)
+                await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
                 return {
                     "resposta": (
@@ -1775,7 +1810,7 @@ async def processar_com_gpt_com_acao(
                     f"🆕 Substituindo data/hora antiga ({contexto_salvo.get('data_hora')}) por nova ({nova_data_iso})"
                 )
                 contexto_salvo["data_hora"] = nova_data_iso
-                await salvar_contexto_temporario(user_id, contexto_salvo)
+                await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
         # ✅ Contexto completo → valida conflito e segue para confirmação
         if all(
@@ -1840,6 +1875,7 @@ async def processar_com_gpt_com_acao(
                             "sugestoes": conflito["sugestoes"],
                             "alternativa_profissional": conflito["profissional_alternativo"],
                         },
+                        tenant_id=tenant_id,
                     ) 
 
                     return {
@@ -1913,7 +1949,7 @@ async def processar_com_gpt_com_acao(
                 contexto_salvo["data_hora"] = memoria_nova["data_hora"]
 
             contexto_salvo.update(memoria_nova)
-            await salvar_contexto_temporario(user_id, contexto_salvo)
+            await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
             contexto_salvo = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
 
             data_inteligente = interpretar_data_e_hora(texto_usuario)
@@ -1924,7 +1960,7 @@ async def processar_com_gpt_com_acao(
                 if nova_data_iso != contexto_salvo.get("data_hora"):
                     contexto_salvo["data_hora"] = nova_data_iso
                     print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
-                    await salvar_contexto_temporario(user_id, contexto_salvo)
+                    await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
         if contexto_salvo is None:
             contexto_salvo = {}  # 🔧 Garante que temos ao menos um dicionário vazio
@@ -2045,7 +2081,7 @@ async def processar_com_gpt_com_acao(
                 user_id, {"usuario": texto_usuario, "bot": resposta}
             )
 
-            await salvar_contexto_temporario(user_id, contexto_salvo)
+            await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
             return {"resposta": resposta, "acao": None, "dados": {}}
 
@@ -2061,7 +2097,7 @@ async def processar_com_gpt_com_acao(
                 if nova_data_iso != contexto_salvo.get("data_hora"):
                     contexto_salvo["data_hora"] = nova_data_iso
                     print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
-                    await salvar_contexto_temporario(user_id, contexto_salvo)
+                    await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
         nomes_profissionais = [p["nome"].lower() for p in contexto["profissionais"]]
         resposta_direta = texto_usuario.strip().lower()
@@ -3038,6 +3074,7 @@ async def processar_com_gpt_com_acao(
                             "sugestoes": sugestoes,
                             "alternativa_profissional": alternativa,
                         },
+                        tenant_id=tenant_id,
                     )
 
                     print("🧪 [GPT_ROUTE] CALL_2_RETURN", flush=True)
@@ -3142,10 +3179,10 @@ async def processar_com_gpt_com_acao(
                     if nova_data_iso != contexto_salvo.get("data_hora"):
                         contexto_salvo["data_hora"] = nova_data_iso
                         print(f"🧠 Data/hora atualizada para: {nova_data_iso}")
-                        await salvar_contexto_temporario(user_id, contexto_salvo)
+                        await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
                 contexto_salvo.update(memoria_nova)
-                await salvar_contexto_temporario(user_id, contexto_salvo)
+                await salvar_contexto_temporario(user_id, contexto_salvo, tenant_id=tenant_id)
 
             # 🔧 Adiciona sugestão de profissionais compatíveis com o serviço, se for o caso
             if (
