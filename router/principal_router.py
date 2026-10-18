@@ -3627,13 +3627,14 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
     # ═══════════════════════════════════════════════════════════════
     if acao == "invalidar_ultima_acao":
         ctx.pop("ultima_acao", None)
+        ctx.pop("intencao_conversacional", None)  # Reset intenção para reclassificar
         ctx["_iteracao_confirmacao"] = 1  # Reset contador
 
         print(f"[RECUPERACAO LOOP NIVEL1] path={path} | acao_invalidada | em_memoria=True", flush=True)
 
         return {
             "ctx": ctx,
-            "campos_removidos": ["ultima_acao"],
+            "campos_removidos": ["ultima_acao", "intencao_conversacional"],
             "mensagem": None,  # Continua fluxo normal
             "nivel": 1,
             "persistido": False  # Nível 1 é apenas em memória
