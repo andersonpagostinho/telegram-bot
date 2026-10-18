@@ -3,8 +3,14 @@ import pytest_asyncio
 import uuid
 import sys
 import os
+import io
 from pathlib import Path
 from dotenv import load_dotenv
+
+# [ENCODING FIX] Force UTF-8 output for emoji support in Windows
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Load .env first
 load_dotenv(Path(__file__).parent.parent / ".env")
