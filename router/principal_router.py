@@ -2949,7 +2949,7 @@ async def resolver_alteracao_draft_agendamento(
                     ctx["profissional_escolhido"] = novo_profissional
                     ctx["servico"] = servico
                     ctx["data_hora"] = data_hora
-                    ctx["estado_fluxo"] = "aguardando_horario"  # Cliente aguarda para escolher horário
+                    ctx["estado_fluxo"] = "aguardando_escolha_horario"  # Permite P0.1.8 handler processar resposta
                     ctx["aguardando_confirmacao_agendamento"] = False
                     ctx["tipo_ajuste_incremental"] = None
                     ctx["objetivo_conversacional"] = None
@@ -7935,6 +7935,46 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 )
 
                 if servico_alt and data_hora_alt:
+                    # ✅ P0-CRÍTICO FIX: Validar disponibilidade ANTES de confirmar
+                    dt_obj = datetime.fromisoformat(data_hora_alt)
+                    data_str = dt_obj.strftime("%Y-%m-%d")
+                    hora_str = dt_obj.strftime("%H:%M")
+                    duracao_minutos = estimar_duracao(servico_alt)
+
+                    conflito_info = await verificar_conflito_e_sugestoes_profissional(
+                        user_id=user_id,
+                        data=data_str,
+                        hora_inicio=hora_str,
+                        duracao_min=duracao_minutos,
+                        profissional=profissional_alt_escolhida,
+                        servico=servico_alt,
+                        tenant_id=dono_id
+                    )
+
+                    # Se profissional alternativa não está disponível: oferecer horários alternativos
+                    if conflito_info.get("conflito"):
+                        sugestoes = conflito_info.get("sugestoes") or []
+                        sugestoes_txt = "\n".join(f"🔄 {h}" for h in sugestoes)
+                        sugestao_formatada = (
+                            f"\n\n📌 *Horários disponíveis com {profissional_alt_escolhida}:*\n{sugestoes_txt}"
+                            if sugestoes_txt
+                            else ""
+                        )
+
+                        ctx["estado_fluxo"] = "aguardando_escolha_horario"
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        ctx["alternativa_profissional"] = [profissional_alt_escolhida]
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"⚠ {profissional_alt_escolhida} está ocupada nesse horário.{sugestao_formatada}\n\n"
+                            f"Quer um desses horários ou prefere outra profissional?",
+                            parse_mode=None
+                        )
+
+                    # ✅ Profissional está disponível: confirmar agendamento
                     draft_alt["servico"] = servico_alt
                     draft_alt["profissional"] = profissional_alt_escolhida
                     draft_alt["data_hora"] = data_hora_alt
