@@ -7149,8 +7149,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 elif nivel_recuperacao == 1:
                     # Nível 1 (apenas em memória): descartar resposta_proposta gerada no contexto antigo
                     # A resposta foi gerada ANTES da remoção da intenção
-                    # Retornar para permitir reclassificação e nova processamento
-                    return
+                    # Zerar resposta_proposta para pular envio abaixo
+                    resposta_proposta = None
                 else:
                     # Nível 2/3 mas sem mensagem ou rascunho válido: bloqueia resposta
                     return
@@ -7158,18 +7158,19 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # ═══════════════════════════════════════════════════════════
             # SEM LOOP: ATUALIZAR RASTREAMENTO E ENVIAR RESPOSTA
             # ═══════════════════════════════════════════════════════════
-            ctx["_ultima_resposta_enviada"] = resposta_proposta
-            ctx["_ultimo_estado_fluxo"] = ctx.get("estado_fluxo")
-            ctx["_iteracao_confirmacao"] = iteracao + 1
+            if resposta_proposta:  # ← Apenas enviar se não foi zerada pelo loop recovery
+                ctx["_ultima_resposta_enviada"] = resposta_proposta
+                ctx["_ultimo_estado_fluxo"] = ctx.get("estado_fluxo")
+                ctx["_iteracao_confirmacao"] = iteracao + 1
 
-            # Salvar contexto (com rastreamento de loop para próxima iteração)
-            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                # Salvar contexto (com rastreamento de loop para próxima iteração)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
-            return await _send_and_stop(
-                context,
-                user_id,
-                resposta_proposta
-            )
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    resposta_proposta
+                )
 
     # =========================================================
     # ✅ (A0) Intercept binário: "ela faz X?" / "quem faz X?"
