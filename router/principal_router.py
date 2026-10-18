@@ -1463,8 +1463,8 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
     if not dt_detectado:
 
         data_ctx = (
-            ctx.get("data")
-            or (ctx.get("data_hora") or "").split("T")[0]
+            (ctx.get("data_hora") or "").split("T")[0]
+            or ctx.get("data")
         )
 
         if data_ctx:
