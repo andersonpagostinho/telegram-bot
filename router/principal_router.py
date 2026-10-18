@@ -7147,8 +7147,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         mensagem_recuperacao
                     )
                 elif nivel_recuperacao == 1:
-                    # Nível 1 (apenas em memória): continua fluxo normal
-                    pass  # ← Prosseguir para próximas validações abaixo
+                    # Nível 1 (apenas em memória): descartar resposta_proposta gerada no contexto antigo
+                    # A resposta foi gerada ANTES da remoção da intenção
+                    # Retornar para permitir reclassificação e nova processamento
+                    return
                 else:
                     # Nível 2/3 mas sem mensagem ou rascunho válido: bloqueia resposta
                     return
