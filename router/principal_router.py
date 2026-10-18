@@ -1423,6 +1423,47 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
     dt_e_meta = interpretar_data_e_hora(texto, return_metadata=True)
     dt_detectado = dt_e_meta.get("datetime")
 
+    # [CRÍTICO] Se APENAS hora foi mencionada (sem data), usar data anterior do contexto
+    # Exemplo: estado=aguardando_horario com data_hora=2026-10-20T00:00:00
+    #          user diz "as 10 horas" → parser retorna TODAY 10:00 (padrão)
+    #          devemos usar 2026-10-20T10:00:00, não TODAY T10:00:00
+    apenas_hora = (
+        dt_e_meta.get("hora_detectada")  # ← Hora foi mencionada
+        and not dt_e_meta.get("data_detectada")  # ← MAS data NÃO foi mencionada
+    )
+
+
+    if apenas_hora:
+        # Parser retorna None quando é APENAS hora. Preciso extrair hora e criar dt_detectado correto
+        data_hora_anterior = (
+            ctx.get("data_hora")
+            or draft.get("data_hora")
+            or (ctx.get("ultima_consulta") or {}).get("data_hora")
+        )
+
+        if data_hora_anterior:
+            data_anterior = str(data_hora_anterior).split("T")[0]
+
+            if dt_detectado:
+                hora_str = dt_detectado.time().isoformat()
+            else:
+                # Parser retornou None, extrair hora manualmente do texto
+                m_hora = (
+                    re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", texto.lower())
+                    or re.search(r"\b([01]?\d|2[0-3])h([0-5]\d)\b", texto.lower())
+                    or re.search(r"\b(?:as|às)\s*([01]?\d|2[0-3])\b", texto.lower())
+                )
+
+                if m_hora:
+                    hora_int = int(m_hora.group(1))
+                    minuto_int = int(m_hora.group(2) if len(m_hora.groups()) > 1 and m_hora.group(2) else 0)
+                    hora_str = f"{hora_int:02d}:{minuto_int:02d}:00"
+                else:
+                    hora_str = "00:00:00"
+
+            dt_detectado = datetime.fromisoformat(f"{data_anterior}T{hora_str}")
+            print(f"[APENAS_HORA_CORRIGIDO] Data anterior={data_anterior} + hora → {dt_detectado.isoformat()}", flush=True)
+
     print(" [MESCLAR] texto=", texto, flush=True)
     print(" [MESCLAR] dt_detectado=", dt_detectado, flush=True)
 
@@ -1532,6 +1573,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                     }
 
                 try:
+
                     dt_detectado = datetime.fromisoformat(
                         f"{data_ctx}T{hora:02d}:{minuto:02d}:00"
                     )
@@ -1635,12 +1677,38 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
             hora = int(hora_matches[0][0])
             minuto = int(hora_matches[0][1] or 0)
 
-            dt_final = dt_detectado.replace(
-                hour=hora,
-                minute=minuto,
-                second=0,
-                microsecond=0
+            # [CRÍTICO] Se APENAS hora foi mencionada (sem data), reutilize data anterior
+            apenas_hora = (
+                dt_e_meta.get("hora_detectada")  # ← Hora foi mencionada
+                and not dt_e_meta.get("data_detectada")  # ← MAS data NÃO foi mencionada
             )
+
+            if apenas_hora:
+                data_hora_anterior = (
+                    ctx.get("data_hora")
+                    or draft.get("data_hora")
+                    or (ctx.get("ultima_consulta") or {}).get("data_hora")
+                )
+
+                if data_hora_anterior:
+                    # Reutilizar data anterior, aplicar hora nova
+                    data_anterior = str(data_hora_anterior).split("T")[0]
+                    dt_final = datetime.fromisoformat(f"{data_anterior}T{hora:02d}:{minuto:02d}:00")
+                else:
+                    # Se não houver data anterior, usar data de hoje (comportamento antigo)
+                    dt_final = dt_detectado.replace(
+                        hour=hora,
+                        minute=minuto,
+                        second=0,
+                        microsecond=0
+                    )
+            else:
+                dt_final = dt_detectado.replace(
+                    hour=hora,
+                    minute=minuto,
+                    second=0,
+                    microsecond=0
+                )
 
             iso = dt_final.isoformat()
 
@@ -1699,13 +1767,28 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
         # Ex.: "amanhã", "troca para sexta", "joga para amanhã"
         # =========================================================
         else:
-            data_iso = dt_detectado.date().isoformat()
+            # [CRÍTICO] Se APENAS hora foi mencionada (sem data), use a data anterior do draft
+            # Exemplo: estado=aguardando_horario com data_hora=2026-10-20T00:00:00
+            #          user diz "as 10 horas" → parser retorna TODAY 10:00 (data padrão)
+            #          devemos usar 2026-10-20T10:00:00, não TODAY T10:00:00
+            apenas_hora = (
+                dt_e_meta.get("hora_detectada")  # ← Hora foi mencionada
+                and not dt_e_meta.get("data_detectada")  # ← MAS data NÃO foi mencionada
+            )
 
             data_hora_anterior = (
                 ctx.get("data_hora")
                 or draft.get("data_hora")
                 or (ctx.get("ultima_consulta") or {}).get("data_hora")
             )
+
+            if apenas_hora and data_hora_anterior:
+                # Reutilizar data anterior, aplicar hora nova
+                data_anterior = str(data_hora_anterior).split("T")[0]
+                data_iso = data_anterior
+                print(f"[APENAS_HORA] Reutilizando data anterior={data_anterior} com hora nova", flush=True)
+            else:
+                data_iso = dt_detectado.date().isoformat()
 
             hora_anterior = None
 
@@ -1719,7 +1802,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 and not dt_e_meta.get("hora_detectada")
             )
 
-            if data_hora_anterior and "T" in str(data_hora_anterior) and not data_foi_mencionada_sem_hora:
+            if data_hora_anterior and "T" in str(data_hora_anterior) and not data_foi_mencionada_sem_hora and not apenas_hora:
                 hora_ant = str(data_hora_anterior).split("T")[1][:5]
 
                 if hora_ant and hora_ant != "00:00":
