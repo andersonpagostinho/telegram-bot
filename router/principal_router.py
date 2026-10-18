@@ -9211,12 +9211,46 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         nova_dt = base_dt + timedelta(days=1)
         nova_iso = nova_dt.replace(second=0, microsecond=0).isoformat()
 
-        # [FIX A3] Validar se nova hora é placeholder (00:00:00 após data sem horário)
-        if nova_iso.endswith("T00:00:00"):
+        draft_local = ctx.get("draft_agendamento") or {}
+        prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
+        servico = draft_local.get("servico") or ctx.get("servico")
+
+        # [FIX A3] GENÉRICO: Se data não tem hora real, pedir horário (aplica a QUALQUER fluxo/data)
+        # Não apenas "amanhã", mas qualquer data com placeholder T00:00:00
+        if not tem_hora_real(nova_iso):
+            print(f"[PLACEHOLDER_DETECTADO] Data sem hora real: {nova_iso} (qualquer fluxo)", flush=True)
+
+            ctx["estado_fluxo"] = "aguardando_horario"
             ctx["hora_confirmada"] = False
             ctx["data_sem_hora"] = True
+            ctx["pergunta_amanha_mesmo_horario"] = False
+            ctx["data_hora"] = nova_iso
+            ctx["draft_agendamento"] = {
+                "profissional": prof,
+                "data_hora": nova_iso,
+                "servico": servico,
+                "modo_prechecagem": True
+            }
 
-        draft_local = ctx.get("draft_agendamento") or {}
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+            msg_p1 = await gerar_resposta_p1({
+                "tipo": "pedir_horario",
+                "servico": servico,
+                "profissional": prof,
+                "data": nova_iso.split("T")[0],
+                "origem": "data_sem_hora_placeholder",
+            })
+
+            data_dia = nova_iso.split("T")[0]
+            data_formatada = formatar_data_hora_br(data_dia + "T12:00:00")
+            mensagem = msg_p1 or f"Perfeito, para *{data_formatada}* 😊 Qual horário você prefere?"
+
+            return await _send_and_stop(
+                context,
+                user_id,
+                mensagem
+            )
         prof = draft_local.get("profissional") or ctx.get("profissional_escolhido") or (ctx.get("ultima_consulta") or {}).get("profissional")
         servico = draft_local.get("servico") or ctx.get("servico")
 
