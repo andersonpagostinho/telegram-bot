@@ -7145,8 +7145,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         user_id,
                         mensagem_recuperacao
                     )
+                elif nivel_recuperacao == 1:
+                    # Nível 1 (apenas em memória): continua fluxo normal
+                    pass  # ← Prosseguir para próximas validações abaixo
                 else:
-                    # Nível 1 ou rascunho válido: continuar fluxo normal (sem mensagem)
+                    # Nível 2/3 mas sem mensagem ou rascunho válido: bloqueia resposta
                     return
 
             # ═══════════════════════════════════════════════════════════
