@@ -7705,13 +7705,33 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             opcoes_prof = ctx.get("ultima_opcao_profissionais") or []
             alt = ctx.get("alternativa_profissional")
 
-            # Extrair nome se alt for dict
-            alt_nome = alt.get("profissional") if isinstance(alt, dict) else alt
-
+            # Normalizar alternativa_profissional para lista de strings
             nomes_opcao = []
-            if alt_nome:
-                nomes_opcao.append(alt_nome)
-            nomes_opcao.extend(opcoes_prof or [])
+
+            if alt:
+                if isinstance(alt, dict):
+                    # Dict com chave "profissional"
+                    nome = alt.get("profissional")
+                    if isinstance(nome, str) and nome.strip():
+                        nomes_opcao.append(nome)
+                elif isinstance(alt, list):
+                    # Lista: pode ser de strings ou dicts
+                    for item in alt:
+                        if isinstance(item, dict):
+                            nome = item.get("profissional") or item.get("nome")
+                        else:
+                            nome = item
+                        if isinstance(nome, str) and nome.strip():
+                            nomes_opcao.append(nome)
+                elif isinstance(alt, str) and alt.strip():
+                    # String simples
+                    nomes_opcao.append(alt)
+
+            # Adicionar opcoes_prof (já deve ser lista de strings)
+            if opcoes_prof:
+                for item in (opcoes_prof if isinstance(opcoes_prof, list) else [opcoes_prof]):
+                    if isinstance(item, str) and item.strip():
+                        nomes_opcao.append(item)
 
             # Detectar menção a uma alternativa específica
             menciona_opcao = any(
