@@ -55,26 +55,48 @@ async def test_p2a_e2e_validacao_fluxo_real():
     """
 
     # ============================================================
-    # SETUP: Dados reais
+    # SETUP: Dados reais com isolamento
     # ============================================================
     tenant_id = "7394370553"
-    actor_id = "whatsapp:5511991382080"
+    # Isolado com sufixo para evitar contaminação com P2B
+    actor_id = "whatsapp:5511991382080_p2a"
     user_id = actor_id  # No roteador, user_id = actor_id
 
     print(f"\n[P2A E2E] Iniciando validacao com tenant={tenant_id}, user={user_id}")
 
     # ============================================================
-    # PASSO 1: Carregar contexto real do Firestore
+    # PASSO 0: Preparar contexto isolado
     # ============================================================
     db = get_db()
     sessao_path = f"Clientes/{tenant_id}/Sessoes/{actor_id}"
 
+    # Criar contexto isolado para este teste
+    ctx_teste_setup = {
+        "estado_fluxo": "aguardando_profissional",
+        "draft_agendamento": {
+            "servico": "corte",
+            "data_hora": "2026-09-30T09:00:00",
+            "profissional": None
+        },
+        "intencao_conversacional": "indefinida"
+    }
+
+    try:
+        sessao_ref = db.collection("Clientes").document(tenant_id).collection("Sessoes").document(actor_id)
+        sessao_ref.set(ctx_teste_setup)
+        print(f"[P2A E2E] Contexto isolado criado em {sessao_path}")
+    except Exception as e:
+        pytest.skip(f"Firestore indisponivel para criar contexto: {str(e)}")
+
+    # ============================================================
+    # PASSO 1: Carregar contexto do Firestore
+    # ============================================================
     try:
         sessao_ref = db.collection("Clientes").document(tenant_id).collection("Sessoes").document(actor_id)
         sessao_doc = sessao_ref.get()
 
         if not sessao_doc.exists:
-            pytest.skip(f"Sessao real nao encontrada: {sessao_path}")
+            pytest.skip(f"Sessao nao encontrada: {sessao_path}")
 
         ctx_inicial = sessao_doc.to_dict() or {}
         print(f"[P2A E2E] Contexto inicial carregado: estado_fluxo={ctx_inicial.get('estado_fluxo')}")

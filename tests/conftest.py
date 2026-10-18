@@ -11,6 +11,9 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Importar fixtures Firebase real de conftest_fb
+from tests.conftest_fb import firebase_config, firebase_contexto
+
 
 @pytest_asyncio.fixture
 async def firebase_services():

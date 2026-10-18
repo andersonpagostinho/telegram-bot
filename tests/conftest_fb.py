@@ -127,54 +127,6 @@ async def firebase_contexto(firebase_config):
     await fc.limpar()
 
 
-@pytest.fixture(scope="function")
-def firebase_sync(firebase_config):
-    """Versao sync do firebase para testes nao-async"""
-    config = firebase_config
-
-    class FirebaseSync:
-        def __init__(self, cfg):
-            self.db = cfg["db"]
-            self.tenant_id = cfg["tenant_id"]
-            self.cliente_id = cfg["cliente_id"]
-            self.wa_id = cfg["wa_id"]
-            self.actor_id = cfg["actor_id"]
-
-        def salvar_sync(self, dados_ctx: dict):
-            """Salvar contexto no Firestore (sync)"""
-            loop = asyncio.get_event_loop()
-            return loop.run_until_complete(
-                salvar_contexto_temporario_v2(
-                    self.tenant_id,
-                    self.cliente_id,
-                    dados_ctx
-                )
-            )
-
-        def carregar_sync(self):
-            """Carregar contexto do Firestore (sync)"""
-            loop = asyncio.get_event_loop()
-            return loop.run_until_complete(
-                carregar_contexto_temporario_v2(
-                    self.tenant_id,
-                    self.cliente_id
-                )
-            )
-
-        def limpar_sync(self):
-            """Limpar contexto anterior (sync)"""
-            try:
-                ref = self.db.collection("Clientes").document(self.tenant_id).collection("Sessoes").document(self.cliente_id)
-                ref.delete()
-            except:
-                pass
-
-    fs = FirebaseSync(config)
-    fs.limpar_sync()
-    yield fs
-    fs.limpar_sync()
-
-
 def pytest_configure(config):
     """Configurar pytest para Firebase real"""
     config.addinivalue_line(

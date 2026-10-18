@@ -1436,12 +1436,14 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         try:
             # Calcular event_id (mesmo lógica de salvar_evento)
-            id_dono_notif = await obter_id_dono(user_id)
+            # [FIX-BLOQ-A] Reutilizar tenant_id já extraído com validação segura (linha 1153-1161)
+            # Em vez de obter_id_dono() que pode retornar None
+            id_dono_notif = tenant_id  # Usa tenant já validado: identidade > dados > dono_id
             event_id = f"{cliente_id}_{profissional or 'pessoal'}_{evento_data.get('data')}_{evento_data.get('hora_inicio')}".replace(" ", "_").lower()
 
             # Buscar profissional_user_id se profissional existe
             profissional_user_id = None
-            if profissional:
+            if profissional and id_dono_notif:  # Adicionar guard para id_dono_notif
                 try:
                     profs_dict = await buscar_subcolecao(f"Clientes/{id_dono_notif}/Profissionais") or {}
                     # Buscar por nome do profissional

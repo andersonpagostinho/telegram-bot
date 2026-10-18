@@ -130,11 +130,20 @@ async def criar_notificacoes_evento_cliente_e_profissional(
     - Não duplica se já existe para mesmo evento + destinatario + tipo
     - Se profissional sem ID, apenas loga aviso e continua
     - Mantém path tenant: Clientes/{tenant_id}/NotificacoesAgendadas/{notif_id}
+    - SEGURANÇA: Rejeita tenant_id vazio ou None (impede Clientes/None)
     """
     resultado = {
         "cliente": {"sucesso": False, "notif_id": None},
         "profissional": {"sucesso": False, "motivo": None}
     }
+
+    # 🔴 VALIDAÇÃO CRÍTICA: Impedir gravação em Clientes/None
+    if not tenant_id or not isinstance(tenant_id, str) or tenant_id.strip() == "":
+        motivo_falha = "tenant_id vazio ou inválido — impossível localizar destino seguro"
+        resultado["cliente"]["motivo"] = motivo_falha
+        resultado["profissional"]["motivo"] = motivo_falha
+        logger.error(f"❌ [BLOQUEADO] {motivo_falha} | evento={evento_id}")
+        return resultado
 
     try:
         data_evento = datetime.fromisoformat(f"{data}T{hora_inicio}")

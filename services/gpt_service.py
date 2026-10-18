@@ -937,7 +937,8 @@ async def processar_com_gpt_com_acao(
 
                 if uid != "desconhecido":
                     await salvar_contexto_temporario(
-                        uid, {"ultima_opcao_profissionais": nomes_ok}
+                        uid, {"ultima_opcao_profissionais": nomes_ok},
+                        tenant_id=tenant_id
                     )
                     contexto_salvo["ultima_opcao_profissionais"] = nomes_ok
 
@@ -1231,7 +1232,7 @@ async def processar_com_gpt_com_acao(
 
                 # ✅ MERGE: atualiza só o histórico, preservando o resto do contexto
                 contexto_salvo["historico"] = hist
-                await salvar_contexto_temporario(uid, contexto_salvo)
+                await salvar_contexto_temporario(uid, contexto_salvo, tenant_id=tenant_id)
 
         except Exception as e:
             print(f"⚠️ Falha ao salvar contexto temporário: {e}", flush=True)
