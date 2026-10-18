@@ -7047,6 +7047,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     if (
         ctx.get("ultima_acao")
+        and ctx.get("ultima_acao") != "contexto_limpo"  # 🔒 P0.2 FIX: evitar entry em CONTINUIDADE quando contexto está limpo
         and ctx.get("estado_fluxo") not in ["aguardando_escolha_horario"]
         and ctx.get("objetivo_conversacional") not in [
             "consultar_disponibilidade_por_servico",
