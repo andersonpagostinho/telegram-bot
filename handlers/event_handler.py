@@ -442,7 +442,7 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     "duracao": duracao_minutos,
                 }
 
-                await salvar_contexto_temporario_v2(id_dono, user_id, contexto)
+                await salvar_contexto_temporario_v2(dono_id, user_id, contexto)
                 print(" Contexto pendente salvo (conflito).")
 
             except Exception as e:
@@ -772,13 +772,13 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             contexto.pop("modo_escolha_horario", None)
             contexto.pop("horarios_sugeridos", None)
 
-            await salvar_contexto_temporario_v2(id_dono, cliente_id, contexto)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, contexto)
             print(f" Profissional substituído com sucesso: {profissional}")
         elif nomes_alternativos:
             #  Usuário não escolheu nenhuma alternativa explicitamente -> limpa
             contexto.pop("alternativa_profissional", None)
             contexto.pop("sugestoes", None)
-            await salvar_contexto_temporario_v2(id_dono, cliente_id, contexto)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, contexto)
         
         if not profissional:
             # Só tenta descobrir/exigir profissional se realmente precisar
