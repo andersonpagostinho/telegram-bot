@@ -13132,6 +13132,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             "consulta_disponibilidade_servico",
             "consulta_servico",
             "pedido_aberto_temporal",
+            "agendamento_direto",
         ]
         and not proximo_passo_real
     )
