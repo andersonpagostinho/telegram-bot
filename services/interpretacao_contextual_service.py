@@ -212,14 +212,72 @@ def _interpretar_data(msg: str, draft: dict, ctx: dict) -> dict:
 
 
 def _interpretar_servico(msg: str, draft: dict, ctx: dict) -> dict:
-    """Interpreta resposta quando aguardando_servico"""
-    # Implementação simplificada
+    """Interpreta resposta quando aguardando_servico (múltiplos candidatos)"""
+
+    # Recuperar candidatos persistidos
+    candidatos = ctx.get("multiplos_servicos_candidatos", [])
+    if not candidatos:
+        # Sem candidatos pendentes, não é interpretação contextual
+        return {
+            "tipo_resposta": "preferencia_servico",
+            "servico": None,
+            "ambigua": True,
+            "confianca": 0.0,
+            "interpretado_sucesso": False,
+            "nota": "Nenhum candidato pendente"
+        }
+
+    msg_lower = msg.lower().strip()
+
+    # Buscar serviço entre candidatos (match exato ou substring)
+    for candidato in candidatos:
+        candidato_lower = candidato.lower()
+        # Match exato ou candidato contém msg (ex: "manicure" em "manicure para as mãos")
+        if msg_lower == candidato_lower or candidato_lower in msg_lower or msg_lower in candidato_lower:
+            return {
+                "tipo_resposta": "preferencia_servico",
+                "servico": candidato,  # Retorna nome canônico do catálogo
+                "ambigua": False,
+                "confianca": 0.95,
+                "interpretado_sucesso": True
+            }
+
+    # Variações: "as duas", "ambos", "os dois"
+    if any(p in msg_lower for p in ["as duas", "os dois", "ambos", "ambas", "duas"]):
+        # Validar: só retorna se múltiplos candidatos estão disponíveis
+        if len(candidatos) > 1:
+            return {
+                "tipo_resposta": "preferencia_servico",
+                "servicos": candidatos,  # Múltiplos
+                "servico": None,  # Campo simples fica None
+                "multiplo": True,
+                "ambigua": False,
+                "confianca": 0.85,
+                "interpretado_sucesso": True,
+                "nota": "Cliente selecionou múltiplos serviços"
+            }
+
+    # Recusa: "nenhuma", "nenhum", "outro", "nada disso"
+    if any(p in msg_lower for p in ["nenhuma", "nenhum desses", "nada disso", "outro", "diferente", "mudei"]):
+        return {
+            "tipo_resposta": "preferencia_servico",
+            "servico": None,
+            "servicos": None,
+            "recusou": True,
+            "ambigua": False,
+            "confianca": 0.90,
+            "interpretado_sucesso": True,
+            "nota": "Cliente recusou candidatos e deseja outro serviço"
+        }
+
+    # Resposta ambígua ou candidato não reconhecido
     return {
         "tipo_resposta": "preferencia_servico",
         "servico": None,
         "ambigua": True,
-        "confianca": 0.5,
-        "interpretado_sucesso": False
+        "confianca": 0.3,
+        "interpretado_sucesso": False,
+        "nota": f"Resposta não reconhecida entre candidatos: {candidatos}"
     }
 
 

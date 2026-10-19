@@ -5114,11 +5114,28 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 resposta_texto = "Perfeito. Qual serviço você quer agendar?"
                 return await _send_and_stop(context, user_id, resposta_texto)
 
+            # 🔥 P0.11 FIX: Recuperar data_hora já extraída na Mensagem 1
+            data_hora_consulta = ctx.get("data_hora")
+            tem_data_hora_valida = data_hora_consulta and tem_hora_real(data_hora_consulta)
+
+            print(f" [CONSULTA->AGENDAMENTO] data_hora={data_hora_consulta} | valida={tem_data_hora_valida}", flush=True)
+
             # Mover para fluxo de agendamento
+            draft_novo = {"servico": servico_sugerido}
+            estado_novo = "aguardando_data"
+            resposta_texto = f"Perfeito — {servico_sugerido}. Qual dia e horário você prefere?"
+
+            # 🔥 P0.11 FIX: Se data_hora já foi fornecida, avançar para seleção de profissional
+            if tem_data_hora_valida:
+                draft_novo["data_hora"] = data_hora_consulta
+                estado_novo = "aguardando_profissional"
+                resposta_texto = f"Perfeito — {servico_sugerido}. Qual profissional você prefere?"
+                print(f" [CONSULTA->AGENDAMENTO] data_hora já fornecida, avançando para seleção de profissional", flush=True)
+
             ctx_update = {
                 "servico": servico_sugerido,
-                "draft_agendamento": {"servico": servico_sugerido},
-                "estado_fluxo": "aguardando_data",
+                "draft_agendamento": draft_novo,
+                "estado_fluxo": estado_novo,
                 "aguardando_confirmacao_agendamento_por_consulta": False,
                 "servico_sugerido_consulta": None,
                 "objetivo_conversacional": None,
@@ -5126,7 +5143,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             }
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_update)  # P0-004 patch
 
-            resposta_texto = f"Perfeito — {servico_sugerido}. Qual dia e horário você prefere?"
             print(f" [CONSULTA->AGENDAMENTO] resposta='{resposta_texto}'", flush=True)
 
             return await _send_and_stop(context, user_id, resposta_texto)

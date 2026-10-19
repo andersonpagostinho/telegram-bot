@@ -16,7 +16,7 @@ from utils.mensagens_agendamento import montar_mensagem_confirmacao_sucesso
 from utils.interpretador_datas import FUSO_BR, agora_br_naive
 from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
-from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario
+from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario, listar_servicos_cadastrados
 from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
 from utils.contexto_temporario import (
     salvar_contexto_temporario,  #  LEGADO (v1)
@@ -1207,6 +1207,72 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             # Horário inválido ou ambíguo: não bloqueia aqui, deixa salvar_evento() validar
             # (para compatibilidade com conversão em salvar_evento() que já trata isso)
             print(f"[PAST_TIME_CHECK_ERROR_PRE] Erro ao validar data/hora pré-salva: {e}", flush=True)
+
+        # =========================================================
+        # 🚫 P0.6.2.6: VALIDAÇÕES PRÉ-SALVA REFORÇADAS
+        # =========================================================
+
+        # 1. Validar duração
+        if duracao_minutos is None or duracao_minutos <= 0:
+            msg_erro = f"Duração inválida: {duracao_minutos} minutos. Precisa ser maior que zero."
+            print(f"[P0626_VALIDACAO] Duração inválida: {duracao_minutos}", flush=True)
+            if update and hasattr(update, "message"):
+                await update.message.reply_text(msg_erro)
+            else:
+                from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                phone_number_id_alt = (
+                    identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                )
+                await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
+            return True
+
+        # 2. Validar serviço (se fornecido)
+        if servico:
+            servicos_cadastrados = await listar_servicos_cadastrados(user_id)
+            def norm(x):
+                import unidecode
+                return unidecode.unidecode(str(x).strip().lower())
+            servicos_norm = [norm(s) for s in servicos_cadastrados]
+            if norm(servico) not in servicos_norm:
+                msg_erro = f"Serviço '{servico}' não está cadastrado no sistema."
+                print(f"[P0626_VALIDACAO] Serviço inexistente: {servico}", flush=True)
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_erro)
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
+                return True
+
+        # 3. Validar profissional para serviço (se ambos fornecidos)
+        if profissional and servico:
+            from services.profissional_service import validar_profissional_para_servico
+            resultado_prof_servico = await validar_profissional_para_servico(
+                profissional=profissional,
+                servico=servico,
+                user_id=user_id
+            )
+            if not resultado_prof_servico.get("valido"):
+                motivo = resultado_prof_servico.get("motivo", "desconhecido")
+                if motivo == "profissional_inexistente":
+                    msg_erro = f"Profissional '{profissional}' não foi encontrado no cadastro."
+                elif motivo == "servico_incompativel":
+                    msg_erro = f"Profissional '{profissional}' não realiza o serviço '{servico}'."
+                else:
+                    msg_erro = f"Não foi possível validar a compatibilidade profissional-serviço."
+
+                print(f"[P0626_VALIDACAO] Validação profissional-serviço falhou: {motivo}", flush=True)
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_erro)
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
+                return True
 
         print(f"[P01_TRACE] PASSOU_VALIDACAO_EXPEDIENTE | linha=849", flush=True)
         print(" Disparando salvar_evento com:", evento_data)

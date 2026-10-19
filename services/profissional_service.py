@@ -39,6 +39,79 @@ async def buscar_profissionais_por_servico(servicos: list[str], user_id: str) ->
     return profissionais_filtrados
 
 
+async def validar_profissional_para_servico(
+    profissional: str,
+    servico: str,
+    user_id: str
+) -> dict:
+    """
+    Valida se um profissional específico pode fazer um serviço específico.
+
+    Retorna: {
+        "valido": bool,
+        "motivo": str | None,  # Razão se inválido (profissional_inexistente, servico_incompativel, etc)
+        "profissional": str,
+        "servico": str
+    }
+    """
+    try:
+        tenant_id = await obter_tenant_id(user_id)
+        profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+
+        # Normalização para comparação robusta
+        def norm(x):
+            return unidecode.unidecode(
+                re.sub(r"[^\w\s]", " ", str(x).lower())
+            ).strip()
+
+        prof_norm = norm(profissional)
+        servico_norm = norm(servico)
+
+        # 1. Profissional existe?
+        profissional_encontrado = None
+        for nome, dados in profissionais.items():
+            if norm(nome) == prof_norm:
+                profissional_encontrado = dados
+                break
+
+        if not profissional_encontrado:
+            return {
+                "valido": False,
+                "motivo": "profissional_inexistente",
+                "profissional": profissional,
+                "servico": servico
+            }
+
+        # 2. Profissional faz este serviço?
+        servicos_prof = profissional_encontrado.get("servicos", [])
+        servicos_prof_norm = [norm(s) for s in servicos_prof]
+
+        if servico_norm not in servicos_prof_norm:
+            return {
+                "valido": False,
+                "motivo": "servico_incompativel",
+                "profissional": profissional,
+                "servico": servico
+            }
+
+        # Validação passou
+        return {
+            "valido": True,
+            "motivo": None,
+            "profissional": profissional,
+            "servico": servico
+        }
+
+    except Exception as e:
+        print(f"ERROR [validar_profissional_para_servico]: {e}", flush=True)
+        return {
+            "valido": False,
+            "motivo": "erro_validacao",
+            "profissional": profissional,
+            "servico": servico
+        }
+
+
 async def buscar_profissionais_disponiveis_no_horario(
     user_id: str,
     data: datetime.date,
