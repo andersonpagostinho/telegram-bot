@@ -101,6 +101,69 @@ def normalizar(texto: str) -> str:
     return unidecode((texto or "").strip().lower())
 
 
+# ========== MATCHING PURO REUTILIZÁVEL (sem efeitos colaterais) ==========
+
+def _match_servico_puro(lista_servs: list, texto_normalizado: str) -> tuple[bool, str | None]:
+    """
+    Detecta serviço em texto com word boundaries + prefixo.
+    Reutilizável entre extrair_slots_e_mesclar() e CONSULTA PURA.
+
+    Retorna: (encontrou, servico_detectado)
+    """
+    if not lista_servs or not texto_normalizado:
+        return (False, None)
+
+    # Ordenar por tamanho (maior/específico primeiro) para evitar "corte" pegar antes de "corte feminino"
+    lista_ord = sorted(lista_servs, key=lambda s: len(normalizar(str(s))), reverse=True)
+
+    # FASE 1: Tentar match exato primeiro
+    for s in lista_ord:
+        s_norm = normalizar(str(s))
+        if not s_norm:
+            continue
+
+        # Match exato com word boundaries
+        if re.search(rf"\b{re.escape(s_norm)}\b", texto_normalizado):
+            return (True, str(s).strip())
+
+    # FASE 2: Se nenhum exato, tentar match de prefixo
+    for s in lista_ord:
+        s_norm = normalizar(str(s))
+        if not s_norm:
+            continue
+
+        # Match de prefixo: "corte" → "corte feminino"
+        s_palavras = s_norm.split()
+        if s_palavras:
+            primeira_palavra = s_palavras[0]
+            if re.search(rf"\b{re.escape(primeira_palavra)}\b", texto_normalizado):
+                return (True, str(s).strip())
+
+    return (False, None)
+
+
+def _match_profissional_puro(lista_profs: list, texto_normalizado: str) -> tuple[bool, str | None]:
+    """
+    Detecta profissional em texto com word boundaries.
+    Reutilizável entre extrair_slots_e_mesclar() e CONSULTA PURA.
+
+    Retorna: (encontrou, profissional_detectado)
+    """
+    if not lista_profs or not texto_normalizado:
+        return (False, None)
+
+    for prof_nome in lista_profs:
+        prof_norm = normalizar(str(prof_nome))
+        if not prof_norm:
+            continue
+
+        # Match exato com word boundaries
+        if re.search(rf"\b{re.escape(prof_norm)}\b", texto_normalizado):
+            return (True, str(prof_nome).strip())
+
+    return (False, None)
+
+
 def formatar_data_hora_br(dt_iso: str) -> str:
     try:
         dt = datetime.fromisoformat(dt_iso)
@@ -1281,30 +1344,10 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
     def _match_servico(lista_servs):
         nonlocal servico_detectado
-        if not lista_servs:
-            return False
-
-        # Ordenar por tamanho (maior/específico primeiro) para evitar "corte" pegar antes de "corte feminino"
-        lista_ord = sorted(lista_servs, key=lambda s: len(normalizar(str(s))), reverse=True)
-
-        for s in lista_ord:
-            s_norm = normalizar(str(s))
-            if not s_norm:
-                continue
-
-            # 1. Match exato (palavra inteira)
-            if re.search(rf"\b{re.escape(s_norm)}\b", tnorm):
-                servico_detectado = str(s).strip()
-                return True
-
-            # 2. Match de prefixo: "corte" → "corte feminino"
-            s_palavras = s_norm.split()
-            if s_palavras:
-                primeira_palavra = s_palavras[0]
-                if re.search(rf"\b{re.escape(primeira_palavra)}\b", tnorm):
-                    servico_detectado = str(s).strip()
-                    return True
-
+        encontrou, resultado = _match_servico_puro(lista_servs, tnorm)
+        if encontrou:
+            servico_detectado = resultado
+            return True
         return False
 
     # 1) serviços do profissional detectado
@@ -13325,14 +13368,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # Remover duplicatas
             servicos_unicos = list(dict.fromkeys(todos_servicos))
 
-            # Detectar no texto usando normalizar()
+            # Detectar no texto usando matching puro com word boundaries + prefixo
             tnorm = normalizar(texto_usuario)
 
-            for s in servicos_unicos:
-                s_norm = normalizar(str(s))
-                if s_norm and s_norm in tnorm:
-                    servico_para_resposta = str(s).strip()
-                    break
+            encontrou, servico_para_resposta = _match_servico_puro(servicos_unicos, tnorm)
+            if not encontrou:
+                servico_para_resposta = None
 
             # 2) Fallback: usar encontrar_servico_mais_proximo() se não encontrou
             if not servico_para_resposta:
