@@ -376,17 +376,15 @@ async def test_webhook_e2e_agendamento_completo():
         evento_path = f"Clientes/{TENANT_TESTE}/Eventos/{evento_id}"
         try:
             evento_doc = await buscar_dado_em_path(evento_path)
-            if evento_doc:
-                print(f"  ✅ Evento encontrado em Firestore:")
-                print(f"    servico: {evento_doc.get('servico')}")
-                print(f"    profissional: {evento_doc.get('profissional')}")
-                print(f"    status: {evento_doc.get('status')}")
-            else:
-                print(f"  ⚠️ Evento NÃO encontrado em {evento_path}")
+            assert evento_doc, f"FAIL: Evento NÃO encontrado em {evento_path} (id={evento_id})"
+            print(f"  ✅ Evento encontrado em Firestore:")
+            print(f"    servico: {evento_doc.get('servico')}")
+            print(f"    profissional: {evento_doc.get('profissional')}")
+            print(f"    status: {evento_doc.get('status')}")
         except Exception as e:
-            print(f"  ⚠️ Erro ao buscar evento: {e}")
+            raise AssertionError(f"FAIL ao buscar evento em {evento_path}: {e}")
     else:
-        print(f"  ⚠️ evento_id não foi definido (agendamento não foi concluído)")
+        raise AssertionError(f"FAIL: evento_id não foi definido (agendamento não foi concluído)")
 
     # ========================================================================
     # ETAPA 7: CLEANUP
