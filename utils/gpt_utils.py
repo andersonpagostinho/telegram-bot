@@ -30,12 +30,28 @@ def montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuari
     # --- Resumos enxutos para não inflar tokens ---
     # profissionais pode ser lista de dicts, strings ou mista
     prof_nomes = []
+    servicos_por_prof = []
+    servicos_unicos = set()
+
     for p in profissionais:
         if isinstance(p, dict) and p.get("nome"):
-            prof_nomes.append(str(p["nome"]))
+            nome_prof = str(p["nome"])
+            prof_nomes.append(nome_prof)
+
+            # Extrair serviços deste profissional
+            servs = p.get("servicos") or []
+            if isinstance(servs, str):
+                servs = [servs]
+            servs_limpos = [str(s).strip() for s in servs if s]
+
+            if servs_limpos:
+                servicos_por_prof.append(f"{nome_prof}: {', '.join(servs_limpos)}")
+                servicos_unicos.update(servs_limpos)
         elif isinstance(p, str):
             prof_nomes.append(p.strip())
+
     resumo_prof = ", ".join(prof_nomes[:12]) + (", ..." if len(prof_nomes) > 12 else "")
+    resumo_servicos = ", ".join(sorted(servicos_unicos)[:20]) + ("..." if len(servicos_unicos) > 20 else "")
 
     resumo_tarefas = [str(t) for t in tarefas[:12]]
     resumo_eventos = [str(e) for e in eventos[:12]]
@@ -73,6 +89,7 @@ def montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuari
             f"- Módulos ativos (assumidos): {', '.join(sorted(set(str(p).lower() for p in planos_ativos)))}\n"
             f"- Tipo de negócio: {usuario.get('tipo_negocio') or usuario.get('tipoNegocio') or 'não informado'}\n"
             f"- Profissionais: {resumo_prof or 'nenhum'}\n"
+            f"- Serviços disponíveis: {resumo_servicos or 'nenhum'}\n"
             f"- Tarefas (amostra): {', '.join(resumo_tarefas) or 'nenhuma'}\n"
             f"- Eventos (amostra): {', '.join(resumo_eventos) or 'nenhum'}\n"
             f"- E-mails (amostra): {', '.join(resumo_emails) or 'nenhum'}\n"
