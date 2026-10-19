@@ -13462,11 +13462,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     if eh_consulta_pura:
         print(" [CONSULTA PURA RESPONDIDA SEM GPT] pulando GPT", flush=True)
 
-        # Tentar identificar o serviço E data/hora para salvar automaticamente
+        # Tentar identificar o serviço apenas para resposta informativa (sem salvar)
         # Reutiliza exatamente a lógica de extrair_slots_e_mesclar()
         servico_para_resposta = None
-        data_hora_detectada = None
-
         try:
             # 1) Buscar profissionais e extrair serviços
             profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
@@ -13489,43 +13487,23 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if not servico_para_resposta:
                 servico_para_resposta = await encontrar_servico_mais_proximo(texto_usuario, dono_id)
 
-            # 3) Extrair data_hora se houver
-            data_hora_detectada = ctx.get("data_hora")
-
         except Exception as e:
             print(f" Falha ao detectar serviço para resposta informativa: {e}", flush=True)
 
         # [P0-FIX] Montar resposta informativa APENAS se serviço foi identificado
         if servico_para_resposta:
-            # Se tem data_hora também, salvar dados e pedir profissional
-            if data_hora_detectada:
-                resposta_texto = f"Perfeito — {servico_para_resposta} para amanhã. Qual profissional você prefere?"
+            resposta_texto = f"Sim, fazemos {servico_para_resposta}! 😊\n\nGostaria de agendar?"
 
-                # Salvar dados + avançar para escolher profissional
-                ctx_consulta = {
-                    "servico": servico_para_resposta,
-                    "data_hora": data_hora_detectada,
-                    "estado_fluxo": "escolhendo_profissional",
-                    "ultima_acao": "resposta_consulta_pura_com_data",
-                }
-                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_consulta)
+            # Salvar estado para continuidade — COM SERVIÇO VÁLIDO
+            ctx_consulta = {
+                "aguardando_confirmacao_agendamento_por_consulta": True,
+                "servico_sugerido_consulta": servico_para_resposta,
+                "ultima_acao": "confirmar_agendamento_por_consulta",
+                "estado_fluxo": "aguardando_confirmacao_consulta",
+            }
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_consulta)  # [P2-MIGRACAO-LOTE2-OC1]
 
-                print(f" [CONSULTA PURA COM DATA] salvo servico='{servico_para_resposta}' data_hora='{data_hora_detectada}'", flush=True)
-            else:
-                # Sem data_hora, confirmar agendamento
-                resposta_texto = f"Sim, fazemos {servico_para_resposta}! 😊\n\nGostaria de agendar?"
-
-                # Salvar estado para continuidade — COM SERVIÇO VÁLIDO
-                ctx_consulta = {
-                    "aguardando_confirmacao_agendamento_por_consulta": True,
-                    "servico_sugerido_consulta": servico_para_resposta,
-                    "ultima_acao": "confirmar_agendamento_por_consulta",
-                    "estado_fluxo": "aguardando_confirmacao_consulta",
-                }
-                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_consulta)
-
-                print(f" [CONSULTA PURA ESTADO SALVO] servico='{servico_para_resposta}'", flush=True)
-
+            print(f" [CONSULTA PURA ESTADO SALVO] servico='{servico_para_resposta}'", flush=True)
             return await _send_and_stop(context, user_id, resposta_texto)
         else:
             # [P0-FIX] Serviço não identificado — não entrar em confirmação
