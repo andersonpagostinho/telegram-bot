@@ -231,7 +231,9 @@ async def precheck_e_confirmacao_agendamento(
         context,
         user_id,
         (
-            f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(data_hora)}*.\n"
-            f"Responda *sim* para confirmar."
+            f"Só confirmando 😊\n\n"
+            f"Você quer agendar seu *{servico}* com a *{prof}* "
+            f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
+            f"Responda *sim* para confirmar o agendamento."
         )
     )

@@ -1014,6 +1014,10 @@ def eh_confirmacao(txt: str) -> bool:
         "pode ir",
         "manda ver",
         "fechar",
+        "isso mesmo",
+        "está certo",
+        "tudo bem",
+        "ta bom",
     }
 
     if t in gatilhos_exatos:
@@ -4728,10 +4732,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     if (
         ctx.get("motivo_estado") == "profissional_nao_atende_servico"
         and ctx.get("intencao_conversacional") != "indefinida"
-        and not (
-            ctx.get("aguardando_confirmacao_agendamento")
-            and ctx.get("dados_confirmacao_agendamento")
-        )
+        and not eh_confirmacao_pendente_ativa(ctx)
     ):
         profissionais_validos = ctx.get("profissionais_validos", [])
         servico = ctx.get("servico") or (ctx.get("draft_agendamento", {}).get("servico"))
@@ -5278,6 +5279,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # CORREÇÃO: Se há sinais operacionais de agendamento, não retornar vazio
             # Sinais: tem_pedido (quero/gostaria) + tem_tempo (data/hora) + servico
             # Nesse caso, forçar classificação de intenção para agendamento operacional
+            def _tem(pattern, txt):
+                return bool(re.search(pattern, txt, re.IGNORECASE))
+
             tem_pedido_ag = _tem(r"\b(quero|gostaria|preciso|pode|consegue)\b", texto_lower)
             tem_tempo_ag = _tem(r"\b(amanha|amanhã|hoje|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|\d{1,2}:\d{2}|\d{1,2}h)\b", texto_lower)
             servico_ag = extrair_servico_do_catalogo(texto_usuario, catalogo_servicos)
@@ -6524,9 +6528,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     mensagem = (
                         msg_p1
                         or (
-                            f"Confirmando: *{servico_escolhido}* com *{profissional_slot}* "
-                            f"em *{formatar_data_hora_br(data_hora_slot)}*.\n"
-                            f"Responda *sim* para confirmar."
+                            f"Só confirmando 😊\n\n"
+                            f"Você quer agendar seu *{servico_escolhido}* com a *{profissional_slot}* "
+                            f"para *{formatar_data_hora_br(data_hora_slot)}*?\n\n"
+                            f"Responda *sim* para confirmar o agendamento."
                         )
                     )
 
@@ -6769,9 +6774,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 mensagem = (
                     msg_p1
                     or (
-                        f"Confirmando: *{servico_slot}* com *{profissional_slot}* "
-                        f"em *{formatar_data_hora_br(data_hora_slot)}*.\n"
-                        f"Responda *sim* para confirmar."
+                        f"Só confirmando 😊\n\n"
+                        f"Você quer agendar seu *{servico_slot}* com a *{profissional_slot}* "
+                        f"para *{formatar_data_hora_br(data_hora_slot)}*?\n\n"
+                        f"Responda *sim* para confirmar o agendamento."
                     )
                 )
 
@@ -6974,8 +6980,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             data_hora = draft.get("data_hora") or ctx.get("data_hora")
 
             msg_confirmacao = (
-                f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(data_hora)}*.\n"
-                f"Responda *sim* para confirmar."
+                f"Só confirmando 😊\n\n"
+                f"Você quer agendar seu *{servico}* com a *{prof}* "
+                f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
+                f"Responda *sim* para confirmar o agendamento."
             )
 
             return await _send_and_stop(context, user_id, msg_confirmacao)
@@ -9573,8 +9581,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         mensagem = (
             msg_p1
             or (
-                f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(nova_iso)}*.\n"
-                f"Responda *sim* para confirmar."
+                f"Só confirmando 😊\n\n"
+                f"Você quer agendar seu *{servico}* com a *{prof}* "
+                f"para *{formatar_data_hora_br(nova_iso)}*?\n\n"
+                f"Responda *sim* para confirmar o agendamento."
             )
         )
 
@@ -10859,8 +10869,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             context,
             user_id,
             (
-                f"Confirmando: *{servico}* com *{prof}* em *{formatar_data_hora_br(data_hora)}*.\n"
-                f"Responda *sim* para confirmar."
+                f"Só confirmando 😊\n\n"
+                f"Você quer agendar seu *{servico}* com a *{prof}* "
+                f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
+                f"Responda *sim* para confirmar o agendamento."
             )
         )
 
@@ -10965,9 +10977,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 context,
                 user_id,
                 (
-                    f"Confirmando: *{servico}* com *{escolha_prof}* "
-                    f"em *{formatar_data_hora_br(data_hora)}*.\n"
-                    f"Responda *sim* para confirmar."
+                    f"Só confirmando 😊\n\n"
+                    f"Você quer agendar seu *{servico}* com a *{escolha_prof}* "
+                    f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
+                    f"Responda *sim* para confirmar o agendamento."
                 )
             )
 
@@ -11136,9 +11149,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         context,
                         user_id,
                         (
-                            f"Confirmando: *{servico}* com *{profissional}* "
-                            f"em *{formatar_data_hora_br(data_final)}*.\n"
-                            f"Responda *sim* para confirmar."
+                            f"Só confirmando 😊\n\n"
+                            f"Você quer agendar seu *{servico}* com a *{profissional}* "
+                            f"para *{formatar_data_hora_br(data_final)}*?\n\n"
+                            f"Responda *sim* para confirmar o agendamento."
                         )
                     )
 
@@ -11253,9 +11267,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         context,
                         user_id,
                         (
-                            f"Confirmando: *{servico}* com *{profissional}* "
-                            f"em *{formatar_data_hora_br(data_final)}*.\n"
-                            f"Responda *sim* para confirmar."
+                            f"Só confirmando 😊\n\n"
+                            f"Você quer agendar seu *{servico}* com a *{profissional}* "
+                            f"para *{formatar_data_hora_br(data_final)}*?\n\n"
+                            f"Responda *sim* para confirmar o agendamento."
                         )
                     )
 

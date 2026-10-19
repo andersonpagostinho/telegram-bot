@@ -615,9 +615,11 @@ async def tratar_mensagem_usuario(user_id, mensagem):
 
             # ✅ mensagem humana + opção de desfazer
             msg = (
-                f"Confirmando: *{servico}* com *{profissional_escolhido}* em *{data}* às *{hora}*.\n"
+                f"Perfeito! 😊 Seu agendamento ficou confirmado:\n\n"
+                f"*{servico}* com *{profissional_escolhido}*\n"
+                f"📅 {data} às {hora}h\n\n"
                 f"Já reservei esse horário pra você ✅\n\n"
-                f"Se quiser mudar, responda *alterar* ou *cancelar*."
+                f"Se quiser mudar algo, é só responder *alterar* ou *cancelar*."
             )
             return msg
 

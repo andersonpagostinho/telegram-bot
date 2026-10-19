@@ -605,8 +605,8 @@ async def _handle_excluir_profissional(
 
     print(f"🔧 [ADMIN] excluir_profissional aguardando confirmação | nome={nome_fmt}", flush=True)
     await update.message.reply_text(
-        f"⚠️ Tem certeza que deseja excluir *{nome_fmt}*?\n\n"
-        "Responda *sim* para confirmar ou *não* para cancelar.",
+        f"⚠️ Tem certeza que deseja remover a profissional *{nome_fmt}*?\n\n"
+        "Responda *sim* para confirmar a exclusão ou *não* para manter.",
         parse_mode="Markdown",
     )
     return {"handled": True, "already_sent": True}
@@ -634,8 +634,8 @@ async def _continuar_excluir_profissional(
 
     # Resposta não reconhecida — repergunta sem limpar draft
     await update.message.reply_text(
-        f"Não entendi. Deseja excluir *{nome}*?\n"
-        "Responda *sim* ou *não*.",
+        f"Entendi! 🤔 Deixa eu confirmar: você quer mesmo remover a *{nome}*?\n\n"
+        "Responda *sim* para confirmar ou *não* para cancelar.",
         parse_mode="Markdown",
     )
     return {"handled": True, "already_sent": True}

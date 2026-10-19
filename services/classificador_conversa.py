@@ -471,7 +471,7 @@ def classificar_negacao_confirmacao(texto: str, ctx: dict | None = None) -> bool
     t = normalizar_txt(texto or "")
 
     negativos = {
-        "nao", "n", "negativo", "recuso"
+        "nao", "n", "negativo", "recuso", "nope", "nunca"
     }
 
     if t in negativos:
@@ -488,6 +488,11 @@ def classificar_negacao_confirmacao(texto: str, ctx: dict | None = None) -> bool
         "vou ver depois",
         "depois eu vejo",
         "agora nao",
+        "nao mesmo",
+        "nao, obrigado",
+        "passo",
+        "na verdade nao",
+        "era so pra conferir",
     ]
 
     return any(s in t for s in sinais_negacao)
