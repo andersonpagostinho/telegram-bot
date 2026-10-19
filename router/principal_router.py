@@ -13137,7 +13137,16 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         and not proximo_passo_real
     )
 
-    if not acao and not p1_preservar_resposta_gpt:
+    # P2: Se acao=null mas GPT respondeu validamente, preservar resposta mesmo sem intencao explícita.
+    # Garante que respostas do GPT não sejam descartadas apenas porque classificador automático falhou.
+    # Seguro porque: acao=null impede criação de eventos, resposta_texto foi validada pelo GPT.
+    p1_preservar_por_gpt_valido = (
+        not acao
+        and resposta_texto
+        and not p1_preservar_resposta_gpt  # Se P1 já preserva, não duplicar
+    )
+
+    if not acao and not p1_preservar_resposta_gpt and not p1_preservar_por_gpt_valido:
         resposta_texto = montar_resposta_fallback(proximo_passo_real, frase_data_legivel, ctx)
 
     print(" [OVERRIDE] acao=", acao, "proximo_passo=", proximo_passo, "proximo_passo_real=", proximo_passo_real, flush=True)
