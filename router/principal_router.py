@@ -5327,9 +5327,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                         # Se múltiplos candidatos válidos → perguntar ao cliente qual quer
                         if len(servicos_validos) > 1:
+                            # 🔥 P0.6.2.2: Definir estado de aguardando escolha + preservar dados
+                            ctx["estado_fluxo"] = "aguardando_servico"
                             ctx["multiplos_servicos_candidatos"] = servicos_validos
                             ctx["intencao_conversacional"] = "agendamento_direto"
                             ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+                            # Preservar entidades já extraídas (data, horário, etc)
+                            entidades = interpretacao_gpt.get("entidades", {})
+                            if entidades.get("data"):
+                                ctx["data"] = entidades.get("data")
+                            if entidades.get("horario"):
+                                ctx["horario"] = entidades.get("horario")
+                            print(f" [P0.6.2.2_AGUARDANDO_SERVICO] candidatos={servicos_validos} | estado_fluxo=aguardando_servico", flush=True)
                             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                             servicos_str = " ou ".join(servicos_validos)
@@ -12973,23 +12982,138 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
  
         # 🔥 BLOCO ESPECÍFICO — AGUARDANDO SERVIÇO
         if ctx.get("estado_fluxo") == "aguardando_servico":
-            texto_norm = normalizar(texto_usuario or "")
-            partes = re.split(r"\bou\b|,|/", texto_norm)
+            print(f"[P0.6.2.3_HANDLER] Entrou bloco aguardando_servico | candidatos={ctx.get('multiplos_servicos_candidatos')}", flush=True)
 
-            profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+            # 🔥 P0.6.2.3: CHAMAR INTERPRETADOR CONTEXTUAL
+            from services.interpretacao_contextual_service import interpretar_resposta_contextual
 
-            todos = []
-            for p in profs_dict.values():
-                todos.extend(p.get("servicos") or [])
+            resultado_interpretacao = await interpretar_resposta_contextual(
+                tenant_id=dono_id,
+                actor_id=user_id,
+                mensagem=texto_usuario,
+                estado_fluxo="aguardando_servico",
+                draft_agendamento=ctx.get("draft_agendamento"),
+                contexto=ctx
+            )
 
-            catalogo = list(dict.fromkeys([str(s).strip() for s in todos if s]))
-            servicos_candidatos = []
+            print(f"[P0.6.2.3_INTERPRETACAO] resultado={resultado_interpretacao}", flush=True)
 
-            for parte in partes:
-                parte = parte.strip()
-                for s in catalogo:
-                    if normalizar(s) in parte:
-                        servicos_candidatos.append(s)
+            # Se interpretação foi bem-sucedida
+            if resultado_interpretacao and resultado_interpretacao.get("interpretado_sucesso"):
+                servico_escolhido = resultado_interpretacao.get("servico")
+
+                if servico_escolhido:
+                    # Serviço único escolhido: atualizar contexto e decidir próximo passo
+                    ctx["servico"] = servico_escolhido
+                    draft = ctx.get("draft_agendamento") or {}
+                    draft["servico"] = servico_escolhido
+                    ctx["draft_agendamento"] = draft
+
+                    # Limpar estado de múltiplos candidatos (consumido)
+                    ctx["multiplos_servicos_candidatos"] = None
+                    ctx.pop("multiplos_servicos_candidatos", None)
+
+                    # Decidir próximo passo
+                    profissional_ctx = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
+                    data_hora_ctx = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
+
+                    if profissional_ctx and data_hora_ctx:
+                        # Temos tudo: ir para confirmação
+                        ctx["estado_fluxo"] = "agendando"
+                        ctx["aguardando_confirmacao_agendamento"] = True
+                        ctx["ultima_acao"] = "criar_evento"
+                        ctx["dados_confirmacao_agendamento"] = {
+                            "profissional": profissional_ctx,
+                            "servico": servico_escolhido,
+                            "data_hora": data_hora_ctx,
+                            "duracao": estimar_duracao(servico_escolhido),
+                            "descricao": formatar_descricao_evento(servico_escolhido, profissional_ctx),
+                        }
+
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{servico_escolhido}* com *{profissional_ctx}* "
+                            f"em *{formatar_data_hora_br(data_hora_ctx)}*.\n"
+                            "Posso confirmar esse horário?"
+                        )
+
+                    elif profissional_ctx and not data_hora_ctx:
+                        # Falta data/hora
+                        ctx["estado_fluxo"] = "aguardando_data"
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{servico_escolhido}* com *{profissional_ctx}*.\n"
+                            "Qual dia e horário você prefere?"
+                        )
+
+                    elif not profissional_ctx and data_hora_ctx:
+                        # Falta profissional
+                        ctx["estado_fluxo"] = "aguardando_profissional"
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{servico_escolhido}* em *{formatar_data_hora_br(data_hora_ctx)}*.\n"
+                            "Qual profissional você prefere?"
+                        )
+
+                    else:
+                        # Falta ambos
+                        ctx["estado_fluxo"] = "aguardando_profissional"
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Perfeito — *{servico_escolhido}*. Qual profissional você prefere?"
+                        )
+
+                elif resultado_interpretacao.get("multiplo"):
+                    # "As duas" — sistema não suporta múltiplos, pedir esclarecimento
+                    candidatos = ctx.get("multiplos_servicos_candidatos") or []
+                    if candidatos:
+                        lista = " ou ".join(candidatos)
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        return await _send_and_stop(
+                            context,
+                            user_id,
+                            f"Entendi que você quer os dois: {lista}.\n\n"
+                            f"Mas preciso agendar um de cada vez. Qual você prefere?"
+                        )
+
+                elif resultado_interpretacao.get("recusou"):
+                    # Cliente recusou candidatos, limpar e voltar a perguntar
+                    ctx.pop("multiplos_servicos_candidatos", None)
+                    ctx["estado_fluxo"] = "idle"
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        "Sem problema! Qual serviço você gostaria de agendar?"
+                    )
+
+            # Se resposta é ambígua ou inválida
+            elif resultado_interpretacao and resultado_interpretacao.get("ambigua"):
+                candidatos = ctx.get("multiplos_servicos_candidatos") or []
+                if candidatos:
+                    lista = " ou ".join(candidatos)
+
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    return await _send_and_stop(
+                        context,
+                        user_id,
+                        f"Desculpe, não consegui entender. As opções são: {lista}.\n\nQual você prefere?"
+                    )
 
         # primeiro tenta responder algo determinístico já existente no fluxo
         if estado_fluxo == "aguardando_profissional":
@@ -13162,26 +13286,42 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         except Exception as e:
             print(f" Falha ao detectar serviço para resposta informativa: {e}", flush=True)
 
-        # Montar resposta informativa
+        # [P0-FIX] Montar resposta informativa APENAS se serviço foi identificado
         if servico_para_resposta:
             resposta_texto = f"Sim, fazemos {servico_para_resposta}! 😊\n\nGostaria de agendar?"
+
+            # Salvar estado para continuidade — COM SERVIÇO VÁLIDO
+            ctx_consulta = {
+                "aguardando_confirmacao_agendamento_por_consulta": True,
+                "servico_sugerido_consulta": servico_para_resposta,
+                "ultima_acao": "confirmar_agendamento_por_consulta",
+                "estado_fluxo": "aguardando_confirmacao_consulta",
+            }
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_consulta)  # [P2-MIGRACAO-LOTE2-OC1]
+
+            print(f" [CONSULTA PURA ESTADO SALVO] servico='{servico_para_resposta}'", flush=True)
+            return await _send_and_stop(context, user_id, resposta_texto)
         else:
-            resposta_texto = "Sim, fazemos esse serviço! 😊\n\nGostaria de agendar?"
+            # [P0-FIX] Serviço não identificado — não entrar em confirmação
+            # Listar serviços disponíveis para o cliente especificar
+            try:
+                profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+                todos_servicos = []
+                for p in profs_dict.values():
+                    todos_servicos.extend(p.get("servicos") or [])
+                servicos_unicos = list(dict.fromkeys(todos_servicos))
 
-        print(f" [CONSULTA PURA] resposta_texto='{resposta_texto}'", flush=True)
+                if servicos_unicos:
+                    lista_servicos = ", ".join(servicos_unicos[:8])  # Limitar a 8 para não sobrecarregar
+                    resposta_texto = f"Não consegui identificar exatamente qual serviço. Oferecemos: {lista_servicos}. Qual você gostaria?"
+                else:
+                    resposta_texto = "Não consegui identificar qual serviço você quer. Qual seria?"
+            except Exception as e:
+                print(f" [CONSULTA PURA FALHA] erro ao listar serviços: {e}", flush=True)
+                resposta_texto = "Qual serviço você gostaria de verificar disponibilidade?"
 
-        # Salvar estado para continuidade
-        ctx_consulta = {
-            "aguardando_confirmacao_agendamento_por_consulta": True,
-            "servico_sugerido_consulta": servico_para_resposta,
-            "ultima_acao": "confirmar_agendamento_por_consulta",
-            "estado_fluxo": "aguardando_confirmacao_consulta",
-        }
-        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_consulta)  # [P2-MIGRACAO-LOTE2-OC1]
-
-        print(f" [CONSULTA PURA ESTADO SALVO] aguardando_confirmacao_agendamento_por_consulta=True | servico='{servico_para_resposta}'", flush=True)
-
-        return await _send_and_stop(context, user_id, resposta_texto)
+            print(f" [CONSULTA PURA FALHA] servico não identificado, pedindo especificação", flush=True)
+            return await _send_and_stop(context, user_id, resposta_texto)
 
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA, tenant_id=dono_id)
 
