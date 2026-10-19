@@ -93,8 +93,9 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
     )
 
     # Pedido amplo: intenção de obter ação/ajuda
+    # P0.6.2: Adicionar "prefiro", "preferi", "escolho" para capturar mudanças de serviço
     tem_pedido = _tem(
-        r"\b(quero|queria|preciso|gostaria|pode|consegue|consigo|ve|vê|ajuda|encaixa|resolver|fazer)\b",
+        r"\b(quero|queria|preciso|gostaria|pode|consegue|consigo|ve|vê|ajuda|encaixa|resolver|fazer|prefiro|preferi|escolho)\b",
         t
     )
 
@@ -444,7 +445,20 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, cat
     if f["tem_pergunta"] and tem_posessivo_servico:
         return {"intencao_conversacional": "consultar_agendamentos_usuario", "confianca": 85, "features": f}
 
+    # 🔥 FIX P0.6.1: Detectar mudança de agendamento mesmo com "?" (cortesia)
+    # Se há pedido + tempo + draft, é agendamento (não consulta)
+    # Caso: "agendar unha para terça, teria?" → agendamento, não consulta
+    if f["tem_pedido"] and f["tem_tempo"] and f.get("tem_contexto_servico_ou_draft"):
+        return {
+            "intencao_conversacional": "agendamento_direto",
+            "tipo_ajuste_incremental": None,
+            "confianca": 85,
+            "features": f,
+            "motivo": "agendamento_com_draft_existente"
+        }
+
     # P0: Usar contexto_servico_ou_draft para permitir perguntas com contexto do draft
+    # Nota: Apenas se NÃO há sinais claros de agendamento (pedido + tempo)
     if f["tem_pergunta"] and f.get("tem_contexto_servico_ou_draft"):
         return {"intencao_conversacional": "consulta_disponibilidade_servico", "confianca": 85, "features": f}
 

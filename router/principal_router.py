@@ -1369,10 +1369,10 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
     # 🛡️ BLOQUEIO C4.2.7: Preservar serviço já detectado, não sobrescrever com heurística
     servico_anterior = ctx.get("servico") or draft.get("servico")
 
+    # 🔥 FIX P0.6: Remover bloqueio 'and not servico_anterior'
     if (
         not servico_detectado
         and not eh_rejeicao_alternativa
-        and not servico_anterior
     ):
         servico_detectado = await encontrar_servico_mais_proximo(
             texto_usuario,
@@ -5282,9 +5282,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             def _tem(pattern, txt):
                 return bool(re.search(pattern, txt, re.IGNORECASE))
 
-            tem_pedido_ag = _tem(r"\b(quero|gostaria|preciso|pode|consegue)\b", texto_lower)
+            tem_pedido_ag = _tem(r"\b(quero|gostaria|preciso|pode|consegue|prefiro|preferi|escolho)\b", texto_lower)
             tem_tempo_ag = _tem(r"\b(amanha|amanhã|hoje|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|\d{1,2}:\d{2}|\d{1,2}h)\b", texto_lower)
-            servico_ag = extrair_servico_do_catalogo(texto_usuario, catalogo_servicos)
+            # P0.6.2: Usar encontrar_servico_mais_proximo
+            from services.normalizacao_service import encontrar_servico_mais_proximo as buscar_servico_catalogo
+            servico_ag = await buscar_servico_catalogo(texto_usuario, user_id=user_id, dono_id=dono_id)
 
             if tem_pedido_ag and tem_tempo_ag and servico_ag:
                 print(f" [NEUTRA→OPERACIONAL] Sinais detectados: pedido={tem_pedido_ag}, tempo={tem_tempo_ag}, servico={servico_ag}", flush=True)
