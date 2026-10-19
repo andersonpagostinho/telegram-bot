@@ -7206,8 +7206,100 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             data_iso = dt.strftime("%Y-%m-%d")
 
-            servico_ctx = draft.get("servico") or ctx.get("servico")
+            # =========================================================
+            # 🔥 CASO C: DETECTAR MÚLTIPLOS SERVIÇOS ANTES DE SELECIONAR
+            # Evita seleção arbitrária quando msg contém "corte e escova"
+            # =========================================================
+            profs_multiplos = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+            servicos_catalogo_multiplos = set()
+
+            for _, prof_data in profs_multiplos.items():
+                for s in (prof_data.get("servicos") or []):
+                    servicos_catalogo_multiplos.add(normalizar(str(s)))
+
+            texto_norm_multiplos = normalizar(texto_usuario)
+            servicos_mencionados = []
+
+            # Use word-boundary matching like _match_servico_puro (ordered by length, specific first)
+            servicos_ord = sorted(servicos_catalogo_multiplos, key=len, reverse=True)
+            for serv_cat in servicos_ord:
+                # Tentar match exato com word boundaries
+                if re.search(rf"\b{re.escape(serv_cat)}\b", texto_norm_multiplos):
+                    servicos_mencionados.append(serv_cat)
+                    continue
+
+                # Fallback: match de prefixo (primeira palavra)
+                serv_palavras = serv_cat.split()
+                if serv_palavras:
+                    primeira_palavra = serv_palavras[0]
+                    if re.search(rf"\b{re.escape(primeira_palavra)}\b", texto_norm_multiplos):
+                        servicos_mencionados.append(serv_cat)
+
+            # Se múltiplos serviços mencionados, pedir esclarecimento
+            if len(servicos_mencionados) > 1:
+                print(
+                    f"[GUARD_AGUARDANDO_DATA] CASO C: {len(servicos_mencionados)} serviços "
+                    f"mencionados ({servicos_mencionados}) → pedir esclarecimento",
+                    flush=True
+                )
+                ctx["servicos_opcao"] = servicos_mencionados
+                ctx["estado_fluxo"] = "aguardando_servico"
+
+                if dt:  # dt já foi extraído no início do GUARD
+                    nova_data_hora = f"{data_iso}T00:00:00"
+                    draft["data_hora"] = nova_data_hora
+                    ctx["data_hora"] = nova_data_hora
+                    draft["servico"] = None
+
+                ctx["draft_agendamento"] = draft
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                servicos_fmt = ", ".join(servicos_mencionados[:5])
+                mensagem = f"Qual você prefere: {servicos_fmt}?"
+
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    mensagem
+                )
+
+            # 🔥 NOVO: Detectar novo serviço antes de reutilizar draft antigo
+            # Evita reutilizar "coloracao" quando usuário menciona "corte"
+            servico_novo = await encontrar_servico_mais_proximo(
+                texto_usuario,
+                dono_id=dono_id
+            )
+
+            servico_ctx = servico_novo or draft.get("servico") or ctx.get("servico")
+
+            # Se novo serviço detectado, atualizar draft para coerência
+            if servico_novo and servico_novo != draft.get("servico"):
+                draft["servico"] = servico_novo
+                ctx["servico"] = servico_novo
+                print(
+                    f"[GUARD_AGUARDANDO_DATA] Novo serviço detectado: {servico_novo} "
+                    f"→ sobrescreveu draft={draft.get('servico')} antigo",
+                    flush=True
+                )
+
             prof_ctx = draft.get("profissional") or ctx.get("profissional_escolhido")
+
+            # 🔥 GUARDRAIL: Validar compatibilidade prof×novo_servico
+            if prof_ctx and servico_novo and servico_novo != draft.get("servico"):
+                validacao = await validar_profissional_para_servico(
+                    dono_id,
+                    prof_ctx,
+                    servico_novo
+                )
+                if not validacao.get("ok"):
+                    print(
+                        f"[GUARD_AGUARDANDO_DATA] Prof {prof_ctx} incompatível com {servico_novo}",
+                        flush=True
+                    )
+                    prof_ctx = None
+                    ctx["profissional_escolhido"] = None
+                    draft["profissional"] = None
+                    ctx["estado_fluxo"] = "aguardando_profissional"
 
             data_hora_antiga = (
                 draft.get("data_hora")
