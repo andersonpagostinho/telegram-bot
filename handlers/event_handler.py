@@ -1228,7 +1228,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         # 2. Validar serviço (se fornecido)
         if servico:
-            servicos_cadastrados = await listar_servicos_cadastrados(user_id)
+            servicos_cadastrados = await listar_servicos_cadastrados(id_dono)  # id_dono é tenant_id, não user_id
             def norm(x):
                 import unidecode
                 return unidecode.unidecode(str(x).strip().lower())

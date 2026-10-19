@@ -175,10 +175,9 @@ async def test_webhook_e2e_agendamento_completo():
     await asyncio.sleep(0.5)
 
     # Carregar contexto após Msg 1
-    # Nota: o roteador normaliza para "whatsapp:{user_id}"
+    # Usar USUARIO_NUMERO sem prefixo (como o webhook salva em Sessoes/{actor_id})
     print(f"\n  [VALIDAÇÃO] Contexto após Msg 1:")
-    actor_id = f"whatsapp:{USUARIO_NUMERO}"
-    ctx_1 = await carregar_contexto_temporario_v2(TENANT_TESTE, actor_id)
+    ctx_1 = await carregar_contexto_temporario_v2(TENANT_TESTE, USUARIO_NUMERO)
 
     print(f"    servico: {ctx_1.get('servico')}")
     print(f"    data_hora: {ctx_1.get('data_hora')}")
@@ -256,7 +255,7 @@ async def test_webhook_e2e_agendamento_completo():
 
     # Carregar contexto após Msg 2
     print(f"\n  [VALIDAÇÃO] Contexto após Msg 2:")
-    ctx_2 = await carregar_contexto_temporario_v2(TENANT_TESTE, actor_id)
+    ctx_2 = await carregar_contexto_temporario_v2(TENANT_TESTE, USUARIO_NUMERO)
 
     print(f"    servico: {ctx_2.get('servico')}")
     print(f"    profissional_escolhido: {ctx_2.get('profissional_escolhido')}")
@@ -328,7 +327,7 @@ async def test_webhook_e2e_agendamento_completo():
 
     # Carregar contexto após Msg 3
     print(f"\n  [VALIDAÇÃO] Contexto após Msg 3:")
-    ctx_3 = await carregar_contexto_temporario_v2(TENANT_TESTE, actor_id)
+    ctx_3 = await carregar_contexto_temporario_v2(TENANT_TESTE, USUARIO_NUMERO)
 
     print(f"    estado_fluxo: {ctx_3.get('estado_fluxo')}")
     print(f"    evento_id: {ctx_3.get('evento_id')}")
