@@ -5296,12 +5296,79 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # Continuar processamento normal (não retornar vazio)
                 # Permitir que roteador continue para processar agendamento
             else:
-                # Sem sinais operacionais de agendamento → retornar vazio
-                return {
-                    "handled": True,
-                    "acao": "ignorar",
-                    "motivo": "contexto_neutro"
-                }
+                # 🔥 P0.6.2 FALLBACK SEMÂNTICO GPT
+                # Antes de descartar como contexto_neutro, verificar se há indícios de solicitação operacional
+                # que o extrator determinístico não conseguiu interpretar (typos, linguagem livre, etc)
+                print(" [P0.6.2_FALLBACK] Tentando GPT fallback antes de descartar como contexto_neutro", flush=True)
+
+                from services.gpt_service import interpretar_linguagem_operacional_gpt
+
+                try:
+                    interpretacao_gpt = await interpretar_linguagem_operacional_gpt(texto_usuario, ctx)
+                    print(f" [P0.6.2_FALLBACK_RESULTADO] {interpretacao_gpt}", flush=True)
+
+                    # Validar resultado GPT: não aceitar indefinida pura
+                    if interpretacao_gpt and interpretacao_gpt.get("intencao") != "indefinida":
+                        # GPT conseguiu interpretar algo operacional
+                        # Validar serviços no catálogo antes de usar
+                        servicos_gpt = interpretacao_gpt.get("entidades", {}).get("servico")
+                        if isinstance(servicos_gpt, str):
+                            servicos_gpt = [servicos_gpt]
+                        elif not isinstance(servicos_gpt, list):
+                            servicos_gpt = []
+
+                        # Validar contra catálogo
+                        servicos_validos = []
+                        for srv in servicos_gpt:
+                            if srv and srv.lower() in [s.lower() for s in catalogo_servicos]:
+                                servicos_validos.append(srv)
+
+                        print(f" [P0.6.2_VALIDACAO_CATALOGO] serviços GPT={servicos_gpt} | válidos={servicos_validos}", flush=True)
+
+                        # Se múltiplos candidatos válidos → perguntar ao cliente qual quer
+                        if len(servicos_validos) > 1:
+                            ctx["multiplos_servicos_candidatos"] = servicos_validos
+                            ctx["intencao_conversacional"] = "agendamento_direto"
+                            ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                            servicos_str = " ou ".join(servicos_validos)
+                            resposta_desambiguacao = f"Encontrei {len(servicos_validos)} opções para você: {servicos_str}. Qual você prefere?"
+                            return await _send_and_stop(context, user_id, resposta_desambiguacao)
+
+                        # Se um candidato válido → usar (com cuidado, validar confiança)
+                        elif len(servicos_validos) == 1 and interpretacao_gpt.get("confianca", 0) >= 75:
+                            ctx["servico"] = servicos_validos[0]
+                            ctx["intencao_conversacional"] = interpretacao_gpt.get("intencao")
+                            ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+                            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                            print(f" [P0.6.2_FALLBACK_ACEITO] Serviço={servicos_validos[0]}, intenção={interpretacao_gpt.get('intencao')}", flush=True)
+                            # Continuar fluxo normal com novo contexto
+                        else:
+                            # GPT retornou serviço inválido ou confiança baixa
+                            print(f" [P0.6.2_FALLBACK_REJEITO] Confiança baixa ou serviço inválido", flush=True)
+                            return {
+                                "handled": True,
+                                "acao": "ignorar",
+                                "motivo": "contexto_neutro"
+                            }
+                    else:
+                        # GPT também não conseguiu interpretar
+                        print(f" [P0.6.2_FALLBACK_INDEFINIDA] GPT também retornou indefinida", flush=True)
+                        return {
+                            "handled": True,
+                            "acao": "ignorar",
+                            "motivo": "contexto_neutro"
+                        }
+
+                except Exception as e:
+                    print(f" [P0.6.2_FALLBACK_ERRO] {type(e).__name__}: {e}", flush=True)
+                    # Falha segura: descartar em vez de crashear
+                    return {
+                        "handled": True,
+                        "acao": "ignorar",
+                        "motivo": "contexto_neutro"
+                    }
 
     # =========================================================
     # CAMADA 1 — INTENÇÃO CONVERSACIONAL (REUTILIZAR SE JÁ CALCULADA)
