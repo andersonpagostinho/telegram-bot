@@ -3403,8 +3403,11 @@ Responda apenas com o plano formatado.
         print(f"[GPT] Erro ao organizar semana: {e}", flush=True)
         return "❌ Houve um erro ao tentar planejar sua semana."
 
-async def interpretar_linguagem_operacional_gpt(texto: str, ctx: dict) -> dict:
+async def interpretar_linguagem_operacional_gpt(texto: str, ctx: dict, catalogo_servicos: list[str] = None) -> dict:
     try:
+        catalogo_str = ""
+        if catalogo_servicos:
+            catalogo_str = f"\nServiços disponíveis neste salão:\n" + ", ".join(f"'{s}'" for s in sorted(catalogo_servicos))
 
         prompt = f"""
 Você é um interpretador de linguagem para uma secretária de salão.
@@ -3417,7 +3420,12 @@ REGRAS ABSOLUTAS:
 - NÃO tomar decisão
 - NÃO inventar dados
 - NÃO responder texto humano
-- Apenas interpretar
+- Apenas interpretar{catalogo_str}
+
+MAPEAMENTO DE TERMOS GENÉRICOS:
+Se a mensagem mencionar "unha", pode referir-se a "manicure" (unhas das mãos) ou "pedicure" (unhas dos pés).
+Se há ambiguidade, retorne TODOS os candidatos válidos no catálogo acima em "entidades.servico" como lista.
+Nunca invente um serviço que não esteja no catálogo.
 
 Retorne JSON com:
 

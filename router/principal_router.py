@@ -5304,7 +5304,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 from services.gpt_service import interpretar_linguagem_operacional_gpt
 
                 try:
-                    interpretacao_gpt = await interpretar_linguagem_operacional_gpt(texto_usuario, ctx)
+                    interpretacao_gpt = await interpretar_linguagem_operacional_gpt(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
                     print(f" [P0.6.2_FALLBACK_RESULTADO] {interpretacao_gpt}", flush=True)
 
                     # Validar resultado GPT: não aceitar indefinida pura
@@ -5346,29 +5346,23 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             # Continuar fluxo normal com novo contexto
                         else:
                             # GPT retornou serviço inválido ou confiança baixa
+                            # Ao invés de descartar, solicitar esclarecimento
                             print(f" [P0.6.2_FALLBACK_REJEITO] Confiança baixa ou serviço inválido", flush=True)
-                            return {
-                                "handled": True,
-                                "acao": "ignorar",
-                                "motivo": "contexto_neutro"
-                            }
+                            print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
+                            resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
+                            return await _send_and_stop(context, user_id, resposta_esclarecimento)
                     else:
                         # GPT também não conseguiu interpretar
                         print(f" [P0.6.2_FALLBACK_INDEFINIDA] GPT também retornou indefinida", flush=True)
-                        return {
-                            "handled": True,
-                            "acao": "ignorar",
-                            "motivo": "contexto_neutro"
-                        }
+                        print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
+                        resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
+                        return await _send_and_stop(context, user_id, resposta_esclarecimento)
 
                 except Exception as e:
                     print(f" [P0.6.2_FALLBACK_ERRO] {type(e).__name__}: {e}", flush=True)
-                    # Falha segura: descartar em vez de crashear
-                    return {
-                        "handled": True,
-                        "acao": "ignorar",
-                        "motivo": "contexto_neutro"
-                    }
+                    print(f" [P0.6.2_ESCLARECIMENTO] Erro ao chamar GPT, enviando pergunta de esclarecimento", flush=True)
+                    resposta_esclarecimento = "Desculpe, houve um problema ao interpretar sua mensagem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
+                    return await _send_and_stop(context, user_id, resposta_esclarecimento)
 
     # =========================================================
     # CAMADA 1 — INTENÇÃO CONVERSACIONAL (REUTILIZAR SE JÁ CALCULADA)
