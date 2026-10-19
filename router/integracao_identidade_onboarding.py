@@ -27,7 +27,7 @@ from services.onboarding_dono_service import (
     obter_pergunta_etapa,
 )
 from services.firebase_service_async import obter_id_dono
-from utils.contexto_temporario import salvar_contexto_temporario_v2 as salvar_contexto_temporario
+from utils.contexto_temporario import salvar_contexto_temporario_v2, salvar_contexto_temporario_v2 as salvar_contexto_temporario
 
 
 async def resolver_ator_e_validar_guard(
@@ -316,6 +316,10 @@ async def processar_fluxo_identidade_onboarding(
         }
 
     # Atualizar contexto com informações do ator
+    # [P0-FIX] Preservar estado_fluxo ativo (não sobrescrever)
+    estado_fluxo_anterior = ctx.get("estado_fluxo")
+    multiplos_servicos_anterior = ctx.get("multiplos_servicos_candidatos")
+
     ctx.update({
         "actor_id": resultado_guard.get("actor_id"),
         "tipo_usuario": resultado_guard.get("tipo_usuario"),
@@ -330,7 +334,7 @@ async def processar_fluxo_identidade_onboarding(
             "onboarding_etapa": resultado_guard.get("onboarding_etapa"),
         })
 
-        await salvar_contexto_temporario(tenant_id, cliente_id or user_id, ctx)
+        await salvar_contexto_temporario_v2(tenant_id, cliente_id or user_id, ctx)
 
         proxima_pergunta = resultado_guard.get("onboarding_pergunta", "Qual é o nome do seu negócio?")
 
@@ -347,10 +351,19 @@ async def processar_fluxo_identidade_onboarding(
             "estado_fluxo": "idle"
         })
 
-        await salvar_contexto_temporario(tenant_id, cliente_id or user_id, ctx)
+        await salvar_contexto_temporario_v2(tenant_id, cliente_id or user_id, ctx)
 
         print(f"[OK] Cliente criado automaticamente: {resultado_guard.get('actor_id')}", flush=True)
 
     # Passo 3: Continuar no fluxo P0 normal
-    await salvar_contexto_temporario(tenant_id, cliente_id or user_id, ctx)
+    # [P0-FIX] Restaurar estado_fluxo ativo se não foi legitimamente alterado
+    if estado_fluxo_anterior and not ctx.get("estado_fluxo"):
+        ctx["estado_fluxo"] = estado_fluxo_anterior
+        print(f"[P0-FIX] Restaurado estado_fluxo={estado_fluxo_anterior} após validação de identidade", flush=True)
+
+    if multiplos_servicos_anterior and "multiplos_servicos_candidatos" not in ctx:
+        ctx["multiplos_servicos_candidatos"] = multiplos_servicos_anterior
+        print(f"[P0-FIX] Restaurados multiplos_servicos_candidatos após validação de identidade", flush=True)
+
+    await salvar_contexto_temporario_v2(tenant_id, cliente_id or user_id, ctx)
     return None
