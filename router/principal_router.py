@@ -2013,6 +2013,49 @@ def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
     ctx = ctx or {}
     return bool(ctx.get("aguardando_confirmacao_agendamento"))
 
+def eh_nova_consulta_pura(texto: str, tem_confirmacao_ativa: bool) -> bool:
+    """
+    [P0-FASE2-FIX] Detecta se cliente fez NOVA CONSULTA de disponibilidade,
+    não confirmação ou alteração do draft anterior.
+
+    Exemplos de NOVA CONSULTA:
+      "você tem agenda para pedicure amanhã?"
+      "tem disponibilidade para corte?"
+
+    Exemplos que NÃO são nova consulta:
+      "sim", "ok", "pode" → confirmação
+      "muda para 8h", "outra pessoa" → alteração
+    """
+    t = normalizar(texto or "").lower()
+
+    if not tem_confirmacao_ativa:
+        return False
+
+    # Palavras-chave que indicam NOVA CONSULTA
+    palavras_consulta = [
+        "voce tem",  # "você tem"
+        "tem agenda",
+        "tem disponibilidade",
+        "tem vaga",
+        "voces fazem",  # "vocês fazem"
+        "voce faz",  # "você faz"
+        "faz o",
+        "oferec",  # "oferece", "oferecem"
+    ]
+
+    # Palavras-chave que indicam CONFIRMAÇÃO (não é nova consulta)
+    palavras_confirmacao = ["sim", "ok", "pode", "quer dizer", "perfeito"]
+
+    # Se tem confirmação, não é nova consulta
+    if any(p in t for p in palavras_confirmacao):
+        return False
+
+    # Se tem padrão de consulta, é nova consulta
+    if any(p in t for p in palavras_consulta):
+        return True
+
+    return False
+
 async def precheck_e_confirmacao_agendamento(
     context,
     user_id: str,
@@ -7041,24 +7084,36 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                     return await _send_and_stop(context, user_id, msg_menu)
 
-            print(
-                f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
-                flush=True
-            )
+            # [P0-FASE2-FIX] Detectar se cliente fez NOVA CONSULTA (padrão "você tem X?")
+            # Se detectar, invalidar confirmacao_pendente e deixar continuar
+            # Se não detectar, reapresentar confirmação (comportamento atual)
+            if eh_nova_consulta_pura(texto_usuario, tem_confirmacao_ativa=True):
+                print(
+                    f" [P0-FASE2-FIX] NOVA CONSULTA DETECTADA | invalidando confirmacao_pendente",
+                    flush=True
+                )
+                ctx["aguardando_confirmacao_agendamento"] = False
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                # NÃO fazer return — deixar continuar para processar nova consulta
+            else:
+                print(
+                    f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
+                    flush=True
+                )
 
-            draft = ctx.get("draft_agendamento") or {}
-            servico = draft.get("servico") or ctx.get("servico")
-            prof = draft.get("profissional") or ctx.get("profissional_escolhido")
-            data_hora = draft.get("data_hora") or ctx.get("data_hora")
+                draft = ctx.get("draft_agendamento") or {}
+                servico = draft.get("servico") or ctx.get("servico")
+                prof = draft.get("profissional") or ctx.get("profissional_escolhido")
+                data_hora = draft.get("data_hora") or ctx.get("data_hora")
 
-            msg_confirmacao = (
-                f"Só confirmando 😊\n\n"
-                f"Você quer agendar seu *{servico}* com a *{prof}* "
-                f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
-                f"Responda *sim* para confirmar o agendamento."
-            )
+                msg_confirmacao = (
+                    f"Só confirmando 😊\n\n"
+                    f"Você quer agendar seu *{servico}* com a *{prof}* "
+                    f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
+                    f"Responda *sim* para confirmar o agendamento."
+                )
 
-            return await _send_and_stop(context, user_id, msg_confirmacao)
+                return await _send_and_stop(context, user_id, msg_confirmacao)
     else:
         print(
             f" [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
