@@ -13,6 +13,7 @@ Uso:
 """
 
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
@@ -23,6 +24,8 @@ from services.firebase_service_async import (
     atualizar_dado_em_path,
     deletar_dado_em_path,
 )
+from services.firestore_client import get_db
+from firebase_admin import firestore
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +151,156 @@ def gerar_buckets_tempo(hora_inicio: str, hora_fim: str, intervalo_minutos: int 
     except Exception as e:
         logger.error(f"Erro ao gerar buckets: {e}")
         return []
+
+
+async def adquirir_lock_atomicamente(
+    dono_id: str,
+    lock_key: str,
+    lock_doc: dict
+) -> Dict[str, Any]:
+    """
+    Adquire um lock de forma atomicamente segura usando transação Firestore.
+
+    IMPLEMENTAÇÃO: Usa transação Firestore (sync) envolvida em asyncio.to_thread()
+    para garantir que leitura de existência + escrita de lock ocorrem atomicamente,
+    sem race condition.
+
+    Args:
+        dono_id: ID do dono/salão
+        lock_key: Chave única do lock
+        lock_doc: Documento do lock a criar
+
+    Returns:
+        {
+            "ok": bool,
+            "motivo": str (se falhou)
+        }
+    """
+
+    def transacao_adquirir_lock():
+        """Transação sincronea para adquirir lock atomicamente."""
+        db = get_db()
+
+        @firestore.transactional
+        def callback(transaction):
+            """
+            [ATOMIC] Dentro da transação, operações são isoladas e atômicas:
+            1. Lê se lock já existe
+            2. Se não existe, cria novo lock
+            3. Se existe, falha com erro
+
+            Nenhuma outra transação concorrente consegue modificar o mesmo
+            documento entre (1) e (2).
+            """
+            lock_path = f"Clientes/{dono_id}/AgendaLocks/{lock_key}"
+            lock_ref = (
+                db.collection("Clientes")
+                .document(dono_id)
+                .collection("AgendaLocks")
+                .document(lock_key)
+            )
+
+            # (1) LER DENTRO DA TRANSAÇÃO — isolado de outras transações
+            # NOTA: transaction.get() retorna um generator, precisamos listar
+            lock_docs = list(transaction.get(lock_ref))
+
+            if lock_docs:
+                # (2) SE JÁ EXISTE, FALHAR (sem escrita)
+                lock_existente_doc = lock_docs[0]
+                lock_data = lock_existente_doc.to_dict()
+                return {
+                    "ok": False,
+                    "motivo": "lock_já_existe",
+                    "lock_data": lock_data
+                }
+
+            # (3) SE NÃO EXISTE, CRIAR (atômico com leitura acima)
+            transaction.set(lock_ref, lock_doc)
+            return {
+                "ok": True,
+                "motivo": "lock_criado"
+            }
+
+        # Executar transação
+        transaction = db.transaction()
+        result = callback(transaction)
+        return result
+
+    # ENVOLVER EM asyncio.to_thread() PARA NÃO BLOQUEAR EVENT LOOP
+    result = await asyncio.to_thread(transacao_adquirir_lock)
+    return result
+
+
+async def adquirir_locks_atomicamente(
+    dono_id: str,
+    lock_keys: list,
+    lock_docs_dict: dict
+) -> Dict[str, Any]:
+    """
+    Adquire MÚLTIPLOS locks de forma atomicamente segura em UMA ÚNICA transação.
+
+    [CRÍTICO] Todos os buckets devem ser adquiridos juntos em uma transação.
+    Se qualquer bucket falhar, a transação inteira falha e NENHUM lock é criado.
+
+    Args:
+        dono_id: ID do dono/salão
+        lock_keys: Lista de chaves ["key1", "key2", ...]
+        lock_docs_dict: Dict {lock_key: {doc_data}, ...}
+
+    Returns:
+        {"ok": bool, "lock_keys_criados": list | None, "motivo": str}
+    """
+
+    def transacao_adquirir_locks_sync():
+        """Transação sincronea para adquirir TODOS os locks atomicamente."""
+        db = get_db()
+
+        @firestore.transactional
+        def callback(transaction):
+            """[ATOMIC] Verifica E cria todos os locks em uma transação."""
+            lock_refs = {}
+            for lock_key in lock_keys:
+                lock_ref = (
+                    db.collection("Clientes")
+                    .document(dono_id)
+                    .collection("AgendaLocks")
+                    .document(lock_key)
+                )
+                lock_refs[lock_key] = lock_ref
+
+            # Verificar se QUALQUER lock já existe
+            for lock_key, lock_ref in lock_refs.items():
+                lock_doc_list = list(transaction.get(lock_ref))
+                if lock_doc_list and len(lock_doc_list) > 0:
+                    lock_doc = lock_doc_list[0]
+                    # Verificar se documento realmente existe
+                    if hasattr(lock_doc, 'exists') and lock_doc.exists:
+                        return {
+                            "ok": False,
+                            "lock_key_conflito": lock_key,
+                            "motivo": f"lock_já_existe: {lock_key}"
+                        }
+                    # Se veio documento mas não tem `.exists`, trata como documento vazio
+                    # (não interrompe — continua criando)
+
+            # Criar TODOS os locks (atômico)
+            for lock_key, lock_ref in lock_refs.items():
+                transaction.set(lock_ref, lock_docs_dict[lock_key])
+
+            return {
+                "ok": True,
+                "lock_keys_criados": lock_keys,
+                "motivo": "locks_criados"
+            }
+
+        transaction = db.transaction()
+        result = callback(transaction)
+        return result
+
+    logger.debug(f"[LOCK_THREAD] Entrando em thread para locks: {lock_keys[:1]}")
+    result = await asyncio.to_thread(transacao_adquirir_locks_sync)
+    logger.debug(f"[LOCK_THREAD] Saindo de thread: ok={result.get('ok')}")
+    return result
 
 
 async def tem_conflito_real(
@@ -293,42 +446,16 @@ async def criar_evento_com_lock(
         if removidos > 0:
             logger.info(f"🧹 Removidos {removidos} locks órfãos expirados")
 
-        # 3️⃣ TENTAR ADQUIRIR LOCKS PARA CADA BUCKET
+        # 3️⃣ PREPARAR E ADQUIRIR TODOS OS LOCKS EM UMA ÚNICA TRANSAÇÃO
         try:
+            # Preparar documentos de lock para TODOS os buckets
+            lock_keys = []
+            lock_docs_dict = {}
+
             for bucket in buckets:
                 lock_key = f"{prof_norm}_{data_evento}_{bucket}"
-                lock_path = f"Clientes/{dono_id}/AgendaLocks/{lock_key}"
+                lock_keys.append(lock_key)
 
-                # Verificar se já existe
-                lock_existente = await buscar_dado_em_path(lock_path)
-                if lock_existente:
-                    # 🔍 PATCH RO-04: Verificar se lock está expirado
-                    if lock_esta_expirado(lock_existente.get("timestamp_lock")):
-                        # Lock expirado: ignorar e criar novo
-                        logger.warning(f"Lock expirado, ignorando: {lock_key}")
-                        # Prosseguir para criar novo lock
-                    elif not lock_existente.get("evento_id"):
-                        # Lock ativo sem evento = erro técnico controlado
-                        logger.warning(f"Lock órfão ativo encontrado: {lock_key}")
-                        return {
-                            "ok": False,
-                            "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                            "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                            "motivo": f"Lock técnico em {profissional} {hora_inicio}-{hora_fim}",
-                            "tipo_erro": "lock_orfo_ativo"
-                        }
-                    else:
-                        # Lock válido com evento: slot realmente ocupado
-                        logger.warning(f"Bucket já ocupado: {lock_key}")
-                        return {
-                            "ok": False,
-                            "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                            "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                            "motivo": f"Slot ocupado: {profissional} {hora_inicio}-{hora_fim}",
-                            "tipo_erro": "lock_existente"
-                        }
-
-                # Criar lock para este bucket
                 lock_doc = {
                     "bucket": bucket,
                     "profissional": profissional,
@@ -337,12 +464,64 @@ async def criar_evento_com_lock(
                     "status": "reservado",
                     "evento_id": None  # Será preenchido quando evento for criado
                 }
+                lock_docs_dict[lock_key] = lock_doc
 
-                await salvar_dado_em_path(lock_path, lock_doc)
+            # 🔒 ADQUIRIR TODOS OS LOCKS ATOMICAMENTE EM UMA TRANSAÇÃO
+            resultado_lock = await adquirir_locks_atomicamente(dono_id, lock_keys, lock_docs_dict)
+
+            if not resultado_lock.get("ok"):
+                # Qualquer lock falhou = nenhum foi criado (transação atômica)
+                # MAS: verificar se o evento já existe (para idempotência)
+                logger.warning(
+                    f"Falha ao adquirir locks: {resultado_lock.get('motivo')} "
+                    f"({profissional} {hora_inicio}-{hora_fim})"
+                )
+
+                # ✅ FALLBACK IDEMPOTÊNCIA: Se evento já existe, retornar sucesso
+                evento_path = f"Clientes/{dono_id}/Eventos/{event_id}"
+                evento_existente = await buscar_dado_em_path(evento_path)
+                if evento_existente:
+                    logger.info(f"Evento já existe (idempotente): {event_id}")
+                    return {
+                        "ok": True,
+                        "evento_id": event_id,
+                        "duplicado": True,
+                        "lock_ids": [],
+                        "lock_keys": [],
+                        "motivo": "Evento já existe (idempotente após falha de lock)"
+                    }
+
+                # Se locks não foram criados E evento não existe = erro real
+                return {
+                    "ok": False,
+                    "lock_ids": [],
+                    "lock_keys": [],
+                    "motivo": f"Slot ocupado: {profissional} {hora_inicio}-{hora_fim}",
+                    "tipo_erro": "lock_existente"
+                }
+
+            # TODOS os locks adquiridos com sucesso
+            for lock_key in resultado_lock.get("lock_keys_criados", []):
+                lock_path = f"Clientes/{dono_id}/AgendaLocks/{lock_key}"
                 locks_criados.append(lock_path)
-                logger.info(f"Lock adquirido: {lock_key}")
+
+            logger.info(f"Todos os {len(lock_keys)} locks adquiridos atomicamente para {profissional}")
 
         except Exception as lock_error:
+            # [FIRESTORE 409] Detectar conflito de transação cross-transaction contention
+            # Isso significa que outra transação está acessando os mesmos locks
+            erro_str = str(lock_error).lower()
+            if "409" in str(lock_error) or "aborted" in erro_str or "contention" in erro_str:
+                logger.warning(f"Conflito de transação (Firestore 409): {profissional} {hora_inicio}-{hora_fim}")
+                return {
+                    "ok": False,
+                    "lock_ids": [p.split("/")[-1] for p in locks_criados],
+                    "lock_keys": [p.split("/")[-1] for p in locks_criados],
+                    "motivo": f"Slot ocupado (transação concorrente): {profissional} {hora_inicio}-{hora_fim}",
+                    "tipo_erro": "lock_existente"  # Tratar conflito de transação como lock ocupado
+                }
+
+            # Outro erro desconhecido
             logger.error(f"Erro ao adquirir locks: {lock_error}")
             return {
                 "ok": False,
