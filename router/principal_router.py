@@ -47,6 +47,7 @@ from services.classificador_conversa import (
     classificar_contexto_mensagem,
     classificar_intencao_conversacional,
     classificar_confirmacao_cancelamento,
+    extrair_servico_do_catalogo,
 )
 from services.interpretador_conversacional import interpretar_conversa_operacional
 from utils.normalizador_humano import normalizar_intencao_humana
@@ -5294,12 +5295,27 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # Continuar processamento normal (não retornar vazio)
                 # Permitir que roteador continue para processar agendamento
             else:
-                # Sem sinais operacionais de agendamento → retornar vazio
-                return {
-                    "handled": True,
-                    "acao": "ignorar",
-                    "motivo": "contexto_neutro"
-                }
+                # Sem sinais operacionais de agendamento → tentar GPT fallback
+                from services.gpt_service import interpretar_linguagem_operacional_gpt
+                interpretacao_gpt = await interpretar_linguagem_operacional_gpt(texto_usuario, ctx)
+                if interpretacao_gpt and interpretacao_gpt.get("intencao") not in [None, "indefinida"]:
+                    print(f" [NEUTRA→GPT] GPT interpretou com sucesso: {interpretacao_gpt.get('intencao')}", flush=True)
+                    class_intencao = {
+                        "intencao_conversacional": interpretacao_gpt.get("intencao"),
+                        "tipo_ajuste_incremental": interpretacao_gpt.get("tipo_ajuste"),
+                        "confianca": interpretacao_gpt.get("confianca", 50),
+                    }
+                    # Preservar resultado do GPT no contexto para não ser sobrescrito pela reclassificação
+                    ctx["intencao_conversacional"] = interpretacao_gpt.get("intencao")
+                    ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 50)
+                    # Continuar processamento normal (não retornar vazio)
+                else:
+                    # GPT também falhou → retornar vazio
+                    return {
+                        "handled": True,
+                        "acao": "ignorar",
+                        "motivo": "contexto_neutro"
+                    }
 
     # =========================================================
     # CAMADA 1 — INTENÇÃO CONVERSACIONAL (REUTILIZAR SE JÁ CALCULADA)
