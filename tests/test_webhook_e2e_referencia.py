@@ -47,12 +47,13 @@ with patch("scheduler.notificacoes_scheduler.start_notificacao_scheduler"):
     import main
     app = main.app
 
+from services.firebase_service_async import buscar_dado_em_path
 from utils.contexto_temporario import carregar_contexto_temporario_v2
 
-# Usar dados REAIS do Firestore (não fictícios)
-TENANT_TESTE = "7394370553"  # Tenant real NeoEve Teste
-USUARIO_NUMERO = "5511991382080"  # Usuário real
-ENDPOINT_TESTE = "1350170954840548"  # Endpoint real do WhatsApp
+# Usar seu cliente que já funciona em testes manuais
+TENANT_TESTE = "7394370553"  # Tenant NeoEve Teste
+USUARIO_NUMERO = "5511991382080"  # Seu cliente que já tem contexto ativo
+ENDPOINT_TESTE = "1350170954840548"  # Seu endpoint real
 
 # Simulação de resposta WhatsApp
 MOCK_WHATSAPP_RESPONSES = {}
@@ -360,6 +361,33 @@ async def test_webhook_e2e_agendamento_completo():
 
     assert ctx_3.get("data_hora"), "T10 FAIL: data_hora perdida no contexto"
     print(f"  ✅ T10: Data/hora preservada até o fim")
+
+    # ========================================================================
+    # ETAPA 6B: VALIDAR EVENTO EM FIRESTORE
+    # ========================================================================
+
+    print(f"\n[ETAPA 6B] Buscar evento em Firestore")
+
+    await asyncio.sleep(2.0)  # Aguardar criação de evento
+
+    evento_id = ctx_3.get("evento_id")
+    print(f"  evento_id: {evento_id}")
+
+    if evento_id:
+        evento_path = f"Clientes/{TENANT_TESTE}/Eventos/{evento_id}"
+        try:
+            evento_doc = await buscar_dado_em_path(evento_path)
+            if evento_doc:
+                print(f"  ✅ Evento encontrado em Firestore:")
+                print(f"    servico: {evento_doc.get('servico')}")
+                print(f"    profissional: {evento_doc.get('profissional')}")
+                print(f"    status: {evento_doc.get('status')}")
+            else:
+                print(f"  ⚠️ Evento NÃO encontrado em {evento_path}")
+        except Exception as e:
+            print(f"  ⚠️ Erro ao buscar evento: {e}")
+    else:
+        print(f"  ⚠️ evento_id não foi definido (agendamento não foi concluído)")
 
     # ========================================================================
     # ETAPA 7: CLEANUP
