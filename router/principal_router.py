@@ -5275,11 +5275,27 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "👋 Olá! Como posso te ajudar hoje?"
                 )
 
-            return {
-                "handled": True,
-                "acao": "ignorar",
-                "motivo": "contexto_neutro"
-            }
+            # CORREÇÃO: Se há sinais operacionais de agendamento, não retornar vazio
+            # Sinais: tem_pedido (quero/gostaria) + tem_tempo (data/hora) + servico
+            # Nesse caso, forçar classificação de intenção para agendamento operacional
+            tem_pedido_ag = _tem(r"\b(quero|gostaria|preciso|pode|consegue)\b", texto_lower)
+            tem_tempo_ag = _tem(r"\b(amanha|amanhã|hoje|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|\d{1,2}:\d{2}|\d{1,2}h)\b", texto_lower)
+            servico_ag = extrair_servico_do_catalogo(texto_usuario, catalogo_servicos)
+
+            if tem_pedido_ag and tem_tempo_ag and servico_ag:
+                print(f" [NEUTRA→OPERACIONAL] Sinais detectados: pedido={tem_pedido_ag}, tempo={tem_tempo_ag}, servico={servico_ag}", flush=True)
+                # Forçar reclassificação como operacional
+                class_intencao = classificar_intencao_conversacional(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
+                print(f" [NEUTRA→OPERACIONAL] Reclassificada: {class_intencao}", flush=True)
+                # Continuar processamento normal (não retornar vazio)
+                # Permitir que roteador continue para processar agendamento
+            else:
+                # Sem sinais operacionais de agendamento → retornar vazio
+                return {
+                    "handled": True,
+                    "acao": "ignorar",
+                    "motivo": "contexto_neutro"
+                }
 
     # =========================================================
     # CAMADA 1 — INTENÇÃO CONVERSACIONAL (REUTILIZAR SE JÁ CALCULADA)

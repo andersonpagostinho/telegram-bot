@@ -43,6 +43,25 @@ def extrair_servico_do_catalogo(texto: str, catalogo_servicos: list[str] | None 
             if re.search(rf"\b{re.escape(primeira_palavra)}\b", t):
                 return servico
 
+        # Match de truncamento controlado: "cort" → "corte"
+        # Apenas se: (1) >=3 caracteres, (2) palavra inteira, (3) primeira palavra do serviço
+        # Garante: não escolhe arbitrariamente se múltiplos serviços compatíveis
+        if len(primeira_palavra) >= 3:
+            # Procura truncamento na forma "\b<truncamento>\b" (palavra inteira)
+            # Exemplo: "\bcort\b" em "gostaria de cort para amha"
+            truncamentos_texto = re.findall(r"\b\w+\b", t)
+            for trunc in truncamentos_texto:
+                if len(trunc) >= 3 and primeira_palavra.startswith(trunc):
+                    # "cort" é prefixo de "corte" → match
+                    # Validação final: verificar se é único candidato
+                    candidatos = [
+                        s for s in servicos_ordenados
+                        if normalizar_txt(s).split()[0].startswith(trunc)
+                    ]
+                    if len(candidatos) == 1:
+                        return servico  # Única opção → retorna
+                    # Se múltiplos candidatos, continua busca (sem escolher arbitrariamente)
+
     return None
 
 
