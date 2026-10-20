@@ -19,7 +19,6 @@ from utils.gpt_utils import estimar_duracao
 from utils.formatters import formatar_eventos_telegram
 from utils.contexto_temporario import (
     carregar_contexto_temporario,
-    carregar_contexto_temporario_v2,
     salvar_contexto_temporario,
     salvar_contexto_temporario_v2,
 )
