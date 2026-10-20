@@ -23,6 +23,17 @@ def interpretar_conversa_operacional(
                 "motivo": "negacao_durante_confirmacao",
             }
 
+    # [FIX P0.3.1] Detecta consulta de disponibilidade com padrão determinístico
+    if _parece_consulta_disponibilidade(t):
+        return {
+            "intencao": "consulta_disponibilidade_servico",
+            "objetivo": "consultar_disponibilidade_por_servico",
+            "tipo_ajuste": None,
+            "entidades": {},
+            "confianca": 85,
+            "motivo": "padrão_consulta_determinístico",
+        }
+
     return {
         "intencao": "indefinida",
         "objetivo": None,
@@ -46,3 +57,30 @@ def _parece_negacao_confirmacao(t: str) -> bool:
     ]
 
     return any(x in t for x in termos)
+
+def _parece_consulta_disponibilidade(t: str) -> bool:
+    """
+    [FIX P0.3.1] Detecta padrões de consulta de disponibilidade.
+
+    Exemplos:
+      "você tem agenda para corte amanhã?"
+      "tem horário para pedicure?"
+      "tem disponibilidade amanhã às 10h?"
+      "vocês fazem coloração?"
+
+    Não confunde com confirmação ("sim", "ok") ou ajuste ("muda para 8h").
+    """
+    # Padrões que indicam consulta de disponibilidade/agenda
+    padroes_consulta = [
+        "voce tem agenda",
+        "tem agenda",
+        "tem horario",
+        "tem disponibilidade",
+        "tem vaga",
+        "voces fazem",
+        "voce faz",
+        "faz o ",
+        "oferec",  # oferece, oferecem
+    ]
+
+    return any(p in t for p in padroes_consulta)
