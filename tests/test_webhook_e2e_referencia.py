@@ -101,6 +101,15 @@ async def test_webhook_e2e_agendamento_completo():
     print(f"\n[ETAPA 1] Usar dados reais do Firestore")
     print(f"  ✅ Dados já existem em Firestore de produção")
 
+    # Limpar contexto anterior para garantir estado limpo
+    print(f"\n[LIMPEZA] Deletar contexto anterior do cliente")
+    from services.firebase_service_async import deletar_dado_em_path
+    path_sessao = f"Clientes/{TENANT_TESTE}/Sessoes/{USUARIO_NUMERO}"
+    try:
+        await deletar_dado_em_path(path_sessao)
+        print(f"  ✅ Contexto anterior deletado: {path_sessao}")
+    except Exception as e:
+        print(f"  ℹ️  Nenhum contexto anterior para deletar: {e}")
 
     # ========================================================================
     # ETAPA 2: PREPARAR MOCK DE enviar_mensagem_whatsapp

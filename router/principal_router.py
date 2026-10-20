@@ -1423,58 +1423,43 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
         )
 
     if servico_detectado:
-        eh_consulta_pura_servico = (
-            ctx.get("objetivo_conversacional") == "consultar_disponibilidade_por_servico"
-            or ctx.get("intencao_conversacional") == "consulta_disponibilidade_servico"
-        )
+        # [FIX: Persistência de serviço em consulta de disponibilidade]
+        # Sempre extrair e persistir serviço identificado, independente de ser consulta pura.
+        # A flag eh_consulta_pura_servico controla COMPORTAMENTO (resposta), não persistência.
 
         # =========================================================
-        # 🔥 PATCH 2: CONSULTA + AGENDAMENTO
-        # Se há resposta_informativa_pendente, é fluxo MISTO
-        # permitir salvar slots mesmo em "consulta pura"
+        # 🔥 PATCH: DETECTAR MÚLTIPLOS SERVIÇOS
+        # "quero corte e escova" deve perguntar, não escolher um
         # =========================================================
-        tem_resposta_informativa = ctx.get("resposta_informativa_pendente") is not None
+        profs_multiplos = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        servicos_catalogo_multiplos = set()
 
-        if eh_consulta_pura_servico and not tem_resposta_informativa:
-            print(
-                f"[CONSULTA PURA] serviço detectado='{servico_detectado}', "
-                "mas não entra em ctx['servico'] nem draft_agendamento",
-                flush=True
-            )
+        for _, prof_data in profs_multiplos.items():
+            for s in (prof_data.get("servicos") or []):
+                servicos_catalogo_multiplos.add(normalizar(str(s)))
+
+        texto_norm_multiplos = normalizar(texto)
+        servicos_mencionados = []
+
+        for serv_cat in servicos_catalogo_multiplos:
+            if serv_cat in texto_norm_multiplos:
+                servicos_mencionados.append(serv_cat)
+
+        # print(f"[MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
+
+        if len(servicos_mencionados) > 1:
+            ctx["servicos_opcao"] = servicos_mencionados
+            ctx["estado_fluxo"] = "aguardando_servico"
+
+            if ctx.get("data_hora"):
+                draft["data_hora"] = ctx.get("data_hora")
+                draft["servico"] = None
+                ctx["draft_agendamento"] = draft
+
+            # print(f"[MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
         else:
-            # =========================================================
-            # 🔥 PATCH: DETECTAR MÚLTIPLOS SERVIÇOS
-            # "quero corte e escova" deve perguntar, não escolher um
-            # =========================================================
-            profs_multiplos = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
-            servicos_catalogo_multiplos = set()
-
-            for _, prof_data in profs_multiplos.items():
-                for s in (prof_data.get("servicos") or []):
-                    servicos_catalogo_multiplos.add(normalizar(str(s)))
-
-            texto_norm_multiplos = normalizar(texto)
-            servicos_mencionados = []
-
-            for serv_cat in servicos_catalogo_multiplos:
-                if serv_cat in texto_norm_multiplos:
-                    servicos_mencionados.append(serv_cat)
-
-            # print(f"[MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
-
-            if len(servicos_mencionados) > 1:
-                ctx["servicos_opcao"] = servicos_mencionados
-                ctx["estado_fluxo"] = "aguardando_servico"
-
-                if ctx.get("data_hora"):
-                    draft["data_hora"] = ctx.get("data_hora")
-                    draft["servico"] = None
-                    ctx["draft_agendamento"] = draft
-
-                # print(f"[MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
-            else:
-                ctx["servico"] = servico_detectado
-                draft["servico"] = servico_detectado
+            ctx["servico"] = servico_detectado
+            draft["servico"] = servico_detectado
 
     # ---------------- data/hora ----------------
     dt_e_meta = interpretar_data_e_hora(texto, return_metadata=True)
@@ -2056,7 +2041,7 @@ def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
     ctx = ctx or {}
     return bool(ctx.get("aguardando_confirmacao_agendamento"))
 
-def eh_nova_consulta_pura(texto: str, tem_confirmacao_ativa: bool) -> bool:
+def eh_nova_consulta_pura(texto: str, tem_confirmacao_ativa: bool = False) -> bool:
     """
     [P0-FASE2-FIX] Detecta se cliente fez NOVA CONSULTA de disponibilidade,
     não confirmação ou alteração do draft anterior.
@@ -2068,11 +2053,11 @@ def eh_nova_consulta_pura(texto: str, tem_confirmacao_ativa: bool) -> bool:
     Exemplos que NÃO são nova consulta:
       "sim", "ok", "pode" → confirmação
       "muda para 8h", "outra pessoa" → alteração
+
+    tem_confirmacao_ativa: se True, também considera confirmações como não-consulta.
+                          se False, apenas detecta padrão de consulta pura.
     """
     t = normalizar(texto or "").lower()
-
-    if not tem_confirmacao_ativa:
-        return False
 
     # Palavras-chave que indicam NOVA CONSULTA
     palavras_consulta = [
@@ -2089,8 +2074,8 @@ def eh_nova_consulta_pura(texto: str, tem_confirmacao_ativa: bool) -> bool:
     # Palavras-chave que indicam CONFIRMAÇÃO (não é nova consulta)
     palavras_confirmacao = ["sim", "ok", "pode", "quer dizer", "perfeito"]
 
-    # Se tem confirmação, não é nova consulta
-    if any(p in t for p in palavras_confirmacao):
+    # Se tem confirmação ativa E a mensagem é confirmação, não é nova consulta
+    if tem_confirmacao_ativa and any(p in t for p in palavras_confirmacao):
         return False
 
     # Se tem padrão de consulta, é nova consulta
@@ -5741,6 +5726,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["objetivo_conversacional"] = "preparar_prechecagem_agendamento"
             elif interpretacao_gpt.get("intencao") == "consulta":
                 ctx["objetivo_conversacional"] = "consultar_disponibilidade_por_servico"
+        else:
+            # [FIX: Fallback heurístico para consulta pura quando GPT retorna indefinida]
+            # Detecta padrões como "você tem", "tem agenda", "tem disponibilidade"
+            eh_consulta_detectado = eh_nova_consulta_pura(texto_usuario, tem_confirmacao_ativa=False)
+            if eh_consulta_detectado:
+                ctx["objetivo_conversacional"] = "consultar_disponibilidade_por_servico"
+                ctx["intencao_conversacional"] = "consulta_disponibilidade_servico"
 
     else:
         print(
@@ -5772,6 +5764,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "objetivo_conversacional": ctx.get("objetivo_conversacional"),
         "modo_conversa": ctx.get("modo_conversa"),
         "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
+        # [FIX: Persistir serviço e data/hora extraídos]
+        "servico": ctx.get("servico"),
+        "data_hora": ctx.get("data_hora"),
+        "draft_agendamento": ctx.get("draft_agendamento"),
     })  # [P2-MIGRACAO-LOTE1-OC1] tenant_id origin: dono_id (linha 3354)
 
     # =========================================================
@@ -5814,7 +5810,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # =========================================================
             tem_agendar = any(x in normalizar(mensagem) for x in [
                 "agendar", "marcar", "horario", "horário", "dá para", "da para",
-                "pode ser", "posso", "consigo", "faço", "faz"
+                "pode ser", "posso", "consigo", "faço", "faz",
+                # [FIX: Reconhecer padrões de consulta com data/hora como agendamento]
+                "voce tem", "você tem", "tem agenda", "tem disponibilidade"
             ])
 
             tem_temporal = any(x in normalizar(mensagem) for x in [
@@ -9512,8 +9510,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
 
-        # 🔴 DEBUG: Rastrear data após extração
-        print(f" [DEBUG DATA_POS_EXTRACAO] data_hora={ctx.get('data_hora')} | draft={ctx.get('draft_agendamento', {}).get('data_hora')}", flush=True)
 
         # =========================================================
         # 🔴 BLOQUEIO: ERRO DE VALIDAÇÃO — EXPEDIENTE REJEITADO
@@ -9578,36 +9574,49 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # =========================================================
         # 🔥 PROTEÇÃO — não fixar serviço cedo demais em aguardando_servico
         # quando o usuário mandar múltiplos serviços candidatos
+        # [FIX: Não remover serviço recém-extraído nesta mensagem]
         # =========================================================
         estado_fluxo_tmp = (ctx.get("estado_fluxo") or "").strip().lower()
 
+        print(f" [DEBUG PROTECAO] estado_fluxo_tmp={estado_fluxo_tmp} | servico={ctx.get('servico')}", flush=True)
+
+        # Determinar se o serviço foi recém-extraído NESTA mensagem
+        # Se foi, não remover mesmo que haja múltiplos candidatos
+        servico_extraido_agora = (
+            ctx.get("servico") is not None
+            and estado_fluxo_tmp == "aguardando_servico"
+        )
+
+        print(f" [DEBUG EXTRAIDO_AGORA] servico_extraido_agora={servico_extraido_agora}", flush=True)
+
         if estado_fluxo_tmp in ("aguardando_servico", "aguardando serviço", "aguardando_serviço"):
-            texto_norm_tmp = normalizar(texto_usuario or "")
-            partes_tmp = re.split(r"\bou\b|,|/", texto_norm_tmp)
+            if not servico_extraido_agora:  # [FIX: Não processar se serviço foi recém-extraído]
+                texto_norm_tmp = normalizar(texto_usuario or "")
+                partes_tmp = re.split(r"\bou\b|,|/", texto_norm_tmp)
 
-            profs_dict_tmp = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+                profs_dict_tmp = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
-            todos_tmp = []
-            for p in profs_dict_tmp.values():
-                todos_tmp.extend(p.get("servicos") or [])
+                todos_tmp = []
+                for p in profs_dict_tmp.values():
+                    todos_tmp.extend(p.get("servicos") or [])
 
-            catalogo_tmp = list(dict.fromkeys([str(s).strip() for s in todos_tmp if s]))
-            candidatos_tmp = []
+                catalogo_tmp = list(dict.fromkeys([str(s).strip() for s in todos_tmp if s]))
+                candidatos_tmp = []
 
-            for parte in partes_tmp:
-                parte = parte.strip()
-                for s in catalogo_tmp:
-                    if normalizar(s) in parte:
-                        candidatos_tmp.append(s)
+                for parte in partes_tmp:
+                    parte = parte.strip()
+                    for s in catalogo_tmp:
+                        if normalizar(s) in parte:
+                            candidatos_tmp.append(s)
 
-            candidatos_tmp = list(dict.fromkeys(candidatos_tmp))
+                candidatos_tmp = list(dict.fromkeys(candidatos_tmp))
 
-            if len(candidatos_tmp) > 1:
-                ctx.pop("servico", None)
+                if len(candidatos_tmp) > 1:
+                    ctx.pop("servico", None)
 
-                draft_tmp = ctx.get("draft_agendamento") or {}
-                draft_tmp.pop("servico", None)
-                ctx["draft_agendamento"] = draft_tmp
+                    draft_tmp = ctx.get("draft_agendamento") or {}
+                    draft_tmp.pop("servico", None)
+                    ctx["draft_agendamento"] = draft_tmp
 
         print(f"[TRACE DCC P0 SAVE] dono_id={dono_id} cliente_id={cliente_id} user_id=N/A", flush=True)
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
@@ -13495,13 +13504,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             resposta_texto = f"Sim, fazemos {servico_para_resposta}! 😊\n\nGostaria de agendar?"
 
             # Salvar estado para continuidade — COM SERVIÇO VÁLIDO
-            ctx_consulta = {
+            # Merge campos na consulta pura preservando serviço extraído
+            ctx.update({
                 "aguardando_confirmacao_agendamento_por_consulta": True,
                 "servico_sugerido_consulta": servico_para_resposta,
+                "servico": servico_para_resposta,  # [FIX: Persistir serviço extraído em consulta pura]
                 "ultima_acao": "confirmar_agendamento_por_consulta",
                 "estado_fluxo": "aguardando_confirmacao_consulta",
-            }
-            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_consulta)  # [P2-MIGRACAO-LOTE2-OC1]
+            })
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)  # [P2-MIGRACAO-LOTE2-OC1]
 
             print(f" [CONSULTA PURA ESTADO SALVO] servico='{servico_para_resposta}'", flush=True)
             return await _send_and_stop(context, user_id, resposta_texto)
