@@ -1307,7 +1307,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                         identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                     )
                     await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
-                return True
+                return False
 
         print(f"[P01_TRACE] PASSOU_VALIDACAO_EXPEDIENTE | linha=849", flush=True)
         print(" Disparando salvar_evento com:", evento_data)
