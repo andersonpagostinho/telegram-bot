@@ -46,6 +46,11 @@ async def test_p0_e2e_completo_ate_firestore():
     print("="*100)
 
     # ============================================================================
+    # PASSO 0: Deletar evento existente que pode gerar conflito
+    # ============================================================================
+    print("\n[PASSO 0] Preparar data (3 dias no futuro para evitar conflitos)")
+
+    # ============================================================================
     # PASSO 1: Limpar e preparar
     # ============================================================================
     print("\n[PASSO 1] Limpar contexto e preparar para teste")
@@ -103,9 +108,12 @@ async def test_p0_e2e_completo_ate_firestore():
 
     ctx = await carregar_contexto_temporario_v2(TENANT_TEST, ACTOR_WA) or {}
 
-    # Data/hora para amanhã às 14:00
-    amanha = datetime.now() + timedelta(days=1)
-    data_hora = f"{amanha.strftime('%Y-%m-%d')}T14:00:00"
+    # Data/hora para 30 dias no futuro às 14:00 (evita conflitos com dados anteriores)
+    data_evento = datetime.now() + timedelta(days=30)
+    data_hora = f"{data_evento.strftime('%Y-%m-%d')}T14:00:00"
+
+    # Atualizar também a limpeza para usar a data correta
+    amanha = data_evento
 
     ctx["data_hora"] = data_hora
     ctx["estado_fluxo"] = "agendando"

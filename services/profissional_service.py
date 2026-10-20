@@ -42,7 +42,8 @@ async def buscar_profissionais_por_servico(servicos: list[str], user_id: str) ->
 async def validar_profissional_para_servico(
     profissional: str,
     servico: str,
-    user_id: str
+    user_id: str = None,
+    tenant_id: str = None
 ) -> dict:
     """
     Valida se um profissional específico pode fazer um serviço específico.
@@ -55,7 +56,17 @@ async def validar_profissional_para_servico(
     }
     """
     try:
-        tenant_id = await obter_tenant_id(user_id)
+        # Se tenant_id não foi fornecido, tentar obter via user_id ou actor_id
+        if not tenant_id and user_id:
+            tenant_id = await obter_tenant_id(user_id)
+
+        if not tenant_id:
+            return {
+                "valido": False,
+                "motivo": "tenant_nao_identificado",
+                "profissional": profissional,
+                "servico": servico
+            }
         profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
 
         # Normalização para comparação robusta

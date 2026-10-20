@@ -192,7 +192,7 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
         hora_ev = evento.get("hora_inicio")
         descricao_ev = evento.get("descricao", "Compromisso")
 
-        origem_user = tenant_id
+        origem_user = user_id
 
         if cliente_id and cliente_id != origem_user and data_ev and hora_ev:
             try:

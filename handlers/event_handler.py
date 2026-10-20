@@ -1287,7 +1287,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             resultado_prof_servico = await validar_profissional_para_servico(
                 profissional=profissional,
                 servico=servico,
-                user_id=user_id
+                user_id=user_id,
+                tenant_id=dono_id
             )
             if not resultado_prof_servico.get("valido"):
                 motivo = resultado_prof_servico.get("motivo", "desconhecido")
@@ -1307,7 +1308,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                         identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                     )
                     await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
-                return True
+                return False
 
         print(f"[P01_TRACE] PASSOU_VALIDACAO_EXPEDIENTE | linha=849", flush=True)
         print(" Disparando salvar_evento com:", evento_data)

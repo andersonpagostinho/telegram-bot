@@ -21,6 +21,7 @@ from utils.contexto_temporario import (
     carregar_contexto_temporario,
     salvar_contexto_temporario,
     salvar_contexto_temporario_v2,
+    carregar_contexto_temporario_v2,
 )
 
 from services.firebase_service_async import buscar_subcolecao, obter_id_dono
@@ -405,11 +406,6 @@ async def executar_acao_gpt(
                     already_sent=already_sent
                 )
 
-            # 🔥 VERIFICAR CONFLITO
-            data = data_hora.split("T")[0]
-            hora = data_hora.split("T")[1][:5]
-            duracao = estimar_duracao(servico)
-
             # =========================================================
             # 🔒 VALIDAÇÃO DE EXPEDIENTE (FALTAVA AQUI)
             # =========================================================
@@ -417,6 +413,22 @@ async def executar_acao_gpt(
                 id_dono = identidade.tenant_id
             else:
                 id_dono = await obter_id_dono(user_id)
+
+            # 🔥 VERIFICAR CONFLITO
+            data = data_hora.split("T")[0]
+            hora = data_hora.split("T")[1][:5]
+
+            # ✅ Duração: carregar do catálogo real do tenant, fallback para estimativa
+            from services.cadastro_inicial_service import listar_servicos_negocio
+            servicos_catalogo = await listar_servicos_negocio(id_dono) if id_dono else None
+            servico_norm = (servico or "").strip().lower()
+            duracao_catalogo = None
+            if servicos_catalogo and servico_norm:
+                for nome_servico, servico_data in servicos_catalogo.items():
+                    if nome_servico.strip().lower() == servico_norm:
+                        duracao_catalogo = servico_data.get("duracao")
+                        break
+            duracao = duracao_catalogo or estimar_duracao(servico)
 
             validacao = await validar_horario_funcionamento(
                 user_id=id_dono,
