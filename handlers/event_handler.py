@@ -1176,6 +1176,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         }
         if profissional:
             evento_data["profissional"] = profissional
+        if servico:
+            evento_data["servico"] = servico
 
         # [TESTE_SURI]  EVENTO_DATA ANTES DE SALVAR
         print(f"[TESTE_SURI]  EVENTO_DATA: cliente_nome={repr(evento_data.get('cliente_nome'))}", flush=True)
