@@ -5581,7 +5581,23 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     # 🔒 NÃO RECLASSIFICAR FLUXO OPERACIONAL ATIVO
     # Mantém a intenção já definida quando o fluxo está em andamento.
+    # MAS: força reinterpretação se MSG atual trouxe NOVO FLUXO incompatível
     # =========================================================
+
+    # [P0.3.1] Detectar se a intenção CLASSIFICADA da nova MSG é incompatível com preservação
+    intencao_nova = class_intencao.get("intencao_conversacional")
+    intencoes_que_forcam_reinterpret = {
+        "agendamento_direto",  # Novo agendamento, serviço diferente
+        "consulta_disponibilidade_aberta",  # Nova consulta pura
+        "consulta_disponibilidade_servico",  # Consulta de serviço específico
+        "cancelamento",  # Novo fluxo de cancelamento
+        "duvida_confianca_profissional",  # Novo fluxo de dúvida
+    }
+    force_reinterpret = intencao_nova in intencoes_que_forcam_reinterpret
+
+    if force_reinterpret:
+        print(f"[P0.3.1-FORCE-REINTERPRET] intencao_nova={intencao_nova} incompatível com preservação", flush=True)
+
     if (
         ctx.get("estado_fluxo") in [
             "aguardando_profissional",
@@ -5591,6 +5607,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             "agendando",
         ]
         and ctx.get("objetivo_conversacional")
+        and not force_reinterpret  # [P0.3.1] NÃO preservar se intenção nova é incompatível
     ):
         # [TRACE] Verificar o que vai ser preservado
         print(
@@ -5615,11 +5632,16 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
 
     else:
+        # [P0.2] Usar catálogos já carregados (linhas 4681-4691) em vez de listas vazias
+        profissionais_nomes = [p.get("nome", nome) for nome, p in profs_dict.items() if p.get("nome")]
+
+        print(f"[P0.2-PASS] catalogo_servicos={catalogo_servicos} | profissionais={profissionais_nomes}", flush=True)
+
         interpretacao_conv = interpretar_conversa_operacional(
             texto=texto_usuario,
             ctx=ctx,
-            servicos_catalogo=[],
-            profissionais_catalogo=[],
+            servicos_catalogo=catalogo_servicos,
+            profissionais_catalogo=profissionais_nomes,
         )
 
         # print(
