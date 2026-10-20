@@ -1413,9 +1413,12 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
     servico_anterior = ctx.get("servico") or draft.get("servico")
 
     # 🔥 FIX P0.6: Remover bloqueio 'and not servico_anterior'
+    # 🛡️ NOVO FIX: NÃO SOBRESCREVER SERVIÇO JÁ DEFINIDO quando texto é só profissional
+    # Quando usuário diz "gloria" (profissional), não deve trocar "corte feminino" para outro serviço
     if (
         not servico_detectado
         and not eh_rejeicao_alternativa
+        and not servico_anterior  # ← BLOQUEIO: Preservar serviço anterior
     ):
         servico_detectado = await encontrar_servico_mais_proximo(
             texto_usuario,
@@ -1445,8 +1448,6 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
             if serv_cat in texto_norm_multiplos:
                 servicos_mencionados.append(serv_cat)
 
-        # print(f"[MULTIPLOS_SERVICOS] mencionados={servicos_mencionados} | detectado={servico_detectado}", flush=True)
-
         if len(servicos_mencionados) > 1:
             ctx["servicos_opcao"] = servicos_mencionados
             ctx["estado_fluxo"] = "aguardando_servico"
@@ -1455,8 +1456,6 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 draft["data_hora"] = ctx.get("data_hora")
                 draft["servico"] = None
                 ctx["draft_agendamento"] = draft
-
-            # print(f"[MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
         else:
             ctx["servico"] = servico_detectado
             draft["servico"] = servico_detectado
