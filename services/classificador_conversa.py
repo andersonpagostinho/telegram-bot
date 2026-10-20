@@ -16,7 +16,10 @@ def extrair_servico_do_catalogo(texto: str, catalogo_servicos: list[str] | None 
     """
     Extrai primeiro serviço mencionado que corresponde ao catálogo do tenant.
 
-    Usa match de palavra inteira e também busca por prefixo ("corte" → "corte feminino").
+    Ordem de preferência:
+    1. Match exato em ordem de tamanho descrescente (mais específico primeiro)
+    2. Match de prefixo
+    3. Match de truncamento
     """
     if not catalogo_servicos:
         return None
@@ -25,42 +28,47 @@ def extrair_servico_do_catalogo(texto: str, catalogo_servicos: list[str] | None 
     if not t:
         return None
 
-    servicos_ordenados = sorted(catalogo_servicos, key=lambda s: len(normalizar_txt(s)), reverse=True)
+    # Ordenar por tamanho DESC, depois manter ordem original para tiebreak determinístico
+    servicos_com_indice = [(i, s) for i, s in enumerate(catalogo_servicos)]
+    servicos_ordenados = sorted(servicos_com_indice, key=lambda x: len(normalizar_txt(x[1])), reverse=True)
 
-    for servico in servicos_ordenados:
+    # FASE 1: Match exato (palavra inteira)
+    for _, servico in servicos_ordenados:
         servico_norm = normalizar_txt(servico)
         if not servico_norm:
             continue
-
-        # Match exato (palavra inteira)
         if re.search(rf"\b{re.escape(servico_norm)}\b", t):
             return servico
 
-        # Match de prefixo: se "corte" em "corte feminino", busca "corte" no texto
+    # FASE 2: Match de prefixo (primeira palavra)
+    for _, servico in servicos_ordenados:
+        servico_norm = normalizar_txt(servico)
+        if not servico_norm:
+            continue
         servico_palavras = servico_norm.split()
         if servico_palavras:
             primeira_palavra = servico_palavras[0]
             if re.search(rf"\b{re.escape(primeira_palavra)}\b", t):
                 return servico
 
-        # Match de truncamento controlado: "cort" → "corte"
-        # Apenas se: (1) >=3 caracteres, (2) palavra inteira, (3) primeira palavra do serviço
-        # Garante: não escolhe arbitrariamente se múltiplos serviços compatíveis
-        if len(primeira_palavra) >= 3:
-            # Procura truncamento na forma "\b<truncamento>\b" (palavra inteira)
-            # Exemplo: "\bcort\b" em "gostaria de cort para amha"
-            truncamentos_texto = re.findall(r"\b\w+\b", t)
-            for trunc in truncamentos_texto:
-                if len(trunc) >= 3 and primeira_palavra.startswith(trunc):
-                    # "cort" é prefixo de "corte" → match
-                    # Validação final: verificar se é único candidato
-                    candidatos = [
-                        s for s in servicos_ordenados
-                        if normalizar_txt(s).split()[0].startswith(trunc)
-                    ]
-                    if len(candidatos) == 1:
-                        return servico  # Única opção → retorna
-                    # Se múltiplos candidatos, continua busca (sem escolher arbitrariamente)
+    # FASE 3: Match de truncamento ("cort" → "corte")
+    for _, servico in servicos_ordenados:
+        servico_norm = normalizar_txt(servico)
+        if not servico_norm:
+            continue
+        servico_palavras = servico_norm.split()
+        if servico_palavras:
+            primeira_palavra = servico_palavras[0]
+            if len(primeira_palavra) >= 3:
+                truncamentos_texto = re.findall(r"\b\w+\b", t)
+                for trunc in truncamentos_texto:
+                    if len(trunc) >= 3 and primeira_palavra.startswith(trunc):
+                        candidatos = [
+                            s for _, s in servicos_ordenados
+                            if normalizar_txt(s).split()[0].startswith(trunc)
+                        ]
+                        if len(candidatos) == 1:
+                            return servico
 
     return None
 

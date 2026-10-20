@@ -274,7 +274,8 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
     # 🔧 PATCH MT-07: Usar v2 para isolamento multi-tenant
     # LOTE 5B: Corrigir ordem de parâmetros (dono_id primeiro, depois user_id)
     dono_id = await obter_id_dono(user_id)
-    ctx_tmp = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+    cliente_id = f"tg:{user_id}"
+    ctx_tmp = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
     print(
     "🧪 [BOT-CTX]",
     {

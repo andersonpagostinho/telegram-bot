@@ -2686,7 +2686,149 @@ Quando você implementa genérico:
 
 ---
 
+## 🧪 PADRÃO MODELO: Testes E2E Com Webhook Real
+
+**Status:** OBRIGATÓRIO E PERMANENTE  
+**Effective:** 2026-10-19  
+**Escopo:** TODO teste E2E que valida fluxo de webhook + Firestore
+
+### Filosofia
+
+**Testes que usam mock ou chamam handler diretamente NÃO REPRODUZEM o erro real do usuário.**
+
+A única forma de validar fluxo real é:
+1. ✅ Webhook REAL (Flask endpoint `/webhook/whatsapp`)
+2. ✅ Firebase REAL (não mockar Firestore)
+3. ✅ Cliente REAL (com histórico em Firestore)
+4. ✅ Contexto INTACTO (não limpar prior state)
+5. ✅ Fluxo COMPLETO (até o erro/resultado final)
+
+### Arquivo Modelo
+
+**Localização:** `tests/_modelo/test_e2e_webhook_modelo.py`
+
+**Qualquer novo teste E2E DEVE:**
+- Copiar exatamente a estrutura do modelo
+- Adaptar APENAS: mensagens, cliente, validações
+- Manter INTACTO: Firebase real, webhook real, patch HMAC
+
+### Por Que Este Padrão?
+
+**Testes mock escondem erros reais:**
+
+```
+❌ TESTE COM MOCK:
+Chama handler diretamente
+    ↓
+Fluxo reto (sem webhook)
+    ↓
+Contexto limpo (sem prior state)
+    ↓
+Resultado: PASS (mas erro real não aparece)
+
+✅ TESTE MODELO:
+Webhook Flask real
+    ↓
+Firestore real é consultado/escrito
+    ↓
+Contexto anterior intacto
+    ↓
+Resultado: FAIL (reproduz erro do usuário fielmente)
+```
+
+### Estrutura Obrigatória
+
+Cada teste modelo deve ter:
+
+```python
+# 1. Setup com cliente real
+TENANT_TESTE = "7394370553"
+USUARIO_NUMERO = "5511991382080"  # Cliente com histórico real
+
+# 2. Cliente Flask (test_client)
+client = app.test_client()
+
+# 3. Patch HMAC (permite teste sem chave real)
+with patch("main.validate_whatsapp_signature", return_value=True):
+
+# 4. Payload REAL WhatsApp (não simplificado)
+payload = {
+    "object": "whatsapp_business_account",
+    "entry": [{
+        "changes": [{
+            "value": {
+                "metadata": {...},
+                "messages": [{...}]
+            }
+        }]
+    }]
+}
+
+# 5. POST ao endpoint real
+response = client.post("/webhook/whatsapp", json=payload)
+
+# 6. Firebase REAL (carregar contexto pós-webhook)
+ctx = await carregar_contexto_temporario_v2(TENANT_TESTE, actor_id)
+
+# 7. Validação documentada
+print(f"[MSG 1] Estado: {ctx.get('estado_fluxo')}")
+print(f"[MSG 1] Serviço: {ctx.get('servico')}")
+```
+
+### Checklist de Validação
+
+Antes de considerar teste pronto:
+
+```
+☐ Usa Firebase REAL (não mocka Firestore)
+☐ Usa `/webhook/whatsapp` endpoint (Flask test_client)
+☐ Cliente tem histórico em Firestore
+☐ NÃO limpa contexto anterior
+☐ Patch HMAC está presente
+☐ Fluxo vai até o fim (erro/resultado)
+☐ Validações documentadas com print
+☐ Async/await correto (pytest.mark.asyncio)
+☐ Teste reproduz cenário do usuário fielmente
+☐ Segue estrutura do modelo exatamente
+```
+
+### Exemplos de Uso
+
+**Para criar novo teste:**
+
+```bash
+cp tests/_modelo/test_e2e_webhook_modelo.py tests/test_seu_novo_fluxo.py
+```
+
+**Adaptar APENAS:**
+- Nome da função
+- Mensagens do fluxo
+- Validações esperadas
+
+**MANTER IDÊNTICO:**
+- Estrutura webhook
+- Patch HMAC
+- Acesso Firebase REAL
+- Payload formato
+
+### O Que Este Padrão Evita
+
+```
+❌ Testes que passam mas erro real ocorre
+❌ Mock que mascara problemas Firestore
+❌ Contexto limpo que ignora prior state
+❌ Fluxo interrompido no meio
+❌ Validação apenas de resposta HTTP
+```
+
+### Referência
+
+Documentação detalhada em: `tests/_modelo/README.md`
+
+---
+
 **Última atualização:** 2026-06-23  
 **Status:** Documento congelado até descongelamento comprovado  
 **Adição:** Regra de Ouro — Correções Pós-Baseline (2026-06-23)  
-**Adição:** Regra Fundamental — Inteligência e Humanidade, Não Rigidez (2026-10-18)
+**Adição:** Regra Fundamental — Inteligência e Humanidade, Não Rigidez (2026-10-18)  
+**Adição:** Padrão Modelo — Testes E2E Com Webhook Real (2026-10-19)

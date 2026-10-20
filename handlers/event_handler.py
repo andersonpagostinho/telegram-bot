@@ -16,7 +16,7 @@ from utils.mensagens_agendamento import montar_mensagem_confirmacao_sucesso
 from utils.interpretador_datas import FUSO_BR, agora_br_naive
 from services.excel_service import gerar_excel_agenda
 from services.notificacao_service import criar_notificacao_agendada
-from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario, listar_servicos_cadastrados
+from services.profissional_service import obter_profissional_para_evento, buscar_profissionais_por_servico, buscar_profissionais_disponiveis_no_horario, listar_servicos_cadastrados, listar_servicos_cadastrados_com_diagnostico
 from utils.intencao_utils import identificar_intencao, deve_ativar_fluxo_manual
 from utils.contexto_temporario import (
     salvar_contexto_temporario,  #  LEGADO (v1)
@@ -33,6 +33,7 @@ from services.firebase_service_async import (
     buscar_dados,
     salvar_dado_em_path,
     buscar_subcolecao,
+    buscar_subcolecao_com_diagnostico,
     salvar_dados,
     atualizar_dado_em_path,
     buscar_dado_em_path,
@@ -367,7 +368,8 @@ async def add_evento_por_voz(update: Update, context: ContextTypes.DEFAULT_TYPE,
         dono_id = await obter_id_dono(user_id)
 
         #  Recupera contexto e profissional alternativo (v2)
-        contexto = await carregar_contexto_temporario_v2(dono_id, user_id) or {}
+        cliente_id = f"tg:{user_id}"
+        contexto = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
         profissional = contexto.get("profissional")  # vem do contexto anterior
         alternativa = None
 
@@ -1228,7 +1230,40 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         # 2. Validar serviço (se fornecido)
         if servico:
-            servicos_cadastrados = await listar_servicos_cadastrados(dono_id)  # dono_id é tenant_id, definido na linha 630
+            # [P0.12-FIX] Usar dono_id (tenant_id) que já foi resolvido em linha 631
+            # Se dono_id não foi resolvido, carregar profissionais direto do tenant
+            if dono_id:
+                # dono_id é tenant_id — listar serviços direto sem resolver índice de atores
+                profissionais, erro = await buscar_subcolecao_com_diagnostico(f"Clientes/{dono_id}/Profissionais")
+                servicos_cadastrados = []
+                diagnostico = erro
+                if not erro:
+                    for dados in (profissionais or {}).values():
+                        for servico_prof in dados.get("servicos", []):
+                            if isinstance(servico_prof, str):
+                                servicos_cadastrados.append(servico_prof)
+                    servicos_cadastrados = sorted(list(set(servicos_cadastrados)))
+            else:
+                servicos_cadastrados = []
+                diagnostico = "Tenant não resolvido"
+            # [LOG_DEBUG] Remover após validação
+            # print(f"[P0.12-DIAG] servicos_cadastrados={repr(servicos_cadastrados)}", flush=True)
+
+            if diagnostico:
+                # Falha de leitura do catálogo: não é "serviço inexistente", é erro de infraestrutura
+                msg_erro = f"Não consegui carregar o catálogo de serviços no momento. Tente novamente."
+                print(f"[P0626_DIAGNOSTICO] Falha ao validar serviço {servico}: {diagnostico}", flush=True)
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_erro)
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
+                return True
+
+            # Catálogo lido com sucesso (pode estar vazio ou ter dados)
             def norm(x):
                 import unidecode
                 return unidecode.unidecode(str(x).strip().lower())
@@ -1244,7 +1279,7 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                         identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                     )
                     await enviar_mensagem_whatsapp(user_id, msg_erro, phone_number_id=phone_number_id_alt)
-                return True
+                return False  # [P0626-FIX] Validação rejeitou: não é sucesso
 
         # 3. Validar profissional para serviço (se ambos fornecidos)
         if profissional and servico:

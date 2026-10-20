@@ -1,4 +1,4 @@
-from services.classificador_conversa import normalizar_txt
+from services.classificador_conversa import normalizar_txt, extrair_servico_do_catalogo
 
 def interpretar_conversa_operacional(
     texto: str,
@@ -25,11 +25,12 @@ def interpretar_conversa_operacional(
 
     # [FIX P0.3.1] Detecta consulta de disponibilidade com padrão determinístico
     if _parece_consulta_disponibilidade(t):
+        servico_extraido = extrair_servico_do_catalogo(texto, servicos_catalogo)
         return {
             "intencao": "consulta_disponibilidade_servico",
             "objetivo": "consultar_disponibilidade_por_servico",
             "tipo_ajuste": None,
-            "entidades": {},
+            "entidades": {"servico": servico_extraido} if servico_extraido else {},
             "confianca": 85,
             "motivo": "padrão_consulta_determinístico",
         }

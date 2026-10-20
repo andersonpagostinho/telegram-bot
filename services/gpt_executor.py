@@ -224,19 +224,36 @@ async def executar_acao_gpt_resultado(update: Update, context: ContextTypes.DEFA
 
     Retorno normalizado:
     {
-        "ok": bool,           # True se sucesso, False se falha
+        "ok": bool,           # True se sucesso (evento persistido), False se falha
         "acao": str,          # Nome da ação executada
         "resultado": any,     # Resultado específico da ação
         "erro": str | None,   # Mensagem de erro se houver
         "tipo_erro": str | None  # Tipo/classe do erro
     }
+
+    [P0.10-FIX] Tratamento de dict:
+    - {"acao": None, "handled": True} = mensagem enviada mas evento NÃO criado → ok=False
+    - Nunca assume sucesso como default
     """
     resultado = await executar_acao_gpt(update, context, acao, dados, identidade=identidade)
 
-    # Se já é dict (exc block), garantir que tem chave "ok"
+    # Se já é dict (exc block ou conflito de confirmação)
     if isinstance(resultado, dict):
+        # [P0.10-FIX] Dict com "acao": None, "handled": True significa MENSAGEM ENVIADA MAS SEM PERSISTÊNCIA
+        # Não é sucesso de agendamento
+        if resultado.get("acao") is None and resultado.get("handled") is True:
+            return {
+                "ok": False,  # [P0.10-FIX] Evento NÃO foi criado
+                "acao": acao,
+                "resultado": resultado,
+                "erro": "confirmacao_pendente_ou_reenviada",
+                "tipo_erro": "evento_nao_persistido"
+            }
+
+        # Se já tem "ok", retornar normalizado
         if "ok" not in resultado:
-            resultado["ok"] = resultado.get("sucesso", True)
+            # Nunca assumir sucesso como default — exigir confirmação explícita
+            resultado["ok"] = resultado.get("sucesso", False)  # [P0.10-FIX] Default False
         return resultado
 
     # Se é bool, normalizar para dict
@@ -842,7 +859,8 @@ async def executar_acao_gpt(
                 dono_id = (dados or {}).get("tenant_id")
 
             # serviço: preferir contexto; se não existir, tenta inferir do texto/descrição
-            contexto_tmp = await carregar_contexto_temporario(user_id, tenant_id=dono_id) or {}
+            actor_id = identidade.actor_id if identidade else f"tg:{user_id}"
+            contexto_tmp = await carregar_contexto_temporario_v2(dono_id, actor_id) or {}
 
             # [DEBUG_INSTRUMENTACAO] Antes de extrair servico
             print(f"[DEBUG_SERVICO_CTX] INICIO_EXTRACAO", flush=True)
@@ -940,7 +958,7 @@ async def executar_acao_gpt(
             print(f"[DEBUG_ADD_EVENTO_PATH] RETORNO_ADD_EVENTO_POR_GPT", flush=True)
             print(f"[DEBUG_ADD_EVENTO_PATH] retorno={repr(resultado_add_evento)}", flush=True)
 
-            return True  # ✅ sempre "handled": add_evento_por_gpt já responde (sucesso OU conflito)
+            return resultado_add_evento  # [P0.9-FIX] Propaga retorno real (True=sucesso, False=falha)
 
         elif acao == "remover_tarefa":
             descricao = dados.get("descricao")

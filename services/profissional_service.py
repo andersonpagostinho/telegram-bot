@@ -1,6 +1,6 @@
 # services/profissional_service.py
 
-from services.firebase_service_async import buscar_subcolecao
+from services.firebase_service_async import buscar_subcolecao, buscar_subcolecao_com_diagnostico
 from services.identidade_service import obter_tenant_id
 from datetime import datetime, timedelta
 from services.event_service_async import evento_deve_entrar_na_agenda
@@ -229,7 +229,17 @@ def gerar_mensagem_profissionais_disponiveis(
 async def listar_servicos_cadastrados(user_id: str) -> list[str]:
     """Retorna a lista de todos os serviços oferecidos pelas profissionais."""
     tenant_id = await obter_tenant_id(user_id)
-    profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+    profissionais, erro = await buscar_subcolecao_com_diagnostico(f"Clientes/{tenant_id}/Profissionais")
+
+    if erro:
+        # Falha de leitura do Firestore: registrar erro e retornar vazio
+        print(f"[ERRO-SERVICOS] Falha ao carregar profissionais de {tenant_id}: {erro}")
+        return []
+
+    if not profissionais:
+        # Coleção vazia (não é erro): retornar vazio
+        print(f"[AVISO-SERVICOS] Nenhum profissional cadastrado para {tenant_id}")
+        return []
 
     servicos = set()
     for dados in profissionais.values():
@@ -238,6 +248,29 @@ async def listar_servicos_cadastrados(user_id: str) -> list[str]:
                 servicos.add(servico)
 
     return sorted(servicos)
+
+
+async def listar_servicos_cadastrados_com_diagnostico(user_id: str) -> tuple[list[str], str | None]:
+    """
+    Retorna (servicos, diagnostico) onde diagnostico é None se OK ou mensagem de erro se falhou.
+
+    Permite distinguir:
+    - ([], None) → nenhum serviço cadastrado (não é erro)
+    - ([], "PermissionError: ...") → falha de leitura (é erro)
+    """
+    tenant_id = await obter_tenant_id(user_id)
+    profissionais, erro = await buscar_subcolecao_com_diagnostico(f"Clientes/{tenant_id}/Profissionais")
+
+    if erro:
+        return ([], erro)
+
+    servicos = set()
+    for dados in profissionais.values():
+        for servico in dados.get("servicos", []):
+            if isinstance(servico, str):
+                servicos.add(servico)
+
+    return (sorted(servicos), None)
 
 
 async def obter_precos_servico(user_id: str, servico: str, profissional: str | None = None):

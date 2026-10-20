@@ -260,6 +260,50 @@ async def buscar_subcolecao(path: str):
         print(f"[ERRO] Erro ao buscar subcoleção '{path}': {e}")
         return {}
 
+# [P0-DIAGNOSTICO] Buscar subcoleção com diagnóstico de erro
+async def buscar_subcolecao_com_diagnostico(path: str) -> tuple[dict, str | None]:
+    """
+    Lê subcoleção ou documento do Firestore com distinção entre vazio e erro.
+
+    Retorna: (dados, diagnostico)
+    - ({}, None) → coleção/documento vazio ou não existe (sem erro)
+    - ({docs}, None) → documentos/dados lidos com sucesso
+    - ({}, "TipoErro: mensagem") → falha de leitura (erro técnico)
+
+    Uso: data, err = await buscar_subcolecao_com_diagnostico(path)
+         if err:
+             # Tratar erro de leitura
+         elif not data:
+             # Coleção vazia (não é erro)
+         else:
+             # Processar dados
+    """
+    try:
+        ref = get_ref_from_path(path)
+        partes = path.split("/")
+        resultados = {}
+
+        if len(partes) % 2 == 1:  # subcoleção
+            docs = ref.stream()
+            async for doc in docs:
+                data = doc.to_dict()
+                print(f"[DOC] Documento encontrado em {path}/{doc.id}: {data}")
+                resultados[doc.id] = data
+        else:  # documento
+            doc = await ref.get()
+            if doc.exists:
+                print(f"[DOC] Documento único em {path}: {doc.to_dict()}")
+                resultados = doc.to_dict()
+
+        return (resultados, None)  # Sucesso: vazio ou com dados
+
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e)[:100]  # Truncar para evitar mensagens longas
+        diagnostico = f"{error_type}: {error_msg}"
+        print(f"[ERRO-DIAG] Falha ao buscar '{path}': {diagnostico}")
+        return ({}, diagnostico)  # Erro técnico
+
 # [OK] Buscar tarefas do usuário
 async def buscar_tarefas_do_usuario(user_id: str):
     try:
