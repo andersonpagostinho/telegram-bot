@@ -7489,6 +7489,68 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # =====================================================
             # ✅ AGORA SIM → PODE CALCULAR DISPONIBILIDADE
             # =====================================================
+
+            # [FASE 3] Bifurcação: Consulta pura vs Agendamento com serviço
+            # Se objetivo é "descobrir_servico_para_consulta" E não há serviço novo,
+            # consultar ocupação SEM duração (FASE 2)
+            if (ctx.get("objetivo_conversacional") == "descobrir_servico_para_consulta"
+                and not servico_novo):
+
+                # Extrair hora para verificação
+                hora_para_verificar = hora_do_texto
+                if not hora_para_verificar and nova_data_hora and "T" in nova_data_hora:
+                    hora_para_verificar = nova_data_hora.split("T")[1][:5]
+
+                if prof_ctx and data_iso and hora_para_verificar:
+                    print(f"[P0.7.3_BIFURCACAO] CONSULTA PURA SEM SERVICO | prof={prof_ctx} data={data_iso} hora={hora_para_verificar}", flush=True)
+
+                    # FASE 2: Consultar ocupação sem duração
+                    ocupacao = await consultar_ocupacao_horario_exato(
+                        user_id=dono_id,
+                        data=data_iso,
+                        horario=hora_para_verificar,
+                        profissional=prof_ctx,
+                        tenant_id=dono_id
+                    )
+
+                    print(f"[P0.7.3_RESULTADO] ocupado={ocupacao.get('ocupado')} | evento={bool(ocupacao.get('evento'))}", flush=True)
+
+                    if ocupacao.get("ocupado"):
+                        # Profissional ocupada neste horário
+                        ctx["estado_fluxo"] = "consultando_alternativas"
+                        ctx["data_hora"] = nova_data_hora if nova_data_hora else f"{data_iso}T{hora_para_verificar}:00"
+                        ctx["data_hora_pendente"] = ctx["data_hora"]
+
+                        draft["data_hora"] = ctx["data_hora"]
+                        ctx["draft_agendamento"] = draft
+
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        mensagem = (
+                            f"A {prof_ctx} está ocupada às {hora_para_verificar} nesse dia. "
+                            "Qual serviço você gostaria de consultar?"
+                        )
+                        print(f"[P0.7.3_RESPOSTA] Profissional ocupada | mensagem={mensagem}", flush=True)
+                        return await _send_and_stop(context, user_id, mensagem)
+                    else:
+                        # Horário livre — não presumir duração, perguntar serviço
+                        ctx["estado_fluxo"] = "aguardando_servico"
+                        ctx["data_hora"] = nova_data_hora if nova_data_hora else f"{data_iso}T{hora_para_verificar}:00"
+                        ctx["data_hora_pendente"] = ctx["data_hora"]
+
+                        draft["data_hora"] = ctx["data_hora"]
+                        ctx["draft_agendamento"] = draft
+
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        mensagem = (
+                            f"A {prof_ctx} está livre às {hora_para_verificar} nesse dia 😊 "
+                            "Qual serviço você gostaria de agendar?"
+                        )
+                        print(f"[P0.7.3_RESPOSTA] Horário livre | mensagem={mensagem}", flush=True)
+                        return await _send_and_stop(context, user_id, mensagem)
+
+            # ✅ FLUXO NORMAL: Agendamento com serviço identificado
             duracao_ctx = estimar_duracao(servico_ctx)
 
             if not hora_preferida:
