@@ -5461,12 +5461,37 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             print(f" [P0.6.2_FALLBACK_ACEITO] Serviço={servicos_validos[0]}, intenção={interpretacao_gpt.get('intencao')}", flush=True)
                             # Continuar fluxo normal com novo contexto
                         else:
-                            # GPT retornou serviço inválido ou confiança baixa
-                            # Ao invés de descartar, solicitar esclarecimento
-                            print(f" [P0.6.2_FALLBACK_REJEITO] Confiança baixa ou serviço inválido", flush=True)
-                            print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
-                            resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
-                            return await _send_and_stop(context, user_id, resposta_esclarecimento)
+                            # [P0.7 FIX] Verificar se é CONSULTA sem serviço (esperado)
+                            # vs. AGENDAMENTO sem serviço válido (deve rejeitar)
+                            if interpretacao_gpt.get("intencao") == "consulta":
+                                # ✅ Consulta informacional sem serviço é VÁLIDA
+                                # Reutilizar infraestrutura de consulta_disponibilidade_aberta
+                                ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
+                                ctx["objetivo_conversacional"] = "descobrir_servico_para_consulta"
+                                ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+
+                                # Preservar entidades extraídas (data, hora, profissional)
+                                entidades = interpretacao_gpt.get("entidades", {})
+                                if entidades.get("data"):
+                                    ctx["data"] = entidades.get("data")
+                                if entidades.get("horario"):
+                                    ctx["horario"] = entidades.get("horario")
+                                if entidades.get("profissional"):
+                                    ctx["profissional"] = entidades.get("profissional")
+
+                                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                                print(f" [P0.7_CONSULTA_SEM_SERVICO] ACEITA | dados={{'data': {entidades.get('data')}, 'hora': {entidades.get('horario')}, 'prof': {entidades.get('profissional')}}}", flush=True)
+
+                                # Continuar fluxo normal — handlers de proximo_passo
+                                # já sabem como tratar consulta_disponibilidade_aberta
+                                # e perguntarão pelo serviço
+                            else:
+                                # GPT retornou AGENDAMENTO sem serviço válido ou confiança baixa
+                                # → Rejeitar e solicitar esclarecimento
+                                print(f" [P0.6.2_FALLBACK_REJEITO] Confiança baixa ou serviço inválido", flush=True)
+                                print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
+                                resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
+                                return await _send_and_stop(context, user_id, resposta_esclarecimento)
                     else:
                         # GPT também não conseguiu interpretar
                         print(f" [P0.6.2_FALLBACK_INDEFINIDA] GPT também retornou indefinida", flush=True)
