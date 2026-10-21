@@ -5168,6 +5168,19 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             return await _send_and_stop(context, user_id, resposta_texto)
 
     # =========================================================
+    # 🛡 GUARDRAIL P0.7.4: Preservar objetivo de consulta pura
+    # Se aguardando_servico com objetivo="descobrir_servico_para_consulta",
+    # não deixar reclassificar como "ajuste_incremental"
+    # =========================================================
+    estado_consulta_pura = (
+        ctx.get("estado_fluxo") == "aguardando_servico"
+        and ctx.get("objetivo_conversacional") == "descobrir_servico_para_consulta"
+    )
+
+    if estado_consulta_pura:
+        print(f" [P0.7.4_GUARDRAIL] Preservando objetivo de consulta: estado=aguardando_servico | objetivo=descobrir_servico_para_consulta", flush=True)
+
+    # =========================================================
     # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
     # 🔒 P0 FIX: Passar catalogo_servicos específico do tenant
     # =========================================================
@@ -5549,6 +5562,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     nova_intencao = class_intencao.get("intencao_conversacional")
     eh_lateral = nova_intencao in ("consulta_disponibilidade_servico", "consulta_disponibilidade_aberta")
 
+    # 🛡 P0.7.4: Se em consulta pura, preservar intenção original
+    em_consulta_pura_intencao = (
+        ctx.get("estado_fluxo") == "aguardando_servico"
+        and ctx.get("objetivo_conversacional") == "descobrir_servico_para_consulta"
+    )
+
     if (preservar_continuidade_data or preservar_confirmacao_pendente) and not eh_lateral:
         print(
             "[CONTEXTO PRESERVADO] fluxo crítico ativo — não sobrescrevendo intenção",
@@ -5556,6 +5575,17 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
 
         ctx["modo_conversa"] = modo_conversa
+
+    elif em_consulta_pura_intencao and class_intencao.get("intencao_conversacional") == "ajuste_incremental":
+        # 🛡 P0.7.4: Não deixar reclassificar consulta como ajuste
+        print(
+            "[P0.7.4_INTENCAO_PRESERVADA] Consulta pura — não reclassificar como ajuste_incremental",
+            flush=True
+        )
+        ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
+        ctx["confianca_intencao_conversacional"] = 90
+        ctx["modo_conversa"] = modo_conversa
+        ctx["tipo_ajuste_incremental"] = None
 
     else:
         ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
@@ -5582,6 +5612,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # CAMADA 1.1 — OBJETIVO CONVERSACIONAL
     # Transforma intenção em direção de fluxo, sem executar agenda
     # =========================================================
+    # 🛡 P0.7.4: Guardrail — preservar objetivo de consulta pura
+    # Se estado_fluxo="aguardando_servico" e objetivo já é "descobrir_servico_para_consulta",
+    # não deixar reclassificar como "ajuste_incremental"→"ajustar_draft_existente"
+    objetivo_original = ctx.get("objetivo_conversacional")
+    em_consulta_pura = (
+        ctx.get("estado_fluxo") == "aguardando_servico"
+        and objetivo_original == "descobrir_servico_para_consulta"
+    )
+
     if preservar_continuidade_data:
         intencao_conv = ctx.get("intencao_conversacional")
     else:
@@ -5599,7 +5638,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         objetivo_conversacional = "preparar_prechecagem_agendamento"
 
     elif intencao_conv == "ajuste_incremental":
-        objetivo_conversacional = "ajustar_draft_existente"
+        # 🛡 P0.7.4: Se estamos em consulta pura, NÃO muda para ajuste
+        if em_consulta_pura:
+            print(f"[P0.7.4_PRESERVACAO] Protegendo objetivo de consulta pura contra reclassificação de ajuste", flush=True)
+            objetivo_conversacional = "descobrir_servico_para_consulta"
+        else:
+            objetivo_conversacional = "ajustar_draft_existente"
 
     elif intencao_conv == "cancelamento":
         objetivo_conversacional = "avaliar_cancelamento"
