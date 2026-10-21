@@ -2183,8 +2183,7 @@ async def precheck_e_confirmacao_agendamento(
     valido = await validar_profissional_para_servico(
         dono_id=dono_id,
         profissional=prof,
-        servico=servico,
-        tenant_id=dono_id
+        servico=servico
     )
 
     print(f"[PRE-CHECK COMPATIBILIDADE] prof={prof} | servico={servico} | ok={valido.get('ok')}", flush=True)
