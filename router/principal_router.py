@@ -2819,6 +2819,16 @@ async def resolver_alteracao_draft_agendamento(
     if alteracao.get("tipo") == "horario":
         direcao = alteracao.get("direcao")
 
+        # GUARD P0.5: Verificar se data_hora é None antes de split (draft incompleto)
+        if not data_hora:
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Preciso que você me diga a data e hora do agendamento. Qual data você prefere?",
+                parse_mode=None
+            )
+
         data = data_hora.split("T")[0]
         hora_atual = data_hora.split("T")[1][:5]
         duracao = estimar_duracao(servico)
