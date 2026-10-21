@@ -127,8 +127,10 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
         # mas hora_fim deve permanecer preciso para cálculos de duração
 
         # ✅ ID idempotente por slot (evita duplicar ao confirmar/retentar)
+        # [FIX-P0.4] REMOVER hora_inicio do event_id para permitir UPDATE ao ajustar horário
+        # Problema: incluir hora_inicio causa novo evento quando hora muda (criar em vez de UPDATE)
         if not event_id:
-            base_id = f"{evento.get('cliente_id')}_{evento.get('profissional')}_{evento.get('data')}_{evento.get('hora_inicio')}"
+            base_id = f"{evento.get('cliente_id')}_{evento.get('profissional')}_{evento.get('data')}"
             event_id = base_id.replace(" ", "_").lower()
 
         evento.setdefault("criado_em", datetime.now().isoformat())

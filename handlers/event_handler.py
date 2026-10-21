@@ -1543,7 +1543,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             # [FIX-BLOQ-A] Reutilizar tenant_id já extraído com validação segura (linha 1153-1161)
             # Em vez de obter_id_dono() que pode retornar None
             id_dono_notif = tenant_id  # Usa tenant já validado: identidade > dados > dono_id
-            event_id = f"{cliente_id}_{profissional or 'pessoal'}_{evento_data.get('data')}_{evento_data.get('hora_inicio')}".replace(" ", "_").lower()
+            # [FIX-P0.4] REMOVER hora_inicio do event_id para permitir UPDATE ao ajustar horário
+            # Problema: incluir hora_inicio causa novo evento quando hora muda (criar em vez de UPDATE)
+            event_id = f"{cliente_id}_{profissional or 'pessoal'}_{evento_data.get('data')}".replace(" ", "_").lower()
 
             # Buscar profissional_user_id se profissional existe
             profissional_user_id = None

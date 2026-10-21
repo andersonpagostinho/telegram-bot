@@ -2962,6 +2962,16 @@ async def resolver_alteracao_draft_agendamento(
             ):
                 servico = servico_detectado
 
+        # GUARD P0.4: Verificar se data_hora é None antes de split (draft incompleto)
+        if not data_hora:
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            return await _send_and_stop(
+                context,
+                user_id,
+                "Preciso que você me diga a data e hora do agendamento. Qual data você prefere?",
+                parse_mode=None
+            )
+
         data = data_hora.split("T")[0]
         hora = data_hora.split("T")[1][:5]
         duracao = estimar_duracao(servico)
