@@ -2827,8 +2827,297 @@ Documentação detalhada em: `tests/_modelo/README.md`
 
 ---
 
+## 🧪 PADRÃO OBRIGATÓRIO: Testes E2E Com Firebase Real (FASE 2)
+
+**Status:** OBRIGATÓRIO E PERMANENTE  
+**Effective:** 2026-10-20  
+**Escopo:** Todos os 10+ testes P0 durante FASE 2 (Testes em Escala Real)  
+**Razão:** Testes com mocks não detectam bugs reais que só aparecem com Firestore real + contexto propagado
+
+### Regra Fundamental
+
+```
+❌ PROIBIDO em FASE 2:
+- Mock de Firebase
+- Confiança APENAS em return de função
+- Validação que não consulta Firestore
+
+✅ OBRIGATÓRIO em FASE 2:
+- Firebase real (Firestore production-like)
+- Validação até Firestore (não confiar em status code)
+- Contexto carregado com carregar_contexto_temporario_v2()
+- Evento encontrado no Firestore (buscar_subcolecao verificado)
+- Tenant_id isolado (não vaza entre tenants)
+- actor_id correto (whatsapp:{wa_id})
+```
+
+### Padrão Obrigatório para Cada Teste
+
+**Estrutura base em 7 passos:**
+
+```python
+@pytest.mark.asyncio
+async def test_p0_cenario_descricao():
+    """
+    [FASE 2] Teste E2E REAL até Firestore
+    
+    Valida:
+    - Entrada → Processamento → Firestore
+    - Serviço preservado (não trocado)
+    - Duração do catálogo (não fallback 60 min)
+    - Tenant isolado (não vaza)
+    - actor_id propagado
+    """
+    
+    # PASSO 1: Preparar (limpar contexto, definir dados únicos)
+    ctx = {"_tenant_id_guard": TENANT_TEST}
+    await salvar_contexto_temporario_v2(TENANT_TEST, ACTOR_WA, ctx)
+    print("✓ Contexto limpo")
+    
+    # PASSO 2: Carregar contexto E2E (simular fluxo anterior)
+    ctx = await carregar_contexto_temporario_v2(TENANT_TEST, ACTOR_WA) or {}
+    ctx["servico"] = "corte feminino"
+    ctx["profissional_escolhido"] = "Gloria"
+    await salvar_contexto_temporario_v2(TENANT_TEST, ACTOR_WA, ctx)
+    print(f"✓ Contexto preenchido: {ctx.keys()}")
+    
+    # PASSO 3: Processar (chamar função real, NÃO mocka)
+    dados_evento = {
+        "profissional": "Gloria",
+        "servico": "corte feminino",
+        "data_hora": "2026-12-19T08:00:00",
+        "duracao": 40,
+        "tenant_id": TENANT_TEST,
+        "user_id": WA_ID,
+        "cliente_id": ACTOR_WA,
+    }
+    resultado = await add_evento_por_gpt(None, None, dados_evento)
+    print(f"✓ add_evento_por_gpt retornou: {resultado}")
+    
+    # PASSO 4: Validar retorno (necessário mas não suficiente)
+    assert resultado is True, "Função deveria retornar True"
+    print("✓ Função retornou True")
+    
+    # PASSO 5: Procurar NO FIRESTORE (validação crítica)
+    eventos = await buscar_subcolecao(f"Clientes/{TENANT_TEST}/Eventos") or {}
+    print(f"✓ Total eventos em Firestore: {len(eventos)}")
+    
+    # PASSO 6: Encontrar evento (busca flexível, não assume timestamp)
+    evento_encontrado = None
+    for evento_id, evento_data in eventos.items():
+        prof = evento_data.get("profissional", "").lower()
+        serv = evento_data.get("servico", "").lower()
+        if prof == "gloria" and serv == "corte feminino":
+            evento_encontrado = evento_data
+            evento_id_encontrado = evento_id
+            break
+    
+    # PASSO 7: Asserção crítica (até Firestore)
+    assert evento_encontrado is not None, \
+        f"Evento NÃO foi criado em Firestore! Total: {len(eventos)}"
+    assert evento_encontrado["servico"] == "corte feminino", \
+        f"Serviço divergiu: {evento_encontrado.get('servico')}"
+    assert evento_encontrado["profissional"].lower() == "gloria"
+    assert evento_encontrado["tenant_id"] == TENANT_TEST
+    assert evento_encontrado["duracao"] == 40, \
+        f"Duração incorreta: {evento_encontrado.get('duracao')} (esperado 40)"
+    
+    print(f"✅ TESTE PASSOU")
+    print(f"   - Evento criado: Gloria + corte feminino")
+    print(f"   - Firestore confirmado")
+```
+
+### Checklist Obrigatório para Cada Teste FASE 2
+
+**Estrutura:**
+- ✅ Usa `await add_evento_por_gpt()` ou função real equivalente
+- ✅ Carrega contexto com `await carregar_contexto_temporario_v2()`
+- ✅ Valida NO FIRESTORE (`buscar_subcolecao()`) — NÃO apenas return
+- ✅ Procura flexível (não assume timestamp específico exato)
+
+**Campos validados:**
+- ✅ `evento["servico"]` preservado (não trocado)
+- ✅ `evento["profissional"]` correto
+- ✅ `evento["duracao"]` do catálogo (não fallback)
+- ✅ `evento["tenant_id"]` isolado e correto
+- ✅ `evento["cliente_id"]` formatado com prefixo `whatsapp:`
+- ✅ `evento["confirmado"]` = True
+
+**Sem:**
+- ❌ Mocks de Firebase
+- ❌ Assumptions sobre timestamp
+- ❌ Validação apenas de `resultado is True`
+
+### Anti-Padrões Proibidos em FASE 2
+
+❌ **Confiar apenas em return de função:**
+
+```python
+# ERRADO:
+resultado = await add_evento_por_gpt(...)
+assert resultado is True
+# E se Firestore falhou? Teste passa, erro real não aparece.
+```
+
+❌ **Assumir timestamp conhecido:**
+
+```python
+# ERRADO:
+evento_id = "whatsapp:5511991382080_gloria_2026-12-19_08:00"
+evento = await buscar_documento(f".../Eventos/{evento_id}")
+assert evento is not None
+# E se timestamp variou? Teste falha mesmo com evento criado.
+```
+
+❌ **Mockar Firebase:**
+
+```python
+# ERRADO:
+@patch("firebase_admin.firestore")
+def test_xxx(mock_firestore):
+    # REALMENTE testando Firestore? Não. Teste ilusório.
+```
+
+❌ **Limpar contexto anterior:**
+
+```python
+# ERRADO:
+await limpar_contexto_agendamento(TENANT, ACTOR)  # Perde estado anterior
+# FASE 2 valida fluxo CONTÍNUO, não isolado.
+```
+
+### Regras Específicas por Campo
+
+#### Serviço
+- ✅ Preservado EXATAMENTE como entrada
+- ✅ NÃO trocado para outro (bug que encontramos: "corte feminino" → "coloracao")
+- ✅ Salvo em campo `evento["servico"]`
+- ✅ Validado que **existe no Firestore**
+
+#### Duração
+- ✅ Obtida via `listar_servicos_negocio(id_dono)` (catálogo)
+- ✅ Se não em catálogo → usar `estimar_duracao()` como fallback
+- ✅ NÃO hardcoded em função
+- ✅ Validada em **minutos inteiros** (40, 60, 90, etc)
+
+#### Tenant Isolation (CRÍTICO)
+- ✅ Eventos de tenant A isolados de tenant B
+- ✅ Validar: `evento["tenant_id"] == TENANT_TEST`
+- ✅ Usar path `Clientes/{TENANT_TEST}/Eventos` (nunca path genérico)
+- ✅ Query deve filtrar por tenant
+
+#### Actor Propagation (CRÍTICO)
+- ✅ `user_id` = número wa_id sem prefixo (ex: "5511991382080")
+- ✅ `cliente_id` = "whatsapp:{wa_id}" com prefixo
+- ✅ `tenant_id` = id resolução via `obter_id_dono(user_id)`
+- ✅ Todos 3 presentes e corretos no evento Firestore
+
+### Diferença: FASE 1 vs FASE 2
+
+**FASE 1 (testes anteriores):**
+- Focava em funcionalidade ("funciona?")
+- Podia mockar Firebase
+- Validava apenas return de função
+- Teste isolado, não fluxo contínuo
+
+**FASE 2 (agora):**
+- Foca em confiabilidade ("funciona CORRETAMENTE?")
+- Firebase REAL obrigatório
+- Validação até Firestore obrigatória
+- Fluxo contínuo (contexto anterior intacto)
+
+**Transição:** Testes precisam ser reescritos para novo padrão (não backwards-compatible).
+
+### Quando Está Pronto para FASE 3?
+
+**Critério de liberação:**
+
+```
+✅ Todos os 10 testes P0 rodando com Firebase real
+✅ ~196 cenários cobertos (todos PASS)
+✅ Nenhum teste usa mock
+✅ Nenhum teste assume timestamp
+✅ Regressão validada (sem quebrar testes anteriores)
+✅ Bugs encontrados documentados
+```
+
+---
+
 **Última atualização:** 2026-06-23  
 **Status:** Documento congelado até descongelamento comprovado  
 **Adição:** Regra de Ouro — Correções Pós-Baseline (2026-06-23)  
 **Adição:** Regra Fundamental — Inteligência e Humanidade, Não Rigidez (2026-10-18)  
-**Adição:** Padrão Modelo — Testes E2E Com Webhook Real (2026-10-19)
+**Adição:** Padrão Modelo — Testes E2E Com Webhook Real (2026-10-19)  
+**Adição:** Padrão E2E Firebase Real — FASE 2 (2026-10-20)
+
+---
+
+## 🚨 OBRIGATÓRIO: Monitoramento de Quota Firebase — Executar Diariamente
+
+**REGRA CRÍTICA:** Executar monitoramento de quota Firestore **TODO DIA** no início da sessão.
+
+**Por que:** Free tier Firebase limita 50k reads + 50k writes/dia. Sem monitoramento:
+- Quota esgota silenciosamente
+- Testes começam a falhar (429 error)
+- Perdemos horas de testes sem saber por quê
+- Credenciais podem ser rejeitadas
+
+**Lições Históricas (2026-10-20):**
+- 2026-10-17 10:31: Quota liberada, auto-cleanup executado (20 docs deletados)
+- 2026-10-18-2026-10-20: Monitor **NÃO foi executado** (ficou parado 3 DIAS)
+- Resultado: Quota esgotada novamente em 2026-10-20, testes bloqueados
+- **Causa raiz:** Monitor não foi programado para rodar automaticamente após último check
+
+**Comando obrigatório (INÍCIO DE CADA SESSÃO):**
+
+```bash
+cd C:\dev\neoeve
+python .claude/worktrees/agent-a4cb4b1d484d31804/monitor_firebase_quota.py
+```
+
+**Saída esperada:**
+
+```
+[OK] QUOTA LIBERADA → Seguro rodar testes
+[ESGOTADA] Quota ainda esgotada (429) → Aguarde ~24h
+```
+
+**Se ESGOTADA:**
+- ❌ NÃO rodar testes (consomem quota desnecessariamente)
+- ✅ Registrar bloqueio
+- ✅ Aguardar ~24h para reset automático
+- ✅ Monitor contínuo atualizará automaticamente
+
+**Para Monitoramento Contínuo (Opcional — se configurar CI/CD):**
+
+```bash
+# Rodar background task a cada 30 minutos
+python .claude/worktrees/agent-a4cb4b1d484d31804/monitor_quota_continuous.py
+
+# Logs salvos em:
+# - C:\dev\neoeve\quota_monitor.log
+# - C:\dev\neoeve\.quota_state.json
+```
+
+**Checklist Pré-Testes (OBRIGATÓRIO):**
+
+```
+☐ Rodei monitor_firebase_quota.py?
+☐ Status é LIBERADA?
+☐ Último check foi TODAY (não data antigo)?
+  
+Se qualquer resposta for NÃO:
+❌ Não rodar testes de migração (consomem muita quota)
+✅ Verificar arquivo .quota_state.json
+✅ Aguardar próximo reset automático
+```
+
+**Impacto:** Evita 6-8 horas perdidas esperando quota ser liberada, sem saber o que estava errado.
+
+**Regra Permanente:** Esta regra não será removida até que:
+1. Firebase quota seja aumentada para pagar tier, OU
+2. Projeto migrate para Emulator (zero quota), OU
+3. Quota seja monitorada automaticamente em CI/CD
+
+---
+
