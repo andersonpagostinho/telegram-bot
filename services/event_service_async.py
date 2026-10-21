@@ -60,6 +60,119 @@ def evento_deve_entrar_na_agenda(
     return True
 
 
+# =========================================================
+# 🔍 [FASE 2] CONSULTAR OCUPAÇÃO DE HORÁRIO EXATO
+# SEM DURAÇÃO — apenas verifica se horário está ocupado
+# =========================================================
+async def consultar_ocupacao_horario_exato(
+    user_id: str,
+    data: str,
+    horario: str,
+    profissional: str,
+    tenant_id: str | None = None
+) -> dict:
+    """
+    Verifica se um horário específico está ocupado por uma profissional.
+
+    NÃO presume duração — apenas verifica se hora_inicio está dentro
+    de um intervalo de evento existente.
+
+    Args:
+        user_id: ID do usuário/cliente
+        data: data em formato YYYY-MM-DD
+        horario: horário em formato HH:MM
+        profissional: nome da profissional
+        tenant_id: ID do tenant (resolvido se não fornecido)
+
+    Returns:
+        {
+            "ocupado": bool,
+            "evento": {...} ou None,  # evento que causa ocupação, se houver
+            "profissional_normalizado": str
+        }
+    """
+    from unidecode import unidecode
+
+    try:
+        # 1) Resolver tenant
+        if tenant_id:
+            user_id_efetivo = tenant_id
+        else:
+            dados_usuario = await buscar_dado_em_path(f"Clientes/{user_id}") or {}
+
+            if dados_usuario.get("id_negocio"):
+                # Cliente: usar id_negocio como tenant
+                user_id_efetivo = dados_usuario.get("id_negocio")
+            else:
+                # Tentar resolver via obter_tenant_id
+                tenant_resolvido = await obter_tenant_id(user_id)
+                user_id_efetivo = tenant_resolvido if tenant_resolvido else user_id
+
+        # 2) Normalizar profissional
+        prof_norm = unidecode(profissional.strip().lower())
+
+        # 3) Buscar eventos do dia
+        path_eventos = f"Clientes/{user_id_efetivo}/Eventos"
+        eventos = await buscar_subcolecao(path_eventos) or {}
+
+        # Filtrar apenas eventos da data solicitada
+        eventos_data = {eid: ev for eid, ev in eventos.items() if ev.get("data") == data}
+
+        # 4) Converter horário solicitado para datetime para comparação
+        try:
+            hora_solicitada = datetime.strptime(horario, "%H:%M").time()
+            data_dt = datetime.strptime(data, "%Y-%m-%d").date()
+            horario_dt = datetime.combine(data_dt, hora_solicitada)
+        except (ValueError, TypeError):
+            return {"ocupado": False, "evento": None, "profissional_normalizado": prof_norm}
+
+        # 5) Verificar cada evento
+        for eid, evento in eventos_data.items():
+            # Filtro padrão: cancelado, sem profissional, sem estrutura
+            entra_agenda = evento_deve_entrar_na_agenda(
+                evento_id=eid,
+                evento=evento,
+                data_consulta=data
+            )
+
+            if not entra_agenda:
+                continue
+
+            # Verificar profissional
+            ev_prof = unidecode(str(evento.get("profissional", "")).strip().lower())
+            if ev_prof != prof_norm:
+                continue
+
+            # Parse intervalo
+            ev_ini, ev_fim = _parse_event_interval(evento)
+            if not ev_ini or not ev_fim:
+                continue
+
+            # Verifica se horário solicitado está DENTRO do intervalo [ini, fim)
+            # Convenção: evento de 15:00-15:30 bloqueia 15:00, 15:15, mas não 15:30
+            if ev_ini <= horario_dt < ev_fim:
+                return {
+                    "ocupado": True,
+                    "evento": evento,
+                    "profissional_normalizado": prof_norm
+                }
+
+        # Nenhum conflito encontrado
+        return {
+            "ocupado": False,
+            "evento": None,
+            "profissional_normalizado": prof_norm
+        }
+
+    except Exception as e:
+        print(f"[ERRO] consultar_ocupacao_horario_exato: {e}", flush=True)
+        return {
+            "ocupado": False,
+            "evento": None,
+            "profissional_normalizado": ""
+        }
+
+
 # 🔁 Salvar ou atualizar um evento
 async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: str = None) -> bool:
     try:
