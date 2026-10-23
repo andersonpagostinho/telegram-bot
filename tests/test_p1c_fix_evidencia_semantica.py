@@ -96,7 +96,7 @@ async def test_p1c_t1_entrada_social_ola(setup_sessao_profissional_nao_atende):
 @pytest.mark.asyncio
 async def test_p1c_t2_entrada_social_bom_dia(setup_sessao_profissional_nao_atende):
     """T2: "bom dia" — entrada social"""
-    setup = await setup_sessao_profissional_nao_atende
+    setup = setup_sessao_profissional_nao_atende
 
     resultado = await roteador_principal(
         user_id=setup["cliente_id"],
@@ -117,22 +117,22 @@ async def test_p1c_t2_entrada_social_bom_dia(setup_sessao_profissional_nao_atend
 @pytest.mark.asyncio
 async def test_p1c_t3_retomada_profissional_bruna(setup_sessao_profissional_nao_atende):
     """T3: "Bruna" — retomada com profissional válido"""
-    setup = await setup_sessao_profissional_nao_atende
+    setup = setup_sessao_profissional_nao_atende
 
     # Primeira mensagem: "ola" (remove bloqueador)
     await roteador_principal(
-        texto="ola",
+        mensagem="ola",
         user_id=setup["cliente_id"],
-        context=None,
-        custom_context=setup["custom_context"]
+        tenant_id=setup["dono_id"],
+        context=None
     )
 
     # Segunda mensagem: "Bruna" (retomada)
     resultado = await roteador_principal(
-        texto="Bruna",
+        mensagem="Bruna",
         user_id=setup["cliente_id"],
-        context=None,
-        custom_context=setup["custom_context"]
+        tenant_id=setup["dono_id"],
+        context=None
     )
 
     # Deve processar normalmente (SLOT_PROFISSIONAL deveria preencher)
@@ -155,13 +155,13 @@ async def test_p1c_t3_retomada_profissional_bruna(setup_sessao_profissional_nao_
 @pytest.mark.asyncio
 async def test_p1c_t4_retomada_com_qualificacao(setup_sessao_profissional_nao_atende):
     """T4: "pode ser Bruna" — retomada com ajuste"""
-    setup = await setup_sessao_profissional_nao_atende
+    setup = setup_sessao_profissional_nao_atende
 
     resultado = await roteador_principal(
-        texto="pode ser Bruna",
+        mensagem="pode ser Bruna",
         user_id=setup["cliente_id"],
-        context=None,
-        custom_context=setup["custom_context"]
+        tenant_id=setup["dono_id"],
+        context=None
     )
 
     # Deve reconhecer como ajuste, não como entrada indefinida
@@ -176,13 +176,13 @@ async def test_p1c_t4_retomada_com_qualificacao(setup_sessao_profissional_nao_at
 @pytest.mark.asyncio
 async def test_p1c_t5_retomada_explicita(setup_sessao_profissional_nao_atende):
     """T5: "quero com Bruna" — retomada explícita"""
-    setup = await setup_sessao_profissional_nao_atende
+    setup = setup_sessao_profissional_nao_atende
 
     resultado = await roteador_principal(
-        texto="quero com Bruna",
+        mensagem="quero com Bruna",
         user_id=setup["cliente_id"],
-        context=None,
-        custom_context=setup["custom_context"]
+        tenant_id=setup["dono_id"],
+        context=None
     )
 
     assert resultado.get("handled") == True
@@ -196,13 +196,13 @@ async def test_p1c_t5_retomada_explicita(setup_sessao_profissional_nao_atende):
 @pytest.mark.asyncio
 async def test_p1c_t6_ajuste_horario(setup_sessao_profissional_nao_atende):
     """T6: "quero outro horário" — ajuste sem ser social"""
-    setup = await setup_sessao_profissional_nao_atende
+    setup = setup_sessao_profissional_nao_atende
 
     resultado = await roteador_principal(
-        texto="quero outro horário",
+        mensagem="quero outro horário",
         user_id=setup["cliente_id"],
-        context=None,
-        custom_context=setup["custom_context"]
+        tenant_id=setup["dono_id"],
+        context=None
     )
 
     # Deve ser tratado como ajuste, não como entrada indefinida
@@ -219,13 +219,13 @@ async def test_p1c_t6_ajuste_horario(setup_sessao_profissional_nao_atende):
 @pytest.mark.asyncio
 async def test_p1c_t7_ajuste_hora_futura(setup_sessao_profissional_nao_atende):
     """T7: "pode ser amanhã às 10" — ajuste com hora"""
-    setup = await setup_sessao_profissional_nao_atende
+    setup = setup_sessao_profissional_nao_atende
 
     resultado = await roteador_principal(
-        texto="pode ser amanhã às 10",
+        mensagem="pode ser amanhã às 10",
         user_id=setup["cliente_id"],
-        context=None,
-        custom_context=setup["custom_context"]
+        tenant_id=setup["dono_id"],
+        context=None
     )
 
     assert resultado.get("handled") == True

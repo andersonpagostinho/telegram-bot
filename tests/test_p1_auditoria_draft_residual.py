@@ -65,13 +65,10 @@ async def test_p1_draft_residual_apos_profissional_nao_atende():
 
     contexto_msg1 = None
     resultado_msg1 = await roteador_principal(
-        texto="quero corte para amanha as 9 com carla",
+        mensagem="quero corte para amanha as 9 com carla",
         user_id=cliente_id,
-        context=contexto_msg1,
-        custom_context={
-            "dono_id": dono_id,
-            "cliente_id": cliente_id
-        }
+        tenant_id=dono_id,
+        context=contexto_msg1
     )
 
     print(f"[RESPOSTA] {resultado_msg1.get('resposta', 'N/A')[:100]}...\n")
@@ -98,13 +95,10 @@ async def test_p1_draft_residual_apos_profissional_nao_atende():
     contexto_msg2 = await buscar_dado_em_path(path)
 
     resultado_msg2 = await roteador_principal(
-        texto="ola",
+        mensagem="ola",
         user_id=cliente_id,
-        context=contexto_msg2,
-        custom_context={
-            "dono_id": dono_id,
-            "cliente_id": cliente_id
-        }
+        tenant_id=dono_id,
+        context=contexto_msg2
     )
 
     print(f"[RESPOSTA] {resultado_msg2.get('resposta', 'N/A')[:100]}...\n")

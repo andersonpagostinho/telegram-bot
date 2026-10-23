@@ -4382,6 +4382,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 cliente_id = cliente_id_sem_prefixo
                 print(f"[P0.10-COMPAT] cliente_id revertido para path antigo: {cliente_id}", flush=True)
 
+    # [P1-C DEBUG] Estado inicial após carregar contexto
+    print(
+        f" [P1-C DEBUG INICIAL] estado_fluxo={ctx.get('estado_fluxo')} | motivo_estado={ctx.get('motivo_estado')} | intencao={ctx.get('intencao_conversacional')}",
+        flush=True
+    )
+
     # ➕ [TIMEOUT-RULE] VALIDAR EXPIRAÇÃO DE SESSÃO (ANTES de processar fluxo antigo)
     # CRÍTICO: fazer ANTES de modo_escolha_horario, sugestões, draft, confirmação, etc
     resultado_timeout = await _validar_expiração_sessao(
@@ -4775,6 +4781,37 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     })
 
     # =========================================================
+    # 🔒 P1-C EARLY EXIT: Entrada indefinida → responder "não entendi"
+    # Evita que entrada social seja processada como tentativa de agendamento
+    # =========================================================
+    print(
+        f" [P1-C_EARLY_EXIT_CHECK] intencao={ctx.get('intencao_conversacional')} | estado={ctx.get('estado_fluxo')}",
+        flush=True
+    )
+    if ctx.get("intencao_conversacional") == "indefinida" and ctx.get("estado_fluxo") in ("aguardando_profissional", "aguardando_servico", "agendando"):
+        print(
+            f" [P1-C_EARLY_EXIT] Entrada indefinida em estado de agendamento, respondendo 'não entendi'",
+            flush=True
+        )
+        # Limpar bloqueador se houver
+        if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
+            print(f" [P1-C_CLEANUP_IN_EXIT] Limpando motivo_estado", flush=True)
+            ctx.pop("motivo_estado", None)
+            ctx.pop("profissional_rejeitado", None)
+            # Persistir exclusão com DELETE_FIELD (não apenas remover de memória)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, {
+                **ctx,
+                "motivo_estado": firestore.DELETE_FIELD,
+                "profissional_rejeitado": firestore.DELETE_FIELD,
+            })
+        else:
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+        resposta_nao_entendi = "Desculpe, não entendi. Pode reformular?"
+        print(f" [P1-C_AFTER_SAVE] salvou contexto", flush=True)
+        return await _send_and_stop(context, user_id, resposta_nao_entendi)
+
+    # =========================================================
     # 🔥 PATCH P0.5 V3: Detectar novo agendamento via semântica + comparação
     # 🔥 CRÍTICO: Evitar que usuário fique preso em estado "profissional_nao_atende"
     # 🔥 NOVO: Verificar se é reiteration vs novo agendamento antes de limpar draft
@@ -4814,6 +4851,35 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx.pop("tipo_ajuste_incremental", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             print(f"[PATCH_P0.5 V3] Estado anterior limpo, novo agendamento iniciado", flush=True)
+
+    # =========================================================
+    # 🔒 P1-C: Entrada indefinida com bloqueador profissional_nao_atende
+    # Limpar bloqueador para permitir fluxo normal processar "ola", "bom dia", etc.
+    # =========================================================
+    print(
+        f" [P1-C_BEFORE_CHECK] estado={ctx.get('estado_fluxo')} | motivo={ctx.get('motivo_estado')} | intencao={ctx.get('intencao_conversacional')} | confirmacao_ativa={eh_confirmacao_pendente_ativa(ctx)}",
+        flush=True
+    )
+    if (
+        ctx.get("motivo_estado") == "profissional_nao_atende_servico"
+        and ctx.get("intencao_conversacional") == "indefinida"
+        and not eh_confirmacao_pendente_ativa(ctx)
+    ):
+        print(
+            f" [P1-C_CLEANUP_AWAITING_PROF] Removendo bloqueador profissional_nao_atende em estado indefinido",
+            flush=True
+        )
+        ctx.pop("motivo_estado", None)
+        ctx.pop("profissional_rejeitado", None)
+        # Não remover profissionais_validos — pode ser útil se usuário seleciona depois
+        # NÃO resetar estado_fluxo — deixar em aguardando_profissional para que entrada indefinida
+        # seja respeitada pelos blocos subsequentes
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+        # Deixar continuar para fluxo normal processar entrada indefinida
+    print(
+        f" [P1-C_AFTER_CHECK] estado={ctx.get('estado_fluxo')} | motivo={ctx.get('motivo_estado')}",
+        flush=True
+    )
 
     # =========================================================
     # 🔥 PATCH P0: Handler para "sim/não" após profissional inválido
@@ -7181,12 +7247,17 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             f" [CONFIRMACAO_PENDENTE] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
             flush=True
         )
-        alteracao_draft = await detectar_alteracao_draft_agendamento(
-            texto_usuario=texto_usuario,
-            ctx=ctx,
-            dono_id=dono_id,
-            cliente_id=cliente_id
-        )
+        # 🔒 P1-C GUARD: Não processar como alteração se entrada é indefinida
+        # Evita "ola" ser interpretado como mudança de serviço
+        if ctx.get("intencao_conversacional") == "indefinida":
+            alteracao_draft = None
+        else:
+            alteracao_draft = await detectar_alteracao_draft_agendamento(
+                texto_usuario=texto_usuario,
+                ctx=ctx,
+                dono_id=dono_id,
+                cliente_id=cliente_id
+            )
 
         print(
             f" [CONFIRMACAO_PENDENTE_DETECTADO] tipo={alteracao_draft.get('tipo') if alteracao_draft else None}",
@@ -7263,24 +7334,47 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                 # NÃO fazer return — deixar continuar para processar nova consulta
             else:
-                print(
-                    f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
-                    flush=True
-                )
+                # 🔒 P1-C GUARD: Não reiterar confirmação se entrada é indefinida
+                # Entradas sociais/indefinidas devem sair de confirmacao_pendente
+                if ctx.get("intencao_conversacional") == "indefinida":
+                    print(
+                        f" [CONFIRMACAO_PENDENTE_INDEFINIDA_EXIT] Entrada indefinida, saindo de confirmacao_pendente",
+                        flush=True
+                    )
+                    ctx["aguardando_confirmacao_agendamento"] = False
 
-                draft = ctx.get("draft_agendamento") or {}
-                servico = draft.get("servico") or ctx.get("servico")
-                prof = draft.get("profissional") or ctx.get("profissional_escolhido")
-                data_hora = draft.get("data_hora") or ctx.get("data_hora")
+                    # 🔒 P1-C FIX: Limpar bloqueador profissional_nao_atende quando entrada indefinida
+                    if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
+                        print(
+                            f" [P1-C_CLEANUP] Removendo bloqueador profissional_nao_atende_servico",
+                            flush=True
+                        )
+                        ctx.pop("motivo_estado", None)
+                        ctx.pop("profissional_rejeitado", None)
+                        # Transicionar estado para idle (não mais aguardando profissional)
+                        ctx["estado_fluxo"] = "idle"
 
-                msg_confirmacao = (
-                    f"Só confirmando 😊\n\n"
-                    f"Você quer agendar seu *{servico}* com a *{prof}* "
-                    f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
-                    f"Responda *sim* para confirmar o agendamento."
-                )
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                    # Deixar continuar para fluxo normal processar "ola"
+                else:
+                    print(
+                        f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
+                        flush=True
+                    )
 
-                return await _send_and_stop(context, user_id, msg_confirmacao)
+                    draft = ctx.get("draft_agendamento") or {}
+                    servico = draft.get("servico") or ctx.get("servico")
+                    prof = draft.get("profissional") or ctx.get("profissional_escolhido")
+                    data_hora = draft.get("data_hora") or ctx.get("data_hora")
+
+                    msg_confirmacao = (
+                        f"Só confirmando 😊\n\n"
+                        f"Você quer agendar seu *{servico}* com a *{prof}* "
+                        f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
+                        f"Responda *sim* para confirmar o agendamento."
+                    )
+
+                    return await _send_and_stop(context, user_id, msg_confirmacao)
     else:
         print(
             f" [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
@@ -9806,8 +9900,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     # =========================================================
     # ✅ (C) Bloqueio de data no passado -> pergunta amanhã mesmo horário
+    # 🔒 P1-C GUARD: Não processar horário passado se entrada é indefinida
     # =========================================================
-    if ctx.get("data_hora") and not ctx.get("data_sem_hora"):
+    if ctx.get("data_hora") and not ctx.get("data_sem_hora") and ctx.get("intencao_conversacional") != "indefinida":
         dt_naive_existente = _dt_from_iso_naive(ctx["data_hora"])
         if dt_naive_existente and dt_naive_existente <= _agora_br_naive():
             return await _perguntar_amanha_mesmo_horario_e_bloquear(ctx["data_hora"])
