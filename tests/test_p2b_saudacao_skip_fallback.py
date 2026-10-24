@@ -71,23 +71,37 @@ async def test_p2b_operacional_executa_fallback(firebase_config):
     REGRA DE OURO: Valida que operacional (confirmacao, dados, etc)
     executa fallback normalmente.
 
+    FIX Opção A: Usar estrutura correta de confirmação
+    - draft_agendamento é para NOVO agendamento
+    - dados_confirmacao_agendamento é para CONFIRMAÇÃO de agendamento existente
+
     1. Salva contexto com intencao_conversacional="confirmacao"
-    2. Processa "sim" (operacional)
-    3. Valida Firestore persistiu estado
+    2. Usa dados_confirmacao_agendamento (estrutura correta)
+    3. Processa "sim" (operacional)
+    4. Valida Firestore: intencao reclassificada para confirmacao_agendamento
     """
     tenant_id = firebase_config["tenant_id"]
     actor_id = "whatsapp:5511991382081"  # Actor diferente
     path = f"Clientes/{tenant_id}/Sessoes/{actor_id}"
 
-    # 1. Salvar contexto operacional
+    # 1. Salvar contexto operacional com estrutura CORRETA de confirmação
     ctx_inicial = {
         "intencao_conversacional": "confirmacao",
         "estado_fluxo": "aguardando_confirmacao",
-        "draft_agendamento": {"servico": "corte", "profissional": "Bruna"},
+        "aguardando_confirmacao_agendamento": True,
+        # FIX: Usar dados_confirmacao_agendamento (não draft_agendamento)
+        "dados_confirmacao_agendamento": {
+            "profissional": "Bruna",
+            "servico": "corte feminino",
+            "data_hora": "2026-10-25T10:00:00",
+            "duracao": 40,
+            "descricao": "Corte feminino com Bruna",
+        },
     }
     await salvar_dado_em_path(path, ctx_inicial)
+    print("[T2 SETUP] Contexto confirmacao com dados_confirmacao_agendamento salvo")
 
-    # 2. Processar "sim"
+    # 2. Processar "sim" (confirmação)
     from router.principal_router import roteador_principal
     resultado = await roteador_principal(
         user_id=actor_id,
@@ -101,12 +115,12 @@ async def test_p2b_operacional_executa_fallback(firebase_config):
     assert doc_final is not None, "Sessao operacional nao foi persistida"
 
     intencao_final = doc_final.get("intencao_conversacional")
-    # Contrato Opção B: intencao pode ser reclassificada de "confirmacao"
-    # para "confirmacao_agendamento" (ambas válidas, Lote 3B aplica reclassificação)
+    # Contrato: intencao pode ser reclassificada de "confirmacao"
+    # para "confirmacao_agendamento" (ambas válidas após processar "sim")
     assert intencao_final in ["confirmacao", "confirmacao_agendamento"], \
         f"FALHA P2B T2: Intencao deveria ser confirmacao ou confirmacao_agendamento, mas é {intencao_final}"
 
-    print("[PASS P2B T2] Operacional — Intencao reclassificada para {intencao_final} (Opção B)")
+    print(f"[PASS P2B T2] Operacional — Intencao={intencao_final} (estrutura corrigida) ✅")
 
 
 async def test_p2b_nao_saudacao_nao_indefinida_executa_fallback(firebase_config):
