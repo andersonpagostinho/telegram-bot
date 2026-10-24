@@ -1,79 +1,123 @@
 """
-P2A: Bloquear "ola" indefinida em eh_aceite_de_acao_pendente()
+P2A E2E: Guard bloqueia entrada indefinida em eh_aceite_de_acao_pendente()
+
+REGRA DE OURO: Valida até Firestore (não apenas lógica em memória)
 
 Bug corrigido: "ola" com intencao_conversacional="indefinida" não deveria
-ser tratado como aceite de ação pendente. A função estava retornando True
-apenas porque:
-- ctx["ultima_acao"] existia
-- mensagem era curta
-- não era negativa
-- sem hora
+ser tratado como aceite de ação pendente. Guard bloqueia quando intencao
+é indefinida, permitindo apenas operacional (confirmacao, dados, etc).
 
-Sem verificar que "ola" indefinida = conversação social, não confirmação.
-
-Resultado: "ola" era roteado para executar_confirmacao_generica(), que
-retornava erro "Não encontrei nenhuma ação recente para confirmar".
-
-Correção: Adicionar guard em eh_aceite_de_acao_pendente() para bloquear
-quando intencao_conversacional == "indefinida".
+Validação:
+T1: "ola" indefinida → resposta "não entendi", não erro "ação não encontrada"
+T2: "sim" operacional → processado normalmente (não bloqueado)
 """
 
+import pytest
+import pytest_asyncio
+from services.firebase_service_async import salvar_dado_em_path, buscar_dado_em_path
+from router.principal_router import roteador_principal
 
-def test_eh_aceite_acao_pendente_bloqueia_indefinida():
+
+@pytest_asyncio.fixture
+async def firebase_config():
+    """Config para testes com Firebase real"""
+    return {
+        "tenant_id": "7394370553",
+        "actor_id_t1": "whatsapp:5511991382090",  # T1: indefinida
+        "actor_id_t2": "whatsapp:5511991382091",  # T2: operacional
+    }
+
+
+pytestmark = pytest.mark.asyncio
+
+
+async def test_eh_aceite_acao_pendente_bloqueia_indefinida(firebase_config):
     """
-    Simula: eh_aceite_de_acao_pendente("ola", ctx)
+    E2E REGRA DE OURO: Guard bloqueia "ola" indefinida em eh_aceite_de_acao_pendente()
 
-    Cenário:
-    - txt = "ola"
-    - ctx["ultima_acao"] = "contexto_limpo"
-    - ctx["intencao_conversacional"] = "indefinida"
-
-    Esperado: Retorna False (não é aceite)
+    1. Salva contexto com intencao_conversacional="indefinida"
+    2. Processa "ola" pelo roteador
+    3. Valida que resposta NÃO é erro "Não encontrei ação recente"
+    4. Valida Firestore: intencao permanece indefinida
     """
-    # Simulando a lógica do guard
-    txt = "ola"
-    ctx = {
-        "ultima_acao": "contexto_limpo",
+    tenant_id = firebase_config["tenant_id"]
+    actor_id = firebase_config["actor_id_t1"]
+    path = f"Clientes/{tenant_id}/Sessoes/{actor_id}"
+
+    # 1. Salvar contexto indefinido com ação pendente
+    ctx_inicial = {
         "intencao_conversacional": "indefinida",
         "estado_fluxo": "aguardando_profissional",
-        "tem_draft": True,
+        "ultima_acao": "contexto_limpo",
+        "draft_agendamento": {"servico": "corte"},
     }
+    await salvar_dado_em_path(path, ctx_inicial)
+    print("[T1 SETUP] Contexto indefinido salvo em Firestore")
 
-    # Guard check (como está em eh_aceite_de_acao_pendente linha 3289)
-    if ctx.get("intencao_conversacional") == "indefinida":
-        aceite = False
-    else:
-        aceite = True  # simulação simplificada do resto da função
+    # 2. Processar "ola" (entrada indefinida)
+    resultado = await roteador_principal(
+        user_id=actor_id,
+        mensagem="ola",
+        tenant_id=tenant_id,
+        context=None
+    )
 
-    # Validação
-    assert aceite is False, \
-        "eh_aceite_de_acao_pendente deveria bloquear quando intencao='indefinida'"
+    # 3. Validar resposta: NÃO deve ser erro "ação não encontrada"
+    resposta = resultado.get("resposta", "")
+    assert "Não encontrei nenhuma ação recente" not in resposta, \
+        "FALHA T1: Guard deveria bloquear, resposta não deveria ser erro de ação"
+    print(f"[T1 RESPOSTA] {resposta[:80]}... (sem erro de ação)")
+
+    # 4. Validar Firestore: intencao ainda é indefinida
+    doc_final = await buscar_dado_em_path(path)
+    intencao_final = doc_final.get("intencao_conversacional")
+    assert intencao_final == "indefinida", \
+        f"FALHA T1: Intencao deveria ser indefinida, mas é {intencao_final}"
+
+    print("[PASS T1] Guard bloqueia indefinida — Firestore validado ✅")
 
 
-def test_eh_aceite_acao_pendente_permite_operacional():
+async def test_eh_aceite_acao_pendente_permite_operacional(firebase_config):
     """
-    Simula: eh_aceite_de_acao_pendente("sim", ctx)
+    E2E REGRA DE OURO: Guard permite "sim" operacional em eh_aceite_de_acao_pendente()
 
-    Cenário:
-    - txt = "sim"
-    - ctx["ultima_acao"] = "resolver_fora_do_expediente"
-    - ctx["intencao_conversacional"] = "confirmacao"
-
-    Esperado: Guard permite, função continua avaliação
+    1. Salva contexto com intencao_conversacional="confirmacao"
+    2. Processa "sim" pelo roteador
+    3. Valida que resposta é processada (não bloqueada)
+    4. Valida Firestore: contexto foi atualizado
     """
-    txt = "sim"
-    ctx = {
-        "ultima_acao": "resolver_fora_do_expediente",
+    tenant_id = firebase_config["tenant_id"]
+    actor_id = firebase_config["actor_id_t2"]
+    path = f"Clientes/{tenant_id}/Sessoes/{actor_id}"
+
+    # 1. Salvar contexto operacional (confirmacao)
+    ctx_inicial = {
         "intencao_conversacional": "confirmacao",
         "estado_fluxo": "aguardando_escolha_horario",
+        "ultima_acao": "resolver_fora_do_expediente",
+        "draft_agendamento": {"servico": "corte", "data_hora": "2026-10-25T10:00:00"},
     }
+    await salvar_dado_em_path(path, ctx_inicial)
+    print("[T2 SETUP] Contexto operacional salvo em Firestore")
 
-    # Guard check
-    if ctx.get("intencao_conversacional") == "indefinida":
-        aceite = False
-    else:
-        aceite = True  # guard permite, função continua
+    # 2. Processar "sim" (operacional)
+    resultado = await roteador_principal(
+        user_id=actor_id,
+        mensagem="sim",
+        tenant_id=tenant_id,
+        context=None
+    )
 
-    # Validação
-    assert aceite is True, \
-        "eh_aceite_de_acao_pendente deveria permitir quando intencao operacional"
+    # 3. Validar resposta: deve ser processada (não erro de "ação não encontrada")
+    resposta = resultado.get("resposta", "")
+    assert "Não encontrei nenhuma ação recente" not in resposta, \
+        "FALHA T2: Guard deveria permitir operacional, resposta não deveria ser erro"
+    print(f"[T2 RESPOSTA] {resposta[:80]}... (processado)")
+
+    # 4. Validar Firestore: contexto foi atualizado (confirmacao ou reclassificado)
+    doc_final = await buscar_dado_em_path(path)
+    assert doc_final is not None, "FALHA T2: Firestore não foi persistido"
+    assert doc_final.get("_updated_at") is not None, \
+        "FALHA T2: Contexto não foi atualizado"
+
+    print("[PASS T2] Guard permite operacional — Firestore validado ✅")
