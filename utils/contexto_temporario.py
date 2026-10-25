@@ -168,8 +168,12 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
         "dados_anteriores": firestore.DELETE_FIELD,
         "profissional_escolhido": firestore.DELETE_FIELD,
+        "profissional": firestore.DELETE_FIELD,  # [FIX] Campo em raiz (não confundir com profissional_escolhido)
         "data_hora": firestore.DELETE_FIELD,
+        "data": firestore.DELETE_FIELD,  # [FIX] Campo em raiz
         "servico": firestore.DELETE_FIELD,
+        "horario": firestore.DELETE_FIELD,  # [FIX] Campo em raiz
+        "data_sem_hora": firestore.DELETE_FIELD,  # [FIX] Campo em raiz
         "hora_confirmada": firestore.DELETE_FIELD,
         "evento_criado": firestore.DELETE_FIELD,
         "duracao": firestore.DELETE_FIELD,
