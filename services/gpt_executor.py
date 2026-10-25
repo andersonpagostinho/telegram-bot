@@ -235,7 +235,24 @@ async def executar_acao_gpt_resultado(update: Update, context: ContextTypes.DEFA
     [P0.10-FIX] Tratamento de dict:
     - {"acao": None, "handled": True} = mensagem enviada mas evento NÃO criado → ok=False
     - Nunca assume sucesso como default
+
+    [P1-E2E-FIX] Fallback para dados incompletos do GPT:
+    - GPT nem sempre retorna serviço/profissional no JSON
+    - Se faltarem, preenchem do context/draft
     """
+    # [P1-E2E-FIX] Fallback: se faltarem servico/profissional, buscar do context
+    try:
+        if context and hasattr(context, 'user_data'):
+            user_data = getattr(context, 'user_data', None)
+            if user_data and isinstance(user_data, dict):
+                draft = user_data.get("draft_agendamento", {})
+                if not dados.get("servico") and draft.get("servico"):
+                    dados["servico"] = draft.get("servico")
+                if not dados.get("profissional") and draft.get("profissional"):
+                    dados["profissional"] = draft.get("profissional")
+    except Exception as e:
+        pass  # Fallback falhou, continuar com dados originais
+
     resultado = await executar_acao_gpt(update, context, acao, dados, identidade=identidade)
 
     # Se já é dict (exc block ou conflito de confirmação)
