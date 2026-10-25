@@ -13805,6 +13805,28 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             print(f" [CONSULTA PURA FALHA] servico não identificado, pedindo especificação", flush=True)
             return await _send_and_stop(context, user_id, resposta_texto)
 
+    # [P0-FIX-CONTEXTO-LIMPO] Validar estado obsoleto: se última_acao='contexto_limpo' + estado=idle + draft presente → LIMPAR AGORA
+    if (
+        contexto.get("ultima_acao") == "contexto_limpo"
+        and contexto.get("estado_fluxo") == "idle"
+        and contexto.get("draft_agendamento")
+    ):
+        print(f"[P0-FIX-CONTEXTO-LIMPO] Detectado estado obsoleto: ultima_acao='contexto_limpo' + estado=idle + draft presente", flush=True)
+        print(f"[P0-FIX-CONTEXTO-LIMPO] Executando limpeza real com DELETE_FIELD para remover campos transitórios", flush=True)
+
+        from utils.contexto_temporario import limpar_contexto_agendamento_v2
+        try:
+            resultado_limpeza = await limpar_contexto_agendamento_v2(dono_id, cliente_id)
+            if resultado_limpeza:
+                print(f"[P0-FIX-CONTEXTO-LIMPO] Limpeza executada com sucesso, recarregando contexto", flush=True)
+                # Recarregar contexto após limpeza para refletir DELETE_FIELD no Firestore
+                contexto = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
+                print(f"[P0-FIX-CONTEXTO-LIMPO] Contexto recarregado | draft_agendamento={contexto.get('draft_agendamento')}", flush=True)
+            else:
+                print(f"[P0-FIX-CONTEXTO-LIMPO] Aviso: limpeza retornou False, continuando com contexto carregado", flush=True)
+        except Exception as e:
+            print(f"[P0-FIX-CONTEXTO-LIMPO] Erro ao executar limpeza: {e}", flush=True)
+
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA, tenant_id=dono_id)
 
     # 🔥 BLOQUEIO: se GPT respondeu algo direto, NÃO entra no fluxo
