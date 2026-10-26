@@ -63,19 +63,23 @@ async def salvar_contexto_temporario_v2(dono_id: str, cliente_id: str, contexto:
     return await salvar_sessao_temporaria(cliente_id, contexto, dono_id)
 
 
-async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
+async def carregar_sessao_temporaria(actor_id: str, tenant_id: str, permitir_fallback_legado: bool = True):
     """Carregar sessão isolada por tenant_id + actor_id (NOVO PATH — SEGURO).
 
     PATCH P0.3 (2026-06-19) — Read-through com migração:
     1. Tenta novo path: Clientes/{tenant_id}/Sessoes/{actor_id}
-    2. Se vazio, tenta legado SOMENTE se tiver guard_tenant == tenant_id
+    2. Se vazio e permitir_fallback_legado=True, tenta legado SOMENTE se tiver guard_tenant == tenant_id
     3. Se legado válido, migra imediatamente para novo path
     4. Se legado sem guard ou guard diferente, retorna {}
 
+    PATCH SEMANA 1 (2026-10-26):
+    - Adicionado parâmetro permitir_fallback_legado para desabilitar fallback de forma segura
+    - Default=True para compatibilidade, mudar para False após validação em produção
+
     Path novo: Clientes/{tenant_id}/Sessoes/{actor_id}
-    Path legado: Clientes/{actor_id}/MemoriaTemporaria/contexto (com validação)
+    Path legado: Clientes/{actor_id}/MemoriaTemporaria/contexto (com validação, desabilitável)
     """
-    print(f"[TRACE DCC LOAD FUNC] actor_id={actor_id} tenant_id={tenant_id}", flush=True)
+    print(f"[TRACE DCC LOAD FUNC] actor_id={actor_id} tenant_id={tenant_id} permitir_fallback_legado={permitir_fallback_legado}", flush=True)
     if not tenant_id:
         raise ValueError("tenant_id é obrigatório para carregar sessão")
     if not actor_id:
@@ -90,7 +94,12 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
         print(f"[SESSION_STORE] read_path={path_novo} | write_path={path_novo} | same_path=True", flush=True)
         return data_novo
 
-    # 2️⃣ Fallback legado com validação STRICT (PATCH P0.3)
+    # 2️⃣ Fallback legado com validação STRICT (PATCH P0.3) — DESABILITÁVEL (PATCH SEMANA 1)
+    if not permitir_fallback_legado:
+        print(f"[DIAG] [LOAD SESSAO v2] Fallback legado DESABILITADO | path_novo={path_novo}", flush=True)
+        print(f"[SESSAO VAZIA] path_novo={path_novo} | fallback_legado=desabilitado", flush=True)
+        return {}
+
     print(f"[DIAG] [LOAD SESSAO v2 FALLBACK] tentando legado para {actor_id}", flush=True)
 
     path_legado = f"Clientes/{actor_id}/MemoriaTemporaria/contexto"
@@ -130,9 +139,9 @@ async def carregar_sessao_temporaria(actor_id: str, tenant_id: str):
 
 
 # ALIAS para compatibilidade (nome antigo)
-async def carregar_contexto_temporario_v2(dono_id: str, cliente_id: str):
+async def carregar_contexto_temporario_v2(dono_id: str, cliente_id: str, permitir_fallback_legado: bool = True):
     """ALIAS: Use carregar_sessao_temporaria() em novo código."""
-    return await carregar_sessao_temporaria(cliente_id, dono_id)
+    return await carregar_sessao_temporaria(cliente_id, dono_id, permitir_fallback_legado)
 
 
 async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
