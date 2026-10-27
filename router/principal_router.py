@@ -5592,7 +5592,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                                             # Normalizar para comparação robusta
                                             def norm(x):
-                                                return unidecode.unidecode(
+                                                return unidecode(
                                                     re.sub(r"[^\w\s]", " ", str(x).lower())
                                                 ).strip()
 
