@@ -139,12 +139,12 @@ async def test_webhook_real_reproduz_erro_p0626():
         # Tenta sem validação
         with patch("main.validar_assinatura_whatsapp", return_value=True):
             with patch("main.validate_whatsapp_signature", return_value=True):
-        response_1 = client.post(
-                "/webhook/whatsapp",
-                json=payload_1,
-                headers={"Content-Type": "application/json"}
-            )
-            print(f"  Tentou sem HMAC: {response_1.status_code}")
+                response_1 = client.post(
+                    "/webhook/whatsapp",
+                    json=payload_1,
+                    headers={"Content-Type": "application/json"}
+                )
+                print(f"  Tentou sem HMAC: {response_1.status_code}")
 
     assert response_1.status_code == 200, f"MSG 1 falhou: {response_1.data}"
     print(f"  ✅ Processada")

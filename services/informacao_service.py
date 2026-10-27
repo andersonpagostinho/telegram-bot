@@ -311,4 +311,89 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
                 profissionais_disponiveis=[]
             )
 
+    # 👥 Comparação entre profissionais — Quem oferece o quê
+    # Padrões: "A Carla faz as mesmas coisa que a Bruna?"
+    #          "Qual a diferença entre Carla e Bruna?"
+    #          "Elas atendem os mesmos serviços?"
+    palavras_chave_comparacao = [
+        "mesma coisa", "mesmo servico", "mesmos servicos", "mesma", "mesmo",
+        "diferenca", "diferença", "entre", "vs", "versus",
+        "faz a mesma", "oferece a mesma", "elas atendem", "qual a diferenca",
+        "faz o que", "oferece o que", "atende o que", "faz o mesmo", "oferece o mesmo"
+    ]
+
+    if any(p in mensagem_normalizada for p in palavras_chave_comparacao):
+        # Tentar extrair nomes de profissionais da mensagem
+        profissionais_db = (await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais")) or {}
+
+        # Validar catálogo vazio
+        if len(profissionais_db) == 0:
+            return "Nenhum profissional foi cadastrado no sistema ainda. Para comparação, você precisa ter pelo menos 2 profissionais cadastradas."
+
+        if len(profissionais_db) < 2:
+            return "❌ Você precisa ter pelo menos 2 profissionais cadastradas para fazer uma comparação."
+
+        # Procurar por nomes de profissionais na mensagem normalizada
+        nomes_encontrados = []
+        for prof_nome in profissionais_db.keys():
+            prof_nome_norm = unidecode(prof_nome.lower().strip())
+            if prof_nome_norm in mensagem_normalizada:
+                nomes_encontrados.append(prof_nome)
+
+        # Se encontrou exatamente 2 profissionais na mensagem, comparar
+        if len(nomes_encontrados) == 2:
+            prof_1_nome = nomes_encontrados[0]
+            prof_2_nome = nomes_encontrados[1]
+
+            prof_1_dados = profissionais_db.get(prof_1_nome, {})
+            prof_2_dados = profissionais_db.get(prof_2_nome, {})
+
+            servicos_1 = prof_1_dados.get("servicos", []) or []
+            servicos_2 = prof_2_dados.get("servicos", []) or []
+
+            # Formatação da resposta
+            resposta_partes = []
+
+            if servicos_1:
+                servicos_1_str = ", ".join(servicos_1)
+                resposta_partes.append(f"👉 *{prof_1_nome}*: {servicos_1_str}")
+            else:
+                resposta_partes.append(f"👉 *{prof_1_nome}*: nenhum serviço cadastrado")
+
+            if servicos_2:
+                servicos_2_str = ", ".join(servicos_2)
+                resposta_partes.append(f"👉 *{prof_2_nome}*: {servicos_2_str}")
+            else:
+                resposta_partes.append(f"👉 *{prof_2_nome}*: nenhum serviço cadastrado")
+
+            return "Vamos ver:\n\n" + "\n\n".join(resposta_partes)
+
+        # Se encontrou 1 profissional, comparar com todas as outras
+        elif len(nomes_encontrados) == 1:
+            prof_principal = nomes_encontrados[0]
+            prof_principal_dados = profissionais_db.get(prof_principal, {})
+            servicos_principal = prof_principal_dados.get("servicos", []) or []
+
+            resposta_partes = [f"*{prof_principal}* oferece:\n"]
+            if servicos_principal:
+                resposta_partes.extend([f"• {s}" for s in servicos_principal])
+            else:
+                resposta_partes.append("nenhum serviço cadastrado")
+
+            resposta_partes.append("\n\nPara comparar, qual outra profissional você quer conferir?")
+            return "\n".join(resposta_partes)
+
+        # Se não encontrou nomes específicos, listar todas para comparação
+        elif len(profissionais_db) > 0:
+            resposta_partes = ["As profissionais cadastradas oferecem:\n"]
+            for prof_nome, prof_dados in profissionais_db.items():
+                servicos = prof_dados.get("servicos", []) or []
+                if servicos:
+                    servicos_str = ", ".join(servicos)
+                    resposta_partes.append(f"• *{prof_nome}*: {servicos_str}")
+                else:
+                    resposta_partes.append(f"• *{prof_nome}*: nenhum serviço cadastrado")
+
+            return "\n".join(resposta_partes)
+
     return None  # Se não for uma intenção informativa
