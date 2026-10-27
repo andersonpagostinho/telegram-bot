@@ -70,7 +70,9 @@ async def precheck_e_confirmacao_agendamento(
     if conflito_info.get("conflito"):
 
         sugestoes = conflito_info.get("sugestoes") or []
-        alternativo = conflito_info.get("profissional_alternativo")
+        alternativo_lista = conflito_info.get("profissional_alternativo") or []
+        # Pega o primeiro profissional alternativo (se houver lista)
+        alternativo = alternativo_lista[0] if isinstance(alternativo_lista, list) and alternativo_lista else alternativo_lista if isinstance(alternativo_lista, str) else None
 
         # 🔥 salva estado de escolha ANTES de responder
         ctx["estado_fluxo"] = "aguardando_escolha_horario"

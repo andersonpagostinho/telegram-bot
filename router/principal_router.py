@@ -2327,7 +2327,17 @@ async def precheck_e_confirmacao_agendamento(
     if conflito_info.get("conflito"):
 
         sugestoes = conflito_info.get("sugestoes") or []
-        alternativo = conflito_info.get("profissional_alternativo")
+        alternativo_raw = conflito_info.get("profissional_alternativo")
+
+        # Normalizar alternativo: pode ser lista, string ou dict
+        if isinstance(alternativo_raw, list) and alternativo_raw:
+            alternativo = alternativo_raw[0]  # Pega primeiro da lista
+        elif isinstance(alternativo_raw, str):
+            alternativo = alternativo_raw
+        elif isinstance(alternativo_raw, dict):
+            alternativo = alternativo_raw.get("profissional") or alternativo_raw.get("nome")
+        else:
+            alternativo = None
 
         # 🔥 salva estado de escolha ANTES de responder
         ctx["estado_fluxo"] = "aguardando_escolha_horario"
@@ -2368,12 +2378,7 @@ async def precheck_e_confirmacao_agendamento(
             opcoes_profissionais.append(prof)
 
         if alternativo:
-            if isinstance(alternativo, dict):
-                nome_alt = alternativo.get("profissional") or alternativo.get("nome")
-                if nome_alt:
-                    opcoes_profissionais.append(nome_alt)
-            else:
-                opcoes_profissionais.append(alternativo)
+            opcoes_profissionais.append(alternativo)
 
         # Extrair profissionais de sugestoes (se forem nomes/strings, não horários)
         for s in (sugestoes or []):
