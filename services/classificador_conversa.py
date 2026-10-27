@@ -148,10 +148,25 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         r"mercado|compra|pao|pão|me liga|depois te conto|festa|barzinho)\b",
         t
     )
-    tem_ref_profissional = _tem(
+    # Referência a profissional: "com [nome]", "trocar profissional", ou "[nome profissional] [verbo]"
+    # Padrão básico (sempre válido)
+    tem_ref_profissional_basico = _tem(
         r"\b(com\s+[a-zA-ZÀ-ÿ]+|trocar profissional|outra profissional|outro profissional)\b",
         t
     )
+
+    # Padrão dinâmico: se contexto tem profissional ou mensagem menciona profissional específico
+    tem_ref_profissional_dinamica = False
+    profissional_ctx = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
+    if profissional_ctx:
+        # Se há profissional no contexto, procurar por ele + verbo
+        prof_normalized = profissional_ctx.lower().strip()
+        tem_ref_profissional_dinamica = _tem(
+            rf"\b{re.escape(prof_normalized)}\s+(esta|está|tem|consegue|pode|faz|disponi|tá|é)",
+            t
+        )
+
+    tem_ref_profissional = tem_ref_profissional_basico or tem_ref_profissional_dinamica
 
     # Dúvida/insegurança sobre profissional — por composição, não frase fixa
     tem_sinal_qualidade_confianca = _tem(
@@ -437,7 +452,8 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, cat
     if f["tem_pergunta"] and f["tem_tempo"] and tem_posessivo:
         return {"intencao_conversacional": "consultar_agendamentos_usuario", "confianca": 85, "features": f}
 
-    if f["tem_pergunta"] and f["tem_tempo"] and f["tem_indefinido"]:
+    # Consulta de disponibilidade: pergunta + tempo + (indefinido OU referência profissional específica)
+    if f["tem_pergunta"] and f["tem_tempo"] and (f["tem_indefinido"] or f["tem_ref_profissional"]):
         return {"intencao_conversacional": "consulta_disponibilidade_aberta", "confianca": 88, "features": f}
 
     # 🔒 EXCEÇÃO: fluxo operacional ativo + serviço + tempo = ajuste de horário (não consulta)
