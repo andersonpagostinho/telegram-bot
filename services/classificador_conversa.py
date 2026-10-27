@@ -155,12 +155,26 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         t
     )
 
-    # Padrão dinâmico: se contexto tem profissional ou mensagem menciona profissional específico
+    # Padrão dinâmico: profissional no contexto OU na própria mensagem + verbo de disponibilidade
     tem_ref_profissional_dinamica = False
+
+    # 1. Procurar profissional no contexto (sempre checar)
     profissional_ctx = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
-    if profissional_ctx:
-        # Se há profissional no contexto, procurar por ele + verbo
-        prof_normalized = profissional_ctx.lower().strip()
+
+    # 2. Procurar profissional NA MENSAGEM (4 profissionais conhecidos)
+    profissionais_conhecidos = ["bruna", "gloria", "joana", "carla"]
+    profissional_msg = None
+    for prof in profissionais_conhecidos:
+        if prof in t.lower():
+            profissional_msg = prof
+            break
+
+    # Usar profissional do contexto OU da mensagem (prioridade contexto)
+    profissional_para_buscar = profissional_ctx or profissional_msg
+
+    if profissional_para_buscar:
+        # Procurar por profissional + verbo de disponibilidade
+        prof_normalized = profissional_para_buscar.lower().strip()
         tem_ref_profissional_dinamica = _tem(
             rf"\b{re.escape(prof_normalized)}\s+(esta|está|tem|consegue|pode|faz|disponi|tá|é)",
             t
