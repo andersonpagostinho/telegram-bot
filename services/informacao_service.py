@@ -80,7 +80,7 @@ async def responder_consulta_informativa(mensagem: str, dono_id: str, features: 
     if features and features.get("tem_contexto_servico") and features.get("tem_pergunta"):
         servico = features.get("servico_mencionado")
         if servico:
-            profissionais = await buscar_profissionais_por_servico([servico], None)
+            profissionais = await buscar_profissionais_por_servico([servico], dono_id)
             if profissionais:
                 nomes = "\n".join([f"• {p}" for p in profissionais])
                 return f"👥 Profissionais que fazem *{servico}*:\n\n{nomes}"
@@ -132,7 +132,7 @@ async def responder_consulta_informativa(mensagem: str, dono_id: str, features: 
         servico_normalizado = await encontrar_servico_mais_proximo(termo_busca)
 
         if servico_normalizado:
-            profissionais = await buscar_profissionais_por_servico([servico_normalizado], None)
+            profissionais = await buscar_profissionais_por_servico([servico_normalizado], dono_id)
             if profissionais:
                 nomes = "\n".join([f"• {p}" for p in profissionais])
                 return f"👥 Profissionais que fazem *{servico_normalizado}*:\n\n{nomes}"
