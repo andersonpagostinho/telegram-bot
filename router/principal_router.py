@@ -2069,6 +2069,9 @@ def eh_nova_consulta_pura(texto: str, tem_confirmacao_ativa: bool = False) -> bo
         "voce faz",  # "você faz"
         "faz o",
         "oferec",  # "oferece", "oferecem"
+        "disponivel",  # "está disponível", "disponível amanhã"
+        "qual horario",  # "qual horário"
+        "que horario",  # "que horário"
     ]
 
     # Palavras-chave que indicam CONFIRMAÇÃO (não é nova consulta)

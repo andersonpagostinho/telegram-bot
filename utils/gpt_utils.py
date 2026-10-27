@@ -119,7 +119,15 @@ def formatar_descricao_evento(servico: str, profissional: str) -> str:
 
 
 def estimar_duracao(servico):
-    mapa = {"corte": 30, "escova": 40, "coloração": 90}
+    mapa = {
+        "corte": 30,
+        "corte feminino": 40,
+        "corte masculino": 30,
+        "escova": 40,
+        "coloracao": 90,
+        "coloração": 90,
+        "tingimento": 90,
+    }
     try:
         return mapa.get(servico.lower(), 60)
     except Exception:
