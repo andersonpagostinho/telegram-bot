@@ -3097,24 +3097,28 @@ async def resolver_alteracao_draft_agendamento(
                 )
             )
 
-        valido = await validar_profissional_para_servico(
-            dono_id=dono_id,
-            profissional=novo_profissional,
-            servico=servico
-        )
-
-        print(f"[TYPE_AUDIT_2163] valido={type(valido)} value={repr(valido)}", flush=True)
-        if not valido.get("ok"):
-            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-            return await _send_and_stop(
-                context,
-                user_id,
-                (
-                    f"{novo_profissional} não atende {servico}.\n\n"
-                    "Quer escolher outra profissional?"
-                ),
-                parse_mode=None
+        # 🛡️ FACTOR 2 FIX: Não validar compatibilidade quando servico=None
+        if servico:
+            valido = await validar_profissional_para_servico(
+                dono_id=dono_id,
+                profissional=novo_profissional,
+                servico=servico
             )
+
+            print(f"[TYPE_AUDIT_2163] valido={type(valido)} value={repr(valido)}", flush=True)
+            if not valido.get("ok"):
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    (
+                        f"{novo_profissional} não atende {servico}.\n\n"
+                        "Quer escolher outra profissional?"
+                    ),
+                    parse_mode=None
+                )
+        else:
+            print(f"[P0.6.4_FIX_FACTOR2] Serviço não definido, pulando validação compatibilidade profissional-serviço", flush=True)
 
         validacao = await validar_horario_funcionamento(
             user_id=user_id,
@@ -5786,8 +5790,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     elif intencao_conv == "ajuste_incremental":
         # 🛡 P0.7.4: Se estamos em consulta pura, NÃO muda para ajuste
-        if em_consulta_pura:
-            print(f"[P0.7.4_PRESERVACAO] Protegendo objetivo de consulta pura contra reclassificação de ajuste", flush=True)
+        # 🛡️ FACTOR 3 FIX: Usar contexto confiável se estado_fluxo=None
+        em_consulta_pura_alternativa = (
+            objetivo_original == "descobrir_servico_para_consulta"
+            and ctx.get("draft_agendamento", {}).get("profissional") is not None
+            and ctx.get("draft_agendamento", {}).get("data_hora") is not None
+        )
+
+        if em_consulta_pura or em_consulta_pura_alternativa:
+            print(f"[P0.7.4_PRESERVACAO] Protegendo objetivo de consulta pura contra reclassificação de ajuste (estado_fluxo={ctx.get('estado_fluxo')})", flush=True)
             objetivo_conversacional = "descobrir_servico_para_consulta"
         else:
             objetivo_conversacional = "ajustar_draft_existente"
