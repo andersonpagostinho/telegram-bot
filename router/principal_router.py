@@ -5572,12 +5572,86 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                 # já sabem como tratar consulta_disponibilidade_aberta
                                 # e perguntarão pelo serviço
                             else:
-                                # GPT retornou AGENDAMENTO sem serviço válido ou confiança baixa
-                                # → Rejeitar e solicitar esclarecimento
-                                print(f" [P0.6.2_FALLBACK_REJEITO] Confiança baixa ou serviço inválido", flush=True)
-                                print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
-                                resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
-                                return await _send_and_stop(context, user_id, resposta_esclarecimento)
+                                # =========================================================
+                                # 🔥 P0.6.2_FIX: Verificar se é ajuste SOMENTE de profissional
+                                # Se tipo_ajuste="profissional", não precisa de serviço
+                                # =========================================================
+                                tipo_ajuste = interpretacao_gpt.get("tipo_ajuste")
+
+                                if tipo_ajuste == "profissional":
+                                    # ✅ Ajuste de profissional é válido sem serviço
+                                    prof_gpt = interpretacao_gpt.get("entidades", {}).get("profissional")
+
+                                    print(f" [P0.6.2_AJUSTE_PROFISSIONAL] Detectado: tipo_ajuste=profissional, prof_gpt={prof_gpt}", flush=True)
+
+                                    if prof_gpt:
+                                        # Validar profissional contra catálogo do tenant
+                                        try:
+                                            # Buscar profissionais do tenant para validação
+                                            profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+
+                                            # Normalizar para comparação robusta
+                                            def norm(x):
+                                                return unidecode.unidecode(
+                                                    re.sub(r"[^\w\s]", " ", str(x).lower())
+                                                ).strip()
+
+                                            prof_norm = norm(prof_gpt)
+
+                                            # Buscar profissional exato no catálogo
+                                            profissional_encontrado = None
+                                            for nome in profissionais.keys():
+                                                if norm(nome) == prof_norm:
+                                                    profissional_encontrado = nome
+                                                    break
+
+                                            if profissional_encontrado:
+                                                # ✅ Profissional válido, aceitar ajuste
+                                                print(f" [P0.6.2_AJUSTE_PROFISSIONAL_OK] Profissional {profissional_encontrado} validado", flush=True)
+
+                                                # Preservar objetivo se estava em consulta
+                                                if ctx.get("objetivo_conversacional") == "descobrir_servico_para_consulta":
+                                                    ctx["objetivo_conversacional"] = "descobrir_servico_para_consulta"
+                                                else:
+                                                    ctx["objetivo_conversacional"] = "ajustar_agendamento_profissional"
+
+                                                ctx["intencao_conversacional"] = "ajuste_incremental"
+                                                ctx["tipo_ajuste"] = "profissional"
+                                                ctx["profissional_escolhido"] = profissional_encontrado
+                                                ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+
+                                                # Preservar dados da consulta original se existem
+                                                entidades = interpretacao_gpt.get("entidades", {})
+                                                if entidades.get("data"):
+                                                    ctx["data"] = entidades.get("data")
+                                                if entidades.get("horario"):
+                                                    ctx["horario"] = entidades.get("horario")
+
+                                                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                                                print(f" [P0.6.2_AJUSTE_PROFISSIONAL_CONTINUA] Fluxo prossegue com profissional={profissional_encontrado}", flush=True)
+                                            else:
+                                                # Profissional NÃO existe no catálogo
+                                                nomes_profissionais = list(profissionais.keys())
+                                                print(f" [P0.6.2_AJUSTE_PROFISSIONAL_INVALIDO] Profissional {prof_gpt} não encontrado no catálogo", flush=True)
+                                                resposta = f"Desculpe, não encontrei profissional '{prof_gpt}' no catálogo. Profissionais disponíveis: " + ", ".join(nomes_profissionais) + "."
+                                                return await _send_and_stop(context, user_id, resposta)
+                                        except Exception as e:
+                                            print(f" [P0.6.2_AJUSTE_PROFISSIONAL_ERRO] Erro ao validar: {e}", flush=True)
+                                            resposta = "Desculpe, houve um erro ao validar o profissional. Tente novamente."
+                                            return await _send_and_stop(context, user_id, resposta)
+                                    else:
+                                        # Tipo é profissional mas não veio nome
+                                        print(f" [P0.6.2_AJUSTE_PROFISSIONAL_SEM_NOME] tipo_ajuste=profissional mas sem profissional extraído", flush=True)
+                                        resposta = "Desculpe, não consegui identificar qual profissional você quer. Poderia especificar?"
+                                        return await _send_and_stop(context, user_id, resposta)
+                                else:
+                                    # GPT retornou AGENDAMENTO sem serviço válido ou confiança baixa
+                                    # → Rejeitar e solicitar esclarecimento
+                                    print(f" [P0.6.2_FALLBACK_REJEITO] Confiança baixa ou serviço inválido", flush=True)
+                                    print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
+                                    resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
+                                    return await _send_and_stop(context, user_id, resposta_esclarecimento)
                     else:
                         # GPT também não conseguiu interpretar
                         print(f" [P0.6.2_FALLBACK_INDEFINIDA] GPT também retornou indefinida", flush=True)
