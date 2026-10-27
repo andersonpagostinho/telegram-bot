@@ -449,6 +449,12 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, cat
                 "motivo": "novo_servico_sem_draft"
             }
 
+    # 🔥 EXCEÇÃO: Pergunta clara de disponibilidade (tem_pergunta + tem_tempo + tem_ref_profissional)
+    # DEVE ser consulta_disponibilidade_aberta MESMO com draft existente
+    # Exemplos: "a bruna esta disponivel amanha as 10?" (pergunta + tempo + profissional)
+    if f["tem_pergunta"] and f["tem_tempo"] and f.get("tem_ref_profissional"):
+        return {"intencao_conversacional": "consulta_disponibilidade_aberta", "confianca": 88, "features": f}
+
     if (f["tem_ajuste"] or f.get("tem_ref_profissional")) and (f["tem_fluxo_ativo"] or f["tem_draft"]):
 
         tipo_ajuste = detectar_tipo_ajuste_incremental(texto, catalogo_servicos=catalogo_servicos)
