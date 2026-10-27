@@ -13896,8 +13896,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 msg_conflito += "\nVocê prefere outro horário ou manter o horário com outro profissional?"
 
-                # Não chamar GPT, responder direto
-                return await _send_and_stop(context, user_id, msg_conflito)
+                # Salvar profissional_escolhido ANTES de responder (BUG FIX: propagação contexto)
+                ctx["profissional_escolhido"] = profissional_consulta
+                ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
+
+                # Não chamar GPT, responder direto (com contexto salvo)
+                return await _send_and_stop_ctx(context, user_id, msg_conflito, ctx, texto_usuario, cliente_id=cliente_id, dono_id=dono_id)
 
         except Exception as e:
             print(f"[VALIDACAO_CONFLITO_PRE_GPT] Erro ao validar conflito: {type(e).__name__}: {e}", flush=True)

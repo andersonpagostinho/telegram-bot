@@ -59,7 +59,7 @@ def montar_prompt_com_contexto(instrucao, contexto, contexto_salvo, texto_usuari
 
     # Contexto salvo relevante (apenas chaves úteis)
     ctx_tmp_keys = ["servico", "data_hora", "profissional_escolhido", "ultima_acao", "evento_criado"]
-    ctx_tmp = {k: contexto_salvo.get(k) for k in ctx_tmp_keys if k in contexto_salvo}
+    ctx_tmp = {k: contexto_salvo.get(k) for k in ctx_tmp_keys}
 
     # --- Regras de sistema (ANTI-BLOQUEIO + formato JSON) ---
     regras_antibloqueio = (
