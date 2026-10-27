@@ -7258,8 +7258,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 flush=True
             )
             ctx["aguardando_confirmacao_agendamento"] = False
-            ctx.pop("draft_agendamento", None)
+            # Usar DELETE_FIELD para remover draft de Firestore explicitamente
+            from firebase_admin import firestore
+            ctx["draft_agendamento"] = firestore.DELETE_FIELD
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            alteracao_draft = None  # Não há alteração de draft, é nova consulta
             # Deixar continuar para processar nova consulta
         # 🔒 P1-C GUARD: Não processar como alteração se entrada é indefinida
         # Evita "ola" ser interpretado como mudança de serviço
@@ -7336,21 +7339,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                     return await _send_and_stop(context, user_id, msg_menu)
 
-            # [P0-FASE2-FIX] Detectar se cliente fez NOVA CONSULTA (padrão "você tem X?")
-            # Se detectar, invalidar confirmacao_pendente e deixar continuar
-            # Se não detectar, reapresentar confirmação (comportamento atual)
-            if eh_nova_consulta_pura(texto_usuario, tem_confirmacao_ativa=True):
-                print(
-                    f" [P0-FASE2-FIX] NOVA CONSULTA DETECTADA | invalidando confirmacao_pendente",
-                    flush=True
-                )
-                ctx["aguardando_confirmacao_agendamento"] = False
-                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-                # NÃO fazer return — deixar continuar para processar nova consulta
-            else:
-                # 🔒 P1-C GUARD: Não reiterar confirmação se entrada é indefinida
-                # Entradas sociais/indefinidas devem sair de confirmacao_pendente
-                if ctx.get("intencao_conversacional") == "indefinida":
+            # 🔒 P1-C GUARD: Não reiterar confirmação se entrada é indefinida
+            # Entradas sociais/indefinidas devem sair de confirmacao_pendente
+            if ctx.get("intencao_conversacional") == "indefinida":
                     print(
                         f" [CONFIRMACAO_PENDENTE_INDEFINIDA_EXIT] Entrada indefinida, saindo de confirmacao_pendente",
                         flush=True
@@ -7370,25 +7361,25 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                     # Deixar continuar para fluxo normal processar "ola"
-                else:
-                    print(
-                        f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
-                        flush=True
-                    )
+            else:
+                print(
+                    f" [CONFIRMACAO_PENDENTE_REITERATION] Dados idênticos ao draft, reapresentando confirmação",
+                    flush=True
+                )
 
-                    draft = ctx.get("draft_agendamento") or {}
-                    servico = draft.get("servico") or ctx.get("servico")
-                    prof = draft.get("profissional") or ctx.get("profissional_escolhido")
-                    data_hora = draft.get("data_hora") or ctx.get("data_hora")
+                draft = ctx.get("draft_agendamento") or {}
+                servico = draft.get("servico") or ctx.get("servico")
+                prof = draft.get("profissional") or ctx.get("profissional_escolhido")
+                data_hora = draft.get("data_hora") or ctx.get("data_hora")
 
-                    msg_confirmacao = (
-                        f"Só confirmando 😊\n\n"
-                        f"Você quer agendar seu *{servico}* com a *{prof}* "
-                        f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
-                        f"Responda *sim* para confirmar o agendamento."
-                    )
+                msg_confirmacao = (
+                    f"Só confirmando 😊\n\n"
+                    f"Você quer agendar seu *{servico}* com a *{prof}* "
+                    f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
+                    f"Responda *sim* para confirmar o agendamento."
+                )
 
-                    return await _send_and_stop(context, user_id, msg_confirmacao)
+                return await _send_and_stop(context, user_id, msg_confirmacao)
     else:
         print(
             f" [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
