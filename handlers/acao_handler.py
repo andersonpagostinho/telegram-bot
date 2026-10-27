@@ -548,7 +548,13 @@ async def tratar_mensagem_usuario(user_id, mensagem):
             if sugestoes:
                 resposta += "🕒 Horários alternativos disponíveis:\n" + "\n".join([f"🔄 {h}" for h in sugestoes]) + "\n"
 
-            alt = conflito_info.get("profissional_alternativo")
+            alt_raw = conflito_info.get("profissional_alternativo")
+            # Normalizar: pode ser lista, string ou None
+            if isinstance(alt_raw, list) and alt_raw:
+                alt = alt_raw[0]
+            else:
+                alt = alt_raw if isinstance(alt_raw, str) else None
+
             if alt:
                 resposta += f"💡 Para esse mesmo horário, *{alt}* está disponível.\nDeseja agendar com ela?"
 

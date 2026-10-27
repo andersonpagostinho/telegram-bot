@@ -1076,7 +1076,13 @@ async def processar_com_gpt_com_acao(
                         else ""
                     )
 
-                    alternativa = conflito.get("profissional_alternativo")
+                    alternativa_raw = conflito.get("profissional_alternativo")
+                    # Normalizar: pode ser lista, string ou None
+                    if isinstance(alternativa_raw, list) and alternativa_raw:
+                        alternativa = alternativa_raw[0]
+                    else:
+                        alternativa = alternativa_raw if isinstance(alternativa_raw, str) else None
+
                     alternativa_formatada = (
                         f"\n\n💡 {alternativa} está disponível às {hora}."
                         if alternativa
@@ -1865,9 +1871,16 @@ async def processar_com_gpt_com_acao(
                         if sugestoes_txt
                         else ""
                     )
+                    alternativa_raw = conflito.get("profissional_alternativo")
+                    # Normalizar: pode ser lista, string ou None
+                    if isinstance(alternativa_raw, list) and alternativa_raw:
+                        alternativa = alternativa_raw[0]
+                    else:
+                        alternativa = alternativa_raw if isinstance(alternativa_raw, str) else None
+
                     alternativa_formatada = (
-                        f"\n\n💡 {conflito['profissional_alternativo']} está disponível às {hora}."
-                        if conflito.get("profissional_alternativo")
+                        f"\n\n💡 {alternativa} está disponível às {hora}."
+                        if alternativa
                         else ""
                     )
 
@@ -1878,17 +1891,17 @@ async def processar_com_gpt_com_acao(
                             "servico": servico,
                             "data_hora": data_hora,
                             "sugestoes": conflito["sugestoes"],
-                            "alternativa_profissional": conflito["profissional_alternativo"],
+                            "alternativa_profissional": alternativa,
                         },
                         tenant_id=tenant_id,
-                    ) 
+                    )
 
                     return {
                         "resposta": (
                             f"⚠️ {profissional} está {adaptar_genero(profissional, 'ocupad')} às {hora}."
                             f"{sugestao_formatada}"
                             f"{alternativa_formatada}"
-                            f"\n\nDeseja escolher outro horário com {profissional} ou prefere agendar com  {conflito['profissional_alternativo']}?"
+                            f"\n\nDeseja escolher outro horário com {profissional} ou prefere agendar com  {alternativa}?"
                         ),
                         "acao": None,
                         "dados": {},
