@@ -112,7 +112,7 @@ class TestT1SequenciaRealProducao:
             "estado_fluxo": "agendando",
             "draft_agendamento": draft_antigo,
             "historico_texto": ["ola", "coloracao"],
-            "aguardando_confirmacao_agendamento": False,
+            "aguardando_confirmacao_agendamento": True,  # CRITICO: Ativa confirmacao_pendente
             "tenant_id": TENANT,
             "actor_id": ACTOR_ID,
             "_tenant_id_guard": TENANT,
@@ -141,10 +141,21 @@ class TestT1SequenciaRealProducao:
         assert resp2.status_code == 200
         print(f"  HTTP 200 OK")
 
+        # Pequeno delay para garantir que Firebase foi atualizado
+        import asyncio
+        await asyncio.sleep(1)
+
         # VALIDACAO
         print(f"\n[VALIDACAO]")
         ctx = await carregar_contexto_temporario_v2(TENANT, ACTOR_ID)
         draft = ctx.get("draft_agendamento", {})
+
+        print(f"  [DEBUG] Contexto completo apos MSG2:")
+        print(f"    estado_fluxo: {ctx.get('estado_fluxo')}")
+        print(f"    aguardando_confirmacao: {ctx.get('aguardando_confirmacao_agendamento')}")
+        print(f"    intencao: {ctx.get('intencao_conversacional')}")
+        print(f"    draft_servico: {draft.get('servico')}")
+        print(f"    draft_prof: {draft.get('profissional')}")
 
         # V1: Draft antigo NAO foi herdado
         if draft.get("servico") == "coloracao":

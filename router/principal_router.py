@@ -7250,9 +7250,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             f" [CONFIRMACAO_PENDENTE] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
             flush=True
         )
+
+        # ✅ [P0-FASE2-FIX] Verificar nova consulta ANTES de tentar alteração
+        if eh_nova_consulta_pura(texto_usuario, tem_confirmacao_ativa=True):
+            print(
+                f" [P0-FASE2-FIX] NOVA CONSULTA DETECTADA | invalidando confirmacao_pendente + draft",
+                flush=True
+            )
+            ctx["aguardando_confirmacao_agendamento"] = False
+            ctx.pop("draft_agendamento", None)
+            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            # Deixar continuar para processar nova consulta
         # 🔒 P1-C GUARD: Não processar como alteração se entrada é indefinida
         # Evita "ola" ser interpretado como mudança de serviço
-        if ctx.get("intencao_conversacional") == "indefinida":
+        elif ctx.get("intencao_conversacional") == "indefinida":
             alteracao_draft = None
         else:
             alteracao_draft = await detectar_alteracao_draft_agendamento(
