@@ -68,12 +68,23 @@ def formatar_resposta_disponibilidade(
         else:
             return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {nomes_formatados}.\n\nPrefere alguma delas?"
 
-async def responder_consulta_informativa(mensagem: str, dono_id: str) -> str | None:
+async def responder_consulta_informativa(mensagem: str, dono_id: str, features: dict | None = None) -> str | None:
     mensagem_normalizada = unidecode(re.sub(r"[^\w\s]", " ", mensagem.lower())).strip()
     mensagem_normalizada = re.sub(r"\s+", " ", mensagem_normalizada)
 
     if not dono_id:
         return None
+
+    # 🔍 Reutilizar features do classificador para detectar consulta por serviço
+    # Sem adicionar novos padrões lexicais — usar o que já foi classificado
+    if features and features.get("tem_contexto_servico") and features.get("tem_pergunta"):
+        servico = features.get("servico_mencionado")
+        if servico:
+            profissionais = await buscar_profissionais_por_servico([servico], None)
+            if profissionais:
+                nomes = "\n".join([f"• {p}" for p in profissionais])
+                return f"👥 Profissionais que fazem *{servico}*:\n\n{nomes}"
+            return f"❌ Nenhum profissional encontrado para o serviço *{servico}*."
 
     # 📍 Endereço/Localização do negócio (sem acentos, pois mensagem_normalizada também não tem)
     eh_consulta_endereco = (

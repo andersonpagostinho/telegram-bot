@@ -5294,16 +5294,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     if intencao_conv == "agendamento_direto" and estado_fluxo == "idle":
         print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] SKIP: agendamento_direto detectado — vai para bloco de agendamento", flush=True)
         resposta_informativa = None
-    elif not estado_fluxo or estado_fluxo == "idle":
-        print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] Entrando no bloco (estado idle)", flush=True)
+    else:
+        # ✅ Permitir consultas informativas em qualquer estado
+        # Handler retorna None se inaplicável, permitindo fluxo prosseguir
+        print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Tentando handler informativo (estado={estado_fluxo})", flush=True)
 
         from services.informacao_service import responder_consulta_informativa
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)
 
-        resposta_informativa = await responder_consulta_informativa(mensagem, dono_id)
+        resposta_informativa = await responder_consulta_informativa(
+            mensagem,
+            dono_id,
+            features=class_intencao.get("features") if class_intencao else None
+        )
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: {resposta_informativa is not None} | tipo={type(resposta_informativa)}", flush=True)
-    else:
-        resposta_informativa = None
 
     if resposta_informativa:
             # Detectar se há intenção simultânea de agendamento + consulta
@@ -6085,7 +6089,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # ✅ 0) Consulta informativa só quando está IDLE (não atrapalha o fluxo de agendamento)
     if estado_fluxo == "idle":
         from services.informacao_service import responder_consulta_informativa
-        resposta_informativa = await responder_consulta_informativa(mensagem, dono_id)
+        resposta_informativa = await responder_consulta_informativa(
+            mensagem,
+            dono_id,
+            features=class_intencao.get("features") if class_intencao else None
+        )
         if resposta_informativa:
             # =========================================================
             # 🔥 PATCH: CONSULTA + AGENDAMENTO
