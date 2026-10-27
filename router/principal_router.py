@@ -6111,7 +6111,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if tem_agendar and tem_temporal:
                 print(" [CONSULTA_AGENDAMENTO] Respondendo consulta mas permitindo agendamento")
                 ctx["resposta_informativa_pendente"] = resposta_informativa
-                # Continuar para extração de slots sem retornar
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                return await _send_and_stop(context, user_id, resposta_informativa)
             else:
                 print(" Consulta informativa detectada (idle). Respondendo diretamente.")
                 return await _send_and_stop(context, user_id, resposta_informativa)
