@@ -136,6 +136,12 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         t
     )
 
+    # Agradecimento/encerramento social
+    tem_agradecimento = _tem(
+        r"\b(obrigado|obrigada|valeu|grato|grata|brigado|brigada|thanks|thanks!|thank you|de nada|fica bem|até logo|tchau|bye|ciao|falou|abraço)\b",
+        t
+    )
+
     # Social forte: só pesa contra se não houver sinal operacional suficiente
     tem_social = _tem(
         r"\b(kkkk|rsrs|churrasco|almocar|almoçar|saudade|te amo|familia|família|"
@@ -194,6 +200,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         "servico_mencionado": servico_mencionado,
         "tem_ajuste": tem_ajuste,
         "tem_cancelamento": tem_cancelamento,
+        "tem_agradecimento": tem_agradecimento,
         "tem_social": tem_social,
         "tem_ref_profissional": tem_ref_profissional,
         "tem_duvida_confianca_profissional": tem_duvida_confianca_profissional,

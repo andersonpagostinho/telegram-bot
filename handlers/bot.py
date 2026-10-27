@@ -27,6 +27,7 @@ from services.cadastro_inicial_service import (
     mensagem_onboarding,
     processar_texto_cadastro,
 )
+from services.classificador_conversa import extrair_features_conversa
 
 from router.principal_router import roteador_principal, eh_confirmacao, eh_desistencia_fluxo, eh_gatilho_reagendamento
 
@@ -311,20 +312,30 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
             )
             raise ApplicationHandlerStop
 
-    # --- 1.7) mensagem neutra / social ---
-    mensagens_neutras = [
-        "obrigado", "obrigada", "valeu", "grato", "grata",
-        "ok", "certo", "perfeito", "entendi", "blz", "beleza"
-    ]
+    # --- 1.7) mensagem neutra / social (usando classificador) ---
+    # Detecta agradecimento via feature do classificador, não lista fixa
+    try:
+        features = extrair_features_conversa(texto_usuario, ctx_tmp)
+        tem_agradecimento = features.get("tem_agradecimento", False)
+    except Exception as e:
+        print(f"⚠️ [BOT-FEATURES] Erro ao extrair features: {e}", flush=True)
+        tem_agradecimento = False
 
-    if texto_usuario in mensagens_neutras and not ctx_tmp.get("aguardando_confirmacao_agendamento"):
-        print(f"🧪 [BOT-MSG-NEUTRA] texto={mensagem!r}", flush=True)
+    # Permitir resposta social se:
+    # 1. Mensagem é um agradecimento (detectado pelo classificador)
+    # 2. E não há operação crítica ativa (ex: escolha de horário, confirmação legítima com dados)
+    if tem_agradecimento:
+        # Verificar se há operação real pendente (não apenas flag residual)
+        modo_escolha_ativo = ctx_tmp.get("modo_escolha_horario")
+        tem_dados_confirmacao_reais = bool(ctx_tmp.get("dados_confirmacao_agendamento"))
 
-        await update.message.reply_text(
-            "De nada! 😊 Se precisar de algo, é só me chamar."
-        )
-
-        raise ApplicationHandlerStop
+        # Se há operação real, não responder com gratidão (é contexto operacional)
+        if not (modo_escolha_ativo or tem_dados_confirmacao_reais):
+            print(f"🧪 [BOT-AGRADECIMENTO] texto={mensagem!r}", flush=True)
+            await update.message.reply_text(
+                "De nada! 😊 Se precisar de algo, é só me chamar."
+            )
+            raise ApplicationHandlerStop
 
     # P0-BUG-FIX: NEGAÇÃO DE CONFIRMAÇÃO DE AGENDAMENTO
     confirmacao_pendente = ctx_tmp.get("aguardando_confirmacao_agendamento")
@@ -431,6 +442,10 @@ async def tratar_mensagens_gerais(update: Update, context: ContextTypes.DEFAULT_
                 ctx = await carregar_contexto_temporario(user_id, tenant_id=tenant_id) or {}
                 ctx.pop("cancelamento_pendente", None)
                 ctx.pop("estado_fluxo", None)
+                # [ETAPA 2] Limpar flag de confirmação residual após cancelamento
+                ctx["aguardando_confirmacao_agendamento"] = False
+                ctx.pop("dados_confirmacao_agendamento", None)
+                ctx.pop("draft_agendamento", None)
                 await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)  # PATCH MT-07: tenant_id
 
                 context.user_data.pop("cancelamento_pendente", None)
