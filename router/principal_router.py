@@ -13837,6 +13837,72 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         except Exception as e:
             print(f"[P0-FIX-CONTEXTO-LIMPO] Erro ao executar limpeza: {e}", flush=True)
 
+    # =========================================================
+    # 🔥 VALIDAÇÃO DE CONFLITO ANTES DO GPT
+    # Para consulta_disponibilidade_aberta com profissional + data + hora,
+    # validar conflito ANTES de deixar GPT responder "Sim, está disponível"
+    # =========================================================
+    intencao_conversa_atual = ctx.get("intencao_conversacional")
+    profissional_consulta = ctx.get("profissional_escolhido")
+    data_hora_consulta = ctx.get("data_hora")
+
+    if (
+        intencao_conversa_atual == "consulta_disponibilidade_aberta"
+        and profissional_consulta
+        and data_hora_consulta
+    ):
+        print(f"[VALIDACAO_CONFLITO_PRE_GPT] Validando conflito para consulta de disponibilidade: {profissional_consulta} em {data_hora_consulta}", flush=True)
+
+        try:
+            from datetime import datetime
+            dt_obj = datetime.fromisoformat(data_hora_consulta)
+
+            # Precisamos de um serviço para duracao, se não tem, usar padrão
+            servico_temp = ctx.get("servico") or "corte feminino"
+            duracao_temp = estimar_duracao(servico_temp)
+
+            conflito_result = await verificar_conflito_e_sugestoes_profissional(
+                user_id=dono_id,
+                data=dt_obj.strftime("%Y-%m-%d"),
+                hora_inicio=dt_obj.strftime("%H:%M"),
+                duracao_min=duracao_temp,
+                profissional=profissional_consulta,
+                servico=servico_temp,
+                tenant_id=dono_id
+            )
+
+            if conflito_result.get("conflito"):
+                print(f"[VALIDACAO_CONFLITO_PRE_GPT] ⚠️ CONFLITO DETECTADO! Respondendo com sugestões em vez de deixar GPT", flush=True)
+
+                sugestoes = conflito_result.get("sugestoes") or []
+                alternativo_raw = conflito_result.get("profissional_alternativo") or []
+
+                # Normalizar alternativo (pode ser lista, string ou None)
+                if isinstance(alternativo_raw, list) and alternativo_raw:
+                    alternativo = alternativo_raw[0]
+                else:
+                    alternativo = alternativo_raw if isinstance(alternativo_raw, str) else None
+
+                hora_original = dt_obj.strftime("%H:%M")
+                msg_conflito = f"⛔ A *{profissional_consulta}* já tem atendimento às *{hora_original}*.\n"
+
+                if sugestoes:
+                    msg_conflito += f"\n✅ Estes horários estão livres com *{profissional_consulta}*:\n"
+                    for h in sugestoes[:3]:
+                        msg_conflito += f"🔄 {h}\n"
+
+                if alternativo:
+                    msg_conflito += f"\n💡 Se quiser manter *{hora_original}*, posso te encaixar com *{alternativo}*.\n"
+
+                msg_conflito += "\nVocê prefere outro horário ou manter o horário com outro profissional?"
+
+                # Não chamar GPT, responder direto
+                return await _send_and_stop(context, user_id, msg_conflito)
+
+        except Exception as e:
+            print(f"[VALIDACAO_CONFLITO_PRE_GPT] Erro ao validar conflito: {type(e).__name__}: {e}", flush=True)
+            # Se houver erro, continuar com GPT normalmente
+
     resposta_gpt = await chamar_gpt_com_contexto(mensagem, contexto, INSTRUCAO_SECRETARIA, tenant_id=dono_id)
 
     # 🔥 BLOQUEIO: se GPT respondeu algo direto, NÃO entra no fluxo
