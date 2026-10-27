@@ -3052,6 +3052,272 @@ await limpar_contexto_agendamento(TENANT, ACTOR)  # Perde estado anterior
 
 ---
 
+## 🔄 P0 — ROTEAMENTO CONVERSACIONAL E RECUPERAÇÃO DE CONTEXTO
+
+**Status:** ARQUITETURA OBRIGATÓRIA E PERMANENTE  
+**Effective:** 2026-10-27  
+**Escopo:** TODO roteamento de mensagens conversacionais, interpretação de intenção, gerenciamento de contexto  
+
+### 1. OBJETIVO
+
+Evoluir a NeoEve de um sistema que executa fluxos previamente projetados para uma secretária virtual capaz de compreender mensagens em linguagem natural, inclusive quando a conversa sai do fluxo esperado.
+
+A evolução deve preservar integralmente os comportamentos já validados de agendamento, disponibilidade, confirmação, criação de eventos, histórico, notificações e isolamento entre tenants.
+
+O objetivo não é cadastrar todas as frases que um cliente pode escrever. É reconhecer a intenção da mensagem atual, identificar a operação necessária e encaminhá-la para a capacidade correta do sistema.
+
+### 2. REGRA ARQUITETURAL OBRIGATÓRIA
+
+**A intenção da mensagem atual governa o roteamento. O estado anterior da sessão fornece contexto, mas não pode sequestrar a conversa.**
+
+Toda mensagem recebida deve ser interpretada considerando:
+
+1. O conteúdo da mensagem atual.
+2. O contexto anterior relevante para resolver referências e ambiguidades.
+3. O estado da sessão, incluindo confirmações ou operações pendentes.
+4. A capacidade do sistema necessária para atender à solicitação.
+
+O estado anterior NÃO deve determinar automaticamente que a nova mensagem pertence ao mesmo fluxo.
+
+Uma nova mensagem pode representar:
+- Continuação do atendimento atual.
+- Confirmação ou rejeição de uma opção pendente.
+- Correção de dados previamente informados.
+- Alteração de data, horário, serviço ou profissional.
+- Pergunta informativa sobre o negócio.
+- Consulta ao catálogo, preços ou profissionais.
+- Comparação entre serviços ou profissionais.
+- Mudança de assunto.
+- Cancelamento, desistência ou solicitação ambígua.
+
+A classificação deve distinguir esses cenários antes de executar uma operação incompatível com a intenção atual.
+
+**Exceção controlada:** mensagens curtas como "sim", "esse", "pode ser" e "com ela" podem depender do estado anterior. Nesse caso, o contexto deve ser utilizado para interpretar a mensagem, sem assumir uma confirmação quando houver ambiguidade.
+
+### 3. SEPARAÇÃO DE RESPONSABILIDADES
+
+#### 3.1 GPT — interpretação de linguagem
+
+O GPT pode:
+- Interpretar mensagens livres, variações linguísticas, erros ortográficos e expressões informais.
+- Identificar a intenção atual.
+- Extrair serviços, profissionais, datas, horários e referências contextuais.
+- Distinguir uma pergunta informativa de uma solicitação operacional.
+- Solicitar esclarecimento quando a intenção ou as entidades necessárias forem ambíguas.
+- Produzir uma interpretação estruturada para o código consumir.
+
+O GPT NÃO pode:
+- Decidir a disponibilidade real de horários.
+- Calcular duração ou conflitos.
+- Inventar serviços, profissionais, preços ou dados do negócio.
+- Escolher arbitrariamente um profissional quando a solicitação não permitir essa conclusão.
+- Criar, alterar ou cancelar eventos diretamente.
+- Substituir as validações determinísticas do sistema.
+
+#### 3.2 Código determinístico — execução e integridade
+
+O código continua responsável por:
+- Resolver o tenant e o ator.
+- Consultar o catálogo e os dados reais do Firestore.
+- Determinar a duração dos serviços.
+- Validar profissionais habilitados para os serviços.
+- Calcular disponibilidade e detectar conflitos.
+- Sugerir horários válidos.
+- Validar confirmações e executar operações de agenda.
+- Criar, alterar ou cancelar eventos.
+- Registrar histórico e executar notificações conforme as regras existentes.
+
+Nenhuma interpretação do GPT substitui essas validações.
+
+#### 3.3 Resposta — resultado da operação
+
+A resposta deve atender à intenção atual usando informações reais obtidas pelo sistema.
+
+Perguntas informativas não devem ser convertidas artificialmente em agendamentos. Respostas de disponibilidade anteriores não devem ser repetidas quando a nova mensagem solicita outra informação.
+
+### 4. ORDEM OBRIGATÓRIA DE DIAGNÓSTICO DO ROTEAMENTO
+
+Antes de modificar qualquer código relacionado ao problema, reconstruir o fluxo real da mensagem.
+
+Investigar, nesta ordem:
+
+1. Recepção e normalização da mensagem.
+2. Resolução de `tenant_id` e `actor_id`.
+3. Carregamento do contexto e da sessão.
+4. Classificação da intenção conversacional.
+5. Regras de prioridade, validações antecipadas e bloqueios.
+6. Detecção de confirmação, continuidade e ajuste incremental.
+7. Chamadas ao GPT e reutilização de interpretações anteriores.
+8. Seleção do handler ou serviço executor.
+9. Consultas ao Firestore.
+10. Montagem e envio da resposta.
+11. Alterações de estado e persistência.
+
+Identificar o primeiro ponto em que o fluxo diverge do comportamento esperado.
+
+Não presumir que o último componente que registrou um log é a causa raiz.
+
+Não concluir que existe um defeito no GPT, na sessão ou no validador sem evidência de execução que sustente a hipótese.
+
+### 5. PROTOCOLO OBRIGATÓRIO: AUDITORIA ANTES DE ALTERAÇÃO
+
+Para todo defeito de roteamento conversacional:
+
+**Etapa A — Auditoria somente de leitura**
+- Inspecionar o código existente e os testes relacionados.
+- Reconstruir o caminho real da mensagem.
+- Identificar as condições que determinam o fluxo escolhido.
+- Examinar logs, estados da sessão e chamadas efetivamente executadas.
+- Diferenciar fatos comprovados de hipóteses.
+- Localizar o primeiro desvio de execução.
+
+**Etapa B — Diagnóstico**
+Apresentar:
+- Sintoma observado.
+- Comportamento esperado.
+- Evidências do código e dos logs.
+- Causa raiz comprovada ou hipóteses ainda pendentes.
+- Arquivos e funções envolvidos.
+- Risco de regressão.
+- Menor correção tecnicamente suficiente.
+
+**Etapa C — Autorização e implementação**
+- Não alterar arquivos durante uma auditoria solicitada como somente de leitura.
+- Quando houver autorização para corrigir, implementar a menor alteração necessária.
+- Não fazer refatorações amplas como consequência incidental de um defeito pontual.
+- Não remover validações de segurança para fazer uma mensagem passar.
+- Não modificar contratos existentes sem demonstrar necessidade.
+
+**Etapa D — Validação**
+- Executar primeiro os testes diretamente relacionados à alteração.
+- Executar os testes de regressão dos fluxos afetados.
+- Executar testes adicionais de isolamento entre tenants e integridade da agenda quando aplicáveis.
+- Interromper a sequência diante de falha, investigar e reportar; não declarar sucesso parcial como sucesso total.
+- Não realizar deploy sem autorização e sem os critérios de aceite atendidos.
+
+### 6. CASO DE REFERÊNCIA: PERGUNTA INFORMATIVA DURANTE UM FLUXO DE AGENDA
+
+Mensagem anterior: consulta de disponibilidade com conflito de horário.
+
+Mensagem atual:
+"A Carla faz as mesmas coisas que a Bruna?"
+
+Comportamento esperado:
+1. Identificar uma comparação entre profissionais.
+2. Consultar o catálogo real do tenant atual.
+3. Comparar os serviços cadastrados de cada profissional.
+4. Responder às diferenças e semelhanças encontradas.
+5. Não repetir a resposta anterior de conflito.
+6. Não criar nem modificar eventos.
+7. Não descartar automaticamente o contexto de um agendamento pendente.
+8. Não permitir que um estado de ajuste incremental force a execução de uma operação de agenda incompatível com a pergunta.
+
+O exemplo deve servir como teste de comportamento, não como uma regra textual exclusiva para essa frase.
+
+### 7. REGRA PARA ESTADO E SESSÃO
+
+A sessão representa o estado temporário da conversa; não representa o catálogo, a agenda ou a fonte de verdade do negócio.
+
+O contexto anterior pode ajudar a resolver referências, como:
+- "E com ela?"
+- "Pode ser esse."
+- "Na sexta, então."
+- "Faz o mesmo serviço?"
+
+Entretanto:
+- Um estado pendente não prova, por si só, que a mensagem atual é uma confirmação.
+- Uma pergunta informativa não deve ser forçada para o fluxo de confirmação ou ajuste.
+- Uma mudança de assunto não deve apagar dados válidos sem necessidade.
+- Responder a uma pergunta lateral não deve concluir, cancelar ou alterar um agendamento pendente.
+- A retomada do fluxo anterior deve respeitar o estado persistido e as regras de validade existentes.
+
+Preservar a estrutura multi-tenant e o caminho canônico de sessão já estabelecido no projeto. Nunca utilizar dados de outro tenant para completar uma interpretação.
+
+### 8. POLÍTICA DE USO DO GPT
+
+Manter a classificação determinística quando ela for suficiente e confiável.
+
+Acionar o GPT quando a interpretação de linguagem natural for necessária, especialmente diante de:
+- Intenção não reconhecida.
+- Pergunta informativa fora do fluxo previsto.
+- Comparação ou consulta expressa de maneira não padronizada.
+- Referências contextuais que exijam interpretação.
+- Mensagens que não possam ser classificadas com segurança pelas regras determinísticas existentes.
+
+Não chamar o GPT indiscriminadamente em todas as mensagens.
+
+Não criar uma lista infinita de frases ou palavras-chave como solução principal.
+
+Não reutilizar uma interpretação anterior quando ela não representar a mensagem atual. Reutilização de classificação deve ser justificada pela implementação e validada por testes.
+
+Quando a interpretação continuar ambígua, solicitar esclarecimento. Nunca executar uma operação crítica com base em suposição.
+
+### 9. TESTES DE REGRESSÃO OBRIGATÓRIOS
+
+Para mudanças no roteamento conversacional, validar os cenários aplicáveis:
+
+1. Consulta informativa independente.
+2. Pergunta informativa durante conflito de agenda.
+3. Comparação entre profissionais com catálogos diferentes.
+4. Consulta de disponibilidade.
+5. Confirmação explícita de agendamento pendente.
+6. Rejeição de confirmação pendente.
+7. Alteração de data ou horário durante um fluxo.
+8. Referência contextual ambígua.
+9. Mudança de assunto seguida de retomada do atendimento.
+10. Mensagem com serviço inexistente no catálogo.
+11. Ausência de criação ou alteração de evento em consultas informativas.
+12. Isolamento entre tenants e identidade correta do ator.
+
+Os testes devem verificar não apenas a resposta textual, mas também:
+- Qual handler foi executado.
+- Se o GPT foi chamado quando necessário.
+- Se a interpretação correta chegou ao executor.
+- Se o estado da sessão foi preservado corretamente.
+- Se houve leituras ou escritas indevidas no Firestore.
+- Se eventos foram criados, alterados ou cancelados indevidamente.
+
+Preferir testes integrados ao fluxo real e Firestore real conforme a infraestrutura de testes já estabelecida no projeto. Não substituir testes reais por mocks quando isso ocultar o comportamento que se pretende validar.
+
+### 10. CRITÉRIOS DE ACEITE
+
+Uma correção de roteamento só pode ser considerada concluída quando:
+
+- A mensagem atual chega ao fluxo correspondente à sua intenção.
+- O contexto anterior é utilizado sem impor uma operação incompatível.
+- As consultas informativas retornam dados reais do tenant correto.
+- As operações críticas continuam sob validação determinística.
+- Os estados pendentes são preservados ou alterados conforme as regras existentes.
+- Os testes relacionados passam.
+- Os testes de regressão relevantes passam.
+- Não existem efeitos colaterais indevidos na agenda.
+- O resultado e as limitações restantes são reportados explicitamente.
+
+Não declarar a NeoEve pronta para deploy apenas porque o caso que originou a correção passou.
+
+### 11. RESTRIÇÕES PERMANENTES
+
+- Não reescrever o roteador inteiro para corrigir um caso específico.
+- Não adicionar exceções textuais isoladas quando a causa for arquitetural.
+- Não remover gates ou validações sem comprovar sua incompatibilidade com o contrato correto.
+- Não permitir que o GPT controle disponibilidade, conflitos ou criação de eventos.
+- Não alterar identificadores, caminhos de sessão ou contratos multi-tenant sem necessidade comprovada.
+- Não esconder falhas de teste com `try/except` abrangente, mocks inadequados ou asserções enfraquecidas.
+- Não alterar testes para fazê-los passar sem confirmar o comportamento esperado.
+- Não executar operações críticas quando a intenção estiver ambígua.
+- Não presumir que uma pergunta nova sempre encerra o fluxo anterior.
+- Não presumir que toda mensagem pertence ao fluxo anterior.
+
+### 12. PRINCÍPIO FINAL
+
+**A linguagem do cliente é aberta. As capacidades do sistema são explícitas. A execução é determinística. A agenda é protegida.**
+
+A NeoEve deve compreender formas variadas de comunicação sem exigir uma regra para cada frase. O GPT interpreta; o código valida, decide e executa; a sessão preserva o contexto necessário; o sistema responde à intenção atual.
+
+Toda evolução deve aproximar a NeoEve de uma secretária virtual confiável, preservando os comportamentos já validados e priorizando a correção de ponta a ponta.
+
+---
+
 ## 🚨 OBRIGATÓRIO: Monitoramento de Quota Firebase — Executar Diariamente
 
 **REGRA CRÍTICA:** Executar monitoramento de quota Firestore **TODO DIA** no início da sessão.

@@ -5554,27 +5554,43 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             # [P0.7 FIX] Verificar se é CONSULTA sem serviço (esperado)
                             # vs. AGENDAMENTO sem serviço válido (deve rejeitar)
                             if interpretacao_gpt.get("intencao") == "consulta":
-                                # ✅ Consulta informacional sem serviço é VÁLIDA
-                                # Reutilizar infraestrutura de consulta_disponibilidade_aberta
-                                ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
-                                ctx["objetivo_conversacional"] = "descobrir_servico_para_consulta"
-                                ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
-
-                                # Preservar entidades extraídas (data, hora, profissional)
                                 entidades = interpretacao_gpt.get("entidades", {})
-                                if entidades.get("data"):
-                                    ctx["data"] = entidades.get("data")
-                                if entidades.get("horario"):
-                                    ctx["horario"] = entidades.get("horario")
-                                if entidades.get("profissional"):
-                                    ctx["profissional"] = entidades.get("profissional")
 
-                                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-                                print(f" [P0.7_CONSULTA_SEM_SERVICO] ACEITA | dados={{'data': {entidades.get('data')}, 'hora': {entidades.get('horario')}, 'prof': {entidades.get('profissional')}}}", flush=True)
+                                # [P0.7.1 FIX] Detectar comparação entre profissionais
+                                # Se há profissional_1, profissional_2, etc., é COMPARAÇÃO, não consulta real
+                                eh_comparacao = bool(entidades.get("profissional_1") or entidades.get("profissional_2"))
 
-                                # Continuar fluxo normal — handlers de proximo_passo
-                                # já sabem como tratar consulta_disponibilidade_aberta
-                                # e perguntarão pelo serviço
+                                if eh_comparacao:
+                                    # ✅ Comparação: deixar como consulta genérica para GPT responder
+                                    # NÃO reclassificar para consulta_disponibilidade_aberta
+                                    # NÃO extrair profissionais para contexto de agendamento
+                                    print(f" [P0.7_COMPARACAO_PROFISSIONAIS] Detectada comparação: {entidades.get('profissional_1')} vs {entidades.get('profissional_2')}", flush=True)
+                                    ctx["intencao_conversacional"] = "consulta"
+                                    ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+                                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                                    # Continuar fluxo normal — o GPT responderá a comparação
+                                else:
+                                    # ✅ Consulta real sem serviço (ex: "Qual a disponibilidade?")
+                                    # Reutilizar infraestrutura de consulta_disponibilidade_aberta
+                                    ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
+                                    ctx["objetivo_conversacional"] = "descobrir_servico_para_consulta"
+                                    ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
+
+                                    # Preservar entidades extraídas (data, hora, profissional)
+                                    # MAS APENAS se for consulta real (singular), não comparação
+                                    if entidades.get("data"):
+                                        ctx["data"] = entidades.get("data")
+                                    if entidades.get("horario"):
+                                        ctx["horario"] = entidades.get("horario")
+                                    if entidades.get("profissional"):
+                                        ctx["profissional"] = entidades.get("profissional")
+
+                                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                                    print(f" [P0.7_CONSULTA_SEM_SERVICO] ACEITA | dados={{'data': {entidades.get('data')}, 'hora': {entidades.get('horario')}, 'prof': {entidades.get('profissional')}}}", flush=True)
+
+                                    # Continuar fluxo normal — handlers de proximo_passo
+                                    # já sabem como tratar consulta_disponibilidade_aberta
+                                    # e perguntarão pelo serviço
                             else:
                                 # =========================================================
                                 # 🔥 P0.6.2_FIX: Verificar se é ajuste SOMENTE de profissional
