@@ -9,12 +9,20 @@ import unidecode
 import re
 
 
-async def buscar_profissionais_por_servico(servicos: list[str], user_id: str) -> dict:
+async def buscar_profissionais_por_servico(servicos: list[str], user_id: str = None, tenant_id: str = None) -> dict:
     """
     Retorna um dicionário com os profissionais que oferecem TODOS os serviços listados.
     Resolve o dono primeiro, para suportar clientes falando com o bot.
     """
-    tenant_id = await obter_tenant_id(user_id)
+    if not tenant_id and not user_id:
+        return {}
+
+    if not tenant_id:
+        tenant_id = await obter_tenant_id(user_id)
+
+    if not tenant_id:
+        return {}
+
     profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
 
     print(f"\n📥 Serviços solicitados: {servicos}")
