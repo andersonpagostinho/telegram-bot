@@ -60,7 +60,7 @@ async def test_t1_comparacao_basica_carla_bruna():
 
         resposta = await responder_consulta_informativa(
             "a carla faz as mesmas coisa que a bruna?",
-            user_id="test_user"
+            dono_id="tenant_teste_7394370553"
         )
 
         # Validações
@@ -108,7 +108,7 @@ async def test_t2_variacao_faz_o_que():
 
         resposta = await responder_consulta_informativa(
             "a gloria faz o que a joana faz?",
-            user_id="test_user"
+            dono_id="tenant_teste_7394370553"
         )
 
         assert resposta is not None, "FAIL: Resposta é None"
@@ -145,7 +145,7 @@ async def test_t3_padrao_generico_elas_atendem():
 
         resposta = await responder_consulta_informativa(
             "elas atendem os mesmos servicos?",
-            user_id="test_user"
+            dono_id="tenant_teste_7394370553"
         )
 
         assert resposta is not None, "FAIL: Resposta é None para padrão genérico"
@@ -182,7 +182,7 @@ async def test_t4_profissional_nao_existe():
         # Menciona "Carla" que não está em mock_profissionais
         resposta = await responder_consulta_informativa(
             "a carla faz o mesmo que a maria?",
-            user_id="test_user"
+            dono_id="tenant_teste_7394370553"
         )
 
         # Se não encontrou nomes específicos, lista todas
@@ -218,7 +218,7 @@ async def test_t5_catalogo_vazio():
 
         resposta = await responder_consulta_informativa(
             "a carla faz o mesmo que a bruna?",
-            user_id="test_user"
+            dono_id="tenant_teste_7394370553"
         )
 
         # Com catálogo vazio, deve retornar mensagem apropriada
@@ -271,7 +271,7 @@ async def test_t6_draft_preservado_durante_comparacao():
 
         resposta = await responder_consulta_informativa(
             "a carla faz as mesmas coisa que a bruna?",
-            user_id="test_user"
+            dono_id="tenant_teste_7394370553"
         )
 
         # Validação: resposta foi gerada (não None)
@@ -352,7 +352,7 @@ async def test_t8_isolamento_multi_tenant():
 
         resposta = await responder_consulta_informativa(
             "a ana faz o mesmo que a bia?",
-            user_id=user_id_a
+            dono_id="tenant_a_id"
         )
 
         # Deve usar dados de tenant A
@@ -385,7 +385,7 @@ async def test_t9_consulta_disponibilidade_intacta():
         # Pergunta de disponibilidade
         resposta = await responder_consulta_informativa(
             "a bruna tem disponivel amanha?",
-            user_id="test_user"
+            dono_id="tenant_teste_7394370553"
         )
 
         # Pode ser None ou uma resposta sobre disponibilidade

@@ -68,16 +68,11 @@ def formatar_resposta_disponibilidade(
         else:
             return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {nomes_formatados}.\n\nPrefere alguma delas?"
 
-async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | None:
+async def responder_consulta_informativa(mensagem: str, dono_id: str) -> str | None:
     mensagem_normalizada = unidecode(re.sub(r"[^\w\s]", " ", mensagem.lower())).strip()
     mensagem_normalizada = re.sub(r"\s+", " ", mensagem_normalizada)
 
-    try:
-        dono_id = await obter_id_dono(user_id)
-    except Exception:
-        dono_id = None
-
-    if dono_id is None:
+    if not dono_id:
         return None
 
     # 📍 Endereço/Localização do negócio (sem acentos, pois mensagem_normalizada também não tem)
@@ -123,10 +118,10 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
         termo_busca = re.sub(r"\bfaz\b", "", termo_busca).strip()
         termo_busca = re.sub(r"\s+", " ", termo_busca).strip()
 
-        servico_normalizado = await encontrar_servico_mais_proximo(termo_busca, user_id)
+        servico_normalizado = await encontrar_servico_mais_proximo(termo_busca)
 
         if servico_normalizado:
-            profissionais = await buscar_profissionais_por_servico([servico_normalizado], user_id)
+            profissionais = await buscar_profissionais_por_servico([servico_normalizado], None)
             if profissionais:
                 nomes = "\n".join([f"• {p}" for p in profissionais])
                 return f"👥 Profissionais que fazem *{servico_normalizado}*:\n\n{nomes}"
@@ -199,7 +194,7 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
 
     if any(p in mensagem_normalizada for p in palavras_chave_disponibilidade):
         # Extrair serviço
-        servico = await encontrar_servico_mais_proximo(mensagem, user_id)
+        servico = await encontrar_servico_mais_proximo(mensagem)
         if not servico:
             return "❌ Qual serviço você quer? (corte, escova, manicure...?)"
 
@@ -224,7 +219,7 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
             periodo_str = ""
 
         # Buscar profissionais que fazem o serviço
-        profs_servico = await buscar_profissionais_por_servico([servico], user_id)
+        profs_servico = await buscar_profissionais_por_servico([servico], None)
         if not profs_servico:
             return f"❌ Nenhum profissional encontrado para {servico}."
 
@@ -271,7 +266,7 @@ async def responder_consulta_informativa(mensagem: str, user_id: str) -> str | N
 
                 # Chamar motor determinístico
                 disponiveis = await buscar_profissionais_disponiveis_no_horario(
-                    user_id=user_id,
+                    user_id=None,
                     data=data_obj,
                     hora=hora_str,
                     duracao=duracao

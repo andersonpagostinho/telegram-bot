@@ -5300,7 +5300,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         from services.informacao_service import responder_consulta_informativa
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)
 
-        resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
+        resposta_informativa = await responder_consulta_informativa(mensagem, dono_id)
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: {resposta_informativa is not None} | tipo={type(resposta_informativa)}", flush=True)
     else:
         resposta_informativa = None
@@ -6085,7 +6085,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # ✅ 0) Consulta informativa só quando está IDLE (não atrapalha o fluxo de agendamento)
     if estado_fluxo == "idle":
         from services.informacao_service import responder_consulta_informativa
-        resposta_informativa = await responder_consulta_informativa(mensagem, user_id)
+        resposta_informativa = await responder_consulta_informativa(mensagem, dono_id)
         if resposta_informativa:
             # =========================================================
             # 🔥 PATCH: CONSULTA + AGENDAMENTO

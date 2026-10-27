@@ -387,7 +387,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("🧠 Contexto Memória Completo:", contexto_memoria)
 
     # 🧠 Verifica se é uma pergunta informativa
-    resposta_info = await responder_consulta_informativa(texto, user_id)
+    resposta_info = await responder_consulta_informativa(texto, dono_id)
     if resposta_info:
         await update.message.reply_text(resposta_info)
         resposta_ja_enviada = True

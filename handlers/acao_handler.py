@@ -135,7 +135,7 @@ async def tratar_mensagem_usuario(user_id, mensagem):
     print(f"[TENANT_FIX] actor_id={user_id} | tenant_id={tenant_id} | função=tratar_mensagem_usuario", flush=True)
 
     # 🧠 Verifica se a mensagem é uma consulta informativa
-    resposta_info = await responder_consulta_informativa(mensagem, user_id)
+    resposta_info = await responder_consulta_informativa(mensagem, tenant_id)
     if resposta_info:
         return resposta_info
 

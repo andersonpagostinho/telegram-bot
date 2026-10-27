@@ -183,7 +183,7 @@ async def processar_com_gpt_com_acao(
 
                 from services.informacao_service import responder_consulta_informativa
 
-                resposta_det = await responder_consulta_informativa(texto_usuario, user_id)
+                resposta_det = await responder_consulta_informativa(texto_usuario, tenant_id)
 
                 if resposta_det:
                     print(f"[DISPONIBILIDADE_DETERMINISTICA] Resposta gerada: {resposta_det[:80]}...", flush=True)
