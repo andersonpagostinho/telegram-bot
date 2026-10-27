@@ -5588,7 +5588,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                         # Validar profissional contra catálogo do tenant
                                         try:
                                             # Buscar profissionais do tenant para validação
-                                            profissionais = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+                                            profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
                                             # Normalizar para comparação robusta
                                             def norm(x):
