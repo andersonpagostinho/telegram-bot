@@ -5031,12 +5031,65 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # Mencionou profissional que NÃO atende este serviço
                 print(f"[PATCH P1] Usuário mencionou {prof_mencionado} que não atende {servico}", flush=True)
                 if profissionais_validos:
-                    lista = ", ".join(profissionais_validos)
-                    resposta = (
-                        f"*{prof_mencionado}* não atende {servico}.\n"
-                        f"Para *{servico}*, posso verificar com: {lista}.\n"
-                        f"Qual você prefere?"
-                    )
+                    # [P0.7.8D] Validar disponibilidade real antes de oferecer alternativas
+                    profissionais_livres = []
+
+                    # Se houver data/hora no contexto, verificar disponibilidade
+                    data_hora = ctx.get("data_hora")
+                    if data_hora:
+                        try:
+                            dt_obj = datetime.fromisoformat(data_hora)
+                            data_str = dt_obj.strftime("%Y-%m-%d")
+                            hora_str = dt_obj.strftime("%H:%M")
+                            duracao = estimar_duracao(servico)
+
+                            # Verificar cada profissional válida
+                            for prof_alt in profissionais_validos:
+                                info_conflito = await verificar_conflito_e_sugestoes_profissional(
+                                    user_id=user_id,
+                                    data=data_str,
+                                    hora_inicio=hora_str,
+                                    duracao_min=duracao,
+                                    profissional=prof_alt,
+                                    servico=servico,
+                                    tenant_id=dono_id
+                                )
+
+                                # Se não há conflito = está livre
+                                if not info_conflito.get("conflito"):
+                                    profissionais_livres.append(prof_alt)
+                                    print(f"[P0.7.8D PATCH P1] {prof_alt} livre para {servico} às {hora_str}", flush=True)
+                        except (ValueError, TypeError) as e:
+                            print(f"[P0.7.8D PATCH P1] Erro ao validar disponibilidade: {e}", flush=True)
+                            # Se erro, usar compatibilidade apenas (fallback seguro)
+                            profissionais_livres = profissionais_validos
+                    else:
+                        # Sem data/hora: usar compatibilidade apenas
+                        profissionais_livres = profissionais_validos
+
+                    # Montar resposta
+                    if profissionais_livres:
+                        lista = ", ".join(profissionais_livres)
+                        resposta = (
+                            f"*{prof_mencionado}* não atende {servico}.\n"
+                            f"Para *{servico}*, posso verificar com: {lista}.\n"
+                            f"Qual você prefere?"
+                        )
+                    elif data_hora:
+                        # Há profissionais compatíveis mas nenhuma livre naquele horário
+                        resposta = (
+                            f"*{prof_mencionado}* não atende {servico}.\n"
+                            f"Os profissionais que fazem {servico} estão ocupados nesse horário.\n"
+                            f"Quer tentar outro horário?"
+                        )
+                    else:
+                        # Sem data/hora e compatibilidade existe
+                        lista = ", ".join(profissionais_validos)
+                        resposta = (
+                            f"*{prof_mencionado}* não atende {servico}.\n"
+                            f"Para *{servico}*, posso verificar com: {lista}.\n"
+                            f"Qual você prefere?"
+                        )
                 else:
                     resposta = f"*{prof_mencionado}* não atende {servico}. Nenhum outro profissional disponível."
 
