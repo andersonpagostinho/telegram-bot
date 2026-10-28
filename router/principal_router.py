@@ -2199,11 +2199,65 @@ async def precheck_e_confirmacao_agendamento(
         # Buscar profissionais que ATENDEM esse serviço
         profissionais_validos = await buscar_profissionais_por_servico(
             servicos=[servico],
-            user_id=user_id
+            tenant_id=dono_id
         )
 
+        # [P0.7.8B] Verificar disponibilidade real de alternativas
+        profissionais_livres = []
+
+        if profissionais_validos and data_hora:
+            # data_hora já foi validada em linha anterior (verificar se é válido)
+            try:
+                # Parse data_hora para formato esperado
+                if isinstance(data_hora, str):
+                    dt_obj = datetime.fromisoformat(data_hora)
+                    data_str = dt_obj.strftime("%Y-%m-%d")
+                    hora_str = dt_obj.strftime("%H:%M")
+                    duracao = estimar_duracao(servico)
+
+                    # Para cada profissional habilitada, verificar se está livre
+                    for prof_alt in profissionais_validos.keys():
+                        info_conflito = await verificar_conflito_e_sugestoes_profissional(
+                            user_id=user_id,
+                            data=data_str,
+                            hora_inicio=hora_str,
+                            duracao_min=duracao,
+                            profissional=prof_alt,
+                            servico=servico,
+                            tenant_id=dono_id
+                        )
+
+                        # Se não há conflito = está livre naquele horário
+                        if not info_conflito.get("conflito"):
+                            profissionais_livres.append(prof_alt)
+                            print(f"[P0.7.8B] {prof_alt} está livre para {servico} às {hora_str}", flush=True)
+                        else:
+                            print(f"[P0.7.8B] {prof_alt} tem conflito ou indisponível", flush=True)
+            except (ValueError, TypeError, AttributeError) as e:
+                # Se erro ao validar disponibilidade, usar compatibilidade apenas
+                print(f"[P0.7.8B] Erro ao verificar disponibilidade: {e}", flush=True)
+                profissionais_livres = []
+
         # Montar resposta com opções válidas
-        if profissionais_validos:
+        if profissionais_livres:
+            # [P0.7.8B] Verificação de disponibilidade foi feita — use apenas livres
+            lista_str = ", ".join(profissionais_livres)
+            resposta = (
+                f"*{prof}* não atende {servico}.\n"
+                f"Para *{servico}* nesse horário, posso deixar com: {lista_str}.\n"
+                f"Qual você prefere?"
+            )
+            lista_validos = profissionais_livres
+        elif profissionais_validos and not profissionais_livres:
+            # [P0.7.8B] Profissionais fazem serviço MAS nenhuma está livre naquele horário
+            resposta = (
+                f"*{prof}* não atende {servico}.\n"
+                f"As profissionais que fazem {servico} estão ocupadas nesse horário.\n"
+                f"Quer tentar outro horário?"
+            )
+            lista_validos = []
+        elif profissionais_validos:
+            # Sem verificação de data/hora — oferecer por compatibilidade apenas
             lista_validos = list(profissionais_validos.keys())
             lista_str = ", ".join(lista_validos)
             resposta = (
@@ -12346,7 +12400,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 from services.profissional_service import buscar_profissionais_por_servico
                 profissionais_validos = await buscar_profissionais_por_servico(
                     servicos=[servico_auto],
-                    user_id=user_id
+                    tenant_id=dono_id
                 )
                 lista_validos = list(profissionais_validos.keys()) if profissionais_validos else []
                 print(f"[PATCH P1 BUSCA OK] servico={servico_auto} | validos={lista_validos}", flush=True)
