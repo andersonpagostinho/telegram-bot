@@ -2599,6 +2599,37 @@ async def detectar_alteracao_draft_agendamento(
         }
 
     # =====================================================
+    # 🔥 GUARD: Pergunta informativa sobre compatibilidade
+    # Quando mensagem contém "tem outra que faz" + profissional REJEITADA
+    # (não atual), é pergunta informativa, não troca de profissional.
+    # Retornar None para preservar draft, deixar PATCH P1 oferecer alternativas.
+    # =====================================================
+    # Heurística: Se é pergunta sobre outro profissional (não troca explícita)
+    # Detectar PERGUNTA: tem "?" ou keywords como "quem", "qual", "existe", "tem", "faz"
+    eh_pergunta = "?" in texto_usuario or any(x in t for x in [
+        "quem",
+        "qual",
+        "existe",
+        "tem ",  # "tem" como palavra isolada
+        "há",
+        "há",
+        "faz",  # em contexto pergunta
+    ])
+
+    # Se é pergunta E menciona profissional diferente, é informativa (não troca)
+    if eh_pergunta and profissional_atual:
+        # Verificar se menciona outro profissional
+        for _, p in profissionais.items():
+            nome = p.get("nome")
+            if nome and normalizar(nome) in t:
+                if normalizar(nome) != normalizar(profissional_atual):
+                    print(
+                        f"[DETECTAR_ALTERACAO GUARD] Pergunta informativa: '{texto_usuario[:60]}' | preservando draft",
+                        flush=True
+                    )
+                    return None
+
+    # =====================================================
     # 🔥 troca de profissional
     # =====================================================
     profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
