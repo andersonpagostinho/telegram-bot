@@ -2673,7 +2673,13 @@ async def detectar_alteracao_draft_agendamento(
     # retornar tipo=profissional valor=None para que [MUDANCA DE PROFISSIONAL]
     # possa oferecer menu de alternativas
     # =====================================================
+    # GUARD: Se motivo_estado=="profissional_nao_atende_servico",
+    # "tem outra que faz X?" é REITERATION (consultando compatibilidade),
+    # não alteração. Retornar None para preservar draft.
     if any(x in t for x in ["outra profissional", "outra prof", "profissional diferente"]):
+        if ctx.get("motivo_estado") == "profissional_nao_atende_servico":
+            return None
+
         print(
             f"[DETECTAR_ALTERACAO] tipo=profissional generico | valor=None | texto={texto_usuario}",
             flush=True
@@ -4881,9 +4887,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # 🔥 PATCH P0.5 V3: Detectar novo agendamento via semântica + comparação
     # 🔥 CRÍTICO: Evitar que usuário fique preso em estado "profissional_nao_atende"
     # 🔥 NOVO: Verificar se é reiteration vs novo agendamento antes de limpar draft
+    # 🔥 GUARD: Se motivo_estado=="profissional_nao_atende_servico", NÃO executar
+    # Deixar que PATCH P1 (comparacao de profissional) trate a resposta
     # =========================================================
     if (
-        ctx.get("motivo_estado") == "profissional_nao_atende_servico"
+        ctx.get("motivo_estado") != "profissional_nao_atende_servico"
         and ctx.get("intencao_conversacional") in ["agendamento_direto", "pedido_aberto_temporal", "ajuste_incremental"]
     ):
         # Verificar se a mensagem atual representa o mesmo pedido ou um novo pedido
@@ -5013,7 +5021,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             pass
         else:
             # ===== PATCH P1: Detectar se mencionou profissional que NÃO atende =====
-            profs_dict = await buscar_subcolecao(f"Clientes/{user_id}/Profissionais") or {}
+            profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
             todos_nomes_profissionais = [
                 (p.get("nome") or chave).strip()
                 for chave, p in profs_dict.items()
@@ -5035,7 +5043,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     profissionais_livres = []
 
                     # Se houver data/hora no contexto, verificar disponibilidade
-                    data_hora = ctx.get("data_hora")
+                    data_hora = ctx.get("data_hora") or (ctx.get("draft_agendamento") or {}).get("data_hora")
                     if data_hora:
                         try:
                             dt_obj = datetime.fromisoformat(data_hora)
