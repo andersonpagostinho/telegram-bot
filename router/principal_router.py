@@ -4914,6 +4914,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # Novo agendamento: algo diverge (serviço, data, profissional)
             # Executar limpeza completa do P0.5 atual
             print(f"[PATCH_P0.5 V3] Novo agendamento detectado: {alteracao.get('tipo')}, limpando estado anterior", flush=True)
+
             ctx.pop("motivo_estado", None)
             ctx.pop("estado_fluxo", None)
             ctx.pop("profissional_rejeitado", None)
