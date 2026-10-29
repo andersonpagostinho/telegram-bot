@@ -4817,11 +4817,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # ✅ CLASSIFICAÇÃO SEMÂNTICA ANTECIPADA
     # Executar ANTES de PATCH_P0 para ter acesso a intenção real
     # =========================================================
-    # Se há erro de profissional anterior, o fluxo não é mais válido para classificação
-    # Limpar estado_fluxo temporariamente para não influenciar classificação
     ctx_para_classificacao = ctx.copy()
-    if ctx_para_classificacao.get("motivo_estado") == "profissional_nao_atende_servico":
-        ctx_para_classificacao.pop("estado_fluxo", None)
 
     class_intencao = classificar_intencao_conversacional(texto_usuario, ctx_para_classificacao, catalogo_servicos=catalogo_servicos)
 

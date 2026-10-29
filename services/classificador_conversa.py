@@ -232,6 +232,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         "tem_agradecimento": tem_agradecimento,
         "tem_social": tem_social,
         "tem_ref_profissional": tem_ref_profissional,
+        "tem_referencia_pessoa_profissional": tem_referencia_pessoa_profissional,
         "tem_duvida_confianca_profissional": tem_duvida_confianca_profissional,
     }
     
@@ -529,6 +530,24 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, cat
 
     if f["tem_contexto_servico"]:
         return {"intencao_conversacional": "consulta_servico", "confianca": 70, "features": f}
+
+    # 🔥 ÚLTIMO RECURSO: Referência contextual a profissional em estado de erro
+    # Se tudo mais falhou mas há referência a pessoa + profissionais válidos oferecidos
+    # Exemplos: "ok, pode ser ela então" em contexto com profissionais_validos
+    profissionais_validos = ctx.get("profissionais_validos", [])
+    if (
+        f.get("tem_referencia_pessoa_profissional")
+        and profissionais_validos
+        and f["tem_draft"]
+        and ctx.get("motivo_estado") == "profissional_nao_atende_servico"
+    ):
+        return {
+            "intencao_conversacional": "ajuste_incremental",
+            "tipo_ajuste_incremental": "profissional",
+            "confianca": 75,
+            "features": f,
+            "motivo": "referencia_contextual_profissional_ultimo_recurso"
+        }
 
     return {"intencao_conversacional": "indefinida", "confianca": 40, "features": f}
 
