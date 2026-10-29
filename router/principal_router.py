@@ -5887,15 +5887,36 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["modo_conversa"] = modo_conversa
 
     elif em_consulta_pura_intencao and class_intencao.get("intencao_conversacional") == "ajuste_incremental":
-        # 🛡 P0.7.4: Não deixar reclassificar consulta como ajuste
-        print(
-            "[P0.7.4_INTENCAO_PRESERVADA] Consulta pura — não reclassificar como ajuste_incremental",
-            flush=True
-        )
-        ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
-        ctx["confianca_intencao_conversacional"] = 90
-        ctx["modo_conversa"] = modo_conversa
-        ctx["tipo_ajuste_incremental"] = None
+        # 🛡 P0.7.4: Consulta pura — preservar intenção MAS permitir atualizar draft com serviço
+        features = class_intencao.get("features", {})
+        servico_mencionado = features.get("servico_mencionado")
+
+        if servico_mencionado:
+            # ✅ Serviço foi mencionado — atualizar draft e continuar
+            print(
+                f"[P0.7.4_SERVICO_MENCIONADO] Em consulta pura mas serviço detectado: {servico_mencionado} — atualizando draft",
+                flush=True
+            )
+            draft = ctx.get("draft_agendamento") or {}
+            draft["servico"] = servico_mencionado
+            ctx["draft_agendamento"] = draft
+            ctx["servico"] = servico_mencionado
+
+            # Manter intenção como consulta, mas com serviço já preenchido
+            ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
+            ctx["confianca_intencao_conversacional"] = 90
+            ctx["modo_conversa"] = modo_conversa
+            ctx["tipo_ajuste_incremental"] = None
+        else:
+            # ❌ Sem serviço mencionado — manter guardrail original
+            print(
+                "[P0.7.4_INTENCAO_PRESERVADA] Consulta pura — não reclassificar como ajuste_incremental",
+                flush=True
+            )
+            ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
+            ctx["confianca_intencao_conversacional"] = 90
+            ctx["modo_conversa"] = modo_conversa
+            ctx["tipo_ajuste_incremental"] = None
 
     else:
         ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
