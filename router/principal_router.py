@@ -4005,7 +4005,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
             "_updated_at": datetime.now().isoformat(),
         }
         for campo in campos_remover:
-            payload[campo] = firestore.DELETE_FIELD
+            payload[campo] = DELETE_FIELD
 
         try:
             from services.firebase_service_async import atualizar_dado_em_path
@@ -4061,7 +4061,7 @@ async def recuperar_de_loop(ctx: dict, acao: str, dono_id: str, cliente_id: str)
             "_updated_at": datetime.now().isoformat(),
         }
         for campo in campos_remover_nivel3:
-            payload[campo] = firestore.DELETE_FIELD
+            payload[campo] = DELETE_FIELD
 
         try:
             from services.firebase_service_async import atualizar_dado_em_path
@@ -4369,6 +4369,9 @@ async def _validar_expiração_sessao(
 
 async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None, phone_number_id: str = None, update=None, context=None):
     print(" [principal_router] Arquivo carregado")
+
+    # Importação explícita para evitar UnboundLocalError em escopo local
+    from google.cloud.firestore import DELETE_FIELD
 
     # 🧹 Limpeza multilinha: remover quebras de linha e normalizar espaços
     texto_usuario = (mensagem or "").strip()
@@ -4719,24 +4722,24 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "aguardando_confirmacao_agendamento": False,
                         "aguardando_confirmacao_cancelamento": False,
                         "ultima_acao": "cancelamento_concluido",
-                        "cancelamento_pendente": firestore.DELETE_FIELD,
-                        "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
-                        "candidatos_cancelamento": firestore.DELETE_FIELD,
-                        "draft_agendamento": firestore.DELETE_FIELD,
-                        "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
-                        "profissional_escolhido": firestore.DELETE_FIELD,
-                        "data_hora": firestore.DELETE_FIELD,
-                        "servico": firestore.DELETE_FIELD,
-                        "interpretacao_conversacional": firestore.DELETE_FIELD,
-                        "intencao_conversacional": firestore.DELETE_FIELD,
-                        "objetivo_conversacional": firestore.DELETE_FIELD,
-                        "tipo_ajuste_incremental": firestore.DELETE_FIELD,
+                        "cancelamento_pendente": DELETE_FIELD,
+                        "evento_id_candidato_cancelamento": DELETE_FIELD,
+                        "candidatos_cancelamento": DELETE_FIELD,
+                        "draft_agendamento": DELETE_FIELD,
+                        "dados_confirmacao_agendamento": DELETE_FIELD,
+                        "profissional_escolhido": DELETE_FIELD,
+                        "data_hora": DELETE_FIELD,
+                        "servico": DELETE_FIELD,
+                        "interpretacao_conversacional": DELETE_FIELD,
+                        "intencao_conversacional": DELETE_FIELD,
+                        "objetivo_conversacional": DELETE_FIELD,
+                        "tipo_ajuste_incremental": DELETE_FIELD,
                     }
 
                     # [DIAGNOSTICO_P0_SAVE] Antes de salvar limpeza
                     print(f"[DIAG_SAVE_PRE] tenant_id={dono_id} | actor_id={user_id} | path=Clientes/{dono_id}/Sessoes/{user_id}", flush=True)
                     print(f"[DIAG_SAVE_PRE] PATCH_P0: Usando DELETE_FIELD para limpeza real", flush=True)
-                    print(f"[DIAG_SAVE_PRE] campos_remove={len([k for k, v in payload_limpeza.items() if v is firestore.DELETE_FIELD])}", flush=True)
+                    print(f"[DIAG_SAVE_PRE] campos_remove={len([k for k, v in payload_limpeza.items() if v is DELETE_FIELD])}", flush=True)
 
                     resultado_save = await salvar_contexto_temporario_v2(dono_id, cliente_id, payload_limpeza)
 
@@ -4765,18 +4768,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "aguardando_confirmacao_agendamento": False,
                 "aguardando_confirmacao_cancelamento": False,
                 "ultima_acao": "cancelamento_abortado",
-                "cancelamento_pendente": firestore.DELETE_FIELD,
-                "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
-                "candidatos_cancelamento": firestore.DELETE_FIELD,
-                "draft_agendamento": firestore.DELETE_FIELD,
-                "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
-                "profissional_escolhido": firestore.DELETE_FIELD,
-                "data_hora": firestore.DELETE_FIELD,
-                "servico": firestore.DELETE_FIELD,
-                "interpretacao_conversacional": firestore.DELETE_FIELD,
-                "intencao_conversacional": firestore.DELETE_FIELD,
-                "objetivo_conversacional": firestore.DELETE_FIELD,
-                "tipo_ajuste_incremental": firestore.DELETE_FIELD,
+                "cancelamento_pendente": DELETE_FIELD,
+                "evento_id_candidato_cancelamento": DELETE_FIELD,
+                "candidatos_cancelamento": DELETE_FIELD,
+                "draft_agendamento": DELETE_FIELD,
+                "dados_confirmacao_agendamento": DELETE_FIELD,
+                "profissional_escolhido": DELETE_FIELD,
+                "data_hora": DELETE_FIELD,
+                "servico": DELETE_FIELD,
+                "interpretacao_conversacional": DELETE_FIELD,
+                "intencao_conversacional": DELETE_FIELD,
+                "objetivo_conversacional": DELETE_FIELD,
+                "tipo_ajuste_incremental": DELETE_FIELD,
             }
             await salvar_contexto_temporario_v2(dono_id, cliente_id, payload_limpeza)
 
@@ -4896,8 +4899,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # Persistir exclusão com DELETE_FIELD (não apenas remover de memória)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, {
                 **ctx,
-                "motivo_estado": firestore.DELETE_FIELD,
-                "profissional_rejeitado": firestore.DELETE_FIELD,
+                "motivo_estado": DELETE_FIELD,
+                "profissional_rejeitado": DELETE_FIELD,
             })
         else:
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
@@ -4931,7 +4934,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             print(f"[PATCH_P0.5 V3] Reiteration detectada: mesmo agendamento, preservando draft", flush=True)
             ctx.pop("motivo_estado", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, {
-                "motivo_estado": firestore.DELETE_FIELD
+                "motivo_estado": DELETE_FIELD
             })
         else:
             # Novo agendamento: algo diverge (serviço, data, profissional)
@@ -7515,7 +7518,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["aguardando_confirmacao_agendamento"] = False
             # Usar DELETE_FIELD para remover draft de Firestore explicitamente
             from firebase_admin import firestore
-            ctx["draft_agendamento"] = firestore.DELETE_FIELD
+            ctx["draft_agendamento"] = DELETE_FIELD
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             alteracao_draft = None  # Não há alteração de draft, é nova consulta
             # Deixar continuar para processar nova consulta
