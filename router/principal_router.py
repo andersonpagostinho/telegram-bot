@@ -5133,27 +5133,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "motivo": "profissional_mencionado_nao_atende_servico"
                 }
             else:
-                # Pergunta informativa ou input inválido nesse contexto
+                # Qualquer outra coisa nesse contexto, repetir opções
                 if profissionais_validos:
-                    # Verificar se é pergunta informativa (tem "?" ou keywords)
-                    eh_pergunta = "?" in texto_usuario or any(
-                        palavra in texto_lower
-                        for palavra in ["quem", "qual", "existe", "tem", "há", "faz"]
-                    )
-
-                    if eh_pergunta:
-                        # Pergunta sobre alternativas — responder com clareza
-                        profissionais_nomes = list(profissionais_validos.keys()) if isinstance(profissionais_validos, dict) else profissionais_validos
-                        if len(profissionais_nomes) == 1:
-                            resposta = f"Temos somente a *{profissionais_nomes[0]}* que faz {servico}."
-                        else:
-                            lista = ", ".join([f"*{p}*" for p in profissionais_nomes])
-                            resposta = f"Para {servico}, temos: {lista}. Qual você prefere?"
-                    else:
-                        # Input inválido — resposta genérica
-                        profissionais_nomes = list(profissionais_validos.keys()) if isinstance(profissionais_validos, dict) else profissionais_validos
-                        lista = ", ".join(profissionais_nomes)
-                        resposta = f"Desculpe, não entendi. Para *{servico}*, pode escolher: {lista}."
+                    profissionais_nomes = list(profissionais_validos.keys()) if isinstance(profissionais_validos, dict) else profissionais_validos
+                    lista = ", ".join(profissionais_nomes)
+                    resposta = f"Desculpe, não entendi. Para *{servico}*, pode escolher: {lista}."
                 else:
                     resposta = "Não consegui entender. Tente novamente."
 
