@@ -2345,11 +2345,11 @@ async def precheck_e_confirmacao_agendamento(
 
         if data_detectada and not hora_detectada:
             # Apenas data foi informada, falta horário
-            msg = f"Perfeito, {montar_frase_data_legivel(data_hora)}.\n\nQual horário você prefere?"
+            msg = f"Certo, {montar_frase_data_legivel(data_hora)}. Qual horário funciona para você?"
             ctx["estado_fluxo"] = "aguardando_horario"
         elif hora_detectada and not data_detectada:
             # Apenas horário foi informado, falta data
-            msg = "Ótimo, e qual dia você prefere?"
+            msg = "Beleza, qual dia você prefere?"
             ctx["estado_fluxo"] = "aguardando_data"
         else:
             # Ambos faltando ou ambos inválidos
@@ -2468,7 +2468,7 @@ async def precheck_e_confirmacao_agendamento(
         # 🔥 monta resposta com sugestões
         hora_original = datetime.fromisoformat(data_hora).strftime("%H:%M")
 
-        msg = f"⛔ A *{prof}* já tem atendimento às *{hora_original}*.\n"
+        msg = f"A *{prof}* não está disponível nesse horário — ela já tem um compromisso às *{hora_original}*.\n"
 
         if sugestoes:
             msg += f"\n✅ Estes horários estão livres com *{prof}*:\n"
@@ -2480,7 +2480,7 @@ async def precheck_e_confirmacao_agendamento(
         if alternativo:
             msg += f"\n💡 Se quiser manter *{hora_original}*, posso te encaixar com *{alternativo}*.\n"
 
-        msg += "\nVocê prefere outro horário ou manter o horário com outro profissional?"
+        msg += "\nPosso marcar com outra profissional no mesmo horário, ou você prefere outro horário com a *{prof}*?"
 
         return await _send_and_stop(context, user_id, msg)
 
@@ -4498,7 +4498,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     if resultado_timeout.get("expirou"):
         print(f"[SESSION_TIMEOUT] Sessão expirada | tipo={resultado_timeout.get('tipo_aviso')}", flush=True)
-        mensagem = resultado_timeout.get("mensagem", "Reiniciamos a conversa 🔄\n\nComo posso ajudar?")
+        mensagem = resultado_timeout.get("mensagem", "Voltamos! 😊\n\nComo posso ajudar com seu agendamento?")
         return await _send_and_stop(
             context,
             user_id,
@@ -4692,9 +4692,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     desc = ev.get('descricao', '(sem título)')
                     data = ev.get('data', '????-??-??')
                     hora = ev.get('hora_inicio', '??:??')
-                    linhas.append(f"{i}) {desc} — {data} às {hora}")
+                    linhas.append(f"• {desc} — {data} às {hora}")
 
-                resposta = "Qual deseja cancelar?\n" + "\n".join(linhas)
+                resposta = "Qual agendamento você quer cancelar?\n" + "\n".join(linhas)
                 return {
                     "handled": True,
                     "resposta": resposta,
@@ -4909,7 +4909,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         else:
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
-        resposta_nao_entendi = "Desculpe, não entendi. Pode reformular?"
+        resposta_nao_entendi = "Não consegui entender. Pode tentar de novo, com mais detalhes?"
         print(f" [P1-C_AFTER_SAVE] salvou contexto", flush=True)
         return await _send_and_stop(context, user_id, resposta_nao_entendi)
 
@@ -5007,7 +5007,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 lista = ", ".join(profissionais_validos)
                 resposta = f"Pode escolher: {lista}."
             else:
-                resposta = "Nenhum profissional disponível para esse serviço."
+                resposta = "Infelizmente não temos ninguém disponível agora. Posso ajudar com outro serviço?"
 
             ctx["estado_fluxo"] = "aguardando_profissional"
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
@@ -5341,7 +5341,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # Verificação crítica: se não tem serviço, não pode entrar em agendamento
             if not servico_sugerido:
                 print(" [CONSULTA->AGENDAMENTO] servico_sugerido é None, retornando pergunta", flush=True)
-                resposta_texto = "Perfeito. Qual serviço você quer agendar?"
+                resposta_texto = "Qual serviço você gostaria? Posso ajudar com:"
                 return await _send_and_stop(context, user_id, resposta_texto)
 
             # 🔥 P0.11 FIX: Recuperar data_hora já extraída na Mensagem 1
@@ -5389,7 +5389,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             }
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_update)  # P0-004 patch
 
-            resposta_texto = "Tudo bem. Se precisar, estou por aqui! 😊"
+            resposta_texto = "Oi! 👋 Sou a Eve, secretária aqui. Posso ajudar com agendamentos, cancelamentos ou informações sobre disponibilidade."
             return await _send_and_stop(context, user_id, resposta_texto)
 
     # =========================================================
@@ -5566,7 +5566,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["estado_fluxo"] = "idle"
 
         # Confirmar abandono do draft (não cancelamento de evento)
-        mensagem_abandono = "Tudo bem! Cancelei o agendamento. Posso ajudar em algo mais?"
+        mensagem_abandono = "Pronto, cancelei. Precisar de algo mais, é só chamar!"
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
         return await _send_and_stop(context, user_id, mensagem_abandono)
 
@@ -5859,7 +5859,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                                 return await _send_and_stop(context, user_id, resposta)
                                         except Exception as e:
                                             print(f" [P0.6.2_AJUSTE_PROFISSIONAL_ERRO] Erro ao validar: {e}", flush=True)
-                                            resposta = "Desculpe, houve um erro ao validar o profissional. Tente novamente."
+                                            resposta = "Desculpe, não achei a profissional com esse nome. Pode tentar de novo?"
                                             return await _send_and_stop(context, user_id, resposta)
                                     else:
                                         # Tipo é profissional mas não veio nome
@@ -5871,13 +5871,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                     # → Rejeitar e solicitar esclarecimento
                                     print(f" [P0.6.2_FALLBACK_REJEITO] Confiança baixa ou serviço inválido", flush=True)
                                     print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
-                                    resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
+                                    resposta_esclarecimento = "Pode falar o nome de novo? As opções são: " + ", ".join(catalogo_servicos) + "."
                                     return await _send_and_stop(context, user_id, resposta_esclarecimento)
                     else:
                         # GPT também não conseguiu interpretar
                         print(f" [P0.6.2_FALLBACK_INDEFINIDA] GPT também retornou indefinida", flush=True)
                         print(f" [P0.6.2_ESCLARECIMENTO] Enviando pergunta de esclarecimento", flush=True)
-                        resposta_esclarecimento = "Desculpe, não entendi bem. Qual serviço você gostaria de agendar? Posso ajudá-la com: " + ", ".join(catalogo_servicos) + "."
+                        resposta_esclarecimento = "Pode falar o nome de novo? As opções são: " + ", ".join(catalogo_servicos) + "."
                         return await _send_and_stop(context, user_id, resposta_esclarecimento)
 
                 except Exception as e:
@@ -10301,7 +10301,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "origem": "sem_base_amanha_mesmo_horario",
             })
 
-            mensagem = msg_p1 or "Certo — qual dia e horário você prefere?"
+            mensagem = msg_p1 or "Qual dia e hora funcionam para você?"
 
             return await _send_and_stop(
                 context,
