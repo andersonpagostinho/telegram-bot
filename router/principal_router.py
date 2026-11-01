@@ -4823,6 +4823,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     print(f"[INTENÇÃO_ANTECIPADA] {class_intencao}", flush=True)
 
+    # 🔥 P0.7.5: Capturar serviço mencionado em contexto (não seleção)
+    servico_em_features = class_intencao.get("features", {}).get("servico_mencionado")
+    if (servico_em_features
+        and ctx.get("estado_fluxo") in ["aguardando_servico", "aguardando_profissional", "agendando"]):
+        ctx["servico_contextual"] = servico_em_features
+        print(f"[P0.7.5_CAPTURA_CONTEXTUAL] servico_contextual = {servico_em_features}", flush=True)
+
     # 🔒 P0: PATCH P0 — Detectar reiteração vs alteração ANTES de salvar intenção
     # Se está em confirmação pendente e classificou como ajuste_incremental,
     # verificar se dados realmente mudaram
@@ -4872,6 +4879,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "intencao_conversacional": ctx.get("intencao_conversacional"),
         "tipo_ajuste_incremental": ctx.get("tipo_ajuste_incremental"),
         "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
+        "servico_contextual": ctx.get("servico_contextual"),  # ← P0.7.5 persistir contextual
     })
 
     # =========================================================
@@ -4946,6 +4954,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx.pop("intencao_conversacional", None)
             ctx.pop("objetivo_conversacional", None)
             ctx.pop("tipo_ajuste_incremental", None)
+            ctx.pop("servico_contextual", None)  # ← P0.7.5 limpar contexto anterior
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             print(f"[PATCH_P0.5 V3] Estado anterior limpo, novo agendamento iniciado", flush=True)
 
@@ -5441,11 +5450,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         from services.informacao_service import responder_consulta_informativa
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)
 
-        resposta_informativa = await responder_consulta_informativa(
-            mensagem,
-            dono_id,
-            features=class_intencao.get("features") if class_intencao else None
-        )
+        # 🔥 P0.7.5: Se há servico_contextual em aguardando_servico, deixar para bloco de resposta filtrar por serviço
+        if ctx.get("servico_contextual") and estado_fluxo == "aguardando_servico":
+            resposta_informativa = None
+        else:
+            resposta_informativa = await responder_consulta_informativa(
+                mensagem,
+                dono_id,
+                features=class_intencao.get("features") if class_intencao else None
+            )
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: {resposta_informativa is not None} | tipo={type(resposta_informativa)}", flush=True)
 
     if resposta_informativa:
@@ -5472,6 +5485,50 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # Pura consulta informativa — responder e parar
                 print(" [CONSULTA_INFORMATIVA_IDLE] Consulta pura — respondendo")
                 return await _send_and_stop(context, user_id, resposta_informativa)
+
+    # =========================================================
+    # 🔥 P0.7.5 INTERCEPTOR: Consulta Contextual de Alternativas
+    # =========================================================
+    # Se há servico_contextual em aguardando_servico E pergunta de alternativa,
+    # responder com lista filtrada ANTES de menu genérico
+    # ✅ REUTILIZA profs_dict já carregado (SEM nova leitura Firestore)
+    servico_contextual_p075 = ctx.get("servico_contextual")
+    estado_p075 = ctx.get("estado_fluxo")
+
+    if (estado_p075 in ("aguardando_servico", "aguardando serviço", "aguardando_serviço")
+        and servico_contextual_p075
+        and ("que faz" in tnorm and ("outra" in tnorm or "alguma" in tnorm))):
+
+        print(f"[P0.7.5_INTERCEPTOR] Ativado: servico_contextual={servico_contextual_p075}", flush=True)
+
+        # ✅ REUTILIZAR profs_dict já carregado em linha 4804/5056
+        prof_atual_p075 = (
+            (ctx.get("draft_agendamento") or {}).get("profissional")
+            or ctx.get("profissional_escolhido")
+        )
+
+        nomes_filtrados_p075 = []
+        for p in profs_dict.values():
+            nome = (p.get("nome") or "").strip()
+            if not nome:
+                continue
+
+            servicos_prof = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+            if (normalizar(servico_contextual_p075) in servicos_prof
+                or servico_contextual_p075.lower() in servicos_prof):
+                if normalizar(nome) != normalizar(prof_atual_p075 or ""):
+                    nomes_filtrados_p075.append(nome)
+
+        if nomes_filtrados_p075:
+            txt_p075 = f"*Para {servico_contextual_p075}, eu tenho:*\n- " \
+                     + "\n- ".join(sorted(set(nomes_filtrados_p075)))
+            txt_p075 += "\n\nQual você prefere?"
+        else:
+            txt_p075 = f"Só tenho a {prof_atual_p075} para {servico_contextual_p075}. " \
+                     + "Quer escolher outro serviço ou profissional?"
+
+        print(f"[P0.7.5_INTERCEPTOR_RESPOSTA] {len(nomes_filtrados_p075)} alternativas encontradas", flush=True)
+        return await _send_and_stop(context, user_id, txt_p075)
 
     # ---------------------------------------------------------
     # [P0-CANCELAMENTO] Detectar intenção de cancelamento em contexto idle
@@ -5717,6 +5774,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                                     # Reutilizar infraestrutura de consulta_disponibilidade_aberta
                                     ctx["intencao_conversacional"] = "consulta_disponibilidade_aberta"
                                     ctx["objetivo_conversacional"] = "descobrir_servico_para_consulta"
+                                    ctx["estado_fluxo"] = "aguardando_servico"
                                     ctx["confianca_intencao_conversacional"] = interpretacao_gpt.get("confianca", 70)
 
                                     # Preservar entidades extraídas (data, hora, profissional)
@@ -6213,10 +6271,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "objetivo_conversacional": ctx.get("objetivo_conversacional"),
         "modo_conversa": ctx.get("modo_conversa"),
         "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
+        "estado_fluxo": ctx.get("estado_fluxo"),
         # [FIX: Persistir serviço e data/hora extraídos]
         "servico": ctx.get("servico"),
         "data_hora": ctx.get("data_hora"),
         "draft_agendamento": ctx.get("draft_agendamento"),
+        "servico_contextual": ctx.get("servico_contextual"),  # ← P0.7.5 persistir contexto semântico
     })  # [P2-MIGRACAO-LOTE1-OC1] tenant_id origin: dono_id (linha 3354)
 
     # =========================================================
@@ -7537,6 +7597,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             from firebase_admin import firestore
             ctx["draft_agendamento"] = DELETE_FIELD
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+            # [P0.7.5AC FIX] Remover DELETE_FIELD de ctx em memória após persistência
+            # DELETE_FIELD é um Sentinel que não pode ser acessado como dict
+            ctx.pop("draft_agendamento", None)
             alteracao_draft = None  # Não há alteração de draft, é nova consulta
             # Deixar continuar para processar nova consulta
         # 🔒 P1-C GUARD: Não processar como alteração se entrada é indefinida
@@ -8369,8 +8432,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "opcoes de servicos", "opções de serviços", "quais são os serviços", "quais sao os servicos"
     ])
 
-    # "quem faz" (genérico)
-    quem_faz_generico = ("quem faz" in tnorm)
+    # "quem faz" (genérico) + padrão M2: "tem alguma outra que faz"
+    quem_faz_generico = (
+        "quem faz" in tnorm
+        or (estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço")
+            and ("que faz" in tnorm and ("outra" in tnorm or "alguma" in tnorm)))
+    )
+
 
     # em fluxo, só abre menu se usuário pediu menu (não por estar aguardando)
     if estado_fluxo == "aguardando_profissional":
@@ -8438,6 +8506,33 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 if menu_dentro_do_fluxo and nomes_filtrados:
                     txt += "\n\nQual você prefere?"
 
+                return await _send_and_stop(context, user_id, txt)
+
+        # 🔥 P0.7.5: Filtrar por servico_contextual se disponível (consulta M2 com menção de serviço)
+        servico_contextual = ctx.get("servico_contextual")
+        if (quem_faz_generico
+            and estado_fluxo in ("aguardando_servico", "aguardando serviço", "aguardando_serviço")
+            and servico_contextual
+            and not pergunta_profissionais_draft):
+            prof_atual = (ctx.get("draft_agendamento") or {}).get("profissional") or ctx.get("profissional_escolhido")
+
+            nomes_filtrados = []
+            for p in profs_dict.values():
+                nome = (p.get("nome") or "").strip()
+                if not nome:
+                    continue
+
+                servicos_prof = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+                if normalizar(servico_contextual) in servicos_prof or servico_contextual.lower() in servicos_prof:
+                    if normalizar(nome) != normalizar(prof_atual or ""):
+                        nomes_filtrados.append(nome)
+
+            if nomes_filtrados:
+                txt = f"*Para {servico_contextual}, eu tenho:*\n- " + "\n- ".join(sorted(set(nomes_filtrados)))
+                txt += "\n\nQual você prefere?"
+                return await _send_and_stop(context, user_id, txt)
+            else:
+                txt = f"Só tenho a {prof_atual} para {servico_contextual}. Quer escolher outro serviço ou profissional?"
                 return await _send_and_stop(context, user_id, txt)
 
         if quer_servicos and not quer_profissionais:
@@ -11216,6 +11311,35 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         if objetivo_conv == "descobrir_servico_para_consulta" and not servico:
             print(" [AG_SERVICO] objetivo prioriza descoberta de serviço", flush=True)
+
+            # 🔥 P0.7.5: Se não há serviço em M3 mas há servico_contextual de M2, usar
+            servico_contextual = ctx.get("servico_contextual")
+            if servico_contextual and prof and data_hora:
+                # Validar que profissional faz o serviço contextual
+                profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+                prof_pode_fazer = False
+                for p in profs_dict.values():
+                    if normalizar(p.get("nome", "")) == normalizar(prof):
+                        servicos_prof = [str(s).strip().lower() for s in (p.get("servicos") or [])]
+                        if normalizar(servico_contextual) in servicos_prof or servico_contextual.lower() in servicos_prof:
+                            prof_pode_fazer = True
+                            break
+
+                if prof_pode_fazer:
+                    # Preencher draft e confirmar
+                    draft_local["servico"] = servico_contextual
+                    ctx["draft_agendamento"] = draft_local
+                    ctx["servico_confirmado"] = servico_contextual
+                    print(f"[P0.7.5_CONTINUIDADE_M3] Completado com servico_contextual={servico_contextual}", flush=True)
+
+                    frase_data = montar_frase_data_legivel(data_hora) if data_hora else ""
+                    resposta = f"Perfeito — {servico_contextual} com {prof} {frase_data} 😊"
+
+                    ctx["estado_fluxo"] = "confirmacao_pendente"
+                    ctx["aguardando_confirmacao_agendamento"] = True
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    return await _send_and_stop(context, user_id, resposta + "\n\nCerto? 😊")
 
             ctx["estado_fluxo"] = "aguardando_servico"
 
