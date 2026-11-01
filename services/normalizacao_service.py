@@ -73,8 +73,9 @@ async def encontrar_servicos_candidatos(texto_usuario: str, user_id: str = None,
                 if len(candidatos_ordenados) >= limite:
                     return candidatos_ordenados
 
-    # 3) Fallback: fuzzy matching frase inteira (com n=3, cutoff reduzido para mais sensibilidade)
-    matches = difflib.get_close_matches(texto_normalizado, candidatos, n=3, cutoff=0.3)
+    # 3) Fallback: fuzzy matching frase inteira (com n=3, cutoff restritivo para evitar falsos positivos)
+    # 🔥 P0 FIX: Aumentado de 0.3 para 0.75 (ainda permissivo para candidatos múltiplos, mas defensável)
+    matches = difflib.get_close_matches(texto_normalizado, candidatos, n=3, cutoff=0.75)
     for match in matches:
         if match not in candidatos_ordenados:
             candidatos_ordenados.append(match)
@@ -150,7 +151,10 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None
             return match[0]
 
     # 3) fallback - matching frase toda
-    match = difflib.get_close_matches(texto_normalizado, candidatos, n=1, cutoff=0.4)
+    # 🔥 P0 FIX: Aumentado de 0.4 para 0.85 para evitar falsos positivos
+    # Ex: "com a bruna" tinha 40% similaridade com "coloracao" (cutoff=0.4)
+    # Com 0.85, requer 85% de similaridade (muito mais restritivo)
+    match = difflib.get_close_matches(texto_normalizado, candidatos, n=1, cutoff=0.85)
     if match:
         return match[0]
 

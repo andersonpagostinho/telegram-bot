@@ -2715,10 +2715,14 @@ async def detectar_alteracao_draft_agendamento(
     # =====================================================
     # 🔥 troca de serviço
     # =====================================================
-    servico_detectado = await encontrar_servico_mais_proximo(
-        texto_usuario,
-        dono_id=dono_id
-    )
+    # 🔒 GUARD P0: Se está escolhendo profissional, não detectar serviço
+    # Evita falso positivo quando usuario diz "com a bruna" → "coloracao"
+    servico_detectado = None
+    if (ctx or {}).get("tipo_ajuste_incremental") != "profissional":
+        servico_detectado = await encontrar_servico_mais_proximo(
+            texto_usuario,
+            dono_id=dono_id
+        )
 
     if servico_detectado:
 
