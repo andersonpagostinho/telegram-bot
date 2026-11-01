@@ -4811,7 +4811,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 catalogo_servicos.append(s)
     catalogo_servicos = sorted(set(catalogo_servicos))
 
-    print(f"[CATALOGO_TENANT] tenant={dono_id} | n_profs={len(profs_dict)} | servicos={catalogo_servicos}", flush=True)
+    # 🔥 P0 FIX: Extrair catálogo de profissionais do tenant para reconhecimento contextual
+    catalogo_profissionais = [
+        (p.get("nome") or chave).strip()
+        for chave, p in profs_dict.items()
+        if (p.get("nome") or chave).strip()
+    ]
+
+    print(f"[CATALOGO_TENANT] tenant={dono_id} | n_profs={len(profs_dict)} | servicos={catalogo_servicos} | profissionais={catalogo_profissionais}", flush=True)
 
     # =========================================================
     # ✅ CLASSIFICAÇÃO SEMÂNTICA ANTECIPADA
@@ -5408,8 +5415,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
     # 🔒 P0 FIX: Passar catalogo_servicos específico do tenant
+    # 🔥 P0 FIX: Passar catalogo_profissionais para reconhecimento contextual
     # =========================================================
-    class_ctx = classificar_contexto_mensagem(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
+    class_ctx = classificar_contexto_mensagem(texto_usuario, ctx, catalogo_servicos=catalogo_servicos, catalogo_profissionais=catalogo_profissionais)
 
     print(f" [CLASSIFICADOR CONTEXTO] {class_ctx}", flush=True)
 

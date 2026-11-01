@@ -73,7 +73,7 @@ def extrair_servico_do_catalogo(texto: str, catalogo_servicos: list[str] | None 
     return None
 
 
-def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None) -> dict:
+def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None, catalogo_profissionais: list[str] | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
 
@@ -158,16 +158,25 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
     # Padrão dinâmico: profissional no contexto OU na própria mensagem + verbo de disponibilidade
     tem_ref_profissional_dinamica = False
 
+    # 🔥 P0 FIX: Reconhecimento determinístico de profissional em estado aguardando_profissional
+    # Se cliente está aguardando escolher profissional, qualquer nome do catálogo é uma resposta válida
+    tem_ref_profissional_catalogo = False
+    if estado_fluxo == "aguardando_profissional" and catalogo_profissionais:
+        for prof_nome in catalogo_profissionais:
+            if normalizar_txt(prof_nome) in t:
+                tem_ref_profissional_catalogo = True
+                break
+
     # 1. Procurar profissional no contexto (sempre checar)
     profissional_ctx = ctx.get("profissional_escolhido") or (ctx.get("draft_agendamento") or {}).get("profissional")
 
-    # 2. Procurar profissional NA MENSAGEM (4 profissionais conhecidos)
-    profissionais_conhecidos = ["bruna", "gloria", "joana", "carla"]
+    # 2. Procurar profissional NA MENSAGEM (usar catálogo dinâmico do tenant)
     profissional_msg = None
-    for prof in profissionais_conhecidos:
-        if prof in t.lower():
-            profissional_msg = prof
-            break
+    if catalogo_profissionais:
+        for prof in catalogo_profissionais:
+            if normalizar_txt(prof) in t:
+                profissional_msg = prof
+                break
 
     # Usar profissional do contexto OU da mensagem (prioridade contexto)
     profissional_para_buscar = profissional_ctx or profissional_msg
@@ -180,7 +189,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
             t
         )
 
-    tem_ref_profissional = tem_ref_profissional_basico or tem_ref_profissional_dinamica
+    tem_ref_profissional = tem_ref_profissional_basico or tem_ref_profissional_dinamica or tem_ref_profissional_catalogo
 
     # Dúvida/insegurança sobre profissional — por composição, não frase fixa
     tem_sinal_qualidade_confianca = _tem(
@@ -236,10 +245,10 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         "tem_duvida_confianca_profissional": tem_duvida_confianca_profissional,
     }
     
-def classificar_contexto_mensagem(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None) -> dict:
+def classificar_contexto_mensagem(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None, catalogo_profissionais: list[str] | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
-    f = extrair_features_conversa(t, ctx, catalogo_servicos=catalogo_servicos)
+    f = extrair_features_conversa(t, ctx, catalogo_servicos=catalogo_servicos, catalogo_profissionais=catalogo_profissionais)
 
     if not t:
         return {"modo_conversa": "neutro", "confianca": 0, "motivo": "texto_vazio", "features": f}
