@@ -3630,7 +3630,7 @@ async def resolver_alteracao_draft_agendamento(
             )
 
         valido = await validar_profissional_para_servico(
-            dono_id=user_id,
+            dono_id=dono_id,  # 🔥 FIX: usar tenant_id, não user_id
             profissional=profissional,
             servico=novo_servico
         )
