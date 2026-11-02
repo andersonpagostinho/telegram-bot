@@ -245,6 +245,29 @@ def quer_falar_com_humano(texto: str, ctx: dict | None = None) -> bool:
 
     return False
 
+def _tem_draft_valido(ctx: dict) -> bool:
+    """
+    P0.9.1: Valida se draft_agendamento existe e tem dados mínimos.
+
+    Draft é válido se:
+    - É dict não-vazio
+    - Tem PELO MENOS servico OU (data_hora + profissional)
+
+    Retorna: True se draft é válido para operação de ajuste.
+    """
+    draft = ctx.get("draft_agendamento")
+
+    if not isinstance(draft, dict) or len(draft) == 0:
+        return False
+
+    tem_servico = bool(draft.get("servico"))
+    tem_data_hora = bool(draft.get("data_hora"))
+    tem_profissional = bool(draft.get("profissional"))
+
+    # Draft válido se tem serviço OU tem data+profissional
+    return tem_servico or (tem_data_hora and tem_profissional)
+
+
 def resolver_proximo_passo_real(
     proximo_passo: str | None,
     slots_extraidos: dict,
@@ -5901,15 +5924,25 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     # CAMADA 1 — INTENÇÃO CONVERSACIONAL (REUTILIZAR SE JÁ CALCULADA)
     # =========================================================
-    if ctx.get("intencao_conversacional"):
+    # P0.9.1: Se intenção reutilizada é ajuste_incremental, revalidar draft
+    intencao_salva = ctx.get("intencao_conversacional")
+    pode_reutilizar = intencao_salva is not None and (
+        intencao_salva != "ajuste_incremental" or _tem_draft_valido(ctx)
+    )
+
+    if pode_reutilizar:
         # Já foi classificado em ~3628, reutilizar
         class_intencao = {
-            "intencao_conversacional": ctx.get("intencao_conversacional"),
+            "intencao_conversacional": intencao_salva,
             "tipo_ajuste_incremental": ctx.get("tipo_ajuste_incremental"),
             "confianca": ctx.get("confianca_intencao_conversacional"),
         }
         print(f" [INTENÇÃO CONVERSACIONAL] REUTILIZADA: {class_intencao}", flush=True)
     else:
+        # P0.9.1: Se intenção era ajuste_incremental mas draft desapareceu, reclassificar
+        if intencao_salva == "ajuste_incremental" and not _tem_draft_valido(ctx):
+            print(f" [P0.9.1_RECLASSIFICACAO] ajuste_incremental salvo mas draft invalido, reclassificando", flush=True)
+
         # Fallback: classificar agora (não deveria acontecer, mas por segurança)
         class_intencao = classificar_intencao_conversacional(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
         print(f" [INTENÇÃO CONVERSACIONAL] CLASSIFICADA: {class_intencao}", flush=True)
@@ -6039,19 +6072,25 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         objetivo_conversacional = "preparar_prechecagem_agendamento"
 
     elif intencao_conv == "ajuste_incremental":
-        # 🛡 P0.7.4: Se estamos em consulta pura, NÃO muda para ajuste
-        # 🛡️ FACTOR 3 FIX: Usar contexto confiável se estado_fluxo=None
-        em_consulta_pura_alternativa = (
-            objetivo_original == "descobrir_servico_para_consulta"
-            and ctx.get("draft_agendamento", {}).get("profissional") is not None
-            and ctx.get("draft_agendamento", {}).get("data_hora") is not None
-        )
-
-        if em_consulta_pura or em_consulta_pura_alternativa:
-            print(f"[P0.7.4_PRESERVACAO] Protegendo objetivo de consulta pura contra reclassificação de ajuste (estado_fluxo={ctx.get('estado_fluxo')})", flush=True)
-            objetivo_conversacional = "descobrir_servico_para_consulta"
+        # P0.9.1: Validar que draft existe antes de ajuste
+        if not _tem_draft_valido(ctx):
+            print(f"[P0.9.1_VALIDACAO] ajuste_incremental mas draft invalido, reclassificando para agendamento_direto", flush=True)
+            intencao_conv = "agendamento_direto"
+            objetivo_conversacional = "preparar_prechecagem_agendamento"
         else:
-            objetivo_conversacional = "ajustar_draft_existente"
+            # 🛡 P0.7.4: Se estamos em consulta pura, NÃO muda para ajuste
+            # 🛡️ FACTOR 3 FIX: Usar contexto confiável se estado_fluxo=None
+            em_consulta_pura_alternativa = (
+                objetivo_original == "descobrir_servico_para_consulta"
+                and ctx.get("draft_agendamento", {}).get("profissional") is not None
+                and ctx.get("draft_agendamento", {}).get("data_hora") is not None
+            )
+
+            if em_consulta_pura or em_consulta_pura_alternativa:
+                print(f"[P0.7.4_PRESERVACAO] Protegendo objetivo de consulta pura contra reclassificação de ajuste (estado_fluxo={ctx.get('estado_fluxo')})", flush=True)
+                objetivo_conversacional = "descobrir_servico_para_consulta"
+            else:
+                objetivo_conversacional = "ajustar_draft_existente"
 
     elif intencao_conv == "cancelamento":
         objetivo_conversacional = "avaliar_cancelamento"
@@ -6238,7 +6277,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["tipo_ajuste_incremental"] = interpretacao_gpt.get("tipo_ajuste")
 
             if interpretacao_gpt.get("intencao") == "ajuste_incremental":
-                ctx["objetivo_conversacional"] = "ajustar_draft_existente"
+                # P0.9.1: Validar draft antes de aceitar ajuste_incremental do GPT
+                if not _tem_draft_valido(ctx):
+                    print(f"[P0.9.1_GPT_VALIDACAO] GPT retornou ajuste_incremental mas draft invalido, reclassificando para agendamento_direto", flush=True)
+                    interpretacao_gpt["intencao"] = "agendamento_direto"
+                    ctx["intencao_conversacional"] = "agendamento_direto"
+                    ctx["objetivo_conversacional"] = "preparar_prechecagem_agendamento"
+                else:
+                    ctx["objetivo_conversacional"] = "ajustar_draft_existente"
             elif interpretacao_gpt.get("intencao") == "cancelamento":
                 ctx["objetivo_conversacional"] = "avaliar_cancelamento"
             elif interpretacao_gpt.get("intencao") == "agendamento_direto":
@@ -12514,6 +12560,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 f"[AJUSTE_INCREMENTAL] draft preservado={draft_existente}",
                 flush=True
             )
+        else:
+            # P0.9.1: Draft vazio quando objetivo é ajuste — erro de estado
+            print(f"[P0.9.1_ERRO_ESTADO] objetivo=ajustar_draft_existente mas draft vazio, limpando objetivo", flush=True)
+            ctx.pop("objetivo_conversacional", None)
+            ctx.pop("modo_incremental", None)
 
     # =========================================================
     # 🔥 CONTINUIDADE FORÇADA — aguardando_data
