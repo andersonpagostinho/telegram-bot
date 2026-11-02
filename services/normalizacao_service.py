@@ -125,37 +125,82 @@ async def encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None
 
     profissionais = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
 
-    # Extrai e normaliza todos os serviços possíveis
-    todos_servicos = set()
+    # Extrai e normaliza todos os serviços possíveis, mantendo mapeamento para original
+    todos_servicos = {}  # mapa: servico_normalizado → servico_original
     for dados in profissionais.values():
         servs = dados.get("servicos", [])
         for s in servs:
             if isinstance(s, str):
+                s_original = str(s).strip()
                 s_norm = unidecode.unidecode(
-                    re.sub(r"[^\w\s]", " ", s.lower())
+                    re.sub(r"[^\w\s]", " ", s_original.lower())
                 ).strip()
                 s_norm = re.sub(r"\s+", " ", s_norm)
-                todos_servicos.add(s_norm)
+                # Manter o original, não sobrescrever se já existe (unlikely mas seguro)
+                if s_norm not in todos_servicos:
+                    todos_servicos[s_norm] = s_original
 
-    candidatos = list(todos_servicos)
+    candidatos_norm = list(todos_servicos.keys())
 
     # 1) verifica se algum serviço aparece como substring direta
-    for candidato in candidatos:
-        if candidato in texto_normalizado:
-            return candidato
+    for candidato_norm in candidatos_norm:
+        if candidato_norm in texto_normalizado:
+            return todos_servicos[candidato_norm]
 
-    # 2) tenta matching palavra a palavra
+    # 2) tenta matching palavra a palavra COM SEMÂNTICA DE PRIMEIRA PALAVRA
+    # P0.9.5 FIX: Comparar primeiro palavra do texto contra primeira palavra dos serviços
+    # Isso permite "cortar" (verbo) mapear para "corte feminino" (primeira palavra "corte")
+
+    # Mapear: primeira_palavra_normalizada → set de serviços_normalizados únicos que começam com ela
+    primeiras_palavras_map = {}  # primeira_palavra → set(servicos_norm completos unicos)
+    for servico_norm in candidatos_norm:
+        palavras = servico_norm.split()
+        if palavras:
+            primeira = palavras[0]
+            if primeira not in primeiras_palavras_map:
+                primeiras_palavras_map[primeira] = set()
+            primeiras_palavras_map[primeira].add(servico_norm)
+
+    # Para cada palavra do texto, tentar matching contra primeiras palavras dos serviços
     for palavra in texto_normalizado.split():
-        match = difflib.get_close_matches(palavra, candidatos, n=1, cutoff=0.8)
+        if not palavra:
+            continue
+
+        # Comparar contra primeiras palavras com cutoff 0.7 (fuzzy matching)
+        # 0.7 permite capturar variações morfológicas como "cortar" (verbo) → "corte" (substantivo)
+        # 72.73% similaridade entre "cortar" e "corte" passa em 0.7 mas não em 0.8
+        primeiras_palavras_lista = list(primeiras_palavras_map.keys())
+        match = difflib.get_close_matches(palavra, primeiras_palavras_lista, n=1, cutoff=0.7)
+
         if match:
-            return match[0]
+            primeira_matched = match[0]
+            servicos_candidatos = list(primeiras_palavras_map[primeira_matched])
+
+            # Se há múltiplos serviços DIFERENTES que começam com a mesma primeira palavra,
+            # tentar desambiguar com o restante do texto
+            if len(servicos_candidatos) > 1:
+                # Procurar se texto contém mais palavras do serviço
+                for servico_norm in servicos_candidatos:
+                    # Verificar se palavras adicionais do serviço aparecem no texto
+                    palavras_servico = servico_norm.split()[1:]  # palavras após a primeira
+                    if all(p in texto_normalizado for p in palavras_servico):
+                        # Encontrou match com todas as palavras
+                        return todos_servicos[servico_norm]
+
+                # Se não conseguiu desambiguar, preservar None (não escolher arbitrariamente)
+                # Conforme requisito: "Se não permitir desambiguar, retornar None"
+                print(f"[P0.9.5] AMBÍGUO: '{palavra}' corresponde a múltiplos serviços: {servicos_candidatos}. Retornando None.", flush=True)
+                return None
+            else:
+                # Único serviço correspondente
+                return todos_servicos[servicos_candidatos[0]]
 
     # 3) fallback - matching frase toda
     # 🔥 P0 FIX: Aumentado de 0.4 para 0.85 para evitar falsos positivos
     # Ex: "com a bruna" tinha 40% similaridade com "coloracao" (cutoff=0.4)
     # Com 0.85, requer 85% de similaridade (muito mais restritivo)
-    match = difflib.get_close_matches(texto_normalizado, candidatos, n=1, cutoff=0.85)
+    match = difflib.get_close_matches(texto_normalizado, candidatos_norm, n=1, cutoff=0.85)
     if match:
-        return match[0]
+        return todos_servicos[match[0]]
 
     return None
