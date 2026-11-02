@@ -4830,7 +4830,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # =========================================================
     ctx_para_classificacao = ctx.copy()
 
-    class_intencao = classificar_intencao_conversacional(texto_usuario, ctx_para_classificacao, catalogo_servicos=catalogo_servicos)
+    class_intencao = classificar_intencao_conversacional(texto_usuario, ctx_para_classificacao, catalogo_servicos=catalogo_servicos, catalogo_profissionais=catalogo_profissionais)
 
     print(f"[INTENÇÃO_ANTECIPADA] {class_intencao}", flush=True)
 
@@ -5700,7 +5700,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if tem_pedido_ag and tem_tempo_ag and servico_ag:
                 print(f" [NEUTRA→OPERACIONAL] Sinais detectados: pedido={tem_pedido_ag}, tempo={tem_tempo_ag}, servico={servico_ag}", flush=True)
                 # Forçar reclassificação como operacional
-                class_intencao = classificar_intencao_conversacional(texto_usuario, ctx, catalogo_servicos=catalogo_servicos)
+                class_intencao = classificar_intencao_conversacional(texto_usuario, ctx, catalogo_servicos=catalogo_servicos, catalogo_profissionais=catalogo_profissionais)
                 print(f" [NEUTRA→OPERACIONAL] Reclassificada: {class_intencao}", flush=True)
                 # Continuar processamento normal (não retornar vazio)
                 # Permitir que roteador continue para processar agendamento

@@ -391,10 +391,10 @@ def detectar_tipo_ajuste_incremental(texto: str, catalogo_servicos: list[str] | 
 
     return "indefinido"
 
-def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None) -> dict:
+def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, catalogo_servicos: list[str] | None = None, catalogo_profissionais: list[str] | None = None) -> dict:
     ctx = ctx or {}
     t = normalizar_txt(texto)
-    f = extrair_features_conversa(t, ctx, catalogo_servicos=catalogo_servicos)
+    f = extrair_features_conversa(t, ctx, catalogo_servicos=catalogo_servicos, catalogo_profissionais=catalogo_profissionais)
 
     # 🔒 RESPECT LOTE_3B: Se LOTE_3B já setou intenção P0 determinística, respeitá-la
     # (LOTE_3B é mais preciso que classificador genérico)
