@@ -4214,7 +4214,7 @@ async def _validar_expiração_sessao(
     TIMEOUT_SECONDS = 3600  # 60 minutos
 
     # Se em idle, não há timeout
-    estado_fluxo = ctx.get("estado_fluxo", "idle").strip().lower()
+    estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     if estado_fluxo == "idle":
         return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
 
