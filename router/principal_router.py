@@ -10066,17 +10066,25 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # =====================================================
             if not fluxo_operacional_ativo:
 
-                if tem_profissional_expresso and not tem_servico_explicito:
-                    ctx.pop("servico", None)
+                # [P0.9.4] Não deletar slots se ainda estão no draft (continuação válida)
+                draft_existente = ctx.get("draft_agendamento") or {}
+                tem_draft_estruturado = bool(draft_existente)
 
-                    if isinstance(ctx.get("draft_agendamento"), dict):
-                        ctx["draft_agendamento"].pop("servico", None)
+                if tem_profissional_expresso and not tem_servico_explicito:
+                    # [P0.9.4] Preserve if in draft (e.g., "com a Bruna" after "preciso cortar")
+                    if not (tem_draft_estruturado and draft_existente.get("servico")):
+                        ctx.pop("servico", None)
+
+                        if isinstance(ctx.get("draft_agendamento"), dict):
+                            ctx["draft_agendamento"].pop("servico", None)
 
                 if tem_profissional_expresso and not tem_data_explicitada:
-                    ctx.pop("data_hora", None)
+                    # [P0.9.4] Preserve if in draft (e.g., "com a Bruna" after "quarta às 14h")
+                    if not (tem_draft_estruturado and draft_existente.get("data_hora")):
+                        ctx.pop("data_hora", None)
 
-                    if isinstance(ctx.get("draft_agendamento"), dict):
-                        ctx["draft_agendamento"].pop("data_hora", None)
+                        if isinstance(ctx.get("draft_agendamento"), dict):
+                            ctx["draft_agendamento"].pop("data_hora", None)
 
                 if tem_servico_explicito and not tem_profissional_expresso:
                     ctx.pop("profissional_escolhido", None)
@@ -10087,7 +10095,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 if tem_servico_explicito and not tem_data_explicitada:
                     if ctx.get("estado_fluxo") == "aguardando_profissional":
                         print(" [PRESERVAR DATA_HORA] aguardando_profissional — não apagar data_hora", flush=True)
-                    else:
+                    # [P0.9.4] Also preserve if in draft (continuation of previous booking)
+                    elif not (tem_draft_estruturado and draft_existente.get("data_hora")):
                         ctx.pop("data_hora", None)
 
                         if isinstance(ctx.get("draft_agendamento"), dict):
