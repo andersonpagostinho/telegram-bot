@@ -11997,6 +11997,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     texto_escolha = _limpar_escolha(texto_lower)
     texto_norm = _norm_nome(texto_lower)
 
+    # 🔥 P0.9.8 FALLBACK: Se opcoes vazio, tentar buscar profissionais válidos para o serviço
+    if not opcoes:
+        servico_para_validacao = ctx.get("servico") or (ctx.get("draft_agendamento") or {}).get("servico")
+        if servico_para_validacao:
+            validacao = await validar_profissional_para_servico(dono_id, "DUMMY", servico_para_validacao)
+            if validacao.get("validos"):
+                opcoes = validacao["validos"]
+                print(f"[P0.9.8_FALLBACK_OPCOES] Carregadas opcoes do banco: {opcoes}", flush=True)
+
     for nome in opcoes:
         nome_norm = _norm_nome(nome)
 
