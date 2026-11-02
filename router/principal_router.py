@@ -5038,7 +5038,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             tem_draft_estruturado = bool(draft_existente) and draft_existente.get("servico") and draft_existente.get("data_hora")
 
             ctx.pop("motivo_estado", None)
-            ctx.pop("estado_fluxo", None)
+            # 🔥 P0.9.8 FIX: Não fazer pop de estado_fluxo! Em vez disso, restaurar para estado apropriado
+            # Se há draft estruturado, aguarda profissional; senão, volta pra idle
+            if tem_draft_estruturado:
+                ctx["estado_fluxo"] = "aguardando_profissional"
+            else:
+                ctx["estado_fluxo"] = "idle"
             ctx.pop("profissional_rejeitado", None)
             ctx.pop("profissionais_validos", None)
 
