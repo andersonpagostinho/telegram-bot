@@ -1876,7 +1876,9 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
             ctx["data"] = data_iso
             draft["data"] = data_iso
 
-            if hora_anterior:
+            # P0.9.8 FIX: NÃO EXECUTAR if/elif/else se dt_detectado já foi processado em CASO 1/2!
+            # Se len(hora_matches) > 0, CASO 1 ou CASO 2 já processou corretamente. Pular else block.
+            if len(hora_matches) == 0 and hora_anterior:
                 iso = f"{data_iso}T{hora_anterior}:00"
 
                 ctx["data_hora"] = iso
