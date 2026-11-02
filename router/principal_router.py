@@ -1972,11 +1972,21 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 # [FIX A1] Limpar erro de validação anterior quando data passa validação
                 ctx.pop("_erro_validacao", None)
 
+                # P0.9.8 DEBUG: Rastrear mudancas de flags
+                print(
+                    f"[P0.9.8_DEBUG_ELSE] ANTES: hora_confirmada={ctx.get('hora_confirmada')} | data_sem_hora={ctx.get('data_sem_hora')} | estado_fluxo={ctx.get('estado_fluxo')}",
+                    flush=True
+                )
+
                 ctx["data_hora"] = iso
                 draft["data_hora"] = iso
                 ctx["hora_confirmada"] = False
                 ctx["data_sem_hora"] = True
 
+                print(
+                    f"[P0.9.8_DEBUG_ELSE] DEPOIS: hora_confirmada={ctx.get('hora_confirmada')} | data_sem_hora={ctx.get('data_sem_hora')} | iso={iso}",
+                    flush=True
+                )
                 print(
                     f"[DATA_SEM_HORA] sem hora anterior válida e sem hora detectada | iso={iso}",
                     flush=True
@@ -1993,6 +2003,12 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
     # 🔥 persistir draft no contexto
     if draft:
         ctx["draft_agendamento"] = draft
+
+    # P0.9.8 DEBUG: Estado FINAL ao sair de extrair_slots_e_mesclar()
+    print(
+        f"[P0.9.8_DEBUG_SAIDA_FUNCAO] data_hora={ctx.get('data_hora')} | hora_confirmada={ctx.get('hora_confirmada')} | data_sem_hora={ctx.get('data_sem_hora')} | estado_fluxo={ctx.get('estado_fluxo')}",
+        flush=True
+    )
 
     return ctx
 
@@ -10465,9 +10481,21 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if not tem_hora_real(nova_iso):
             print(f"[PLACEHOLDER_DETECTADO] Data sem hora real: {nova_iso} (qualquer fluxo)", flush=True)
 
+            # P0.9.8 DEBUG: Rastrear entrada neste bloco
+            print(
+                f"[P0.9.8_DEBUG_PLACEHOLDER] ENTRADA: hora_confirmada={ctx.get('hora_confirmada')} | data_sem_hora={ctx.get('data_sem_hora')} | estado_fluxo={ctx.get('estado_fluxo')}",
+                flush=True
+            )
+
             ctx["estado_fluxo"] = "aguardando_horario"
             ctx["hora_confirmada"] = False
             ctx["data_sem_hora"] = True
+
+            # P0.9.8 DEBUG: Rastrear saida
+            print(
+                f"[P0.9.8_DEBUG_PLACEHOLDER] SAIDA: hora_confirmada={ctx.get('hora_confirmada')} | data_sem_hora={ctx.get('data_sem_hora')} | estado_fluxo={ctx.get('estado_fluxo')}",
+                flush=True
+            )
             ctx["pergunta_amanha_mesmo_horario"] = False
             ctx["data_hora"] = nova_iso
             ctx["draft_agendamento"] = {
