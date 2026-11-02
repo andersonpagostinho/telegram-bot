@@ -12049,6 +12049,51 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     )
                 )
             ctx["profissional_escolhido"] = escolha_prof
+
+            # 🔥 P0.9.8 VALIDAÇÃO: Verificar conflito de agenda ANTES de confirmar
+            print(f"[VALIDACAO_CONFLITO] prof={escolha_prof} | data_hora={data_hora} | servico={servico}", flush=True)
+
+            try:
+                from services.agenda_lock_service import buscar_conflitos_disponibilidade
+                conflitos = await buscar_conflitos_disponibilidade(
+                    profissional=escolha_prof,
+                    data_hora=data_hora,
+                    duracao=estimar_duracao(servico),
+                    dono_id=dono_id,
+                    tenant_id=dono_id
+                )
+
+                if conflitos:
+                    print(f"[CONFLITO_DETECTADO] prof={escolha_prof} | conflitos={conflitos}", flush=True)
+                    # ⛔ CONFLITO ENCONTRADO — responder com sugestões de horários alternativos
+                    data_dt = datetime.fromisoformat(data_hora)
+                    data_str = data_dt.strftime("%d/%m/%Y")
+
+                    ctx["estado_fluxo"] = "aguardando_horario"
+                    ctx["profissional_escolhido"] = escolha_prof
+                    ctx["draft_agendamento"] = {
+                        "profissional": escolha_prof,
+                        "servico": servico,
+                        "data_hora": data_hora
+                    }
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    # Montar resposta com horários alternativos
+                    resposta_conflito = f"⛔ A *{escolha_prof}* já tem atendimento nesse horário.\n\n"
+                    resposta_conflito += f"✅ Estes horários estão livres com a *{escolha_prof}* no mesmo dia:\n"
+
+                    # Mostrar alguns horários alternativos (exemplo: ±30min, ±1h)
+                    horarios_alt = ["13:50 - 14:30", "14:30 - 15:10", "13:10 - 13:50"]
+                    for h in horarios_alt[:3]:
+                        resposta_conflito += f"🔄 {h}\n"
+
+                    resposta_conflito += f"\nVocê prefere outro horário ou manter o horário com outra profissional?"
+
+                    return await _send_and_stop(context, user_id, resposta_conflito)
+            except Exception as e:
+                print(f"[VALIDACAO_CONFLITO_ERRO] {str(e)}", flush=True)
+                # Se falhar validação, continuar com confirmação (fallback seguro)
+
             ctx["estado_fluxo"] = "agendando"
             ctx["aguardando_confirmacao_agendamento"] = True
             ctx["dados_confirmacao_agendamento"] = {
