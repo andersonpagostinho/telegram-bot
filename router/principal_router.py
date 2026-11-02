@@ -4979,11 +4979,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # Executar limpeza completa do P0.5 atual
             print(f"[PATCH_P0.5 V3] Novo agendamento detectado: {alteracao.get('tipo')}, limpando estado anterior", flush=True)
 
+            # [P0.9.4 GUARD] Não limpar draft se contém servico + data_hora válidos
+            # Isto permite continuação: msg1 (servico+data) + msg2 (profissional)
+            draft_existente = ctx.get("draft_agendamento") or {}
+            tem_draft_estruturado = bool(draft_existente) and draft_existente.get("servico") and draft_existente.get("data_hora")
+
             ctx.pop("motivo_estado", None)
             ctx.pop("estado_fluxo", None)
             ctx.pop("profissional_rejeitado", None)
             ctx.pop("profissionais_validos", None)
-            ctx.pop("draft_agendamento", None)
+
+            # [P0.9.4] NUNCA deletar draft_agendamento — sempre preservar para continuação
+            # Isto permite msg1 (servico+data) + msg2 (profissional) workflows
+            # draft_agendamento será reconstruído se necessário em próximos passos
+
             ctx.pop("profissional_escolhido", None)
             ctx.pop("intencao_conversacional", None)
             ctx.pop("objetivo_conversacional", None)
@@ -7651,9 +7660,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 flush=True
             )
             ctx["aguardando_confirmacao_agendamento"] = False
-            # Usar DELETE_FIELD para remover draft de Firestore explicitamente
-            from firebase_admin import firestore
-            ctx["draft_agendamento"] = DELETE_FIELD
+            # [P0.9.4 GUARD] Não deletar draft se tem servico+data_hora válidos
+            draft_atual = ctx.get("draft_agendamento") or {}
+            if not (draft_atual.get("servico") and draft_atual.get("data_hora")):
+                # Usar DELETE_FIELD para remover draft de Firestore explicitamente
+                from firebase_admin import firestore
+                ctx["draft_agendamento"] = DELETE_FIELD
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
             # [P0.7.5AC FIX] Remover DELETE_FIELD de ctx em memória após persistência
             # DELETE_FIELD é um Sentinel que não pode ser acessado como dict
