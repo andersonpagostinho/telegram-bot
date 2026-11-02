@@ -1889,7 +1889,52 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                     flush=True
                 )
 
+            elif dt_e_meta.get("hora_detectada"):
+                # P0.9.6 FIX: Usar hora extraída NESTA mensagem, não descartar!
+                # Se hora_detectada=True, dt_detectado contém a hora correta
+                iso = dt_detectado.isoformat()
+                data_iso = dt_detectado.date().isoformat()
+
+                # [FIX 1] Validar se o estabelecimento funciona nessa data (com hora já definida)
+                try:
+                    validacao = await validar_data_funcionamento(cliente_id or "unknown", data_iso, tenant_id=dono_id)
+                    if not validacao.get("permitido"):
+                        motivo = validacao.get("motivo")
+                        regra = validacao.get("regra", {})
+                        print(f"[VALIDACAO EXPEDIENTE] Data rejeitada: {motivo} | data={data_iso} | regra={regra}", flush=True)
+
+                        # Rejeitar agendamento para data fechada
+                        ctx["estado_fluxo"] = "aguardando_data"
+                        ctx["data_hora"] = None
+                        draft["data_hora"] = None
+                        ctx["hora_confirmada"] = False
+                        ctx["data_sem_hora"] = False
+
+                        return {
+                            **ctx,
+                            "_erro_validacao": "Hoje não vai dar para agendar, porque o salão está fechado. 😊\n\nMas vamos encontrar outro dia para você fazer seu corte!\n\nQual dia fica melhor para você? 💇‍♀️",
+                            "draft_agendamento": draft
+                        }
+                except Exception as e:
+                    print(f"[VALIDACAO EXPEDIENTE] Erro ao validar: {e}", flush=True)
+                    # Continuar mesmo se validação falhar (falha aberta)
+
+                # [FIX A1] Limpar erro de validação anterior quando data passa validação
+                ctx.pop("_erro_validacao", None)
+
+                ctx["data_hora"] = iso
+                draft["data_hora"] = iso
+                ctx["hora_confirmada"] = True
+                ctx["data_sem_hora"] = False
+
+                print(
+                    f"[P0.9.6 HORA_DETECTADA] Usando hora extraída nesta mensagem | iso={iso}",
+                    flush=True
+                )
+
             else:
+                # Nenhuma hora em hora_anterior e nenhuma hora detectada nesta mensagem
+                # Usar meia-noite como padrão
                 dt_final = dt_detectado.replace(
                     hour=0,
                     minute=0,
@@ -1933,7 +1978,7 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 ctx["data_sem_hora"] = True
 
                 print(
-                    f"[DATA_SEM_HORA] sem hora anterior válida | iso={iso}",
+                    f"[DATA_SEM_HORA] sem hora anterior válida e sem hora detectada | iso={iso}",
                     flush=True
                 )
 
