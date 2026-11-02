@@ -1997,6 +1997,9 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
     if draft:
         ctx["draft_agendamento"] = draft
 
+    # 🔴 P0.9.8 FIX: SALVAR no Firestore antes de retornar para evitar recarregamentos posteriores sobrescreverem!
+    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
     return ctx
 
 def _tem_referencia_profissional_indireta(tnorm: str) -> bool:
