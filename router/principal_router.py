@@ -6310,7 +6310,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     else:
         print(
-            f"🔒 [GPT BLOQUEADO] intencao_atual={intencao_atual} | estado_fluxo={ctx.get('estado_fluxo')}",
+            f"[GPT BLOQUEADO] intencao_atual={intencao_atual} | estado_fluxo={ctx.get('estado_fluxo')}",
             flush=True
         )
 

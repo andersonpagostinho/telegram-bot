@@ -455,7 +455,7 @@ async def executar_acao_gpt(
                 profissional=prof,
             )
 
-            print(f"🧪 [P0 EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
+            print(f"[P0 EXPEDIENTE] permitido={validacao.get('permitido')} | motivo={validacao.get('motivo')}", flush=True)
 
             if not validacao.get("permitido"):
                 motivo = validacao.get("motivo")
