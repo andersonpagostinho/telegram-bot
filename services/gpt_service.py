@@ -315,6 +315,84 @@ async def processar_com_gpt_com_acao(
                     flush=True,
                 )
 
+        # ============================================================
+        # ✅ FASE 5: Consumir referências contextuais
+        # ============================================================
+        # Regra: Intenção atual governa. Ambiguidade bloqueia APENAS quando necessária.
+
+        if refs_contextuais.get("referencias_detectadas"):
+            tipo_ref = refs_contextuais.get("tipo_referencia", "")
+            necessita_esclarecimento = refs_contextuais.get("necessita_esclarecimento", False)
+            prof_ref = refs_contextuais.get("profissional_referenciada")
+            confianca = refs_contextuais.get("confianca", 0)
+
+            print(
+                f"[CONSUMO_REFS] tipo={tipo_ref}, esclarecimento={necessita_esclarecimento}, "
+                f"prof_ref={prof_ref}, confianca={confianca}",
+                flush=True
+            )
+
+            # ===== BLOQUEIA AMBIGUIDADE (exceto consultas informacionais) =====
+            if necessita_esclarecimento and intencao_conv != "consulta_disponibilidade_servico":
+                print(f"[CONSUMO_REFS_BLOQUEIO] Ambiguidade detectada, bloqueando avanço", flush=True)
+
+                if tipo_ref == "ordinal":
+                    candidatos = refs_contextuais.get("candidatos_profissionais", [])
+                    if candidatos:
+                        lista = ", ".join(candidatos)
+                        return {
+                            "resposta": f"Qual profissional você prefere entre: {lista}?",
+                            "acao": None,
+                            "dados": {}
+                        }
+                    else:
+                        return {
+                            "resposta": "Desculpe, não consegui mapear as opções. Qual profissional você prefere?",
+                            "acao": None,
+                            "dados": {}
+                        }
+
+                elif tipo_ref == "temporal":
+                    data_hora_anterior = (contexto_salvo or {}).get("data_hora")
+                    if data_hora_anterior:
+                        print(f"[CONSUMO_REFS_TEMPORAL] Ref temporal anterior: {data_hora_anterior}", flush=True)
+                    return {
+                        "resposta": "Qual horário você prefere?",
+                        "acao": None,
+                        "dados": {}
+                    }
+
+                else:
+                    return {
+                        "resposta": "Desculpe, preciso esclarecer. Qual profissional você gostaria?",
+                        "acao": None,
+                        "dados": {}
+                    }
+
+            # ===== USA PROFISSIONAL RESOLVIDO (inequívoco) =====
+            elif prof_ref and not necessita_esclarecimento:
+                print(f"[CONSUMO_REFS_PROF] Pronome resolvido: {prof_ref}, confiança={confianca}%", flush=True)
+
+                # Validar contra catálogo do tenant
+                catalogo_profs_nomes = [p.get("nome") for p in contexto.get("profissionais", []) if p.get("nome")]
+                prof_valido = prof_ref in catalogo_profs_nomes if catalogo_profs_nomes else False
+
+                if not prof_valido:
+                    print(f"[CONSUMO_REFS_VALIDACAO_FALHOU] {prof_ref} não está no catálogo", flush=True)
+                    return {
+                        "resposta": f"Desculpe, {prof_ref} não está disponível. Qual profissional você prefere?",
+                        "acao": None,
+                        "dados": {}
+                    }
+
+                # Enriquecer contexto_salvo LOCALMENTE (sem persistência)
+                if contexto_salvo:
+                    contexto_salvo["profissional_resolvido_por_anafora"] = prof_ref
+                    contexto_salvo["confianca_anafora"] = confianca
+                    print(f"[CONSUMO_REFS_PROF] Enriquecido contexto_salvo (local)", flush=True)
+
+                print(f"[CONSUMO_REFS_PROF] Tenant={tenant_id}, Actor={uid} preservados", flush=True)
+
         # --- 2.1) Curto-circuito: usuário digitou nome de profissional (antes do GPT) ---
         # Funciona mesmo se ainda faltar serviço/data_hora.
         try:
