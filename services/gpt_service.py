@@ -171,14 +171,15 @@ async def processar_com_gpt_com_acao(
         print("[DISPONIBILIDADE_INTERCEPT] Verificando classificador...", flush=True)
 
         try:
-            from services.classificador_conversa import classificar_intencao_conversacional
+            from services.classificador_conversa import classificar_intencao_com_contexto
 
-            intencao_class = classificar_intencao_conversacional(texto_usuario, contexto)
+            intencao_class = classificar_intencao_com_contexto(texto_usuario, contexto)
             intencao_conv = intencao_class.get("intencao_conversacional")
+            é_mudanca_assunto = intencao_class.get("é_mudanca_assunto", False)
 
-            print(f"[DISPONIBILIDADE_INTERCEPT] intencao_conversacional={intencao_conv}", flush=True)
+            print(f"[DISPONIBILIDADE_INTERCEPT] intencao_conversacional={intencao_conv}, é_mudanca_assunto={é_mudanca_assunto}", flush=True)
 
-            if intencao_conv == "consulta_disponibilidade_servico":
+            if intencao_conv == "consulta_disponibilidade_servico" and not é_mudanca_assunto:
                 print("[DISPONIBILIDADE_INTERCEPT] Detectada consulta de disponibilidade. Bloqueando GPT.", flush=True)
 
                 from services.informacao_service import responder_consulta_informativa
@@ -279,19 +280,29 @@ async def processar_com_gpt_com_acao(
             )
             contexto_salvo = {}
 
-        # 🔒 CONFIRMAÇÃO PENDENTE TEM PRIORIDADE TOTAL
+        # 🔒 CONFIRMAÇÃO PENDENTE TEM PRIORIDADE TOTAL (exceto mudança de assunto)
         confirmacao_pendente = bool(
             (contexto_salvo or {}).get("aguardando_confirmacao_agendamento")
             and (contexto_salvo or {}).get("dados_confirmacao_agendamento")
         )
 
         if confirmacao_pendente:
-            print(
-                f"🛑 [GPT-CURTO-PROF] ignorado: confirmação pendente | "
-                f"texto={texto_usuario!r}",
-                flush=True,
-            )
-            return None
+            # ✅ P0.11: Permitir respostas a mudança de assunto em confirmação
+            é_mudanca_em_confirmacao = intencao_class.get("é_mudanca_assunto", False) if 'intencao_class' in locals() else False
+
+            if not é_mudanca_em_confirmacao:
+                print(
+                    f"🛑 [GPT-CURTO-PROF] ignorado: confirmação pendente | "
+                    f"texto={texto_usuario!r}",
+                    flush=True,
+                )
+                return None
+            else:
+                print(
+                    f"✅ [P0.11-MUDANCA_ASSUNTO] Permitindo resposta a mudança durante confirmação | "
+                    f"texto={texto_usuario!r}",
+                    flush=True,
+                )
 
         # --- 2.1) Curto-circuito: usuário digitou nome de profissional (antes do GPT) ---
         # Funciona mesmo se ainda faltar serviço/data_hora.

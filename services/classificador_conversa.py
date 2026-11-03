@@ -560,6 +560,161 @@ def classificar_intencao_conversacional(texto: str, ctx: dict | None = None, cat
 
     return {"intencao_conversacional": "indefinida", "confianca": 40, "features": f}
 
+def classificar_intencao_com_contexto(
+    texto: str,
+    contexto: dict | None = None,
+    catalogo_servicos: list[str] | None = None,
+    catalogo_profissionais: list[str] | None = None
+) -> dict:
+    """
+    Wrapper contextual que enriquece a classificação com informações de mudança de assunto.
+
+    Preserva resultado de classificar_intencao_conversacional() e adiciona:
+    - é_mudanca_assunto: bool
+    - contexto_ativo: dict com draft, estado, confirmação
+    - recomendacao_acao: str declarativa
+    - necessita_esclarecimento: bool
+
+    Não modifica Firestore, draft ou estado.
+    """
+    contexto = contexto or {}
+
+    # 1. Chamar classificador existente (preservar integralmente)
+    resultado_base = classificar_intencao_conversacional(
+        texto, contexto,
+        catalogo_servicos=catalogo_servicos,
+        catalogo_profissionais=catalogo_profissionais
+    )
+
+    # 2. Extrair contexto ativo
+    draft_agendamento = contexto.get("draft_agendamento")
+    estado_fluxo = contexto.get("estado_fluxo")
+    confirmacao_pendente = contexto.get("aguardando_confirmacao_agendamento", False)
+
+    contexto_ativo = {
+        "draft_agendamento": draft_agendamento,
+        "estado_fluxo": estado_fluxo,
+        "confirmacao_pendente": confirmacao_pendente,
+        "proxima_acao_esperada": _extrair_proxima_acao_esperada(estado_fluxo, draft_agendamento)
+    }
+
+    # 3. Detectar mudança de assunto
+    é_mudanca_assunto = _detectar_mudanca_assunto(
+        texto,
+        resultado_base.get("intencao_conversacional"),
+        contexto_ativo,
+        catalogo_servicos,
+        catalogo_profissionais
+    )
+
+    # 4. Determinar recomendação de ação
+    recomendacao_acao = _determinar_recomendacao_acao(
+        resultado_base.get("intencao_conversacional"),
+        é_mudanca_assunto,
+        confirmacao_pendente,
+        draft_agendamento
+    )
+
+    # 5. Verificar se necessita esclarecimento
+    necessita_esclarecimento = resultado_base.get("intencao_conversacional") == "indefinida"
+
+    # 6. Retornar resultado enriquecido
+    return {
+        **resultado_base,
+        "é_mudanca_assunto": é_mudanca_assunto,
+        "contexto_ativo": contexto_ativo,
+        "recomendacao_acao": recomendacao_acao,
+        "necessita_esclarecimento": necessita_esclarecimento
+    }
+
+
+def _extrair_proxima_acao_esperada(estado_fluxo: str | None, draft: dict | None) -> str | None:
+    """Extrai qual é o próximo passo esperado baseado no estado."""
+    if not draft:
+        return None
+
+    if not draft.get("servico"):
+        return "aguardando_servico"
+    elif not draft.get("profissional"):
+        return "aguardando_profissional"
+    elif not draft.get("data_hora"):
+        return "aguardando_data_hora"
+    else:
+        return "aguardando_confirmacao"
+
+
+def _detectar_mudanca_assunto(
+    texto: str,
+    intencao_base: str,
+    contexto_ativo: dict,
+    catalogo_servicos: list[str] | None = None,
+    catalogo_profissionais: list[str] | None = None
+) -> bool:
+    """
+    Detecta se a mensagem é uma mudança de assunto durante um agendamento.
+
+    Mudança de assunto = pergunta/ajuda FORA do contexto de agendamento esperado
+    """
+    draft = contexto_ativo.get("draft_agendamento")
+    estado = contexto_ativo.get("estado_fluxo")
+    proxima_acao = contexto_ativo.get("proxima_acao_esperada")
+
+    if not draft:
+        return False
+
+    if proxima_acao == "aguardando_servico" and intencao_base in ["agendamento_direto", "consulta_disponibilidade_servico"]:
+        return False
+    if proxima_acao == "aguardando_profissional" and intencao_base in ["ajuste_incremental", "agendamento_direto"]:
+        return False
+    if proxima_acao == "aguardando_data_hora" and intencao_base in ["ajuste_incremental", "agendamento_direto"]:
+        return False
+    if proxima_acao == "aguardando_confirmacao" and intencao_base in ["confirmacao_agendamento", "negacao_confirmacao_agendamento"]:
+        return False
+
+    intencoes_mudanca_assunto = {
+        "consulta_disponibilidade_servico",
+        "consulta_servico",
+        "consultar_agendamentos_usuario",
+        "duvida_confianca_profissional",
+        "consulta_disponibilidade_aberta"
+    }
+
+    if intencao_base in intencoes_mudanca_assunto:
+        if estado == "idle" or not estado:
+            return False
+        return True
+
+    return False
+
+
+def _determinar_recomendacao_acao(
+    intencao: str,
+    é_mudanca_assunto: bool,
+    confirmacao_pendente: bool,
+    draft: dict | None
+) -> str:
+    """Determina a ação recomendada para gpt_service.py."""
+
+    if é_mudanca_assunto and confirmacao_pendente:
+        return "responder_mudanca_em_confirmacao"
+
+    if é_mudanca_assunto and draft:
+        return "responder_mudanca_preservar_draft"
+
+    if intencao == "indefinida":
+        return "pedir_esclarecimento"
+
+    if intencao in ["confirmacao_agendamento", "negacao_confirmacao_agendamento"]:
+        return "processar_confirmacao"
+
+    if intencao in ["ajuste_incremental", "agendamento_direto"]:
+        return "continuar_agendamento"
+
+    if intencao == "cancelamento":
+        return "processar_cancelamento"
+
+    return "processar_gpt_normal"
+
 def classificar_negacao_confirmacao(texto: str, ctx: dict | None = None) -> bool:
     t = normalizar_txt(texto or "")
 
