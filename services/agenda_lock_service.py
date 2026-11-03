@@ -683,3 +683,50 @@ async def limpar_locks_expirados(dono_id: str, horas_expiracao: int = 24) -> int
     except Exception as e:
         logger.error(f"Erro ao limpar locks: {e}")
         return 0
+
+
+async def liberar_locks_por_evento_id(dono_id: str, event_id: str) -> int:
+    """
+    P0.9.11: Libera todos os locks confirmados associados a um evento.
+
+    Chamado quando um evento é cancelado ou deletado.
+    Garante que o horário seja liberado para novos agendamentos.
+
+    Args:
+        dono_id: ID do dono/tenant
+        event_id: ID do evento a ser liberado
+
+    Returns:
+        Quantidade de locks deletados
+
+    Raises:
+        Exception: Se falha ao deletar algum lock (propaga erro)
+    """
+    try:
+        locks = await buscar_subcolecao(f"Clientes/{dono_id}/AgendaLocks") or []
+        locks_liberados = 0
+
+        for lock_item in locks:
+            lock_data = lock_item.get("data", lock_item)
+            lock_id = lock_item.get("id")
+
+            # Procurar locks associados a este evento_id
+            if lock_data.get("evento_id") == event_id:
+                try:
+                    lock_path = f"Clientes/{dono_id}/AgendaLocks/{lock_id}"
+                    await deletar_dado_em_path(lock_path)
+                    locks_liberados += 1
+                    logger.info(f"Lock liberado: {lock_id} (evento {event_id})")
+                except Exception as e:
+                    logger.error(f"ERRO ao liberar lock {lock_id}: {e}")
+                    raise  # Propagar erro — não deixar silent
+
+        logger.info(
+            f"[LIBERACAO_LOCKS] evento={event_id} | "
+            f"tenant={dono_id} | locks_liberados={locks_liberados}"
+        )
+        return locks_liberados
+
+    except Exception as e:
+        logger.error(f"Erro ao liberar locks do evento {event_id}: {e}")
+        raise

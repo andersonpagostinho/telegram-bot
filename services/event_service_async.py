@@ -16,7 +16,7 @@ from services.firebase_service_async import (
 )
 from services.identidade_service import obter_tenant_id
 from services.notificacao_service import criar_notificacao_agendada
-from services.agenda_lock_service import criar_evento_com_lock  # 🔒 PATCH P0
+from services.agenda_lock_service import criar_evento_com_lock, liberar_locks_por_evento_id  # 🔒 PATCH P0
 from utils.formatters import gerar_sugestoes_de_horario
 
 logger = logging.getLogger(__name__)
@@ -488,6 +488,17 @@ async def cancelar_evento(
             f"[CANCELAMENTO] evento_id={event_id} | "
             f"cancelado_por={user_id} | tipo={cancelado_por_tipo}"
         )
+
+        # 🔒 P0.9.11: LIBERAR LOCKS CONFIRMADOS ASSOCIADOS
+        # Quando evento é cancelado, seus locks devem ser liberados
+        try:
+            locks_liberados = await liberar_locks_por_evento_id(user_id_efetivo, event_id)
+            logger.info(f"[LIBERACAO_LOCKS] {locks_liberados} locks liberados para evento {event_id}")
+        except Exception as e:
+            # Falha crítica — lock não foi liberado
+            logger.error(f"ERRO CRÍTICO ao liberar locks do evento {event_id}: {e}")
+            # NÃO retornar True — operação falhou
+            return False
 
         # [F8 MVP] Processar notificação de lista de espera (assincrono, não bloqueia)
         try:
