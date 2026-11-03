@@ -171,13 +171,24 @@ async def processar_com_gpt_com_acao(
         print("[DISPONIBILIDADE_INTERCEPT] Verificando classificador...", flush=True)
 
         try:
-            from services.classificador_conversa import classificar_intencao_com_contexto
+            from services.classificador_conversa import classificar_intencao_com_contexto, resolver_referencias_contextuais
 
             intencao_class = classificar_intencao_com_contexto(texto_usuario, contexto)
             intencao_conv = intencao_class.get("intencao_conversacional")
             é_mudanca_assunto = intencao_class.get("é_mudanca_assunto", False)
 
-            print(f"[DISPONIBILIDADE_INTERCEPT] intencao_conversacional={intencao_conv}, é_mudanca_assunto={é_mudanca_assunto}", flush=True)
+            # ✅ P0.12 FASE 4: Resolver referências contextuais (anáforas)
+            catalogo_profs = [p.get("nome") for p in contexto.get("profissionais", []) if p.get("nome")]
+            refs_contextuais = resolver_referencias_contextuais(
+                texto_usuario,
+                contexto,
+                catalogo_profissionais=catalogo_profs,
+                catalogo_servicos=None  # Será carregado se necessário
+            )
+
+            print(f"[DISPONIBILIDADE_INTERCEPT] intencao_conversacional={intencao_conv}, é_mudanca_assunto={é_mudanca_assunto}, refs_detectadas={refs_contextuais.get('referencias_detectadas')}", flush=True)
+            if refs_contextuais.get("referencias_detectadas"):
+                print(f"[REFERENCIAS] tipo={refs_contextuais.get('tipo_referencia')}, prof={refs_contextuais.get('profissional_referenciada')}, confianca={refs_contextuais.get('confianca')}", flush=True)
 
             if intencao_conv == "consulta_disponibilidade_servico" and not é_mudanca_assunto:
                 print("[DISPONIBILIDADE_INTERCEPT] Detectada consulta de disponibilidade. Bloqueando GPT.", flush=True)

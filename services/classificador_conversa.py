@@ -922,3 +922,136 @@ def classificar_confirmacao_cancelamento(texto: str, ctx: dict | None = None) ->
     # FALLBACK: Qualquer outra coisa
     # =====================================================
     return "ambiguo"
+
+
+def resolver_referencias_contextuais(
+    texto: str,
+    contexto: dict | None = None,
+    catalogo_profissionais: list[str] | None = None,
+    catalogo_servicos: list[str] | None = None
+) -> dict:
+    """
+    Resolve referências implícitas (anáforas) em mensagem conversacional.
+
+    Entrada:
+    - texto: mensagem atual do usuário
+    - contexto: estado do agendamento (draft, estado_fluxo, etc.)
+    - catalogo_profissionais: lista de nomes válidos
+    - catalogo_servicos: lista de serviços válidos
+
+    Saída estruturada:
+    {
+        "referencias_detectadas": bool,
+        "profissional_referenciada": str | None,
+        "servico_referenciado": str | None,
+        "tipo_referencia": str,  # "pronome" | "ordinal" | "temporal" | "composta" | "nenhuma"
+        "necessita_esclarecimento": bool,
+        "candidatos_profisionais": list,
+        "candidatos_servicos": list,
+        "confianca": int (0-100),
+        "motivo": str
+    }
+
+    Não executa ações, apenas interpreta.
+    """
+    contexto = contexto or {}
+    t = normalizar_txt(texto)
+
+    # Resultado padrão
+    resultado = {
+        "referencias_detectadas": False,
+        "profissional_referenciada": None,
+        "servico_referenciado": None,
+        "tipo_referencia": "nenhuma",
+        "necessita_esclarecimento": False,
+        "candidatos_profissionais": [],
+        "candidatos_servicos": [],
+        "confianca": 0,
+        "motivo": "Nenhuma referência contextual detectada"
+    }
+
+    # 0. REFERÊNCIAS COMPOSTAS (PRIMEIRO — maior especificidade)
+    tem_outro_servico = _tem(r"\b(outro servico|outro serviço|outra coisa)\b", t)
+    tem_pronome_ela = _tem(r"\b(com\s+ela|ela|a ela)\b", t)
+    tem_pronome_ele = _tem(r"\b(com\s+ele|ele|o ele)\b", t)
+
+    tem_composta = (tem_outro_servico and (tem_pronome_ela or tem_pronome_ele)) or \
+                   _tem(r"\b(mesmo servico|mesmo serviço).*\b(com\s+outra|outra profissional)\b", t)
+
+    if tem_composta:
+        prof_anterior = contexto.get("profissional_escolhido") or \
+                       (contexto.get("draft_agendamento") or {}).get("profissional")
+
+        resultado["referencias_detectadas"] = True
+        resultado["tipo_referencia"] = "composta"
+        resultado["necessita_esclarecimento"] = True
+        resultado["confianca"] = 70
+        resultado["motivo"] = "Referência composta (serviço + profissional) detectada"
+
+        if prof_anterior:
+            resultado["profissional_referenciada"] = prof_anterior
+
+        return resultado
+
+    # 1. PRONOMES PESSOAIS
+    if tem_pronome_ela or tem_pronome_ele:
+        # Buscar profissional escolhido anteriormente
+        prof_anterior = contexto.get("profissional_escolhido") or \
+                       (contexto.get("draft_agendamento") or {}).get("profissional")
+
+        if prof_anterior:
+            resultado["referencias_detectadas"] = True
+            resultado["profissional_referenciada"] = prof_anterior
+            resultado["tipo_referencia"] = "pronome"
+            resultado["confianca"] = 95
+            resultado["motivo"] = f"Pronome 'ela/ele' resolvido para profissional anterior: {prof_anterior}"
+            return resultado
+        else:
+            resultado["referencias_detectadas"] = True
+            resultado["necessita_esclarecimento"] = True
+            resultado["tipo_referencia"] = "pronome"
+            resultado["confianca"] = 30
+            resultado["motivo"] = "Pronome 'ela/ele' sem referência anterior - ambíguo"
+            return resultado
+
+    # 2. ORDINAIS E INDEFINIDOS (apenas "outra/outro" profissional SEM pronome)
+    tem_outra = _tem(r"\b(a outra|outra profissional)\b", t)
+    tem_outro = _tem(r"\b(o outro|outro profissional)\b", t)
+
+    if tem_outra or tem_outro:
+        # Não selecionar por posição - apenas marcar como ordinário
+        resultado["referencias_detectadas"] = True
+        resultado["tipo_referencia"] = "ordinal"
+        resultado["necessita_esclarecimento"] = True
+        resultado["confianca"] = 50
+        resultado["motivo"] = "Ordinário 'outra/outro profissional' detectado - requer determinismo"
+        return resultado
+
+    # 3. REFERÊNCIAS TEMPORAIS
+    tem_naquele_horario = _tem(r"\b(naquele horario|naquele horário|mesmo horario|mesmo horário)\b", t)
+    tem_mais_tarde = _tem(r"\b(mais tarde|um pouco mais tarde|depois)\b", t)
+    tem_mais_cedo = _tem(r"\b(mais cedo|um pouco mais cedo)\b", t)
+
+    if tem_naquele_horario or tem_mais_tarde or tem_mais_cedo:
+        hora_anterior = (contexto.get("draft_agendamento") or {}).get("data_hora") or \
+                       (contexto.get("ultima_consulta") or {}).get("data_hora")
+
+        if hora_anterior:
+            resultado["referencias_detectadas"] = True
+            resultado["tipo_referencia"] = "temporal"
+            resultado["confianca"] = 80
+            resultado["motivo"] = f"Referência temporal detectada para {hora_anterior}"
+            # Não fazer cálculo aqui - deixar para motor determinístico
+            resultado["necessita_esclarecimento"] = False if tem_naquele_horario else True
+            return resultado
+
+    # 4. SERVIÇOS (apenas ordinário SEM pronome)
+    if tem_outro_servico and not (tem_pronome_ela or tem_pronome_ele):
+        resultado["referencias_detectadas"] = True
+        resultado["tipo_referencia"] = "ordinal"
+        resultado["necessita_esclarecimento"] = True
+        resultado["confianca"] = 60
+        resultado["motivo"] = "Ordinário 'outro serviço' detectado"
+        return resultado
+
+    return resultado
