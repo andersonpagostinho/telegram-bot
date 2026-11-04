@@ -1340,7 +1340,24 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             return True
 
         elif status == "duplicado_confirmado" or resultado_salvamento == "duplicado":
-            # ⚠️ Evento já estava confirmado — mostrar "já confirmado"
+            # ✅ CASO A: Se foi confirmado NESTA requisição = criação exitosa
+            if resultado_salvamento.get("confirmado_nesta_requisicao") is True:
+                msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_sucesso)
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, msg_sucesso, phone_number_id=phone_number_id_alt)
+                cleanup_ok = await limpar_contexto_agendamento_v2(dono_id, cliente_id)
+                if not cleanup_ok:
+                    print(f"[ERRO_P0_CLEAR] Falha ao limpar contexto | dono={dono_id} | cliente={cliente_id}", flush=True)
+                    return False
+                return True
+
+            # ⚠️ CASO B: Evento já estava confirmado antes = respuesta de duplicidade
             msg_duplicado = "Esse horário já está confirmado.\n\nSe precisar alterar ou cancelar, é só me avisar."
             if update and hasattr(update, "message"):
                 await update.message.reply_text(msg_duplicado)
