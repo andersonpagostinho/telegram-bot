@@ -697,7 +697,8 @@ class BateriaP0FluxoCompleto:
             # 3️⃣ REGISTRAR EVENTO (se criado com sucesso ou evento já existia)
             if resultado.get("evento_id"):
                 self.recursos_criados["evento_ids"].append(resultado["evento_id"])
-                status = "idempotente" if resultado.get("duplicado") else "novo"
+                # ✅ [FIX] Usar novo contrato com status
+                status = "idempotente" if (isinstance(resultado, dict) and resultado.get("status", "").startswith("duplicado")) else "novo"
                 print(f"    [RASTREAMENTO] Evento registrado ({status}): {resultado['evento_id']}")
 
             return resultado

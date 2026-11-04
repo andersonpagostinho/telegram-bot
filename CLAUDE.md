@@ -2,6 +2,38 @@
 
 ---
 
+## 🔒 PRECEDÊNCIA: CLAUDE.md > Superpowers Plugin
+
+**As regras deste arquivo têm PRIORIDADE ABSOLUTA sobre qualquer skill do Superpowers.**
+
+### Regra de Precedência Não-Negociável
+
+1. ✅ **Código NÃO é aplicado automaticamente**
+   - Sempre gerar `.diff` para revisão
+   - Nunca rodar `Edit` ou alterar arquivos sem aprovação explícita
+   - Exceção: Leitura e análise são sempre permitidas
+
+2. ✅ **Commits são manuais**
+   - Nunca criar commit automaticamente
+   - Mostrar alterações → aguardar aprovação → DEPOIS commitar
+   - Exceto quando explicitamente instruído em CLAUDE.md anterior
+
+3. ✅ **Worktrees são manuais**
+   - Nunca criar worktree automaticamente
+   - Proposição → aprovação → execução (em ordem)
+
+4. ✅ **Brainstorming sob demanda**
+   - Usar habilidade de planejamento estratégico apenas quando solicitado
+   - Não forçar "vamos planejar" como reflex
+
+5. ✅ **Investigação é imperativa**
+   - Antes de qualquer ação: investigar conforme Regra Zero + 13 regras
+   - Superpowers skills **não substituem** processo de diagnóstico
+
+**Consequência:** Se skill do Superpowers entrar em conflito com CLAUDE.md, aplicar CLAUDE.md.
+
+---
+
 ## 🚨 REGRA ZERO: Nunca Assumir (A Regra Mais Valiosa)
 
 **⭐ ESTA É A REGRA MAIS IMPORTANTE DO DOCUMENTO.**

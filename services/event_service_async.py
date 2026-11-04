@@ -278,9 +278,18 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
                 print(f"❌ Evento não pôde ser criado ({tipo_erro}): {motivo}")
                 return f"conflito_{tipo_erro}"
 
-            if resultado_lock.get("duplicado"):
-                print("♻️ Evento já existe (idempotente). Não criando duplicado.")
-                return "duplicado"
+            # ✅ [FIX] Propagar novo contrato estruturado em vez de string "duplicado"
+            status = resultado_lock.get("status", "duplicado_confirmado")
+            confirmado_agora = resultado_lock.get("confirmado_nesta_requisicao", False)
+            print(f"♻️ Evento já existe (idempotente, status={status}).")
+
+            return {
+                "ok": True,
+                "status": status,
+                "evento_id": resultado_lock.get("evento_id", event_id),
+                "motivo": resultado_lock.get("motivo", "Idempotência acionada"),
+                "confirmado_nesta_requisicao": confirmado_agora
+            }
 
             print(f"[OK] Evento criado com sucesso com proteção: {event_id}")
             # Continua para enviar notificação

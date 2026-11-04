@@ -482,13 +482,26 @@ async def criar_evento_com_lock(
                 evento_existente = await buscar_dado_em_path(evento_path)
                 if evento_existente:
                     logger.info(f"Evento já existe (idempotente): {event_id}")
+
+                    # ✅ [FIX] Verificar se evento estava pendente ou já confirmado
+                    era_confirmado = evento_existente.get("confirmado") is True
+                    confirmado_nesta_requisicao = not era_confirmado
+
+                    # Se evento era pendente, ATUALIZAR para confirmado
+                    if confirmado_nesta_requisicao:
+                        evento_existente["confirmado"] = True
+                        evento_existente["status"] = "confirmado"
+                        evento_existente["confirmado_em"] = datetime.now(FUSO_BR).isoformat()
+                        await salvar_dado_em_path(evento_path, evento_existente)
+
                     return {
                         "ok": True,
                         "evento_id": event_id,
-                        "duplicado": True,
+                        "status": "duplicado_pendente_agora" if confirmado_nesta_requisicao else "duplicado_confirmado",
+                        "confirmado_nesta_requisicao": confirmado_nesta_requisicao,
                         "lock_ids": [],
                         "lock_keys": [],
-                        "motivo": "Evento já existe (idempotente após falha de lock)"
+                        "motivo": "Confirmação concluída" if confirmado_nesta_requisicao else "Evento já estava confirmado"
                     }
 
                 # Se locks não foram criados E evento não existe = erro real
@@ -570,10 +583,25 @@ async def criar_evento_com_lock(
             evento_existente = await buscar_dado_em_path(evento_path)
             if evento_existente:
                 logger.warning(f"Evento já existe (idempotente): {event_id}")
+
+                # ✅ [FIX] Verificar se evento estava pendente ou já confirmado
+                era_confirmado = evento_existente.get("confirmado") is True
+
+                if not era_confirmado:
+                    # Confirmação legítima de evento pendente — ATUALIZAR para confirmado
+                    evento_existente["confirmado"] = True
+                    evento_existente["status"] = "confirmado"
+                    evento_existente["confirmado_em"] = datetime.now(FUSO_BR).isoformat()
+                    await salvar_dado_em_path(evento_path, evento_existente)
+                    confirmado_nesta_requisicao = True
+                else:
+                    # Retentar evento já confirmado — apenas LER
+                    confirmado_nesta_requisicao = False
+
                 # Marcar locks como confirmados
                 for lock_path in locks_criados:
                     lock_doc = {
-                        "status": "confirmado_idempotente",
+                        "status": "confirmado",
                         "evento_id": event_id,
                         "timestamp_confirmacao": datetime.now().isoformat()
                     }
@@ -582,10 +610,11 @@ async def criar_evento_com_lock(
                 return {
                     "ok": True,
                     "evento_id": event_id,
-                    "duplicado": True,
-                    "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                    "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                    "motivo": "Evento já existe (idempotente)"
+                    "status": "duplicado_pendente_agora" if confirmado_nesta_requisicao else "duplicado_confirmado",
+                    "confirmado_nesta_requisicao": confirmado_nesta_requisicao,
+                    "lock_ids": [p.split("/")[-1] for p in locks_criados],
+                    "lock_keys": [p.split("/")[-1] for p in locks_criados],
+                    "motivo": "Confirmação concluída" if confirmado_nesta_requisicao else "Evento já estava confirmado"
                 }
 
             # Criar evento

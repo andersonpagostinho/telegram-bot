@@ -395,12 +395,15 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return  # ⛔️ Evita seguir para o GPT
 
     # 🧠 Processar com GPT
+    if not dono_id:
+        print(f"⚠️ [TENANT_ID_VAZIO] dono_id é None para user_id={user_id}. Persistência será limitada.", flush=True)
     resultado_raw = await processar_com_gpt_com_acao(
         user_id=user_id,
         texto_usuario=texto,
         contexto=contexto,
         instrucao=INSTRUCAO_SECRETARIA,
-        resumo_contexto=context.user_data.get("resumo_contexto"),  # ⬅️ novo
+        resumo_contexto=context.user_data.get("resumo_contexto"),
+        tenant_id=dono_id,  # ✅ P0.FASE7E2: Passar tenant_id corretamente
     )
     print("🔍 Resultado bruto do GPT:", resultado_raw)
 
@@ -424,7 +427,7 @@ async def processar_texto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if isinstance(resultado_raw, dict) and resultado_raw.get("acao") is None and resultado_raw.get("resposta"):
         await update.message.reply_text(resultado_raw["resposta"])
         # 🔄 Atualiza o histórico também
-        await atualizar_contexto(user_id, {"usuario": texto, "bot": resultado_raw["resposta"]})
+        await atualizar_contexto(user_id, {"usuario": texto, "bot": resultado_raw["resposta"]}, tenant_id=dono_id)  # ✅ P0.FASE7E2: Passar tenant_id
         resposta_ja_enviada = True
         return
 

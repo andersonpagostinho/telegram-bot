@@ -325,9 +325,11 @@ class TestP0624FluxoAteEventoReal:
 
             print(f"  → Resultado reenviio: {resultado_reenviio}")
 
-            # Deve retornar "duplicado" ou similar
-            if isinstance(resultado_reenviio, str) and "duplicado" in resultado_reenviio:
-                print(f"  ✅ Idempotência OK: {resultado_reenviio}")
+            # ✅ [FIX] Verificar novo contrato estruturado
+            if isinstance(resultado_reenviio, dict) and resultado_reenviio.get("status", "").startswith("duplicado"):
+                print(f"  ✅ Idempotência OK: status={resultado_reenviio.get('status')}")
+            elif isinstance(resultado_reenviio, str) and "duplicado" in resultado_reenviio:
+                print(f"  ✅ Idempotência OK (fallback): {resultado_reenviio}")
             else:
                 print(f"  ⚠️  Reenviio retornou: {resultado_reenviio} (não é duplicado detectado)")
 

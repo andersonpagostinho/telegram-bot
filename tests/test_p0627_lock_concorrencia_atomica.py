@@ -379,7 +379,8 @@ async def test_concorrencia_idempotencia_reenvio(e2e_setup_agendamento):
     # Segunda vez (mesma requisição)
     resultado_2 = await criar_evento_com_lock(dono_id, evento, event_id)
     assert resultado_2.get("ok"), f"Reenvio falhou: {resultado_2.get('motivo')}"
-    assert resultado_2.get("duplicado"), "Reenvio deveria indicar duplicado"
+    # ✅ [FIX] Verificar status em vez de booleano duplicado
+    assert resultado_2.get("status", "").startswith("duplicado"), f"Reenvio deveria indicar duplicado, recebeu status: {resultado_2.get('status')}"
 
     # Firestore
     db = firestore.client()

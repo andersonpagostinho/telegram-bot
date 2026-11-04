@@ -13,6 +13,7 @@ from utils.contexto_temporario import (
     salvar_contexto_temporario,
     limpar_contexto_agendamento,
 )
+from utils.validacao_retomada_24h import validar_retomada_draft
 from utils.custos_gpt import registrar_custo_gpt
 from firebase_admin import firestore
 from utils.formatters import adaptar_genero
@@ -399,6 +400,27 @@ async def processar_com_gpt_com_acao(
             if uid != "desconhecido":
                 # Sempre recarrega o contexto mais recente antes de qualquer heurística curta
                 contexto_salvo = await carregar_contexto_temporario(uid, tenant_id=tenant_id) or {}
+
+                # ✅ FASE 7: Validação de retomada após 24h
+                # Rejeita silenciosamente draft inválido (data passada, prof/serviço removidos, etc)
+                if contexto_salvo and contexto_salvo.get("draft_agendamento"):
+                    draft = contexto_salvo["draft_agendamento"]
+                    try:
+                        # Carregar catálogos do tenant
+                        profissionais_dict = await buscar_subcolecao(f"Clientes/{tenant_id}/Profissionais") or {}
+                        servicos_dict = await buscar_subcolecao(f"Clientes/{tenant_id}/Servicos") or {}
+
+                        profs_nomes = [p.get("nome") for p in profissionais_dict.values() if p.get("nome")]
+                        servs_nomes = [s.get("nome") for s in servicos_dict.values() if s.get("nome")]
+
+                        validacao = validar_retomada_draft(draft, profs_nomes, servs_nomes)
+
+                        if not validacao["pode_retomar"]:
+                            print(f"[RETOMADA_REJEITADA] {validacao['motivo']}", flush=True)
+                            contexto_salvo["draft_agendamento"] = None  # Rejeita silenciosamente
+                    except Exception as e:
+                        print(f"[VALIDACAO_RETOMADA_ERRO] {e}", flush=True)
+                        # Continua sem validar (degradado)
 
                 # Descobre id_dono (se tiver id_negocio)
                 id_dono = uid
