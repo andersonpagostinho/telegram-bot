@@ -373,6 +373,141 @@ async def tem_conflito_real(
         return True  # Falha aberta: assume conflito se não conseguir verificar
 
 
+async def _atualizar_evento_com_locks_idempotente(
+    dono_id: str,
+    event_id: str,
+    evento_existente: dict,
+    evento_novo: dict,
+    locks_criados: list
+) -> Dict[str, Any]:
+    """
+    [P0.11] Atualiza um evento confirmado quando a hora mudou.
+
+    Gerencia a transição de locks: libera antigos após confirmar atualização.
+
+    Args:
+        dono_id: tenant_id
+        event_id: ID do evento (preservado)
+        evento_existente: Estado atual do evento
+        evento_novo: Dados novos (com hora atualizada)
+        locks_criados: Paths dos novos locks já adquiridos
+
+    Returns:
+        {
+            "ok": bool,
+            "status": "atualizado" | "ja_existente" | "erro",
+            "confirmado_nesta_requisicao": bool,
+            ...
+        }
+    """
+
+    try:
+        evento_path = f"Clientes/{dono_id}/Eventos/{event_id}"
+
+        # 1️⃣ COMPARAR: Houve mudança real de hora?
+        hora_antiga = evento_existente.get("hora_inicio", "")
+        hora_nova = evento_novo.get("hora_inicio", "")
+
+        if hora_antiga == hora_nova:
+            # Mesma hora → idempotência, retornar sem alterar
+            logger.info(f"[IDEMPOTENCIA] Mesmo horário {hora_nova} para {event_id}")
+            return {
+                "ok": True,
+                "evento_id": event_id,
+                "status": "ja_existente",
+                "confirmado_nesta_requisicao": False,
+                "motivo": "Evento já estava confirmado nesse horário"
+            }
+
+        # 2️⃣ VALIDAÇÃO: Nova hora está disponível?
+        # (Já foi validada em tem_conflito_real() antes desta função)
+        # Mas confirmar que não há conflito com outros eventos (exclusão de event_id automática)
+        profissional = evento_existente.get("profissional", "")
+        data = evento_existente.get("data", "")
+
+        conflita = await tem_conflito_real(
+            dono_id,
+            profissional,
+            hora_nova,
+            evento_novo.get("hora_fim", ""),
+            event_id  # Exclui o próprio evento
+        )
+
+        if conflita:
+            logger.warning(f"[CONFLITO] Novo horário {hora_nova} indisponível para {event_id}")
+            return {
+                "ok": False,
+                "evento_id": event_id,
+                "status": "indisponivel",
+                "confirmado_nesta_requisicao": False,
+                "motivo": "Novo horário está ocupado"
+            }
+
+        # 3️⃣ ATUALIZAR evento atomicamente
+        now_iso = datetime.now(FUSO_BR).isoformat()
+
+        payload_alteracao = {
+            "hora_inicio": hora_nova,
+            "hora_fim": evento_novo.get("hora_fim", ""),
+            "data": evento_novo.get("data", data),
+            "duracao_minutos": evento_novo.get("duracao_minutos") or evento_existente.get("duracao_minutos"),
+            "alterado_em": now_iso,
+        }
+
+        try:
+            await atualizar_com_operacoes_atomicas(evento_path, payload_alteracao)
+            logger.info(f"[UPDATE] Evento {event_id} atualizado: {hora_antiga} → {hora_nova}")
+        except Exception as e:
+            logger.error(f"[UPDATE_ERRO] Falha ao atualizar {event_id}: {e}")
+            return {
+                "ok": False,
+                "evento_id": event_id,
+                "status": "erro",
+                "confirmado_nesta_requisicao": False,
+                "motivo": f"Falha ao persistir atualização: {str(e)}"
+            }
+
+        # 4️⃣ Marcar novos locks como confirmados
+        for lock_path in locks_criados:
+            lock_doc = {
+                "status": "confirmado",
+                "evento_id": event_id,
+                "timestamp_confirmacao": datetime.now().isoformat()
+            }
+            try:
+                await atualizar_dado_em_path(lock_path, lock_doc)
+            except Exception as e:
+                logger.error(f"[LOCK_CONFIRMACAO] Erro ao marcar lock confirmado: {e}")
+                # Não retornar erro, pois evento já foi atualizado
+
+        # 5️⃣ Liberar locks antigos (APÓS atualização persistida)
+        try:
+            locks_liberados = await liberar_locks_por_evento_id(dono_id, event_id)
+            logger.info(f"[LOCKS_LIBERADOS] {locks_liberados} locks antigos liberados para {event_id}")
+        except Exception as e:
+            logger.error(f"[LOCKS_LIBERACAO_ERRO] Falha ao liberar locks antigos: {e}")
+            # Não retornar erro — evento foi atualizado com sucesso
+            # Locks órfãos serão limpos por cleanup periódico
+
+        return {
+            "ok": True,
+            "evento_id": event_id,
+            "status": "atualizado",
+            "confirmado_nesta_requisicao": True,
+            "motivo": f"Evento atualizado: {hora_antiga} → {hora_nova}"
+        }
+
+    except Exception as e:
+        logger.error(f"[ATUALIZACAO_IDEMPOTENTE_ERRO] {e}", exc_info=True)
+        return {
+            "ok": False,
+            "evento_id": event_id,
+            "status": "erro",
+            "confirmado_nesta_requisicao": False,
+            "motivo": f"Erro ao atualizar evento: {str(e)}"
+        }
+
+
 async def criar_evento_com_lock(
     dono_id: str,
     evento: dict,
@@ -595,8 +730,19 @@ async def criar_evento_com_lock(
                     await salvar_dado_em_path(evento_path, evento_existente)
                     confirmado_nesta_requisicao = True
                 else:
-                    # Retentar evento já confirmado — apenas LER
-                    confirmado_nesta_requisicao = False
+                    # [P0.11] Evento já confirmado — verificar se hora mudou
+                    resultado_update = await _atualizar_evento_com_locks_idempotente(
+                        dono_id=dono_id,
+                        event_id=event_id,
+                        evento_existente=evento_existente,
+                        evento_novo=evento,
+                        locks_criados=locks_criados
+                    )
+
+                    # [P0.11] Atualização trata todos os casos e sempre retorna
+                    # Se houve update, retorna sucesso; se idempotência, retorna ja_existente
+                    # Se conflito, retorna indisponivel; se erro, retorna erro
+                    return resultado_update
 
                 # Marcar locks como confirmados
                 for lock_path in locks_criados:
