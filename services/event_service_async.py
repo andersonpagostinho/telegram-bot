@@ -838,6 +838,21 @@ async def cancelar_evento_por_texto(user_id: str, termo: str, tenant_id: str | N
     # [LOG] Relatório de filtragem
     print(f"[P0-DIAG-ETAPA6] resumo_filtragem ativos={eventos_ativos} apos_prof={eventos_apos_prof} apos_data={eventos_apos_data} candidatos_finais={len(candidatos)}", flush=True)
 
+    # HCR-1 FIX: Ordenar candidatos por data/hora (mais próxima primeiro)
+    # Evita apresentar eventos antigos primeiro em cancelamentos ambíguos
+    if candidatos:
+        def _sort_by_proximity(item):
+            eid, ev = item
+            try:
+                data = ev.get("data", "9999-12-31")
+                hora = ev.get("hora_inicio", "23:59")
+                return datetime.strptime(f"{data} {hora}", "%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                return datetime.max
+
+        candidatos.sort(key=_sort_by_proximity)
+        print(f"[P0-HCR1-FIX] Candidatos ordenados por data/hora | primeiro={candidatos[0][1].get('data')} às {candidatos[0][1].get('hora_inicio')}", flush=True)
+
     # ❌ Nenhum encontrado
     if not candidatos:
         print(f"[P0-DIAG-RESULTADO] nenhum_candidato_encontrado=true", flush=True)
