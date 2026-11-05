@@ -933,3 +933,101 @@ async def liberar_locks_por_evento_id(dono_id: str, event_id: str) -> int:
     except Exception as e:
         logger.error(f"Erro ao liberar locks do evento {event_id}: {e}")
         raise
+
+
+async def liberar_locks_orfaos_expirados(dono_id: str, dry_run: bool = True) -> Dict[str, Any]:
+    """
+    P0.27.3: Remove locks confirmados órfãos expirados.
+
+    Um lock é óifão se:
+    - Status = "confirmado"
+    - evento_id aponta para evento que não existe (nem com ID legado)
+    - expira_em <= agora (expirado)
+
+    Args:
+        dono_id: ID do tenant
+        dry_run: Se True, apenas identifica sem deletar. Se False, deleta.
+
+    Returns:
+        {"identificados": int, "deletados": int, "detalhes": [{...}]}
+    """
+    try:
+        locks_dict = await buscar_subcolecao(f"Clientes/{dono_id}/AgendaLocks") or {}
+
+        identificados = []
+        deletados = 0
+        agora = datetime.now()
+
+        # buscar_subcolecao retorna {lock_id: lock_data, ...}, não lista
+        for lock_id, lock_data in locks_dict.items():
+            if not lock_data or not lock_id:
+                continue
+
+            # Critério 1: Status = confirmado
+            if lock_data.get("status") != "confirmado":
+                continue
+
+            # Critério 2: Expirado (expira_em <= agora)
+            expira_em_str = lock_data.get("expira_em")
+            if not expira_em_str:
+                continue
+
+            try:
+                expira_em = datetime.fromisoformat(expira_em_str)
+                if expira_em > agora:
+                    continue  # Ainda válido
+            except:
+                continue
+
+            # Critério 3: Evento não existe (verificar ID exato e ID legado)
+            evento_id = lock_data.get("evento_id")
+            if not evento_id:
+                continue  # Tem evento_id vazio? Usar liberar_locks_orfaos() instead
+
+            # Buscar evento com ID exato
+            evento_path = f"Clientes/{dono_id}/Eventos/{evento_id}"
+            evento = await buscar_dado_em_path(evento_path)
+
+            if not evento:
+                # Tentar encontrar com ID legado (sem hora)
+                # Exemplo: "...bruna_2026-11-06_10:00" → procurar por "...bruna_2026-11-06"
+                if "_" in evento_id and ":" in evento_id:
+                    evento_id_legado = evento_id.rsplit("_", 1)[0]  # Remove a última parte (hora)
+                    evento = await buscar_dado_em_path(f"Clientes/{dono_id}/Eventos/{evento_id_legado}")
+
+            # Se ainda não encontrou, é órfão
+            if not evento:
+                identificados.append({
+                    "lock_id": lock_id,
+                    "evento_id": evento_id,
+                    "expira_em": expira_em_str,
+                    "status": "identificado_para_delecao"
+                })
+
+                # Deletar se não é dry_run
+                if not dry_run:
+                    try:
+                        lock_path = f"Clientes/{dono_id}/AgendaLocks/{lock_id}"
+                        await deletar_dado_em_path(lock_path)
+                        deletados += 1
+                        logger.info(f"[LIMPEZA_ORFAOS] Lock deletado: {lock_id} (evento {evento_id})")
+                    except Exception as e:
+                        logger.error(f"[LIMPEZA_ORFAOS_ERRO] Falha ao deletar {lock_id}: {e}")
+
+        resultado = {
+            "identificados": len(identificados),
+            "deletados": deletados,
+            "detalhes": identificados,
+            "modo": "dry_run" if dry_run else "execucao_real"
+        }
+
+        logger.info(
+            f"[LIMPEZA_ORFAOS] Tenant={dono_id} | "
+            f"Identificados={len(identificados)} | Deletados={deletados} | Modo={'dry_run' if dry_run else 'real'}"
+        )
+
+        return resultado
+
+    except Exception as e:
+        logger.error(f"Erro ao liberar locks órfãos: {e}")
+        raise
