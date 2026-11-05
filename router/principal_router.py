@@ -5588,7 +5588,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             else:
                 # Pura consulta informativa — responder e parar
                 print(" [CONSULTA_INFORMATIVA_IDLE] Consulta pura — respondendo")
-                return await _send_and_stop(context, user_id, resposta_informativa)
+                return await _send_and_stop_ctx(context, user_id, resposta_informativa, ctx, texto_usuario, cliente_id, dono_id)
 
     # =========================================================
     # 🔥 P0.7.5 INTERCEPTOR: Consulta Contextual de Alternativas
