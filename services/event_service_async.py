@@ -235,6 +235,25 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
         if evento.get("hora_inicio"):
             evento["hora_inicio"] = normalizar_hora_para_grade(evento["hora_inicio"])
 
+        # ✅ [P0.24] GARANTIR hora_fim para compatibilidade com lock service
+        # Se hora_fim não foi fornecido, calcular a partir de hora_inicio + duracao
+        if not evento.get("hora_fim") and evento.get("hora_inicio") and evento.get("duracao"):
+            try:
+                hi_h, hi_m = map(int, str(evento["hora_inicio"]).split(":"))
+                dur_min = int(evento.get("duracao", 0))
+                if dur_min <= 0:
+                    logger.warning(f"[P0.24] Duração inválida (<=0): {dur_min}")
+                    # Não calcular, deixa vazio para validação posterior
+                else:
+                    total_min = hi_h * 60 + hi_m + dur_min
+                    hf_h = (total_min // 60) % 24  # Modulo 24 para respeitar limite de 24h
+                    hf_m = total_min % 60
+                    evento["hora_fim"] = f"{hf_h:02d}:{hf_m:02d}"
+                    logger.info(f"[P0.24] Calculado hora_fim={evento['hora_fim']} (inicio={evento['hora_inicio']}, duracao={dur_min}min)")
+            except (ValueError, TypeError, IndexError) as e:
+                logger.warning(f"[P0.24] Erro ao calcular hora_fim: {e} (hora_inicio={evento.get('hora_inicio')}, duracao={evento.get('duracao')})")
+                # Não sobrescreve - deixa lock service validar
+
         # ✅ hora_fim NÃO é normalizado — deve ser exato (hora_inicio + duração)
         # Normalizamos hora_inicio para buscar conflitos em grade de 20 min,
         # mas hora_fim deve permanecer preciso para cálculos de duração
