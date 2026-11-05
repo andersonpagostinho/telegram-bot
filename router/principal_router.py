@@ -12789,7 +12789,41 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     elif not skip_data_complexa:
         ctx = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
-    
+
+    # [P0.19] EXTRAÇÃO MÍNIMA DE HORÁRIO EXPLÍCITO
+    # Se skip_data_complexa BLOQUEOU, mas há horário explícito na mensagem,
+    # aplicar a hora nova sobre a data anterior (preserva incrementalidade)
+    if skip_data_complexa:
+        hora_explicitamente_mencionada = _extrair_hora_simples(texto_usuario)
+
+        if hora_explicitamente_mencionada:
+            # Há horário explícito na mensagem atual
+            data_hora_anterior = (
+                ctx.get("data_hora")
+                or (ctx.get("draft_agendamento") or {}).get("data_hora")
+            )
+
+            if data_hora_anterior and "T" in data_hora_anterior:
+                # Preservar data anterior, aplicar hora nova
+                data_anterior = data_hora_anterior.split("T")[0]
+                hora_nova = int(hora_explicitamente_mencionada[0])
+                minuto_nova = int(hora_explicitamente_mencionada[1])
+
+                nova_data_hora = f"{data_anterior}T{hora_nova:02d}:{minuto_nova:02d}:00"
+
+                ctx["data_hora"] = nova_data_hora
+                draft_upd = ctx.get("draft_agendamento") or {}
+                draft_upd["data_hora"] = nova_data_hora
+                ctx["draft_agendamento"] = draft_upd
+                ctx["hora_confirmada"] = True
+                ctx["data_sem_hora"] = False
+
+                print(
+                    f"[P0.19] ✅ Horário explícito detectado e aplicado: "
+                    f"anterior={data_hora_anterior} → novo={nova_data_hora}",
+                    flush=True
+                )
+
     # =========================================================
     # 🔥 PROFISSIONAL INDIFERENTE — PÓS EXTRAÇÃO
     # serviço + horário real + sem profissional

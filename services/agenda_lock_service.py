@@ -628,15 +628,25 @@ async def criar_evento_com_lock(
                         evento_existente["status"] = "confirmado"
                         evento_existente["confirmado_em"] = datetime.now(FUSO_BR).isoformat()
                         await salvar_dado_em_path(evento_path, evento_existente)
+                    else:
+                        # [P0.18] Evento já confirmado — verificar se hora mudou
+                        resultado_update = await _atualizar_evento_com_locks_idempotente(
+                            dono_id=dono_id,
+                            event_id=event_id,
+                            evento_existente=evento_existente,
+                            evento_novo=evento,
+                            locks_criados=[]
+                        )
+                        return resultado_update
 
                     return {
                         "ok": True,
                         "evento_id": event_id,
-                        "status": "duplicado_pendente_agora" if confirmado_nesta_requisicao else "duplicado_confirmado",
-                        "confirmado_nesta_requisicao": confirmado_nesta_requisicao,
+                        "status": "duplicado_pendente_agora",
+                        "confirmado_nesta_requisicao": True,
                         "lock_ids": [],
                         "lock_keys": [],
-                        "motivo": "Confirmação concluída" if confirmado_nesta_requisicao else "Evento já estava confirmado"
+                        "motivo": "Confirmação concluída"
                     }
 
                 # Se locks não foram criados E evento não existe = erro real
