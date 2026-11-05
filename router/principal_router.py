@@ -4629,6 +4629,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             return resultado
         elif acao == "confirmar":
             print(f"[LOTE_3E_CONFIRMACAO] Confirmacao detectada", flush=True)
+            ctx["_confirmacao_explicitamente_detectada"] = True
             # Continue para fluxo normal (P0_CONFIRMACAO)
     else:
         # [INSTR-2-CONFIRMACAO] Instrumentação: Validar quando não tratado
@@ -4957,9 +4958,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # Se foi detectada reiteração, NÃO salvar ajuste_incremental na intenção
     # Isso vai permitir que o bloco de confirmação pendente trate isso
     if not ctx.get("_p0_reiteracao_detectada"):
-        ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
-        ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
-        ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
+        # P0 #3 FIX: Proteger confirmação explícita contra reclassificação
+        if not ctx.get("_confirmacao_explicitamente_detectada"):
+            ctx["intencao_conversacional"] = class_intencao.get("intencao_conversacional")
+            ctx["confianca_intencao_conversacional"] = class_intencao.get("confianca")
+            ctx["tipo_ajuste_incremental"] = class_intencao.get("tipo_ajuste_incremental")
+        else:
+            # Confirmação explícita foi detectada: preservar intencao_conversacional
+            print("[P0_3_PROTECAO] Confirmação explícita detectada, preservando intencao_conversacional", flush=True)
     else:
         # Reiteração: preservar intenção anterior (não sobrescrever com ajuste_incremental)
         print("[P0_REITERAÇÃO] NÃO sobrescrevendo intencao_conversacional", flush=True)
