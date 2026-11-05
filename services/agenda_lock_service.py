@@ -791,7 +791,8 @@ async def criar_evento_com_lock(
                 "evento_id": event_id,
                 "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
                 "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                "motivo": "Evento criado com sucesso"
+                "motivo": "Evento criado com sucesso",
+                "confirmado_nesta_requisicao": True
             }
 
         except Exception as save_error:
