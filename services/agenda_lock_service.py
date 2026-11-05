@@ -16,6 +16,7 @@ import logging
 import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
+from pytz import timezone
 
 from services.firebase_service_async import (
     salvar_dado_em_path,
@@ -28,6 +29,8 @@ from services.firestore_client import get_db
 from firebase_admin import firestore
 
 logger = logging.getLogger(__name__)
+
+FUSO_BR = timezone("America/Sao_Paulo")
 
 
 def normalizar_hora(hora_str: str) -> str:
@@ -807,6 +810,20 @@ async def criar_evento_com_lock(
 
     except Exception as e:
         logger.error(f"Erro geral em criar_evento_com_lock: {e}")
+
+        if locks_criados:
+            try:
+                locks_liberados = 0
+                for lock_path in locks_criados:
+                    lock_doc = await buscar_dado_em_path(lock_path)
+                    if lock_doc and lock_doc.get("status") != "confirmado":
+                        await deletar_dado_em_path(lock_path)
+                        locks_liberados += 1
+                if locks_liberados > 0:
+                    logger.info(f"[CLEANUP_ERRO] {locks_liberados} locks liberados após erro")
+            except Exception as cleanup_error:
+                logger.error(f"[CLEANUP_ERRO] Falha ao limpar locks: {cleanup_error}")
+
         return {
             "ok": False,
             "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
