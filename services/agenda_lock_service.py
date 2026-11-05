@@ -995,6 +995,16 @@ async def liberar_locks_orfaos_expirados(dono_id: str, dry_run: bool = True) -> 
                     evento_id_legado = evento_id.rsplit("_", 1)[0]  # Remove a última parte (hora)
                     evento = await buscar_dado_em_path(f"Clientes/{dono_id}/Eventos/{evento_id_legado}")
 
+                    # Se encontrou evento legado, validar correspondência semântica (horário)
+                    if evento:
+                        # Extrair horário esperado do evento_id (última parte: "HH:MM")
+                        hora_esperada = evento_id.rsplit("_", 1)[1]  # Ex: "10:00"
+                        hora_evento = evento.get("hora_inicio", "")
+
+                        # Se horário não corresponde, evento legado é para outro intervalo
+                        if hora_evento != hora_esperada:
+                            evento = None  # Descartar - é falsa correspondência
+
             # Se ainda não encontrou, é órfão
             if not evento:
                 identificados.append({
