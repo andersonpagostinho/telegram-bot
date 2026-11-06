@@ -5436,7 +5436,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         txt_lower = (texto_usuario or "").strip().lower()
 
         # Confirmação explícita
-        confirmacoes = ["sim", "ok", "pode", "quero", "pode ser", "agendar", "pode agendar", "vamos"]
+        confirmacoes = ["sim", "ok", "pode", "quero", "pode ser", "agendar", "pode agendar", "vamos", "confirmo", "esse mesmo"]
         confirmacao_resposta = any(c in txt_lower for c in confirmacoes) and len(txt_lower.split()) <= 3
 
         # Negação explícita
@@ -6820,6 +6820,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             }
 
             ctx["aguardando_confirmacao_agendamento"] = False
+            # ✅ P0.27: Marcar confirmação como concluída para evitar reapresentação ao reabrir
+            ctx["confirmacao_agendamento_concluida"] = True
+            ctx["confirmacao_agendamento_event_id"] = dados_exec.get("event_id", "desconhecido")
             ctx.pop("dados_confirmacao_agendamento", None)
             ctx.pop("ultima_opcao_profissionais", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
@@ -7344,13 +7347,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "origem": "slot_servico_aguardando_servico",
                     })
 
+                    from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
+
                     mensagem = (
                         msg_p1
-                        or (
-                            f"Só confirmando 😊\n\n"
-                            f"Você quer agendar seu *{servico_escolhido}* com a *{profissional_slot}* "
-                            f"para *{formatar_data_hora_br(data_hora_slot)}*?\n\n"
-                            f"Responda *sim* para confirmar o agendamento."
+                        or MENSAGEM_PRE_CONFIRMACAO.format(
+                            servico=servico_escolhido,
+                            profissional=profissional_slot,
+                            data_hora=formatar_data_hora_br(data_hora_slot)
                         )
                     )
 
@@ -7590,13 +7594,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "origem": "slot_horario_aguardando_horario",
                 })
 
+                from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
+
                 mensagem = (
                     msg_p1
-                    or (
-                        f"Só confirmando 😊\n\n"
-                        f"Você quer agendar seu *{servico_slot}* com a *{profissional_slot}* "
-                        f"para *{formatar_data_hora_br(data_hora_slot)}*?\n\n"
-                        f"Responda *sim* para confirmar o agendamento."
+                    or MENSAGEM_PRE_CONFIRMACAO.format(
+                        servico=servico_slot,
+                        profissional=profissional_slot,
+                        data_hora=formatar_data_hora_br(data_hora_slot)
                     )
                 )
 
@@ -7841,19 +7846,28 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     flush=True
                 )
 
-                draft = ctx.get("draft_agendamento") or {}
-                servico = draft.get("servico") or ctx.get("servico")
-                prof = draft.get("profissional") or ctx.get("profissional_escolhido")
-                data_hora = draft.get("data_hora") or ctx.get("data_hora")
+                # ✅ P0.27: Verificar se confirmação já foi concluída
+                if ctx.get("confirmacao_agendamento_concluida"):
+                    # Evento já foi criado, não reapresentar
+                    ctx["aguardando_confirmacao_agendamento"] = False
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                    # Continuar fluxo normal (não ficar em confirmacao_pendente)
+                else:
+                    # Confirmação ainda pendente, reapresentar
+                    draft = ctx.get("draft_agendamento") or {}
+                    servico = draft.get("servico") or ctx.get("servico")
+                    prof = draft.get("profissional") or ctx.get("profissional_escolhido")
+                    data_hora = draft.get("data_hora") or ctx.get("data_hora")
 
-                msg_confirmacao = (
-                    f"Só confirmando 😊\n\n"
-                    f"Você quer agendar seu *{servico}* com a *{prof}* "
-                    f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
-                    f"Responda *sim* para confirmar o agendamento."
-                )
+                    from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
 
-                return await _send_and_stop(context, user_id, msg_confirmacao)
+                    msg_confirmacao = MENSAGEM_PRE_CONFIRMACAO.format(
+                        servico=servico,
+                        profissional=prof,
+                        data_hora=formatar_data_hora_br(data_hora)
+                    )
+
+                    return await _send_and_stop(context, user_id, msg_confirmacao)
     else:
         print(
             f" [CONFIRMACAO_PENDENTE_NAO_ATIVA] aguardando_confirmacao={ctx.get('aguardando_confirmacao_agendamento')} | estado={ctx.get('estado_fluxo')}",
@@ -10653,13 +10667,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             "origem": "confirmacao_amanha_mesmo_horario",
         })
 
+        from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
+
         mensagem = (
             msg_p1
-            or (
-                f"Só confirmando 😊\n\n"
-                f"Você quer agendar seu *{servico}* com a *{prof}* "
-                f"para *{formatar_data_hora_br(nova_iso)}*?\n\n"
-                f"Responda *sim* para confirmar o agendamento."
+            or MENSAGEM_PRE_CONFIRMACAO.format(
+                servico=servico,
+                profissional=prof,
+                data_hora=formatar_data_hora_br(nova_iso)
             )
         )
 
@@ -11969,14 +11984,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
+        from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
+
         return await _send_and_stop(
             context,
             user_id,
-            (
-                f"Só confirmando 😊\n\n"
-                f"Você quer agendar seu *{servico}* com a *{prof}* "
-                f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
-                f"Responda *sim* para confirmar o agendamento."
+            MENSAGEM_PRE_CONFIRMACAO.format(
+                servico=servico,
+                profissional=prof,
+                data_hora=formatar_data_hora_br(data_hora)
             )
         )
 
@@ -12153,14 +12169,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             print(" [AUDIT-CONF:ESCOLHA_DIRETA_PROFISSIONAL] MONTANDO CONFIRMACAO", flush=True)
 
+            from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
+
             return await _send_and_stop(
                 context,
                 user_id,
-                (
-                    f"Só confirmando 😊\n\n"
-                    f"Você quer agendar seu *{servico}* com a *{escolha_prof}* "
-                    f"para *{formatar_data_hora_br(data_hora)}*?\n\n"
-                    f"Responda *sim* para confirmar o agendamento."
+                MENSAGEM_PRE_CONFIRMACAO.format(
+                    servico=servico,
+                    profissional=escolha_prof,
+                    data_hora=formatar_data_hora_br(data_hora)
                 )
             )
 
@@ -12325,14 +12342,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 if servico and profissional:
+                    from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
+
                     return await _send_and_stop(
                         context,
                         user_id,
-                        (
-                            f"Só confirmando 😊\n\n"
-                            f"Você quer agendar seu *{servico}* com a *{profissional}* "
-                            f"para *{formatar_data_hora_br(data_final)}*?\n\n"
-                            f"Responda *sim* para confirmar o agendamento."
+                        MENSAGEM_PRE_CONFIRMACAO.format(
+                            servico=servico,
+                            profissional=profissional,
+                            data_hora=formatar_data_hora_br(data_final)
                         )
                     )
 
@@ -12443,14 +12461,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
+                    from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
+
                     return await _send_and_stop(
                         context,
                         user_id,
-                        (
-                            f"Só confirmando 😊\n\n"
-                            f"Você quer agendar seu *{servico}* com a *{profissional}* "
-                            f"para *{formatar_data_hora_br(data_final)}*?\n\n"
-                            f"Responda *sim* para confirmar o agendamento."
+                        MENSAGEM_PRE_CONFIRMACAO.format(
+                            servico=servico,
+                            profissional=profissional,
+                            data_hora=formatar_data_hora_br(data_final)
                         )
                     )
 
