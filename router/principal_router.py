@@ -1104,6 +1104,8 @@ def eh_confirmacao(txt: str) -> bool:
         "está certo",
         "tudo bem",
         "ta bom",
+        "funciona sim",
+        "funciona",
     }
 
     if t in gatilhos_exatos:
@@ -4982,10 +4984,19 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # Evita que entrada social seja processada como tentativa de agendamento
     # =========================================================
     print(
-        f" [P1-C_EARLY_EXIT_CHECK] intencao={ctx.get('intencao_conversacional')} | estado={ctx.get('estado_fluxo')}",
+        f" [P1-C_EARLY_EXIT_CHECK] intencao={ctx.get('intencao_conversacional')} | estado={ctx.get('estado_fluxo')} | confirmacao_pendente={eh_confirmacao_pendente_ativa(ctx)}",
         flush=True
     )
-    if ctx.get("intencao_conversacional") == "indefinida" and ctx.get("estado_fluxo") in ("aguardando_profissional", "aguardando_servico", "agendando"):
+
+    # ✅ P0.27B FIX: Se há confirmação pendente e é resposta afirmativa, processar confirmação
+    if eh_confirmacao_pendente_ativa(ctx) and eh_confirmacao(texto_usuario):
+        print(
+            f" [P0.27B_CONFIRMACAO_CONTEXTUAL] Confirmação pendente + resposta afirmativa detectadas",
+            flush=True
+        )
+        # Deixar processar em bloco de confirmação_pendente (linha 7723)
+        pass  # Continua para bloco de confirmação_pendente
+    elif ctx.get("intencao_conversacional") == "indefinida" and ctx.get("estado_fluxo") in ("aguardando_profissional", "aguardando_servico", "agendando"):
         print(
             f" [P1-C_EARLY_EXIT] Entrada indefinida em estado de agendamento, respondendo 'não entendi'",
             flush=True
