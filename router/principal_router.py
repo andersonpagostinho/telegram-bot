@@ -8492,8 +8492,18 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             if fazem:
                 txt = f"*Quem faz {serv_alvo}:*\n- " + "\n- ".join(sorted(set(fazem)))
                 # se estiver em fluxo, puxa para seleção
+                # ✅ P0: Encerramento SOMENTE se intenção é explicitamente "encerramento"
                 if estado_fluxo in ("aguardando_profissional", "aguardando_servico", "aguardando serviço", "aguardando_serviço"):
-                    txt += "\n\nCom quem você prefere?"
+                    # Verificar intenção da mensagem atual (não usar palavras-chave fixas)
+                    intencao_atual = ctx.get("intencao_conversacional")
+
+                    # Flag de conclusão é CONTEXTO, intenção GOVERNA roteamento
+                    if intencao_atual == "encerramento" and ctx.get("confirmacao_agendamento_concluida"):
+                        # SOMENTE encerrar se intenção é explicitamente "encerramento"
+                        txt = "Tudo certo! Seu agendamento já está confirmado. Obrigada pelo retorno!"
+                    else:
+                        # Todos outros casos: novo agendamento, alteração, consulta, indefinida, etc
+                        txt += "\n\nCom quem você prefere?"
                 return await _send_and_stop(context, user_id, txt)
             else:
                 return await _send_and_stop(context, user_id, f"Aqui eu não encontrei ninguém cadastrado para *{serv_alvo}*.")
