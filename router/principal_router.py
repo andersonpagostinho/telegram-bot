@@ -5,6 +5,14 @@ from services.session_service import pegar_sessao
 from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt
 from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario, salvar_contexto_temporario_v2, carregar_contexto_temporario_v2
 from utils.context_manager import atualizar_contexto, limpar_contexto_agendamento
+from utils.confirmacao_pendente_manager import (
+    gerar_operacao_id,
+    criar_confirmacao_pendente,
+    validar_confirmacao_pendente,
+    persistir_confirmacao_pendente,
+    consumir_confirmacao_pendente,
+    invalidar_confirmacao_pendente,
+)
 from handlers.confirmacao_pendente_handler import resolver_confirmacao_pendente
 from services.gpt_executor import executar_acao_gpt, executar_acao_gpt_resultado
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
@@ -6815,6 +6823,26 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     print(f" [AUDIT-CONF] Erro ao ajustar hora: {e}", flush=True)
 
         if profissional and servico and data_hora:
+            # [FASE 2] Validar confirmacao_pendente com operacao_id antes de criar evento
+            operacao_id_esperado = gerar_operacao_id(
+                cliente_id,
+                "agendamento",
+                {
+                    "profissional": profissional,
+                    "data": data_hora.split(" ")[0] if " " in str(data_hora) else str(data_hora)[:10],
+                    "hora": data_hora.split(" ")[1][:5] if " " in str(data_hora) else ""
+                }
+            )
+
+            validacao = validar_confirmacao_pendente(ctx, operacao_id_esperado)
+            if not validacao.get("valida"):
+                print(f"[CONFIRMACAO_INVALIDA] {validacao.get('motivo')}", flush=True)
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    f"Não consegui validar sua confirmação. Pode confirmar novamente?"
+                )
+
             dados_exec = {
                 "profissional": profissional,
                 "servico": servico,
@@ -6834,6 +6862,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # ✅ P0.27: Marcar confirmação como concluída para evitar reapresentação ao reabrir
             ctx["confirmacao_agendamento_concluida"] = True
             ctx["confirmacao_agendamento_event_id"] = dados_exec.get("event_id", "desconhecido")
+
+            # [FASE 2] Consumir confirmacao_pendente após validação bem-sucedida
+            ctx["confirmacao_pendente"] = consumir_confirmacao_pendente(ctx.get("confirmacao_pendente", {}))
+
             ctx.pop("dados_confirmacao_agendamento", None)
             ctx.pop("ultima_opcao_profissionais", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
@@ -7348,6 +7380,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
+                    # [FASE 2] Criar confirmacao_pendente estruturada com operacao_id
+                    operacao_id = gerar_operacao_id(
+                        cliente_id,
+                        "agendamento",
+                        {
+                            "profissional": profissional_slot,
+                            "data": data_hora_slot.split(" ")[0] if " " in data_hora_slot else data_hora_slot,
+                            "hora": data_hora_slot.split(" ")[1] if " " in data_hora_slot else ""
+                        }
+                    )
+                    ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+                    from services.firebase_service_async import atualizar_dado_em_path
+                    await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], atualizar_dado_em_path)
+
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "confirmar_agendamento",
                         "servico": servico_escolhido,
@@ -7594,6 +7640,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["objetivo_conversacional"] = None
 
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                # [FASE 2] Criar confirmacao_pendente estruturada com operacao_id
+                operacao_id = gerar_operacao_id(
+                    cliente_id,
+                    "agendamento",
+                    {
+                        "profissional": profissional_slot,
+                        "data": data_hora_slot.split(" ")[0] if " " in data_hora_slot else data_hora_slot,
+                        "hora": data_hora_slot.split(" ")[1] if " " in data_hora_slot else ""
+                    }
+                )
+                ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+                from services.firebase_service_async import atualizar_dado_em_path as _atualizar
+                await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar)
 
                 msg_p1 = await gerar_resposta_p1({
                     "tipo": "confirmar_agendamento",
@@ -10667,6 +10727,21 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["data_hora_pendente"] = None
 
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+        # [FASE 2] Criar confirmacao_pendente estruturada com operacao_id
+        operacao_id = gerar_operacao_id(
+            cliente_id,
+            "agendamento",
+            {
+                "profissional": prof,
+                "data": nova_iso.split(" ")[0] if " " in str(nova_iso) else str(nova_iso)[:10],
+                "hora": nova_iso.split(" ")[1][:5] if " " in str(nova_iso) else ""
+            }
+        )
+        ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+        from services.firebase_service_async import atualizar_dado_em_path as _atualizar3
+        await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar3)
+
         print(
             "[SAVE-CONF]",
             {
@@ -12003,6 +12078,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         ctx["ultima_opcao_profissionais"] = [prof]
 
+        # [FASE 2] Criar confirmacao_pendente estruturada com operacao_id
+        operacao_id = gerar_operacao_id(
+            cliente_id,
+            "agendamento",
+            {
+                "profissional": prof,
+                "data": str(data_hora).split(" ")[0] if " " in str(data_hora) else str(data_hora)[:10],
+                "hora": str(data_hora).split(" ")[1][:5] if " " in str(data_hora) else ""
+            }
+        )
+        ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+        from services.firebase_service_async import atualizar_dado_em_path as _atualizar4
+        await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar4)
+
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
         from constants.mensagens_sistema import MENSAGEM_PRE_CONFIRMACAO
@@ -12186,6 +12275,21 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "modo_prechecagem": True
             }
             ctx["ultima_opcao_profissionais"] = [escolha_prof]
+
+            # [FASE 2] Criar confirmacao_pendente estruturada com operacao_id
+            operacao_id = gerar_operacao_id(
+                cliente_id,
+                "agendamento",
+                {
+                    "profissional": escolha_prof,
+                    "data": str(data_hora).split(" ")[0] if " " in str(data_hora) else str(data_hora)[:10],
+                    "hora": str(data_hora).split(" ")[1][:5] if " " in str(data_hora) else ""
+                }
+            )
+            ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+            from services.firebase_service_async import atualizar_dado_em_path as _atualizar5
+            await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar5)
+
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
             print(" [AUDIT-CONF:ESCOLHA_DIRETA_PROFISSIONAL] MONTANDO CONFIRMACAO", flush=True)
@@ -12360,6 +12464,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "descricao": formatar_descricao_evento(servico, profissional),
                     }
 
+                    # [FASE 2] Criar confirmacao_pendente estruturada com operacao_id
+                    operacao_id = gerar_operacao_id(
+                        cliente_id,
+                        "agendamento",
+                        {
+                            "profissional": profissional,
+                            "data": str(data_final).split("T")[0],
+                            "hora": str(data_final).split("T")[1][:5]
+                        }
+                    )
+                    ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+                    from services.firebase_service_async import atualizar_dado_em_path as _atualizar6
+                    await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar6)
+
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 if servico and profissional:
@@ -12479,6 +12597,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "duracao": estimar_duracao(servico),
                         "descricao": formatar_descricao_evento(servico, profissional),
                     }
+
+                        # [FASE 2] Criar confirmacao_pendente estruturada com operacao_id
+                        operacao_id = gerar_operacao_id(
+                            cliente_id,
+                            "agendamento",
+                            {
+                                "profissional": profissional,
+                                "data": str(data_final).split("T")[0],
+                                "hora": str(data_final).split("T")[1][:5]
+                            }
+                        )
+                        ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+                        from services.firebase_service_async import atualizar_dado_em_path as _atualizar7
+                        await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar7)
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
