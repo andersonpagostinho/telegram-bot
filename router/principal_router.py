@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # router/principal_router.py
 
+import logging
+
 from services.session_service import pegar_sessao
 from services.gpt_service import tratar_mensagem_usuario as tratar_mensagem_gpt
 from utils.contexto_temporario import salvar_contexto_temporario, carregar_contexto_temporario, salvar_contexto_temporario_v2, carregar_contexto_temporario_v2
@@ -14,6 +16,16 @@ from utils.confirmacao_pendente_manager import (
     invalidar_confirmacao_pendente,
 )
 from handlers.confirmacao_pendente_handler import resolver_confirmacao_pendente
+from utils.operacao_service import (
+    gerar_proprietario_id,
+    criar_operacao_em_andamento,
+    adquirir_lease_operacao,
+    verificar_proprietario_valido,
+    atualizar_operacao_status,
+    liberar_lease_operacao,
+    recuperar_operacao_em_andamento,
+    verificar_evento_existe,
+)
 from services.gpt_executor import executar_acao_gpt, executar_acao_gpt_resultado
 from services.firebase_service_async import obter_id_dono, buscar_subcolecao
 from services.event_service_async import verificar_conflito_e_sugestoes_profissional, cancelar_evento
@@ -59,6 +71,8 @@ from services.classificador_conversa import (
 from services.interpretador_conversacional import interpretar_conversa_operacional
 from utils.normalizador_humano import normalizar_intencao_humana
 from router.integracao_identidade_onboarding import processar_fluxo_identidade_onboarding
+
+logger = logging.getLogger(__name__)
 
 # ----------------------------
 # Helpers de saída (anti-duplicidade)
@@ -4545,6 +4559,38 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # Carregar V2 se handler não carregou
         ctx = await carregar_contexto_temporario_v2(dono_id, cliente_id) or {}
 
+        # [P0 FASE 3.B] RECUPERAÇÃO DE OPERAÇÃO PENDENTE
+        # Se há operacao_id rastreado, tentar recuperar e adquirir lease para retomar
+        if ctx.get("operacao_id"):
+            operacao_id_pendente = ctx.get("operacao_id")
+            operacao_recuperada = await recuperar_operacao_em_andamento(dono_id, operacao_id_pendente)
+
+            if operacao_recuperada and operacao_recuperada.get("status") == "em_andamento":
+                print(f"[P0-RECUPERACAO] Operação pendente encontrada: {operacao_id_pendente} | status={operacao_recuperada.get('status')}", flush=True)
+
+                # Tentar adquirir lease para retomar
+                proprietario_novo = gerar_proprietario_id()
+                resultado_lease = await adquirir_lease_operacao(
+                    tenant_id=dono_id,
+                    operacao_id=operacao_id_pendente,
+                    proprietario_id=proprietario_novo,
+                    lease_ttl_minutos=5
+                )
+
+                if resultado_lease.get("ok"):
+                    # Lease adquirido com sucesso, rastrear novo proprietario para esta requisição
+                    ctx["proprietario_id"] = proprietario_novo
+                    ctx["lease_token"] = resultado_lease.get("lease_token")
+                    print(f"[P0-RECUPERACAO] Lease adquirido: proprietario={proprietario_novo}", flush=True)
+                else:
+                    # Lease ainda válido com outro proprietário, não retomar
+                    print(f"[P0-RECUPERACAO] Lease indisponível: {resultado_lease.get('motivo')}", flush=True)
+            else:
+                # Operação não existe ou já foi concluída
+                ctx.pop("operacao_id", None)
+                ctx.pop("proprietario_id", None)
+                print(f"[P0-RECUPERACAO] Operação não recuperável: {operacao_id_pendente}", flush=True)
+
         # [INSTR-1-LOAD] Instrumentação: Validar estado ao carregar
         print(f"[INSTR-1-LOAD] estado={ctx.get('estado_fluxo')} | "
               f"modo_escolha={ctx.get('modo_escolha_horario')}", flush=True)
@@ -6843,6 +6889,27 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     f"Não consegui validar sua confirmação. Pode confirmar novamente?"
                 )
 
+            # [P0 FASE 3.B] Gerar proprietario_id único para esta execução
+            proprietario_id = gerar_proprietario_id()
+
+            # [P0 FASE 3.B] Criar OperacaoEmAndamento ANTES de tentar criar evento
+            operacao_criada = await criar_operacao_em_andamento(
+                tenant_id=dono_id,
+                operacao_id=operacao_id_esperado,
+                actor_id=cliente_id,
+                tipo="agendamento",
+                dados_confirmados=ctx.get("draft", {}),
+                proprietario_id=proprietario_id,
+                lease_ttl_minutos=5
+            )
+
+            if not operacao_criada.get("ok"):
+                return await _send_and_stop(
+                    context,
+                    user_id,
+                    "Erro ao registrar operação. Pode tentar novamente?"
+                )
+
             dados_exec = {
                 "profissional": profissional,
                 "servico": servico,
@@ -6856,6 +6923,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 "tenant_id": dono_id,
                 "user_id": user_id,
                 "cliente_id": cliente_id,
+                # [P0 FASE 3.B] Rastrear operacao_id e proprietario para recuperação
+                "operacao_id": operacao_id_esperado,
+                "proprietario_id": proprietario_id,
             }
 
             ctx["aguardando_confirmacao_agendamento"] = False
@@ -6870,8 +6940,44 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx.pop("ultima_opcao_profissionais", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
-            print(" [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento direto", flush=True)
-            return await executar_acao_gpt_resultado(update, context, "criar_evento", dados_exec, identidade=identidade_p01)
+            print(" [AUDIT-CONF:BLOCO_PENDENTE] EXECUTANDO criar_evento com OperacaoEmAndamento", flush=True)
+            # [P0 FASE 3.B] Executar evento e tentar atualizar status
+            try:
+                resultado = await executar_acao_gpt_resultado(update, context, "criar_evento", dados_exec, identidade=identidade_p01)
+
+                # [P0 FASE 3.B] Se sucesso: atualizar operacao para "evento_persistido"
+                # Validar que proprietario ainda é válido
+                prop_valido = await verificar_proprietario_valido(dono_id, operacao_id_esperado, proprietario_id)
+                if prop_valido:
+                    # Evento foi criado, marcar operacao como persistida
+                    lease_token = operacao_criada.get("lease_token")
+                    await atualizar_operacao_status(
+                        tenant_id=dono_id,
+                        operacao_id=operacao_id_esperado,
+                        novo_status="evento_persistido",
+                        proprietario_id=proprietario_id,
+                        evento_id=dados_exec.get("event_id"),
+                        lease_token=lease_token
+                    )
+
+                    # [P0 FASE 3.B] Marcar como concluída
+                    await atualizar_operacao_status(
+                        tenant_id=dono_id,
+                        operacao_id=operacao_id_esperado,
+                        novo_status="concluida",
+                        proprietario_id=proprietario_id,
+                        lease_token=lease_token
+                    )
+
+                    # Liberar lease após sucesso
+                    await liberar_lease_operacao(dono_id, operacao_id_esperado, proprietario_id)
+
+                return resultado
+
+            except Exception as e:
+                # Se falha: operacao fica "em_andamento", recuperável por próxima tentativa
+                logger.error(f"Erro ao executar evento: {e}")
+                raise
 
         print(" [AUDIT-CONF:BLOCO_PENDENTE] DADOS_INSUFICIENTES -> REABRINDO FLUXO", flush=True)
         return await _send_and_stop(
