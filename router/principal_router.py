@@ -5894,6 +5894,19 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 draft = ctx.get("draft_agendamento", {})
                 draft_valido = not draft or eh_draft_valido_para_retomar(draft, estado_fluxo)
 
+                # P0: Reconhecer respostas curtas sem contexto para oferecer recuperação
+                resposta_curta = _tem(r"^(sim|não|nao|ok|tudo bem|tá|ta|claro|certo|beleza)$", texto_lower)
+
+                if resposta_curta and not estado_fluxo:
+                    # Resposta curta sem fluxo ativo → oferecer ponto de recuperação
+                    print(" [RESPOSTA_CURTA_RECUPERACAO] Reconhecida resposta curta sem fluxo, oferecendo recuperação", flush=True)
+                    resposta_recuperacao = (
+                        "Perfeito! 😊\n\n"
+                        "Vou te ajudar com um agendamento. "
+                        "Qual serviço você gostaria de agendar?"
+                    )
+                    return await _send_and_stop(context, user_id, resposta_recuperacao)
+
                 if estado_fluxo in estados_com_pergunta_pendente and draft_valido:
                     # Deixar continuar para processamento normal (não encerrar aqui)
                     print(f" [NEUTRA_COM_PERGUNTA_PENDENTE] estado_fluxo={estado_fluxo}, draft válido, continuando", flush=True)

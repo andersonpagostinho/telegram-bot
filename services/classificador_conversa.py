@@ -84,7 +84,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
     # FASE 4: Validar que draft é válido, não apenas se existe
     from services.draft_validator import eh_draft_valido_para_retomar
     draft = ctx.get("draft_agendamento")
-    tem_draft = draft and eh_draft_valido_para_retomar(draft, estado_fluxo)
+    tem_draft = bool(draft and eh_draft_valido_para_retomar(draft, estado_fluxo))
     tem_confirmacao_pendente = bool(ctx.get("aguardando_confirmacao_agendamento"))
 
     # Estrutura interrogativa, não frase fixa
