@@ -5870,9 +5870,27 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             else:
                 # P0.6.2 FIX: Mensagem neutra sem fluxo ativo não deve acionar GPT
                 # Uma mensagem neutra não representa intenção operacional
-                print(" [NEUTRA_SEM_FLUXO_FIM] Mensagem neutra sem contexto operacional ativo, encerrando", flush=True)
-                resposta_neutra = "Tudo bem, sem problemas! 😊"
-                return await _send_and_stop(context, user_id, resposta_neutra)
+                # MAS: Se existe fluxo aguardando resposta (ex: aguardando_confirmacao), continuar
+                estados_com_pergunta_pendente = {
+                    "aguardando_servico",
+                    "aguardando_profissional",
+                    "aguardando_data",
+                    "aguardando_horario",
+                    "aguardando_data_hora",
+                    "aguardando_escolha_horario",
+                    "aguardando_clareza_periodo_hora",
+                    "aguardando_confirmacao_agendamento",
+                    "aguardando_confirmacao_cancelamento",
+                }
+
+                if estado_fluxo in estados_com_pergunta_pendente:
+                    # Deixar continuar para processamento normal (não encerrar aqui)
+                    print(f" [NEUTRA_COM_PERGUNTA_PENDENTE] estado_fluxo={estado_fluxo}, continuando", flush=True)
+                else:
+                    # Sem pergunta pendente: encerrar de forma apropriada
+                    print(" [NEUTRA_SEM_FLUXO_FIM] Mensagem neutra sem contexto operacional ativo, encerrando", flush=True)
+                    resposta_neutra = "Tudo bem, sem problemas! 😊"
+                    return await _send_and_stop(context, user_id, resposta_neutra)
 
     # =========================================================
     # CAMADA 1 — INTENÇÃO CONVERSACIONAL (REUTILIZAR SE JÁ CALCULADA)
