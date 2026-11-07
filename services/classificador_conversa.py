@@ -149,11 +149,25 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         t
     )
     # Referência a profissional: "com [nome]", "trocar profissional", ou "[nome profissional] [verbo]"
-    # Padrão básico (sempre válido)
-    tem_ref_profissional_basico = _tem(
-        r"\b(com\s+[a-zA-ZÀ-ÿ]+|trocar profissional|outra profissional|outro profissional)\b",
-        t
-    )
+    # Padrão básico: validar contra catálogo (não aceitar qualquer palavra após "com")
+    tem_ref_profissional_basico = False
+
+    # P0 FIX: "com [QUALQUER_COISA]" é genérico demais → valida apenas contra catálogo
+    # Exemplo de falso positivo: "com você" não é referência profissional
+    if catalogo_profissionais:
+        for prof_nome in catalogo_profissionais:
+            prof_norm = normalizar_txt(prof_nome)
+            # Match "com [profissional_exato]" com word boundaries
+            if _tem(rf"\bcom\s+{re.escape(prof_norm)}\b", t):
+                tem_ref_profissional_basico = True
+                break
+
+    # Padrões fixos que não requerem catálogo (sempre válidos)
+    if not tem_ref_profissional_basico:
+        tem_ref_profissional_basico = _tem(
+            r"\b(trocar profissional|outra profissional|outro profissional)\b",
+            t
+        )
 
     # Padrão dinâmico: profissional no contexto OU na própria mensagem + verbo de disponibilidade
     tem_ref_profissional_dinamica = False
