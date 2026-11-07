@@ -5871,7 +5871,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # P0.6.2 FIX: Mensagem neutra sem fluxo ativo não deve acionar GPT
                 # Uma mensagem neutra não representa intenção operacional
                 print(" [NEUTRA_SEM_FLUXO_FIM] Mensagem neutra sem contexto operacional ativo, encerrando", flush=True)
-                resposta_neutra = "Não consegui entender. Pode tentar de novo, com mais detalhes?"
+                resposta_neutra = "Tudo bem, sem problemas! 😊"
                 return await _send_and_stop(context, user_id, resposta_neutra)
 
     # =========================================================
