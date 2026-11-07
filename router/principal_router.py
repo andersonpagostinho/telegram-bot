@@ -4318,6 +4318,12 @@ async def _validar_expiração_sessao(
     # Se em idle, não há timeout
     estado_fluxo = (ctx.get("estado_fluxo") or "idle").strip().lower()
     if estado_fluxo == "idle":
+        # FASE 4: Validar e limpar draft residual em idle
+        from services.draft_validator import eh_draft_valido_para_retomar
+        draft = ctx.get("draft_agendamento", {})
+        if draft and not eh_draft_valido_para_retomar(draft, estado_fluxo):
+            ctx.pop("draft_agendamento", None)
+
         return {"expirou": False, "tipo_aviso": None, "mensagem": None, "evento_criado": False}
 
     timestamp_atividade = ctx.get("_last_client_activity")
@@ -5883,12 +5889,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     "aguardando_confirmacao_cancelamento",
                 }
 
-                if estado_fluxo in estados_com_pergunta_pendente:
+                # FASE 4: Validar que draft é válido para retomar (se houver)
+                from services.draft_validator import eh_draft_valido_para_retomar
+                draft = ctx.get("draft_agendamento", {})
+                draft_valido = not draft or eh_draft_valido_para_retomar(draft, estado_fluxo)
+
+                if estado_fluxo in estados_com_pergunta_pendente and draft_valido:
                     # Deixar continuar para processamento normal (não encerrar aqui)
-                    print(f" [NEUTRA_COM_PERGUNTA_PENDENTE] estado_fluxo={estado_fluxo}, continuando", flush=True)
+                    print(f" [NEUTRA_COM_PERGUNTA_PENDENTE] estado_fluxo={estado_fluxo}, draft válido, continuando", flush=True)
                 else:
-                    # Sem pergunta pendente: encerrar de forma apropriada
-                    print(" [NEUTRA_SEM_FLUXO_FIM] Mensagem neutra sem contexto operacional ativo, encerrando", flush=True)
+                    # Sem pergunta pendente ou draft residual: encerrar de forma apropriada
+                    if not draft_valido:
+                        print(f" [NEUTRA_DRAFT_RESIDUAL] draft residual em {estado_fluxo}, encerrando", flush=True)
+                    else:
+                        print(" [NEUTRA_SEM_FLUXO_FIM] Mensagem neutra sem contexto operacional ativo, encerrando", flush=True)
                     resposta_neutra = "Tudo bem, sem problemas! 😊"
                     return await _send_and_stop(context, user_id, resposta_neutra)
 
