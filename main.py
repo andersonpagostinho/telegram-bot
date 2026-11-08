@@ -316,7 +316,7 @@ def whatsapp_webhook_post():
                                 try:
                                     resposta = future.result(timeout=30)
                                 except Exception as router_e:
-                                    logger.error(f"[WA] Erro no roteador: {router_e}")
+                                    logger.exception(f"[WA] Erro no roteador: {router_e}")
                                     resposta = "Desculpa, ocorreu um erro ao processar sua mensagem."
                             else:
                                 logger.warning("[WA] bot_loop não disponível, tentando asyncio.run()")
