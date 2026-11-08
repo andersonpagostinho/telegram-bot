@@ -14,6 +14,7 @@ from utils.confirmacao_pendente_manager import (
     persistir_confirmacao_pendente,
     consumir_confirmacao_pendente,
     consumir_confirmacao_pendente_com_fencing,
+    consumir_confirmacao_pendente_atomicamente,
     invalidar_confirmacao_pendente,
 )
 from handlers.confirmacao_pendente_handler import resolver_confirmacao_pendente
@@ -6849,60 +6850,47 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         lease_token=lease_token
                     )
 
-                    # [P0.29.11 ETAPA 4] Consumir COM FENCING — validar status + lease_token
+                    # [P0.29.17 ETAPA 2] Consumir confirmacao_pendente ATOMICAMENTE em Firestore
                     if atualizar_result.get("ok"):
-                        # Buscar documento atualizado para validação
+                        # Buscar documento atualizado para obter evento_id
                         operacao_path = f"Clientes/{dono_id}/OperacoesEmAndamento/{operacao_id_esperado}"
                         operacao_doc = await buscar_dado_em_path(operacao_path)
 
-                        # [P0.29.13 GAP 3] Validar vínculo evento/snapshot
-                        fencing_ok = True
                         evento_id_criado = operacao_doc.get("evento_id") if operacao_doc else None
-                        if evento_id_criado:
-                            try:
-                                evento_path = f"Clientes/{dono_id}/Eventos/{evento_id_criado}"
-                                evento_doc = await buscar_dado_em_path(evento_path)
-                                if evento_doc:
-                                    validacao_vinculo = validar_vinculo_evento_snapshot(
-                                        evento_persistido=evento_doc,
-                                        dados_confirmados_snapshot=operacao_doc.get("dados_confirmados", {})
-                                    )
-                                    if not validacao_vinculo.get("valido"):
-                                        print(f"[P0.29.13 SNAPSHOT_MISMATCH] {validacao_vinculo.get('divergencia')}", flush=True)
-                                        fencing_ok = False
-                            except Exception as e:
-                                print(f"[P0.29.13] Erro ao validar vínculo evento/snapshot: {e}", flush=True)
-                                fencing_ok = False
+                        dados_confirmados = operacao_doc.get("dados_confirmados", {}) if operacao_doc else {}
 
-                        if fencing_ok:
-                            resultado_consumo = consumir_confirmacao_pendente_com_fencing(
-                                confirmacao_pendente=ctx.get("confirmacao_pendente", {}),
+                        if evento_id_criado:
+                            # [P0.29.17] Consumir ATOMICAMENTE: validação + persistência em uma transação
+                            resultado_consumo = await consumir_confirmacao_pendente_atomicamente(
                                 tenant_id=dono_id,
                                 actor_id=cliente_id,
-                                operacao_doc=operacao_doc,
+                                operacao_id=operacao_id_esperado,
+                                evento_id=evento_id_criado,
                                 lease_token=lease_token,
-                                proprietario_id=proprietario_id
+                                proprietario_id=proprietario_id,
+                                dados_confirmados_snapshot=dados_confirmados
                             )
 
                             if resultado_consumo.get("ok"):
+                                # Confirmacao foi consumida e operacao foi marcada como concluida atomicamente
                                 ctx["confirmacao_pendente"] = resultado_consumo.get("confirmacao_consumida")
+                                print(f"[P0.29.17] Confirmacao consumida atomicamente: {resultado_consumo.get('motivo')}", flush=True)
                             else:
-                                print(f"[P0.29.11 FENCING] Consumo rejeitado: {resultado_consumo.get('motivo')}", flush=True)
+                                # Consumo rejeitado: validação falhou ou já foi consumida
+                                motivo = resultado_consumo.get("motivo", "desconhecido")
+                                print(f"[P0.29.17] Consumo rejeitado: {motivo}", flush=True)
+                                if motivo == "ja_consumida":
+                                    # Idempotência: já foi consumida anteriormente, tudo bem
+                                    ctx["confirmacao_pendente"] = {"status": "CONSUMIDA"}
+                                else:
+                                    # Falha real: não prosseguir
+                                    print(f"[P0.29.17] Divergência detectada: {resultado_consumo}", flush=True)
                         else:
-                            print(f"[P0.29.13] Fencing rejeitado: divergência evento/snapshot", flush=True)
+                            print(f"[P0.29.17] evento_id_criado não encontrado", flush=True)
                     else:
-                        print(f"[P0.29.11] atualizar_operacao_status falhou: {atualizar_result.get('motivo')}", flush=True)
+                        print(f"[P0.29.17] atualizar_operacao_status falhou: {atualizar_result.get('motivo')}", flush=True)
 
-                    # [P0 FASE 3.B] Marcar como concluída
-                    await atualizar_operacao_status(
-                        tenant_id=dono_id,
-                        operacao_id=operacao_id_esperado,
-                        novo_status="concluida",
-                        proprietario_id=proprietario_id,
-                        lease_token=lease_token
-                    )
-
-                    # Liberar lease após sucesso
+                    # Liberar lease após sucesso (transação já marcou como concluida)
                     await liberar_lease_operacao(dono_id, operacao_id_esperado, proprietario_id)
 
                 return resultado

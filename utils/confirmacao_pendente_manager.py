@@ -18,8 +18,11 @@ Requisitos:
 10. Isolamento multi-tenant: validar tenant_id em todas operações
 """
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
+from firebase_admin import firestore
+from services.firestore_client import get_db
 
 
 def gerar_operacao_id(actor_id: str, tipo: str, dados: dict) -> str:
@@ -459,3 +462,293 @@ def consumir_confirmacao_pendente_com_fencing(
         "motivo": "confirmacao_consumida_com_sucesso",
         "confirmacao_consumida": confirmacao_consumida
     }
+
+
+async def consumir_confirmacao_pendente_atomicamente(
+    tenant_id: str,
+    actor_id: str,
+    operacao_id: str,
+    evento_id: str,
+    lease_token: str,
+    proprietario_id: str,
+    dados_confirmados_snapshot: dict
+) -> Dict[str, Any]:
+    """
+    [P0.29.17] Consome confirmacao_pendente ATOMICAMENTE em transação Firestore.
+
+    Executa transação Firestore que:
+    1. LER confirmacao_pendente, operacao_em_andamento, evento
+    2. VALIDAR 9 critérios (incluindo snapshot matching)
+    3. ESCREVER confirmacao.status="CONSUMIDA" + operacao.status="CONCLUIDA" (MESMA transação)
+
+    Garantias:
+    - Atomicidade: tudo ou nada (sem writes parciais)
+    - Isolamento multi-tenant: validar tenant_id em todas refs
+    - Idempotência: segundo consumo retorna "ja_consumida"
+
+    Args:
+        tenant_id: ID do cliente/salão
+        actor_id: ID do usuário/cliente
+        operacao_id: ID da operação em andamento
+        evento_id: ID do evento já persistido
+        lease_token: Token de fencing (proprietário atual)
+        proprietario_id: ID do proprietário esperado
+        dados_confirmados_snapshot: Snapshot dos dados confirmados (para validar evento)
+
+    Returns:
+        {
+            "ok": bool,
+            "motivo": str,
+            "confirmacao_consumida": dict or None,
+            "evento_id": str or None
+        }
+    """
+
+    def transacao_consumir():
+        """Transação Firestore para consumir atomicamente."""
+        db = get_db()
+
+        @firestore.transactional
+        def callback(transaction):
+            agora = datetime.now()
+
+            # (1) REFS para os 3 documentos críticos
+            confirmacao_ref = (
+                db.collection("Clientes")
+                .document(tenant_id)
+                .collection("Sessoes")
+                .document(actor_id)
+            )
+            operacao_ref = (
+                db.collection("Clientes")
+                .document(tenant_id)
+                .collection("OperacoesEmAndamento")
+                .document(operacao_id)
+            )
+            evento_ref = (
+                db.collection("Clientes")
+                .document(tenant_id)
+                .collection("Eventos")
+                .document(evento_id)
+            )
+
+            # (2) LER os 3 documentos ATOMICAMENTE
+            confirmacao_docs = list(transaction.get(confirmacao_ref))
+            operacao_docs = list(transaction.get(operacao_ref))
+            evento_docs = list(transaction.get(evento_ref))
+
+            confirmacao_data = confirmacao_docs[0].to_dict() if confirmacao_docs else None
+            operacao_data = operacao_docs[0].to_dict() if operacao_docs else None
+            evento_data = evento_docs[0].to_dict() if evento_docs else None
+
+            # (3) VALIDAÇÃO 1: confirmacao_pendente existe?
+            if not confirmacao_data:
+                return {
+                    "ok": False,
+                    "motivo": "confirmacao_pendente_nao_existe",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            confirmacao_pendente = confirmacao_data.get("confirmacao_pendente")
+            if not confirmacao_pendente:
+                return {
+                    "ok": False,
+                    "motivo": "confirmacao_pendente_vazia",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (4) VALIDAÇÃO 2: operacao_em_andamento existe?
+            if not operacao_data:
+                return {
+                    "ok": False,
+                    "motivo": "operacao_em_andamento_nao_existe",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (5) VALIDAÇÃO 3: evento foi persistido?
+            if not evento_data:
+                return {
+                    "ok": False,
+                    "motivo": "evento_nao_persistido",
+                    "confirmacao_consumida": None,
+                    "evento_id": evento_id
+                }
+
+            # (6) VALIDAÇÃO 4: tenant_id match
+            if operacao_data.get("tenant_id") != tenant_id:
+                return {
+                    "ok": False,
+                    "motivo": "tenant_id_mismatch",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (7) VALIDAÇÃO 5: actor_id match
+            if operacao_data.get("actor_id") != actor_id:
+                return {
+                    "ok": False,
+                    "motivo": "actor_id_mismatch",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (8) VALIDAÇÃO 6: operacao_id match
+            if operacao_data.get("operacao_id") != operacao_id:
+                return {
+                    "ok": False,
+                    "motivo": "operacao_id_mismatch",
+                    "operacao_id_efetivo": operacao_data.get("operacao_id"),
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (9) VALIDAÇÃO 7: confirmacao.status == "pendente" (NÃO consumida)
+            confirmacao_status = confirmacao_pendente.get("status")
+            if confirmacao_status == "CONSUMIDA":
+                return {
+                    "ok": False,
+                    "motivo": "ja_consumida",
+                    "confirmacao_consumida": None,
+                    "evento_id": evento_id
+                }
+            if confirmacao_status != "pendente":
+                return {
+                    "ok": False,
+                    "motivo": f"confirmacao_status_invalido: {confirmacao_status}",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (10) VALIDAÇÃO 8: operacao.status == "evento_persistido"
+            operacao_status = operacao_data.get("status")
+            if operacao_status != "evento_persistido":
+                return {
+                    "ok": False,
+                    "motivo": f"operacao_status_invalido: {operacao_status}",
+                    "esperado": "evento_persistido",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (11) VALIDAÇÃO 9: lease_token valid (fencing)
+            doc_lease_token = operacao_data.get("lease_token")
+            if doc_lease_token != lease_token:
+                return {
+                    "ok": False,
+                    "motivo": "lease_token_invalido",
+                    "causa": "proprietario_antigo_ou_transferido",
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (12) VALIDAÇÃO 10: lease_expira_em não expirado (fencing)
+            lease_expira_em_str = operacao_data.get("lease_expira_em")
+            if lease_expira_em_str:
+                try:
+                    lease_expira_em = datetime.fromisoformat(lease_expira_em_str)
+                    if agora > lease_expira_em:
+                        return {
+                            "ok": False,
+                            "motivo": "lease_expirado",
+                            "expira_em": lease_expira_em_str,
+                            "confirmacao_consumida": None,
+                            "evento_id": None
+                        }
+                except:
+                    pass
+
+            # (13) VALIDAÇÃO 11: proprietario_id válido (fencing)
+            doc_proprietario_id = operacao_data.get("proprietario_id")
+            if doc_proprietario_id != proprietario_id:
+                return {
+                    "ok": False,
+                    "motivo": "proprietario_mismatch",
+                    "proprietario_esperado": proprietario_id,
+                    "proprietario_efetivo": doc_proprietario_id,
+                    "confirmacao_consumida": None,
+                    "evento_id": None
+                }
+
+            # (14) VALIDAÇÃO 12: correspondência evento vs snapshot
+            # Validar campos críticos: tenant, cliente, prof, data, hora, duracao
+            divergencias = {}
+
+            ev_tenant = evento_data.get("tenant_id", "")
+            if ev_tenant != tenant_id:
+                divergencias["tenant_id"] = {"evento": ev_tenant, "esperado": tenant_id}
+
+            ev_cliente = evento_data.get("cliente_id", "")
+            snap_cliente = dados_confirmados_snapshot.get("cliente_id", "")
+            if ev_cliente != snap_cliente:
+                divergencias["cliente_id"] = {"evento": ev_cliente, "snapshot": snap_cliente}
+
+            ev_prof = (str(evento_data.get("profissional", "")).lower().strip()
+                      if evento_data.get("profissional") else "")
+            snap_prof = (str(dados_confirmados_snapshot.get("profissional", "")).lower().strip()
+                        if dados_confirmados_snapshot.get("profissional") else "")
+            if ev_prof != snap_prof:
+                divergencias["profissional"] = {"evento": ev_prof, "snapshot": snap_prof}
+
+            ev_data_str = evento_data.get("data", "")
+            snap_data_str = dados_confirmados_snapshot.get("data", "")
+            if ev_data_str != snap_data_str:
+                divergencias["data"] = {"evento": ev_data_str, "snapshot": snap_data_str}
+
+            ev_hora = evento_data.get("hora_inicio", "")
+            snap_hora = dados_confirmados_snapshot.get("hora_inicio", "")
+            if ev_hora != snap_hora:
+                divergencias["hora_inicio"] = {"evento": ev_hora, "snapshot": snap_hora}
+
+            ev_duracao = evento_data.get("duracao")
+            snap_duracao = dados_confirmados_snapshot.get("duracao")
+            try:
+                if int(ev_duracao) != int(snap_duracao):
+                    divergencias["duracao"] = {"evento": ev_duracao, "snapshot": snap_duracao}
+            except:
+                if str(ev_duracao) != str(snap_duracao):
+                    divergencias["duracao"] = {"evento": ev_duracao, "snapshot": snap_duracao}
+
+            if divergencias:
+                return {
+                    "ok": False,
+                    "motivo": "snapshot_mismatch",
+                    "divergencias": divergencias,
+                    "confirmacao_consumida": None,
+                    "evento_id": evento_id
+                }
+
+            # (15) TODAS VALIDAÇÕES PASSARAM: CONSUMIR ATOMICAMENTE
+            # Marcar confirmacao como CONSUMIDA
+            confirmacao_consumida = confirmacao_pendente.copy()
+            confirmacao_consumida["status"] = "CONSUMIDA"
+            confirmacao_consumida["consumida_em"] = agora.isoformat()
+            confirmacao_consumida["consumida_por"] = proprietario_id
+
+            # Escrever confirmacao_pendente com status=CONSUMIDA
+            transaction.update(confirmacao_ref, {
+                "confirmacao_pendente": confirmacao_consumida
+            })
+
+            # Escrever operacao com status=concluida (MESMA transação)
+            transaction.update(operacao_ref, {
+                "status": "concluida",
+                "concluida_em": agora.isoformat(),
+                "concluido_por": proprietario_id
+            })
+
+            return {
+                "ok": True,
+                "motivo": "confirmacao_consumida_atomicamente",
+                "confirmacao_consumida": confirmacao_consumida,
+                "evento_id": evento_id
+            }
+
+        transaction = db.transaction()
+        return callback(transaction)
+
+    # Executar transação em thread separada (Firestore é síncrono)
+    result = await asyncio.to_thread(transacao_consumir)
+    return result
