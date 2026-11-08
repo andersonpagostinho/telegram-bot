@@ -52,6 +52,7 @@ from services.agenda_service import (
     validar_horario_funcionamento,
     resolver_fora_do_expediente,
     obter_janela_funcionamento,
+    proximo_horario_valido_no_dia,
 )
 
 import pytz
@@ -8053,6 +8054,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 hora_do_texto = None
 
             nova_data_hora = None
+            hora_preferida = None
 
             # Prioridade 1: hora extraída do texto
             if hora_do_texto:
