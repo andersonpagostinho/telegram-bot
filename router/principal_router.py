@@ -4982,6 +4982,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx["servico_contextual"] = servico_em_features
         print(f"[P0.7.5_CAPTURA_CONTEXTUAL] servico_contextual = {servico_em_features}", flush=True)
 
+    # 🔥 P0.C1: Capturar profissional mencionada em contexto (não seleção)
+    profissional_em_features = class_intencao.get("features", {}).get("profissional_mencionada")
+    if profissional_em_features:
+        draft = ctx.get("draft_agendamento", {})
+        if isinstance(draft, dict):
+            draft["profissional"] = profissional_em_features
+            ctx["draft_agendamento"] = draft
+
     # 🔒 P0: PATCH P0 — Detectar reiteração vs alteração ANTES de salvar intenção
     # Se está em confirmação pendente e classificou como ajuste_incremental,
     # verificar se dados realmente mudaram
@@ -5037,6 +5045,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         "tipo_ajuste_incremental": ctx.get("tipo_ajuste_incremental"),
         "confianca_intencao_conversacional": ctx.get("confianca_intencao_conversacional"),
         "servico_contextual": ctx.get("servico_contextual"),  # ← P0.7.5 persistir contextual
+        "draft_agendamento": ctx.get("draft_agendamento"),  # ← P0.C1 persistir draft
     })
 
     # =========================================================
@@ -5897,7 +5906,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # P0: Reconhecer respostas curtas sem contexto para oferecer recuperação
                 resposta_curta = _tem(r"^(sim|não|nao|ok|tudo bem|tá|ta|claro|certo|beleza)$", texto_lower)
 
-                if resposta_curta and not estado_fluxo:
+                if resposta_curta and (not estado_fluxo or estado_fluxo == "idle"):
                     # Resposta curta sem fluxo ativo → oferecer ponto de recuperação
                     print(" [RESPOSTA_CURTA_RECUPERACAO] Reconhecida resposta curta sem fluxo, oferecendo recuperação", flush=True)
                     resposta_recuperacao = (

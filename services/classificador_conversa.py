@@ -162,7 +162,8 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         for prof_nome in catalogo_profissionais:
             prof_norm = normalizar_txt(prof_nome)
             # Match "com [profissional_exato]" com word boundaries
-            if _tem(rf"\bcom\s+{re.escape(prof_norm)}\b", t):
+            # Permite artigos opcionais: "com a Bruna", "com o João", etc
+            if _tem(rf"\bcom\s+(?:um|uma|o|a|os|as)?\s*{re.escape(prof_norm)}\b", t):
                 tem_ref_profissional_basico = True
                 break
 
@@ -208,6 +209,17 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         )
 
     tem_ref_profissional = tem_ref_profissional_basico or tem_ref_profissional_dinamica or tem_ref_profissional_catalogo
+
+    # Extrair nome da profissional mencionada (para settar no draft depois)
+    profissional_mencionada = None
+    if tem_ref_profissional and catalogo_profissionais:
+        for prof_nome in catalogo_profissionais:
+            prof_norm = normalizar_txt(prof_nome)
+            # Verifica se profissional foi mencionada com ou sem artigo
+            pattern = rf"\bcom\s+(?:um|uma|o|a|os|as)?\s*{re.escape(prof_norm)}\b"
+            if _tem(pattern, t):
+                profissional_mencionada = prof_nome
+                break
 
     # Dúvida/insegurança sobre profissional — por composição, não frase fixa
     tem_sinal_qualidade_confianca = _tem(
@@ -259,6 +271,7 @@ def extrair_features_conversa(texto: str, ctx: dict | None = None, catalogo_serv
         "tem_agradecimento": tem_agradecimento,
         "tem_social": tem_social,
         "tem_ref_profissional": tem_ref_profissional,
+        "profissional_mencionada": profissional_mencionada,
         "tem_referencia_pessoa_profissional": tem_referencia_pessoa_profissional,
         "tem_duvida_confianca_profissional": tem_duvida_confianca_profissional,
     }
