@@ -281,3 +281,181 @@ async def carregar_confirmacao_pendente(
         pass
 
     return None
+
+
+def consumir_confirmacao_pendente_com_fencing(
+    confirmacao_pendente: dict,
+    tenant_id: str,
+    actor_id: str,
+    operacao_doc: dict,
+    lease_token: str = "",
+    proprietario_id: str = ""
+) -> Dict[str, Any]:
+    """
+    [P0.29.13] Consome confirmacao_pendente COM VALIDAÇÃO DE FENCING.
+
+    Validações OBRIGATÓRIAS (todos devem passar):
+    1. tenant_id match
+    2. actor_id match
+    3. operacao_id match
+    4. confirmacao.status == "pendente" (CRÍTICO)
+    5. status operacao = "EVENTO_PERSISTIDO" (CRÍTICO)
+    6. lease_token = token atual (CRÍTICO para rejeitar proprietario antigo)
+    7. lease_expira_em não expirado (CRÍTICO)
+    8. proprietario_id válido (CRÍTICO)
+    9. evento persistido
+
+    Args:
+        confirmacao_pendente: Dict com confirmacao pendente
+        tenant_id: ID do cliente/salão (para validação multi-tenant)
+        actor_id: ID do usuário (para validação multi-tenant)
+        operacao_doc: Documento OperacaoEmAndamento do Firestore
+        lease_token: Token esperado (para validar proprietário)
+        proprietario_id: ID do proprietário esperado (para validar proprietário)
+
+    Returns:
+        {
+            "ok": bool,
+            "motivo": str,
+            "confirmacao_consumida": dict or None
+        }
+    """
+    if not confirmacao_pendente:
+        return {
+            "ok": False,
+            "motivo": "confirmacao_pendente_vazia",
+            "confirmacao_consumida": None
+        }
+
+    if not operacao_doc:
+        return {
+            "ok": False,
+            "motivo": "operacao_doc_nao_existe",
+            "confirmacao_consumida": None
+        }
+
+    # VALIDAÇÃO 1: tenant_id match
+    if operacao_doc.get("tenant_id") != tenant_id:
+        return {
+            "ok": False,
+            "motivo": "tenant_id_mismatch",
+            "confirmacao_consumida": None
+        }
+
+    # VALIDAÇÃO 2: actor_id match
+    if operacao_doc.get("actor_id") != actor_id:
+        return {
+            "ok": False,
+            "motivo": "actor_id_mismatch",
+            "confirmacao_consumida": None
+        }
+
+    # VALIDAÇÃO 3: operacao_id match
+    if operacao_doc.get("operacao_id") != confirmacao_pendente.get("operacao_id"):
+        return {
+            "ok": False,
+            "motivo": "operacao_id_mismatch",
+            "operacao_id_esperado": confirmacao_pendente.get("operacao_id"),
+            "operacao_id_efetivo": operacao_doc.get("operacao_id"),
+            "confirmacao_consumida": None
+        }
+
+    # VALIDAÇÃO 4: confirmacao.status == "pendente" (CRÍTICO)
+    confirmacao_status = confirmacao_pendente.get("status")
+    if confirmacao_status != "pendente":
+        return {
+            "ok": False,
+            "motivo": f"confirmacao_status_invalido: {confirmacao_status}",
+            "esperado": "pendente",
+            "confirmacao_consumida": None
+        }
+
+    # VALIDAÇÃO 5: status operacao = "EVENTO_PERSISTIDO" (CRÍTICO)
+    status_operacao = operacao_doc.get("status")
+    if status_operacao != "evento_persistido":
+        return {
+            "ok": False,
+            "motivo": f"status_operacao_invalido: {status_operacao}",
+            "esperado": "evento_persistido",
+            "confirmacao_consumida": None
+        }
+
+    # VALIDAÇÃO 6: lease_token = token atual (FENCING)
+    doc_lease_token = operacao_doc.get("lease_token")
+    if not lease_token:
+        # Se lease_token não foi fornecido, validar que documento tem um válido
+        if not doc_lease_token:
+            return {
+                "ok": False,
+                "motivo": "lease_token_ausente_no_documento",
+                "confirmacao_consumida": None
+            }
+    else:
+        # Se lease_token foi fornecido, validar correspondência
+        if doc_lease_token != lease_token:
+            return {
+                "ok": False,
+                "motivo": "lease_token_invalido",
+                "causa": "proprietario_antigo_ou_transferido",
+                "confirmacao_consumida": None
+            }
+
+    # VALIDAÇÃO 7: lease_expira_em não expirado (FENCING)
+    lease_expira_em_str = operacao_doc.get("lease_expira_em")
+    if lease_expira_em_str:
+        try:
+            lease_expira_em = datetime.fromisoformat(lease_expira_em_str)
+            if datetime.now() > lease_expira_em:
+                return {
+                    "ok": False,
+                    "motivo": "lease_expirado",
+                    "expira_em": lease_expira_em_str,
+                    "confirmacao_consumida": None
+                }
+        except Exception as e:
+            return {
+                "ok": False,
+                "motivo": "erro_ao_validar_lease_expiracao",
+                "confirmacao_consumida": None
+            }
+
+    # VALIDAÇÃO 8: proprietario_id válido (FENCING)
+    doc_proprietario_id = operacao_doc.get("proprietario_id")
+    if proprietario_id:
+        # Se proprietario_id foi fornecido, validar correspondência
+        if doc_proprietario_id != proprietario_id:
+            return {
+                "ok": False,
+                "motivo": "proprietario_mismatch",
+                "proprietario_esperado": proprietario_id,
+                "proprietario_efetivo": doc_proprietario_id,
+                "confirmacao_consumida": None
+            }
+    else:
+        # Se proprietario_id não foi fornecido, apenas validar que existe
+        if not doc_proprietario_id:
+            return {
+                "ok": False,
+                "motivo": "proprietario_id_ausente",
+                "confirmacao_consumida": None
+            }
+
+    # VALIDAÇÃO 9: evento foi persistido
+    evento_id = operacao_doc.get("evento_id")
+    if not evento_id:
+        return {
+            "ok": False,
+            "motivo": "evento_id_nao_existe",
+            "confirmacao_consumida": None
+        }
+
+    # Se todas as validações passaram: consumir
+    confirmacao_consumida = confirmacao_pendente.copy()
+    confirmacao_consumida["status"] = "consumida"
+    confirmacao_consumida["consumida_em"] = datetime.now().isoformat()
+
+    return {
+        "ok": True,
+        "motivo": "confirmacao_consumida_com_sucesso",
+        "confirmacao_consumida": confirmacao_consumida
+    }

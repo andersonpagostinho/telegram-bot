@@ -13,6 +13,7 @@ from utils.confirmacao_pendente_manager import (
     validar_confirmacao_pendente,
     persistir_confirmacao_pendente,
     consumir_confirmacao_pendente,
+    consumir_confirmacao_pendente_com_fencing,
     invalidar_confirmacao_pendente,
 )
 from handlers.confirmacao_pendente_handler import resolver_confirmacao_pendente
@@ -27,8 +28,12 @@ from utils.operacao_service import (
     verificar_evento_existe,
 )
 from services.gpt_executor import executar_acao_gpt, executar_acao_gpt_resultado
-from services.firebase_service_async import obter_id_dono, buscar_subcolecao
-from services.event_service_async import verificar_conflito_e_sugestoes_profissional, cancelar_evento
+from services.firebase_service_async import obter_id_dono, buscar_subcolecao, buscar_dado_em_path
+from services.event_service_async import (
+    verificar_conflito_e_sugestoes_profissional,
+    cancelar_evento,
+    validar_vinculo_evento_snapshot
+)
 from services.onboarding_service import processar_onboarding_endereco_dono, processar_resposta_onboarding_dono
 from services.gpt_service import (
     processar_com_gpt_com_acao as chamar_gpt_com_contexto,
@@ -6820,9 +6825,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["confirmacao_agendamento_concluida"] = True
             ctx["confirmacao_agendamento_event_id"] = dados_exec.get("event_id", "desconhecido")
 
-            # [FASE 2] Consumir confirmacao_pendente após validação bem-sucedida
-            ctx["confirmacao_pendente"] = consumir_confirmacao_pendente(ctx.get("confirmacao_pendente", {}))
-
             ctx.pop("dados_confirmacao_agendamento", None)
             ctx.pop("ultima_opcao_profissionais", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
@@ -6838,7 +6840,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 if prop_valido:
                     # Evento foi criado, marcar operacao como persistida
                     lease_token = operacao_criada.get("lease_token")
-                    await atualizar_operacao_status(
+                    atualizar_result = await atualizar_operacao_status(
                         tenant_id=dono_id,
                         operacao_id=operacao_id_esperado,
                         novo_status="evento_persistido",
@@ -6846,6 +6848,50 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         evento_id=dados_exec.get("event_id"),
                         lease_token=lease_token
                     )
+
+                    # [P0.29.11 ETAPA 4] Consumir COM FENCING — validar status + lease_token
+                    if atualizar_result.get("ok"):
+                        # Buscar documento atualizado para validação
+                        operacao_path = f"Clientes/{dono_id}/OperacoesEmAndamento/{operacao_id_esperado}"
+                        operacao_doc = await buscar_dado_em_path(operacao_path)
+
+                        # [P0.29.13 GAP 3] Validar vínculo evento/snapshot
+                        fencing_ok = True
+                        evento_id_criado = operacao_doc.get("evento_id") if operacao_doc else None
+                        if evento_id_criado:
+                            try:
+                                evento_path = f"Clientes/{dono_id}/Eventos/{evento_id_criado}"
+                                evento_doc = await buscar_dado_em_path(evento_path)
+                                if evento_doc:
+                                    validacao_vinculo = validar_vinculo_evento_snapshot(
+                                        evento_persistido=evento_doc,
+                                        dados_confirmados_snapshot=operacao_doc.get("dados_confirmados", {})
+                                    )
+                                    if not validacao_vinculo.get("valido"):
+                                        print(f"[P0.29.13 SNAPSHOT_MISMATCH] {validacao_vinculo.get('divergencia')}", flush=True)
+                                        fencing_ok = False
+                            except Exception as e:
+                                print(f"[P0.29.13] Erro ao validar vínculo evento/snapshot: {e}", flush=True)
+                                fencing_ok = False
+
+                        if fencing_ok:
+                            resultado_consumo = consumir_confirmacao_pendente_com_fencing(
+                                confirmacao_pendente=ctx.get("confirmacao_pendente", {}),
+                                tenant_id=dono_id,
+                                actor_id=cliente_id,
+                                operacao_doc=operacao_doc,
+                                lease_token=lease_token,
+                                proprietario_id=proprietario_id
+                            )
+
+                            if resultado_consumo.get("ok"):
+                                ctx["confirmacao_pendente"] = resultado_consumo.get("confirmacao_consumida")
+                            else:
+                                print(f"[P0.29.11 FENCING] Consumo rejeitado: {resultado_consumo.get('motivo')}", flush=True)
+                        else:
+                            print(f"[P0.29.13] Fencing rejeitado: divergência evento/snapshot", flush=True)
+                    else:
+                        print(f"[P0.29.11] atualizar_operacao_status falhou: {atualizar_result.get('motivo')}", flush=True)
 
                     # [P0 FASE 3.B] Marcar como concluída
                     await atualizar_operacao_status(
@@ -6862,7 +6908,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 return resultado
 
             except Exception as e:
-                # Se falha: operacao fica "em_andamento", recuperável por próxima tentativa
+                # Se falha: operacao fica "em_andamento", confirmacao NÃO foi consumida
                 logger.error(f"Erro ao executar evento: {e}")
                 raise
 

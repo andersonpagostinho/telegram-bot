@@ -39,36 +39,92 @@ async def criar_operacao_em_andamento(
     lease_ttl_minutos: int = 5
 ) -> Dict[str, Any]:
     """
-    Cria OperacaoEmAndamento atomicamente.
+    Cria OperacaoEmAndamento atomicamente com @transactional.
+
+    Transação Firestore valida:
+    - Operação não existe já (prevent duplicate creation)
+    - Se existe: proprietario válido? Lease expirado?
+    - REJEITAR se proprietario válido
+    - PERMITIR recuperação se lease expirado
+    - GRAVAR proprietario + lease_token ATOMICAMENTE
 
     Falha antes de persistência = sem side effects
     Falha após persistência = operação recuperável
     """
-    agora = datetime.now()
-    expira_em = agora + timedelta(minutes=lease_ttl_minutos)
-    lease_token = str(uuid.uuid4())  # Token único para esta aquisição
 
-    doc = {
-        "operacao_id": operacao_id,
-        "tenant_id": tenant_id,
-        "actor_id": actor_id,
-        "tipo": tipo,
-        "status": "em_andamento",
-        "evento_id": None,
-        "dados_confirmados": dados_confirmados,
-        "proprietario_id": proprietario_id,
-        "lease_token": lease_token,
-        "lease_adquirido_em": agora.isoformat(),
-        "lease_expira_em": expira_em.isoformat(),
-        "criada_em": agora.isoformat(),
-        "atualizada_em": agora.isoformat()
-    }
+    def transacao_criar_operacao():
+        """Transação Firestore para criar operação atomicamente."""
+        db = get_db()
 
-    path = f"Clientes/{tenant_id}/OperacoesEmAndamento/{operacao_id}"
-    await salvar_dado_em_path(path, doc)
+        @firestore.transactional
+        def callback(transaction):
+            agora = datetime.now()
+            expira_em = agora + timedelta(minutes=lease_ttl_minutos)
+            lease_token = str(uuid.uuid4())  # Token único para esta aquisição
 
-    logger.info(f"OperacaoEmAndamento criada: {operacao_id} (prop={proprietario_id})")
-    return {"ok": True, "doc": doc, "lease_token": lease_token, "status": "em_andamento"}
+            operacao_ref = (
+                db.collection("Clientes")
+                .document(tenant_id)
+                .collection("OperacoesEmAndamento")
+                .document(operacao_id)
+            )
+
+            # (1) LER documento atual (se existe)
+            operacao_docs = list(transaction.get(operacao_ref))
+
+            if operacao_docs:
+                # Operação já existe — validar se proprietário ainda é válido
+                operacao_data = operacao_docs[0].to_dict()
+                if operacao_data:
+                    # Verificar lease
+                    lease_expira_em_str = operacao_data.get("lease_expira_em")
+                    if lease_expira_em_str:
+                        try:
+                            lease_expira_em = datetime.fromisoformat(lease_expira_em_str)
+                            if agora < lease_expira_em:
+                                # Lease ainda válido — rejeitar
+                                return {
+                                    "ok": False,
+                                    "motivo": "operacao_existe_com_proprietario_valido",
+                                    "proprietario_ativo": operacao_data.get("proprietario_id"),
+                                    "expira_em": lease_expira_em_str
+                                }
+                        except:
+                            pass  # Falha parsing: trata como expirado, continua
+
+            # (2) Operação não existe OU lease expirado: CRIAR/ATUALIZAR
+            doc = {
+                "operacao_id": operacao_id,
+                "tenant_id": tenant_id,
+                "actor_id": actor_id,
+                "tipo": tipo,
+                "status": "em_andamento",
+                "evento_id": None,
+                "dados_confirmados": dados_confirmados,
+                "proprietario_id": proprietario_id,
+                "lease_token": lease_token,
+                "lease_adquirido_em": agora.isoformat(),
+                "lease_expira_em": expira_em.isoformat(),
+                "criada_em": agora.isoformat(),
+                "atualizada_em": agora.isoformat()
+            }
+
+            # (3) GRAVAR ATOMICAMENTE
+            transaction.set(operacao_ref, doc)
+
+            return {
+                "ok": True,
+                "doc": doc,
+                "lease_token": lease_token,
+                "status": "em_andamento"
+            }
+
+        transaction = db.transaction()
+        return callback(transaction)
+
+    result = await asyncio.to_thread(transacao_criar_operacao)
+    logger.info(f"OperacaoEmAndamento criada: {operacao_id} (prop={proprietario_id}) - {result.get('motivo', 'ok')}")
+    return result
 
 
 async def adquirir_lease_operacao(
@@ -219,6 +275,8 @@ async def atualizar_operacao_status(
                 return {"ok": False, "motivo": "operacao_nao_existe"}
 
             doc = docs_list[0].to_dict()
+            if not doc:
+                return {"ok": False, "motivo": "operacao_nao_existe"}
             agora = datetime.now()
 
             # VALIDAÇÃO 1: Proprietário correto?

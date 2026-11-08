@@ -24,6 +24,146 @@ logger = logging.getLogger(__name__)
 FUSO_BR = timezone("America/Sao_Paulo")
 
 # =========================================================
+# 🔒 [P0.29.13 GAP 3] VALIDAÇÃO: Vínculo Evento ↔ Snapshot
+# Valida se evento persistido corresponde ao snapshot da operação
+# =========================================================
+def validar_vinculo_evento_snapshot(
+    evento_persistido: dict,
+    dados_confirmados_snapshot: dict
+) -> Dict[str, Any]:
+    """
+    [P0.29.13] Valida vínculo entre evento persistido e snapshot da operação.
+
+    Campos críticos para validação:
+    - tenant_id (isolamento multi-tenant)
+    - cliente_id (identidade do cliente)
+    - profissional (prestador de serviço)
+    - data (data do agendamento)
+    - hora_inicio (hora normalizada)
+    - duracao (duração do serviço)
+
+    Args:
+        evento_persistido: Evento já salvo em Firestore
+        dados_confirmados_snapshot: Snapshot confirmado em operacao.dados_confirmados
+
+    Returns:
+        {
+            "valido": bool,
+            "motivo": str,
+            "divergencia": dict (se houver) ou None
+        }
+    """
+    if not evento_persistido or not dados_confirmados_snapshot:
+        return {
+            "valido": False,
+            "motivo": "dados_ausentes",
+            "divergencia": None
+        }
+
+    divergencias = {}
+
+    # Validar tenant_id
+    ev_tenant = evento_persistido.get("tenant_id", "")
+    snap_tenant = dados_confirmados_snapshot.get("tenant_id", "")
+    if ev_tenant != snap_tenant:
+        divergencias["tenant_id"] = {
+            "evento": ev_tenant,
+            "snapshot": snap_tenant
+        }
+
+    # Validar cliente_id
+    ev_cliente = evento_persistido.get("cliente_id", "")
+    snap_cliente = dados_confirmados_snapshot.get("cliente_id", "")
+    if ev_cliente != snap_cliente:
+        divergencias["cliente_id"] = {
+            "evento": ev_cliente,
+            "snapshot": snap_cliente
+        }
+
+    # Validar profissional
+    ev_prof = (str(evento_persistido.get("profissional", "")).lower().strip()
+               if evento_persistido.get("profissional") else "")
+    snap_prof = (str(dados_confirmados_snapshot.get("profissional", "")).lower().strip()
+                 if dados_confirmados_snapshot.get("profissional") else "")
+    if ev_prof != snap_prof:
+        divergencias["profissional"] = {
+            "evento": ev_prof,
+            "snapshot": snap_prof
+        }
+
+    # Validar data
+    ev_data = evento_persistido.get("data", "")
+    snap_data = dados_confirmados_snapshot.get("data", "")
+    if ev_data != snap_data:
+        divergencias["data"] = {
+            "evento": ev_data,
+            "snapshot": snap_data
+        }
+
+    # Validar hora_inicio (normalizada)
+    ev_hora = evento_persistido.get("hora_inicio", "")
+    snap_hora = dados_confirmados_snapshot.get("hora_inicio", "")
+    # Normalizar ambas para comparar (grade de 20 min)
+    try:
+        def norm_hora(h):
+            if not h:
+                return ""
+            parts = str(h).split(":")
+            if len(parts) >= 2:
+                h_int, m_int = int(parts[0]), int(parts[1])
+                m_int = (m_int // 20) * 20
+                return f"{h_int:02d}:{m_int:02d}"
+            return str(h)
+        ev_hora_norm = norm_hora(ev_hora)
+        snap_hora_norm = norm_hora(snap_hora)
+        if ev_hora_norm != snap_hora_norm:
+            divergencias["hora_inicio"] = {
+                "evento": ev_hora,
+                "snapshot": snap_hora,
+                "normalizado_evento": ev_hora_norm,
+                "normalizado_snapshot": snap_hora_norm
+            }
+    except:
+        if ev_hora != snap_hora:
+            divergencias["hora_inicio"] = {
+                "evento": ev_hora,
+                "snapshot": snap_hora
+            }
+
+    # Validar duração (deve bater)
+    ev_duracao = evento_persistido.get("duracao")
+    snap_duracao = dados_confirmados_snapshot.get("duracao")
+    try:
+        ev_dur_int = int(ev_duracao) if ev_duracao else None
+        snap_dur_int = int(snap_duracao) if snap_duracao else None
+        if ev_dur_int != snap_dur_int:
+            divergencias["duracao"] = {
+                "evento": ev_dur_int,
+                "snapshot": snap_dur_int
+            }
+    except:
+        if str(ev_duracao) != str(snap_duracao):
+            divergencias["duracao"] = {
+                "evento": ev_duracao,
+                "snapshot": snap_duracao
+            }
+
+    # Se houver divergências, rejeitar
+    if divergencias:
+        return {
+            "valido": False,
+            "motivo": "snapshot_mismatch",
+            "divergencia": divergencias
+        }
+
+    return {
+        "valido": True,
+        "motivo": "snapshot_valido",
+        "divergencia": None
+    }
+
+
+# =========================================================
 # 🔥 FILTRO DE EVENTOS VÁLIDOS PARA AGENDA
 # evita lixo legado, cancelados e eventos incompletos
 # =========================================================
