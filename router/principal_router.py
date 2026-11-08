@@ -2602,6 +2602,21 @@ async def precheck_e_confirmacao_agendamento(
 
     ctx["aguardando_confirmacao_agendamento"] = True
 
+    # [P0.29.1 FIX] Criar confirmacao_pendente (mesmo padrão do fluxo via slots)
+    operacao_id = gerar_operacao_id(
+        cliente_id,
+        "agendamento",
+        {
+            "profissional": prof,
+            "data": data_hora.split("T")[0] if "T" in data_hora else data_hora[:10],
+            "hora": data_hora.split("T")[1][:5] if "T" in data_hora else ""
+        }
+    )
+    ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
+    from services.firebase_service_async import atualizar_dado_em_path
+    await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], atualizar_dado_em_path)
+    print(f"[P0.29.1] ✅ confirmacao_pendente criada: {operacao_id}", flush=True)
+
     # ✅ Duração: carregar do catálogo real do tenant, fallback para estimativa
     from services.cadastro_inicial_service import listar_servicos_negocio
     servicos_catalogo = await listar_servicos_negocio(dono_id)
@@ -5632,6 +5647,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # SKIP: Se é agendamento_direto em idle, não processar como consulta informativa
     if intencao_conv == "agendamento_direto" and estado_fluxo == "idle":
         print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] SKIP: agendamento_direto detectado — vai para bloco de agendamento", flush=True)
+        resposta_informativa = None
+    # [P0.29.1] SKIP: Se há confirmacao_pendente válida + intencao confirmacao_agendamento
+    elif ctx.get("confirmacao_pendente") and intencao_conv == "confirmacao_agendamento":
+        print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] SKIP: confirmacao_pendente ativa — vai para bloco de confirmação", flush=True)
         resposta_informativa = None
     else:
         # ✅ Permitir consultas informativas em qualquer estado
