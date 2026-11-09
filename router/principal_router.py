@@ -6876,7 +6876,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                             if resultado_consumo.get("ok"):
                                 # Confirmacao foi consumida e operacao foi marcada como concluida atomicamente
-                                ctx["confirmacao_pendente"] = resultado_consumo.get("confirmacao_consumida")
+                                ctx["confirmacao_pendente"] = {}
+                                ctx["aguardando_confirmacao_agendamento"] = False
+                                ctx["dados_confirmacao_agendamento"] = {}
+                                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
                                 print(f"[P0.29.17] Confirmacao consumida atomicamente: {resultado_consumo.get('motivo')}", flush=True)
                             else:
                                 # Consumo rejeitado: validação falhou ou já foi consumida
