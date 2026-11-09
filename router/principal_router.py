@@ -2620,7 +2620,10 @@ async def precheck_e_confirmacao_agendamento(
     )
     ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
     from services.firebase_service_async import atualizar_dado_em_path
-    await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], atualizar_dado_em_path)
+    resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], atualizar_dado_em_path)
+    if not resultado_persistencia:
+        print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 1: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+        return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
     print(f"[P0.29.1] ✅ confirmacao_pendente criada: {operacao_id}", flush=True)
 
     # ✅ Duração: carregar do catálogo real do tenant, fallback para estimativa
@@ -7419,7 +7422,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     )
                     ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
                     from services.firebase_service_async import atualizar_dado_em_path
-                    await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], atualizar_dado_em_path)
+                    resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], atualizar_dado_em_path)
+                    if not resultado_persistencia:
+                        print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 2: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+                        return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
 
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "confirmar_agendamento",
@@ -7680,7 +7686,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 )
                 ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
                 from services.firebase_service_async import atualizar_dado_em_path as _atualizar
-                await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar)
+                resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar)
+                if not resultado_persistencia:
+                    print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 3: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+                    return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
 
                 msg_p1 = await gerar_resposta_p1({
                     "tipo": "confirmar_agendamento",
@@ -10768,7 +10777,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
         ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
         from services.firebase_service_async import atualizar_dado_em_path as _atualizar3
-        await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar3)
+        resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar3)
+        if not resultado_persistencia:
+            print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 4: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+            return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
 
         print(
             "[SAVE-CONF]",
@@ -12118,7 +12130,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         )
         ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
         from services.firebase_service_async import atualizar_dado_em_path as _atualizar4
-        await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar4)
+        resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar4)
+        if not resultado_persistencia:
+            print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 5: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+            return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
 
         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
@@ -12316,7 +12331,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             )
             ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
             from services.firebase_service_async import atualizar_dado_em_path as _atualizar5
-            await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar5)
+            resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar5)
+            if not resultado_persistencia:
+                print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 6: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+                return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
 
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
@@ -12504,7 +12522,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     )
                     ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
                     from services.firebase_service_async import atualizar_dado_em_path as _atualizar6
-                    await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar6)
+                    resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar6)
+                    if not resultado_persistencia:
+                        print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 7: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+                        return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
 
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
@@ -12638,7 +12659,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         )
                         ctx["confirmacao_pendente"] = criar_confirmacao_pendente(operacao_id, "agendamento")
                         from services.firebase_service_async import atualizar_dado_em_path as _atualizar7
-                        await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar7)
+                        resultado_persistencia = await persistir_confirmacao_pendente(dono_id, cliente_id, ctx["confirmacao_pendente"], _atualizar7)
+                        if not resultado_persistencia:
+                            print(f"[P0.29.18] ❌ FALHA ao persistir confirmacao_pendente em PONTO 8: operacao_id={operacao_id} | tenant={dono_id} | cliente={cliente_id}", flush=True)
+                            return await _send_and_stop(context, user_id, "⚠️ Não consegui processar sua solicitação. Por favor, tente novamente.")
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
