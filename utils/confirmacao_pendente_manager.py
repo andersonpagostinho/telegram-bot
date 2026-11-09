@@ -84,8 +84,12 @@ def validar_confirmacao_pendente(
     """
     Valida se confirmacao_pendente ativa matches operacao_id esperado.
 
+    [P0.29.18-FIX] Dual-pattern support:
+    - Padrão 1: confirmacao_pendente com operacao_id
+    - Padrão 2: dados_confirmacao_agendamento (auto-create confirmacao_pendente)
+
     Checklist:
-    1. confirmacao_pendente existe?
+    1. confirmacao_pendente existe OU dados_confirmacao_agendamento existe?
     2. Status == "pendente"?
     3. operacao_id == operacao_id_esperado?
     4. Não expirou (expira_em > agora)?
@@ -104,12 +108,29 @@ def validar_confirmacao_pendente(
     """
     confirmacao = ctx.get("confirmacao_pendente")
 
-    if not confirmacao:
-        return {
-            "valida": False,
-            "motivo": "sem_confirmacao_pendente",
-            "confirmacao_pendente": None
-        }
+    # [P0.29.18-FIX] Se vazio/None, tentar criar a partir de dados_confirmacao_agendamento (padrão intermediário)
+    if not confirmacao or (isinstance(confirmacao, dict) and not confirmacao.get("operacao_id")):
+        dados_conf = ctx.get("dados_confirmacao_agendamento")
+        if dados_conf and isinstance(dados_conf, dict) and dados_conf.get("profissional"):
+            # Auto-criar confirmacao_pendente a partir de dados_confirmacao_agendamento
+            print(f"[P0.29.18-FIX-AUTO] Criando confirmacao_pendente de dados_confirmacao_agendamento", flush=True)
+            confirmacao = {
+                "operacao_id": operacao_id_esperado,
+                "tipo": "agendamento",
+                "status": "pendente",
+                "apresentada_em": datetime.now().isoformat(),
+                "tentativas": 1,
+                "max_tentativas": 3,
+                "expira_em": (datetime.now() + timedelta(minutes=5)).isoformat(),
+                "_origem_auto": "dados_confirmacao_agendamento"  # Rastreamento
+            }
+            ctx["confirmacao_pendente"] = confirmacao
+        else:
+            return {
+                "valida": False,
+                "motivo": "sem_confirmacao_pendente",
+                "confirmacao_pendente": None
+            }
 
     # Verificar status
     if confirmacao.get("status") != "pendente":
