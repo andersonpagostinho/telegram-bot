@@ -2150,6 +2150,60 @@ def eh_confirmacao_pendente_ativa(ctx: dict) -> bool:
     ctx = ctx or {}
     return bool(ctx.get("aguardando_confirmacao_agendamento"))
 
+
+def validar_operacao_id_compativel(ctx: dict, dono_id: str = None, cliente_id: str = None) -> bool:
+    """[P0.29.31] Valida se operacao_id da confirmacao_pendente é compatível com draft atual.
+
+    operacao_id é hash de (profissional, serviço, data_hora).
+    Se draft mudou → operacao_id deve mudar.
+    Se operacao_id ainda é antigo → confirmacao_pendente é obsoleta.
+
+    Retorna True APENAS se operacao_ids combinam (confirmacao é válida).
+    """
+    confirmacao = ctx.get("confirmacao_pendente", {})
+    draft = ctx.get("draft_agendamento", {})
+
+    # Se não há confirmacao ou draft, não pode ser compatível
+    if not confirmacao or not draft:
+        return False
+
+    # Se confirmacao não tem operacao_id estruturado, é inválida
+    if not isinstance(confirmacao, dict) or not confirmacao.get("operacao_id"):
+        return False
+
+    operacao_id_no_contexto = confirmacao.get("operacao_id", "")
+
+    # Verificar se operacao_id começa com os valores atuais do draft
+    # formato: "agendamento_actor_profissional_data_hora_..."
+    prof_atual = (draft.get("profissional") or "").lower().strip()
+    servico_atual = (draft.get("servico") or "").lower().strip()
+    data_hora_atual = draft.get("data_hora") or ""
+
+    # Simples validação: operacao_id deve conter (normalizado) a profissional, serviço e data
+    # Isto é uma heurística rápida, não a hash exata (que requer dono_id/cliente_id)
+    op_id_lower = operacao_id_no_contexto.lower()
+
+    from unidecode import unidecode
+    prof_norm = unidecode(prof_atual) if prof_atual else ""
+    servico_norm = unidecode(servico_atual) if servico_atual else ""
+
+    # Validação: operacao_id deve conter PELO MENOS profissional e data (normalizado, sem espaços)
+    # Serviço é opcional na heurística pois pode ter variações de nome
+    prof_norm_no_space = prof_norm.replace(" ", "") if prof_norm else ""
+    data_no_space = data_hora_atual[:10].replace("-", "") if data_hora_atual else ""
+    op_id_no_space = op_id_lower.replace("-", "").replace(" ", "")
+
+    tem_prof = prof_norm_no_space in op_id_no_space if prof_norm_no_space else True
+    tem_data = data_no_space in op_id_no_space if data_no_space else True
+
+    compativel = tem_prof and tem_data
+
+    if not compativel:
+        print(f"[P0.29.31-VALIDACAO] operacao_id obsoleto | op_id={operacao_id_no_contexto[:50]} | prof={prof_atual} | data={data_hora_atual[:10]}", flush=True)
+
+    return compativel
+
+
 def eh_nova_consulta_pura(texto: str, tem_confirmacao_ativa: bool = False) -> bool:
     """
     [P0-FASE2-FIX] Detecta se cliente fez NOVA CONSULTA de disponibilidade,
@@ -5658,7 +5712,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] SKIP: agendamento_direto detectado — vai para bloco de agendamento", flush=True)
         resposta_informativa = None
     # [P0.29.1] SKIP: Se há confirmacao_pendente válida + intencao confirmacao_agendamento
-    elif ctx.get("confirmacao_pendente") and intencao_conv == "confirmacao_agendamento":
+    elif (ctx.get("confirmacao_pendente") and
+          intencao_conv == "confirmacao_agendamento" and
+          validar_operacao_id_compativel(ctx)):  # [P0.29.31] Validar compatibilidade antes de reutilizar
         print(" [ANTES_CONSULTA_INFORMATIVA_IDLE] SKIP: confirmacao_pendente ativa — vai para bloco de confirmação", flush=True)
         resposta_informativa = None
     else:
@@ -5780,6 +5836,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx.pop("draft_agendamento", None)
         ctx.pop("aguardando_confirmacao_agendamento", None)
         ctx.pop("dados_confirmacao_agendamento", None)
+        ctx.pop("confirmacao_pendente", None)  # [P0.29.31] Remover confirmação pendente ao cancelar
         ctx.pop("horarios_sugeridos", None)
         ctx.pop("profissional_escolhido", None)
         ctx["estado_fluxo"] = "idle"
@@ -5795,6 +5852,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         ctx.pop("draft_agendamento", None)
         ctx.pop("aguardando_confirmacao_agendamento", None)
         ctx.pop("dados_confirmacao_agendamento", None)
+        ctx.pop("confirmacao_pendente", None)  # [P0.29.31] Remover confirmação pendente ao cancelar
         ctx.pop("intencao_conversacional", None)
         ctx["estado_fluxo"] = "idle"  # Resetar para permitir cancelamento
 
@@ -6830,6 +6888,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             ctx["confirmacao_agendamento_event_id"] = dados_exec.get("event_id", "desconhecido")
 
             ctx.pop("dados_confirmacao_agendamento", None)
+            ctx.pop("confirmacao_pendente", None)  # [P0.29.31] Remover confirmação pendente após evento criado
             ctx.pop("ultima_opcao_profissionais", None)
             await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 

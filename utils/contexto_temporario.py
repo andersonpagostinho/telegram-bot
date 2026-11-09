@@ -175,6 +175,7 @@ async def limpar_contexto_agendamento_v2(dono_id: str, cliente_id: str):
         # Fluxo de agendamento
         "draft_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
+        "confirmacao_pendente": firestore.DELETE_FIELD,  # [P0.29.31] Remover confirmação pendente obsoleta
         "dados_anteriores": firestore.DELETE_FIELD,
         "profissional_escolhido": firestore.DELETE_FIELD,
         "profissional": firestore.DELETE_FIELD,  # [FIX] Campo em raiz (não confundir com profissional_escolhido)
@@ -477,6 +478,7 @@ async def limpar_contexto_agendamento(user_id: str, tenant_id: str = None):
         # Fluxo de agendamento
         "draft_agendamento": firestore.DELETE_FIELD,
         "dados_confirmacao_agendamento": firestore.DELETE_FIELD,
+        "confirmacao_pendente": firestore.DELETE_FIELD,  # [P0.29.31] Remover confirmação pendente obsoleta
         "dados_anteriores": firestore.DELETE_FIELD,
         "profissional_escolhido": firestore.DELETE_FIELD,
         "data_hora": firestore.DELETE_FIELD,
