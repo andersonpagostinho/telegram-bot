@@ -56,13 +56,19 @@ async def resolver_confirmacao_pendente(
             "ctx_modificado": None,
         }
 
-    # Guard: confirmacao_pendente deve estar True
-    confirmacao_pendente = (
-        ctx.get("aguardando_confirmacao_agendamento")
-        or ctx.get("confirmacao_pendente")
+    # Guard: confirmacao_pendente deve estar válida (flag True + dict com operacao_id)
+    # [P0.29.18-FIX] Type-safe validation para evitar dict vazio {} ser tratado como False
+    aguardando = ctx.get("aguardando_confirmacao_agendamento")
+    confirmacao_struct = ctx.get("confirmacao_pendente", {})
+
+    confirmacao_valida = (
+        aguardando is True and
+        isinstance(confirmacao_struct, dict) and
+        bool(confirmacao_struct.get("operacao_id"))
     )
 
-    if not confirmacao_pendente:
+    if not confirmacao_valida:
+        print(f"[P0.29.18-FIX] confirmacao_invalida | aguardando={aguardando} | tem_operacao_id={isinstance(confirmacao_struct, dict) and bool(confirmacao_struct.get('operacao_id'))}", flush=True)
         return {
             "tratado": False,
             "acao": None,
@@ -79,7 +85,7 @@ async def resolver_confirmacao_pendente(
 
         ctx_modificado = ctx.copy()
         ctx_modificado["aguardando_confirmacao_agendamento"] = False
-        ctx_modificado["confirmacao_pendente"] = False
+        ctx_modificado["confirmacao_pendente"] = {}
         ctx_modificado["dados_confirmacao_agendamento"] = {}
         ctx_modificado["draft_agendamento"] = {}
         ctx_modificado["estado_fluxo"] = "idle"
