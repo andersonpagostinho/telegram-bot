@@ -56,19 +56,24 @@ async def resolver_confirmacao_pendente(
             "ctx_modificado": None,
         }
 
-    # Guard: confirmacao_pendente deve estar válida (flag True + dict com operacao_id)
-    # [P0.29.18-FIX] Type-safe validation para evitar dict vazio {} ser tratado como False
+    # Guard: confirmacao_pendente deve estar válida (flag True + dict com operacao_id OU dados_confirmacao_agendamento)
+    # [P0.29.18-FIX] Type-safe validation: aceita AMBOS os padrões
+    # - Padrão 1: confirmacao_pendente com operacao_id (P0.29.18 - 8 pontos)
+    # - Padrão 2: dados_confirmacao_agendamento (outros 23 pontos que ainda faltam migrar)
     aguardando = ctx.get("aguardando_confirmacao_agendamento")
     confirmacao_struct = ctx.get("confirmacao_pendente", {})
+    dados_confirmacao = ctx.get("dados_confirmacao_agendamento", {})
 
     confirmacao_valida = (
         aguardando is True and
-        isinstance(confirmacao_struct, dict) and
-        bool(confirmacao_struct.get("operacao_id"))
+        (
+            (isinstance(confirmacao_struct, dict) and bool(confirmacao_struct.get("operacao_id"))) or
+            (isinstance(dados_confirmacao, dict) and bool(dados_confirmacao.get("profissional")))
+        )
     )
 
     if not confirmacao_valida:
-        print(f"[P0.29.18-FIX] confirmacao_invalida | aguardando={aguardando} | tem_operacao_id={isinstance(confirmacao_struct, dict) and bool(confirmacao_struct.get('operacao_id'))}", flush=True)
+        print(f"[P0.29.18-FIX] confirmacao_invalida | aguardando={aguardando} | tem_operacao_id={isinstance(confirmacao_struct, dict) and bool(confirmacao_struct.get('operacao_id'))} | tem_dados_confirmacao={isinstance(dados_confirmacao, dict) and bool(dados_confirmacao.get('profissional'))}", flush=True)
         return {
             "tratado": False,
             "acao": None,

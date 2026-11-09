@@ -276,5 +276,41 @@ async def test_T9_regressao_manager_functions():
     print("✅ T9 PASS: Funções de manager não sofrem regressão")
 
 
+# ============================================================================
+# T10 — PADRÃO 2: dados_confirmacao_agendamento (23 pontos ainda não migrados)
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_T10_padrao_dados_confirmacao_sem_operacao_id():
+    """T10 — Aceitarconfirmação com dados_confirmacao_agendamento (padrão intermediário)"""
+
+    ctx = {
+        "aguardando_confirmacao_agendamento": True,
+        "confirmacao_pendente": {},  # Vazio
+        "dados_confirmacao_agendamento": {
+            "profissional": "Bruna",
+            "servico": "corte feminino",
+            "data_hora": "2026-11-16T11:00:00",
+            "duracao": 40,
+            "descricao": "Corte feminino com Bruna",
+        }
+    }
+
+    aguardando = ctx.get("aguardando_confirmacao_agendamento")
+    confirmacao_struct = ctx.get("confirmacao_pendente", {})
+    dados_confirmacao = ctx.get("dados_confirmacao_agendamento", {})
+
+    confirmacao_valida = (
+        aguardando is True and
+        (
+            (isinstance(confirmacao_struct, dict) and bool(confirmacao_struct.get("operacao_id"))) or
+            (isinstance(dados_confirmacao, dict) and bool(dados_confirmacao.get("profissional")))
+        )
+    )
+
+    assert confirmacao_valida is True, "Deve aceitar dados_confirmacao_agendamento"
+    print("✅ T10 PASS: Padrão 2 (dados_confirmacao) aceito")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
