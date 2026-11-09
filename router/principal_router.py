@@ -5265,7 +5265,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         and not eh_confirmacao_pendente_ativa(ctx)
     ):
         profissionais_validos = ctx.get("profissionais_validos", [])
-        servico = ctx.get("servico") or (ctx.get("draft_agendamento", {}).get("servico"))
+        servico = ctx.get("servico") or ((ctx.get("draft_agendamento") or {}).get("servico"))  # [P0-DRAFT-NONE-FIX] Proteger contra draft_agendamento=None
 
         print(f"[PATCH_P0] motivo_estado=profissional_nao_atende_servico | texto={texto_lower}", flush=True)
 
@@ -6047,7 +6047,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     novo_servico_identificado = (
         class_intencao.get("intencao_conversacional") == "agendamento_direto"
         and class_intencao.get("features", {}).get("servico_mencionado") is not None
-        and class_intencao.get("features", {}).get("servico_mencionado") != ctx.get("draft_agendamento", {}).get("servico")
+        and class_intencao.get("features", {}).get("servico_mencionado") != (ctx.get("draft_agendamento") or {}).get("servico")  # [P0-DRAFT-NONE-FIX] Proteger contra draft_agendamento=None
     )
 
     preservar_continuidade_data = (
@@ -6176,8 +6176,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # 🛡️ FACTOR 3 FIX: Usar contexto confiável se estado_fluxo=None
             em_consulta_pura_alternativa = (
                 objetivo_original == "descobrir_servico_para_consulta"
-                and ctx.get("draft_agendamento", {}).get("profissional") is not None
-                and ctx.get("draft_agendamento", {}).get("data_hora") is not None
+                and (ctx.get("draft_agendamento") or {}).get("profissional") is not None  # [P0-DRAFT-NONE-FIX] Proteger contra draft_agendamento=None
+                and (ctx.get("draft_agendamento") or {}).get("data_hora") is not None  # [P0-DRAFT-NONE-FIX] Proteger contra draft_agendamento=None
             )
 
             if em_consulta_pura or em_consulta_pura_alternativa:
@@ -14109,8 +14109,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 ctx["aguardando_confirmacao_agendamento"] = False
                 ctx["alternativa_profissional"] = None
                 ctx["ultima_opcao_profissionais"] = None
-                ctx["draft_agendamento"] = None
-                ctx["dados_confirmacao_agendamento"] = None
+                ctx.pop("draft_agendamento", None)  # [P0-DRAFT-NONE-FIX] Remover em vez de definir como None
+                ctx.pop("dados_confirmacao_agendamento", None)  # [P0-DRAFT-NONE-FIX] Remover em vez de definir como None
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return await _send_and_stop(
