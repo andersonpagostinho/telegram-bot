@@ -354,14 +354,15 @@ def whatsapp_webhook_post():
                                 whatsapp_access_token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
                                 if not whatsapp_access_token:
                                     logger.error(f"[WA-AUDIO] WHATSAPP_ACCESS_TOKEN não configurado")
-                                    # Marcar falha permanente
+                                    # ⚠️ IMPORTANTE: Falha de configuração NÃO é permanente
+                                    # Marcar como FALHA_RECUPERAVEL para permitir retry após configuração
                                     if bot_loop is not None:
                                         asyncio.run_coroutine_threadsafe(
-                                            marcar_falha_permanente(phone_number_id, msg_id, "Access token não disponível", timestamp_webhook),
+                                            marcar_falha_recuperavel(phone_number_id, msg_id, "WHATSAPP_ACCESS_TOKEN ausente - configure env var e use /recover-audio", timestamp_webhook),
                                             bot_loop
                                         ).result(timeout=5)
                                     else:
-                                        asyncio.run(marcar_falha_permanente(phone_number_id, msg_id, "Access token não disponível", timestamp_webhook))
+                                        asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, "WHATSAPP_ACCESS_TOKEN ausente - configure env var e use /recover-audio", timestamp_webhook))
                                     continue
 
                                 # Chamar transcrição
