@@ -350,19 +350,19 @@ def whatsapp_webhook_post():
                             try:
                                 from services.whatsapp_media_service import transcrever_audio_whatsapp
 
-                                # Obter access token
-                                whatsapp_access_token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+                                # Obter access token (mesmo que whatsapp_service.py)
+                                whatsapp_access_token = os.getenv("META_ACCESS_TOKEN", "")
                                 if not whatsapp_access_token:
-                                    logger.error(f"[WA-AUDIO] WHATSAPP_ACCESS_TOKEN não configurado")
+                                    logger.error(f"[WA-AUDIO] META_ACCESS_TOKEN não configurado")
                                     # ⚠️ IMPORTANTE: Falha de configuração NÃO é permanente
                                     # Marcar como FALHA_RECUPERAVEL para permitir retry após configuração
                                     if bot_loop is not None:
                                         asyncio.run_coroutine_threadsafe(
-                                            marcar_falha_recuperavel(phone_number_id, msg_id, "WHATSAPP_ACCESS_TOKEN ausente - configure env var e use /recover-audio", timestamp_webhook),
+                                            marcar_falha_recuperavel(phone_number_id, msg_id, "META_ACCESS_TOKEN ausente - configure env var e use /recover-audio", timestamp_webhook),
                                             bot_loop
                                         ).result(timeout=5)
                                     else:
-                                        asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, "WHATSAPP_ACCESS_TOKEN ausente - configure env var e use /recover-audio", timestamp_webhook))
+                                        asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, "META_ACCESS_TOKEN ausente - configure env var e use /recover-audio", timestamp_webhook))
                                     continue
 
                                 # Chamar transcrição

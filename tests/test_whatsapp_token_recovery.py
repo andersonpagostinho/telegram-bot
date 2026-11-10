@@ -19,7 +19,7 @@ class TestWhatsappTokenRecovery:
 
         with patch.dict('os.environ', {}, clear=True):
             import os
-            token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+            token = os.getenv("META_ACCESS_TOKEN", "")
 
             assert token == "", "Token deve estar ausente"
             print("✅ [TESTE 1] Token ausente confirmado")
@@ -29,9 +29,9 @@ class TestWhatsappTokenRecovery:
         """Cenário 2: Token presente."""
         print("\n[TESTE 2] Token presente")
 
-        with patch.dict('os.environ', {'WHATSAPP_ACCESS_TOKEN': 'token123'}):
+        with patch.dict('os.environ', {'META_ACCESS_TOKEN': 'token123'}):
             import os
-            token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+            token = os.getenv("META_ACCESS_TOKEN", "")
 
             assert token == "token123", "Token deve estar presente"
             print("✅ [TESTE 2] Token presente confirmado")
@@ -41,9 +41,9 @@ class TestWhatsappTokenRecovery:
         """Cenário 3: Token presente mas inválido."""
         print("\n[TESTE 3] Token inválido")
 
-        with patch.dict('os.environ', {'WHATSAPP_ACCESS_TOKEN': 'invalid_token_xyz'}):
+        with patch.dict('os.environ', {'META_ACCESS_TOKEN': 'invalid_token_xyz'}):
             import os
-            token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+            token = os.getenv("META_ACCESS_TOKEN", "")
 
             assert token == "invalid_token_xyz", "Token deve estar presente (mas inválido)"
             # Validação real aconteceria em transcrever_audio_whatsapp
@@ -61,7 +61,7 @@ class TestWhatsappTokenRecovery:
             resultado = await mock_mark(
                 "5511999999999",
                 "wamid_audio_001",
-                "WHATSAPP_ACCESS_TOKEN ausente - configure env var e use /recover-audio"
+                "META_ACCESS_TOKEN ausente - configure env var e use /recover-audio"
             )
 
             assert resultado is True, "Deveria marcar FALHA_RECUPERAVEL"
@@ -74,13 +74,13 @@ class TestWhatsappTokenRecovery:
 
         from services.whatsapp_recovery_service import recuperar_audio_por_token_ausente
 
-        with patch.dict('os.environ', {'WHATSAPP_ACCESS_TOKEN': 'token123'}):
+        with patch.dict('os.environ', {'META_ACCESS_TOKEN': 'token123'}):
             with patch('services.firebase_service_async.get_async_client') as mock_client:
                 mock_doc = MagicMock()
                 mock_doc.exists = True
                 mock_doc.to_dict.return_value = {
                     "status": "FALHA_RECUPERAVEL",
-                    "erro": "WHATSAPP_ACCESS_TOKEN ausente - configure env var e use /recover-audio",
+                    "erro": "META_ACCESS_TOKEN ausente - configure env var e use /recover-audio",
                     "retry_count": 0,
                 }
 
@@ -181,15 +181,15 @@ class TestWhatsappRecoveryProcedure:
         # ETAPA 1: Token ausente
         with patch.dict('os.environ', {}, clear=True):
             import os
-            assert os.getenv("WHATSAPP_ACCESS_TOKEN", "") == "", "Passo 1: Token ausente"
+            assert os.getenv("META_ACCESS_TOKEN", "") == "", "Passo 1: Token ausente"
 
         # ETAPA 2: Mensagem marcada como FALHA_RECUPERAVEL
         # (verificado em teste 04)
 
         # ETAPA 3: Configurar token
-        with patch.dict('os.environ', {'WHATSAPP_ACCESS_TOKEN': 'token123'}):
+        with patch.dict('os.environ', {'META_ACCESS_TOKEN': 'token123'}):
             import os
-            assert os.getenv("WHATSAPP_ACCESS_TOKEN", "") == "token123", "Passo 3: Token configurado"
+            assert os.getenv("META_ACCESS_TOKEN", "") == "token123", "Passo 3: Token configurado"
 
         # ETAPA 4: Recuperar mensagem
         # (lógica validada em teste 05)

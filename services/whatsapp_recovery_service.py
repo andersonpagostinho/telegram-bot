@@ -41,9 +41,9 @@ async def recuperar_audio_por_token_ausente(phone_number_id: str, msg_id: str) -
     """
 
     try:
-        # 1. Verificar que token está configurado
+        # 1. Verificar que token está configurado (mesmo que whatsapp_service.py)
         import os
-        access_token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+        access_token = os.getenv("META_ACCESS_TOKEN", "")
 
         if not access_token:
             return {
@@ -84,7 +84,7 @@ async def recuperar_audio_por_token_ausente(phone_number_id: str, msg_id: str) -
             }
 
         # 4. Validar que foi por token ausente
-        if "WHATSAPP_ACCESS_TOKEN ausente" not in erro_anterior:
+        if "META_ACCESS_TOKEN ausente" not in erro_anterior and "WHATSAPP_ACCESS_TOKEN ausente" not in erro_anterior:
             return {
                 "ok": False,
                 "motivo": f"Falha não foi por token ausente: {erro_anterior}",
