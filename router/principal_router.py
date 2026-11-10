@@ -1086,14 +1086,90 @@ def detectar_bloqueio_agenda_profissional(texto: str, nomes_profissionais: list[
 
     return None
 
-def eh_confirmacao(txt: str) -> bool:
+def tem_confirmacao_temporal_condicional(txt: str) -> bool:
     """
-    Confirmação genérica (sem depender de comando).
-    Evita falso positivo em perguntas como "pode ver?".
+    [FIX 3] Detecta se confirmação é FUTURA condicional (não imediata).
+
+    Exemplos de confirmação FUTURA:
+    - "Depois que você me apresentar as opções, eu confirmo"
+    - "Quando encontrar um horário, autorizo a reserva"
+    - "Assim que você encontrar, pode confirmar"
+
+    Retorna True APENAS se AMBOS presentes:
+    - Marcador temporal (depois, quando, assim que, etc)
+    - Palavra de confirmação/autorização
+
+    Quando True: eh_confirmacao() deve retornar False (não confirma agora)
     """
     t = normalizar(txt or "")
 
     if not t:
+        return False
+
+    # [FIX 3 REVISÃO] Separar marcadores condicionais de ações completadas
+    # "depois" (futuro) vs "depois de" (passado completo)
+    # "quando" (futuro incerto) vs "quando?" (pergunta) vs "quando você" (passado)
+
+    # Padrões a EXCLUIR PRIMEIRO (ações passadas ou perguntas)
+    exclusoes = [
+        "depois de",    # "depois de X" = ação completada
+        "quando?",      # "quando?" = pergunta
+        "quando voce",  # "quando você" + verbo passado = pergunta
+    ]
+
+    for exclusao in exclusoes:
+        if exclusao in t:
+            return False
+
+    # Marcadores FUTUROS CONDICIONAIS (futura condicionalidade)
+    futuro_condicional = [
+        "depois que",   # "depois que você..."
+        "quando encontrar",
+        "quando escolher",
+        "quando achar",
+        "quando tiver",
+        "quando conseguir",
+        "quando puder",
+        "quando estiver",
+        "assim que",    # "assim que você..."
+        "logo que",     # "logo que você..."
+        "uma vez que",  # "uma vez que você..."
+    ]
+
+    # Palavras de confirmação/autorização
+    confirmacao_palavras = [
+        "autorizo",
+        "confirmo",
+        "confirmar",
+        "autorizar",
+        "aprovo",
+        "aprovar",
+        "reservar",
+        "reserva",
+    ]
+
+    # AMBAS condições devem estar presentes
+    tem_futuro_condicional = any(m in t for m in futuro_condicional)
+    tem_confirmacao = any(c in t for c in confirmacao_palavras)
+
+    return tem_futuro_condicional and tem_confirmacao
+
+
+def eh_confirmacao(txt: str) -> bool:
+    """
+    Confirmação genérica (sem depender de comando).
+    Evita falso positivo em perguntas como "pode ver?".
+
+    [FIX 3] Também evita falso positivo em autorizações FUTURAS:
+    "Depois que você me apresentar, eu confirmo" → False (não confirma agora)
+    """
+    t = normalizar(txt or "")
+
+    if not t:
+        return False
+
+    # [FIX 3] PRÉ-FILTRO: Se é confirmação futura condicional, NÃO confirma agora
+    if tem_confirmacao_temporal_condicional(t):
         return False
 
     if "nao" in t or "não" in t:
