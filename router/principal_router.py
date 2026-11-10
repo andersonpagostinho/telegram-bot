@@ -5833,13 +5833,26 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             print(f"✅ [CONSULTA_INFORMATIVA_IDLE] tem_agendar={tem_agendar} | tem_temporal={tem_temporal}", flush=True)
 
             if tem_agendar and tem_temporal:
+                # [FIX 3.2] Verificar se é autorização FUTURA CONDICIONAL
+                # Se sim: permitir consulta mas BLOQUEAR agendamento
+                eh_futuro_condicional = tem_confirmacao_temporal_condicional(mensagem)
+                print(f"[FIX 3.2] Verificação: tem_confirmacao_temporal_condicional={eh_futuro_condicional}", flush=True)
+
+                if eh_futuro_condicional:
+                    # ⚠️ AUTORIZAÇÃO FUTURA: Permitir consulta, bloquear agendamento
+                    print(" [FIX 3.2] BLOQUEADO: Autorização futura detectada — responder consulta SEM agendamento")
+                    ctx["modo_operacao"] = "consulta_sem_autorizacao_atual"
+                    return await _send_and_stop_ctx(context, user_id, resposta_informativa, ctx, texto_usuario, cliente_id, dono_id)
+
                 # Híbrido: consulta + agendamento — responder mas deixar prosseguir
                 print(" [CONSULTA_INFORMATIVA_IDLE] Consultando + agendando — salvando resposta pendente")
+                ctx["modo_operacao"] = "consulta_com_agendamento"
                 ctx["resposta_informativa_pendente"] = resposta_informativa
                 # Continuar para extração de slots
             else:
                 # Pura consulta informativa — responder e parar
                 print(" [CONSULTA_INFORMATIVA_IDLE] Consulta pura — respondendo")
+                ctx["modo_operacao"] = "consulta_pura"
                 return await _send_and_stop_ctx(context, user_id, resposta_informativa, ctx, texto_usuario, cliente_id, dono_id)
 
     # =========================================================
@@ -6236,6 +6249,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         intencao_conv = class_intencao.get("intencao_conversacional")
 
     objetivo_conversacional = None
+
+    # [FIX 3.2] Se modo_operacao é consulta_sem_autorizacao_atual, bloquear agendamento
+    modo_op = ctx.get("modo_operacao", "")
+    if modo_op == "consulta_sem_autorizacao_atual":
+        print("[FIX 3.2 PROTEÇÃO] Modo operacao=consulta_sem_autorizacao_atual detectado, bloqueando agendamento_direto", flush=True)
+        # Forçar comportamento de consulta
+        if intencao_conv == "agendamento_direto":
+            intencao_conv = "consulta_disponibilidade_servico"
 
     if intencao_conv == "consulta_disponibilidade_aberta":
         objetivo_conversacional = "descobrir_servico_para_consulta"
