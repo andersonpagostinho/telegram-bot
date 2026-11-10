@@ -222,14 +222,54 @@ def whatsapp_webhook_post():
                 for msg in messages:
                     msg_id = msg.get("id")
                     from_number = msg.get("from")
-                    text_body = msg.get("text", {}).get("body", "")
+                    msg_type = msg.get("type", "unknown").lower()
+                    text_body = msg.get("text", {}).get("body", "") if msg_type == "text" else ""
 
-                    logger.info(f"📱 WhatsApp - De: {from_number}, Texto: {text_body[:50]}")
-                    logger.info(f"📞 Endpoint: {phone_number_id}, msg_id: {msg_id}")
+                    # ➕ [FASE 2] Validação separada por tipo de mensagem
+                    # Campos comuns (exigidos em qualquer tipo)
+                    if not phone_number_id or not from_number or not msg_id:
+                        logger.warning(f"[WA] Dados comuns incompletos: phone_number_id={bool(phone_number_id)} from={bool(from_number)} msg_id={bool(msg_id)}")
+                        continue
 
-                    # ✅ PROCESSAMENTO: Resolver tenant e chamar router
-                    if not phone_number_id or not from_number or not text_body or not msg_id:
-                        logger.warning(f"[WA] Dados incompletos: phone_number_id={bool(phone_number_id)} from={bool(from_number)} text={bool(text_body)} msg_id={bool(msg_id)}")
+                    # ✅ PROCESSAMENTO: Validação e roteamento por tipo
+                    if msg_type == "text":
+                        # Mensagem de texto: exigir text_body
+                        if not text_body:
+                            logger.warning(f"[WA-TEXT] Texto vazio: from={from_number} msg_id={msg_id}")
+                            continue
+
+                        logger.info(f"📱 WhatsApp TEXT - De: {from_number}, Texto: {text_body[:50]}")
+                        logger.info(f"📞 Endpoint: {phone_number_id}, msg_id: {msg_id}")
+
+                        # Prosseguir com processamento normal de texto (preservar fluxo existente)
+                        # Variável text_body é usada abaixo no router
+                        processamento_tipo = "text"
+
+                    elif msg_type == "audio":
+                        # ✅ [FASE 4] Mensagem de áudio: exigir audio.id e mime_type
+                        audio = msg.get("audio", {})
+                        audio_id = audio.get("id", "")
+                        mime_type = audio.get("mime_type", "")
+
+                        if not audio_id:
+                            logger.warning(f"[WA-AUDIO] Sem audio.id: from={from_number} msg_id={msg_id}")
+                            continue
+
+                        if not mime_type:
+                            logger.warning(f"[WA-AUDIO] Sem mime_type: from={from_number} msg_id={msg_id}")
+                            continue
+
+                        logger.info(f"📱 WhatsApp AUDIO - De: {from_number}, audio_id={audio_id}, mime_type={mime_type}")
+                        logger.info(f"📞 Endpoint: {phone_number_id}, msg_id: {msg_id}")
+
+                        # ✅ [FASE 4] Marcar para processamento de áudio (sem placeholder)
+                        text_body = None  # Será preenchido após transcrição
+                        processamento_tipo = "audio"
+                        audio_metadata = {"audio_id": audio_id, "mime_type": mime_type}
+
+                    else:
+                        # Tipo desconhecido
+                        logger.warning(f"[WA] Tipo de mensagem não suportado: {msg_type} (from={from_number})")
                         continue
 
                     try:
@@ -302,6 +342,175 @@ def whatsapp_webhook_post():
 
                         if not tenant_id:
                             logger.warning(f"[WA] Endpoint {phone_number_id} não registrado ou inativo")
+                            continue
+
+                        # ✅ [FASE 4] Transcrever áudio se aplicável
+                        if processamento_tipo == "audio" and audio_metadata:
+                            logger.info(f"[WA-AUDIO] Iniciando transcrição: {phone_number_id}/{msg_id}")
+                            try:
+                                from services.whatsapp_media_service import transcrever_audio_whatsapp
+
+                                # Obter access token
+                                whatsapp_access_token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+                                if not whatsapp_access_token:
+                                    logger.error(f"[WA-AUDIO] WHATSAPP_ACCESS_TOKEN não configurado")
+                                    # Marcar falha permanente
+                                    if bot_loop is not None:
+                                        asyncio.run_coroutine_threadsafe(
+                                            marcar_falha_permanente(phone_number_id, msg_id, "Access token não disponível", timestamp_webhook),
+                                            bot_loop
+                                        ).result(timeout=5)
+                                    else:
+                                        asyncio.run(marcar_falha_permanente(phone_number_id, msg_id, "Access token não disponível", timestamp_webhook))
+                                    continue
+
+                                # Chamar transcrição
+                                if bot_loop is not None:
+                                    future_transcribe = asyncio.run_coroutine_threadsafe(
+                                        transcrever_audio_whatsapp(
+                                            media_id=audio_metadata["audio_id"],
+                                            mime_type=audio_metadata["mime_type"],
+                                            access_token=whatsapp_access_token,
+                                            tenant_id=tenant_id,
+                                            cliente_id=from_number,
+                                            msg_id=msg_id
+                                        ),
+                                        bot_loop
+                                    )
+                                    texto_transcrito = future_transcribe.result(timeout=60)
+                                else:
+                                    try:
+                                        texto_transcrito = asyncio.run(
+                                            transcrever_audio_whatsapp(
+                                                media_id=audio_metadata["audio_id"],
+                                                mime_type=audio_metadata["mime_type"],
+                                                access_token=whatsapp_access_token,
+                                                tenant_id=tenant_id,
+                                                cliente_id=from_number,
+                                                msg_id=msg_id
+                                            )
+                                        )
+                                    except RuntimeError as e:
+                                        if "cannot be called from a running event loop" in str(e):
+                                            result_box = [None]
+                                            error_box = [None]
+
+                                            def run_transcribe():
+                                                try:
+                                                    result_box[0] = asyncio.run(
+                                                        transcrever_audio_whatsapp(
+                                                            media_id=audio_metadata["audio_id"],
+                                                            mime_type=audio_metadata["mime_type"],
+                                                            access_token=whatsapp_access_token,
+                                                            tenant_id=tenant_id,
+                                                            cliente_id=from_number,
+                                                            msg_id=msg_id
+                                                        )
+                                                    )
+                                                except Exception as e2:
+                                                    error_box[0] = e2
+
+                                            thread = threading.Thread(target=run_transcribe, daemon=True)
+                                            thread.start()
+                                            thread.join(timeout=60)
+
+                                            if error_box[0]:
+                                                raise error_box[0]
+                                            texto_transcrito = result_box[0]
+                                        else:
+                                            raise
+
+                                # Validar transcrição
+                                if not texto_transcrito or len(texto_transcrito.strip()) == 0:
+                                    logger.warning(f"[WA-AUDIO] Transcrição vazia: {phone_number_id}/{msg_id}")
+
+                                    # Responder erro
+                                    from services.whatsapp_service import enviar_mensagem_whatsapp
+                                    msg_erro = "Não consegui entender seu áudio. Pode enviá-lo novamente ou escrever sua mensagem?"
+
+                                    try:
+                                        resultado = asyncio.run(
+                                            enviar_mensagem_whatsapp(
+                                                destinatario_id=from_number,
+                                                mensagem=msg_erro,
+                                                phone_number_id=phone_number_id
+                                            )
+                                        )
+
+                                        # Marcar concluída após envio bem-sucedido
+                                        if resultado.get("success"):
+                                            if bot_loop is not None:
+                                                asyncio.run_coroutine_threadsafe(
+                                                    marcar_concluida(phone_number_id, msg_id, resultado.get("message_id"), timestamp_webhook),
+                                                    bot_loop
+                                                ).result(timeout=5)
+                                            else:
+                                                asyncio.run(marcar_concluida(phone_number_id, msg_id, resultado.get("message_id"), timestamp_webhook))
+                                            logger.info(f"[WA-AUDIO] Mensagem de erro enviada e marcada CONCLUIDA")
+                                        else:
+                                            # Falha ao enviar resposta de erro
+                                            if bot_loop is not None:
+                                                asyncio.run_coroutine_threadsafe(
+                                                    marcar_falha_recuperavel(phone_number_id, msg_id, "Falha ao enviar erro de transcrição", timestamp_webhook),
+                                                    bot_loop
+                                                ).result(timeout=5)
+                                            else:
+                                                asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, "Falha ao enviar erro de transcrição", timestamp_webhook))
+                                    except Exception as send_e:
+                                        logger.error(f"[WA-AUDIO] Erro ao enviar mensagem de erro: {send_e}")
+                                        if bot_loop is not None:
+                                            asyncio.run_coroutine_threadsafe(
+                                                marcar_envio_desconhecido(phone_number_id, msg_id, f"Erro ao enviar erro: {send_e}", timestamp_webhook),
+                                                bot_loop
+                                            ).result(timeout=5)
+                                        else:
+                                            asyncio.run(marcar_envio_desconhecido(phone_number_id, msg_id, f"Erro ao enviar erro: {send_e}", timestamp_webhook))
+
+                                    continue  # Não processar pelo router
+
+                                # Transcrição OK, usar como text_body
+                                text_body = texto_transcrito
+                                logger.info(f"[WA-AUDIO] ✅ Transcrição bem-sucedida: {text_body[:100]}")
+
+                            except Exception as transcribe_e:
+                                logger.error(f"[WA-AUDIO] Erro na transcrição: {transcribe_e}", exc_info=True)
+
+                                # Classificar erro
+                                erro_str = str(transcribe_e).lower()
+
+                                if "timeout" in erro_str or "connection" in erro_str or "429" in erro_str or "503" in erro_str:
+                                    # Erro recuperável
+                                    logger.warning(f"[WA-AUDIO] FALHA_RECUPERAVEL: {transcribe_e}")
+                                    if bot_loop is not None:
+                                        asyncio.run_coroutine_threadsafe(
+                                            marcar_falha_recuperavel(phone_number_id, msg_id, str(transcribe_e), timestamp_webhook),
+                                            bot_loop
+                                        ).result(timeout=5)
+                                    else:
+                                        asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, str(transcribe_e), timestamp_webhook))
+                                else:
+                                    # Erro permanente (token inválido, etc)
+                                    logger.error(f"[WA-AUDIO] FALHA_PERMANENTE: {transcribe_e}")
+                                    if bot_loop is not None:
+                                        asyncio.run_coroutine_threadsafe(
+                                            marcar_falha_permanente(phone_number_id, msg_id, str(transcribe_e), timestamp_webhook),
+                                            bot_loop
+                                        ).result(timeout=5)
+                                    else:
+                                        asyncio.run(marcar_falha_permanente(phone_number_id, msg_id, str(transcribe_e), timestamp_webhook))
+
+                                continue  # Não processar pelo router
+
+                        # ✅ Validar que text_body está preenchido
+                        if not text_body or len(text_body.strip()) == 0:
+                            logger.error(f"[WA] text_body vazio após processamento: {phone_number_id}/{msg_id}")
+                            if bot_loop is not None:
+                                asyncio.run_coroutine_threadsafe(
+                                    marcar_falha_recuperavel(phone_number_id, msg_id, "text_body vazio após processamento", timestamp_webhook),
+                                    bot_loop
+                                ).result(timeout=5)
+                            else:
+                                asyncio.run(marcar_falha_recuperavel(phone_number_id, msg_id, "text_body vazio após processamento", timestamp_webhook))
                             continue
 
                         # ✅ Chamar roteador
