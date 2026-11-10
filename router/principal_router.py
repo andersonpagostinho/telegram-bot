@@ -4741,6 +4741,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     else:
         print(f"[ACTIVITY-NEW] Primeira atividade registrada: {ctx['_last_client_activity']}", flush=True)
 
+    # ➕ [FASE 3.2] PERSISTIR TIMESTAMP IMEDIATAMENTE
+    # CRÍTICO: fazer SEMPRE, não apenas se confirmacao/sinais
+    # Garantir que próxima requisição vê timestamp atualizado
+    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
     # =========================================================
     # LOTE 3E: RESOLVER CONFIRMACAO/NEGACAO PENDENTE (EARLY)
     # Antes de IDENTIDADE, CONSULTA_INFORMATIVA, NEOEVE_NEUTRA, classificador

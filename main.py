@@ -42,6 +42,14 @@ try:
 except Exception:
     verificar_e_avisar_sessoes_expiradas = None
 
+# ➕ [FASE 3.3] Importar timeout scheduler
+try:
+    from scheduler.timeout_scheduler import processar_timeouts_sessoes
+except Exception as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"[FASE 3.3] Timeout scheduler não disponível: {e}")
+    processar_timeouts_sessoes = None
+
 # 🔒 FASE 4.1: Lock para execução única global
 try:
     from services.cron_lock_service import tentar_claim_cron, liberar_cron_lock
@@ -560,8 +568,32 @@ def cron_ping():
         logger.warning(f"[CRON] Erro ao obter lock (continuando anyway): {e}")
         # Continuar mesmo se lock falhar
 
-    # 3) tenta rodar o processamento de notificações
+    # 3) tenta rodar o processamento de notificações e timeouts
+    resultados = []
     try:
+        # ➕ [FASE 3.3] Processar timeouts de sessão PRIMEIRO
+        if processar_timeouts_sessoes is not None:
+            try:
+                if asyncio.iscoroutinefunction(processar_timeouts_sessoes):
+                    if bot_loop is not None:
+                        fut = asyncio.run_coroutine_threadsafe(processar_timeouts_sessoes(), bot_loop)
+                        try:
+                            stats = fut.result(timeout=30)
+                            resultados.append(f"timeouts: encerradas={stats.get('sessoes_encerradas', 0)}")
+                            logger.info(f"[CRON] Timeouts processados: {stats}")
+                        except asyncio.TimeoutError:
+                            logger.error("[CRON] Timeout após 30s ao processar timeouts (coroutine continua em background)")
+                    else:
+                        stats = asyncio.run(processar_timeouts_sessoes())
+                        resultados.append(f"timeouts: encerradas={stats.get('sessoes_encerradas', 0)}")
+                else:
+                    # função normal
+                    stats = processar_timeouts_sessoes()
+                    resultados.append(f"timeouts: encerradas={stats.get('sessoes_encerradas', 0)}")
+            except Exception as e:
+                logger.warning(f"[CRON] Erro ao processar timeouts: {e}")
+                resultados.append(f"timeouts: erro")
+
         # se você tem a função direta
         if processar_notificacoes_agendadas is not None:
             # pode ser sync ou async
@@ -571,20 +603,22 @@ def cron_ping():
                     fut = asyncio.run_coroutine_threadsafe(processar_notificacoes_agendadas(), bot_loop)
                     try:
                         fut.result(timeout=30)
+                        resultados.append("notificacoes: ok")
                     except asyncio.TimeoutError:
                         logger.error("[CRON] Timeout após 30s (coroutine continua em background)")
                         # NOTA: Coroutine continua rodando, não é cancelada
                         # Lock será liberado por expiração automática (120s)
+                        resultados.append("notificacoes: timeout")
                 else:
                     asyncio.run(processar_notificacoes_agendadas())
+                    resultados.append("notificacoes: ok")
             else:
                 # função normal
                 processar_notificacoes_agendadas()
-            return jsonify({"ok": True, "message": "notificacoes processadas"}), 200
-        else:
-            # fallback: pelo menos confirma que acordou
-            logger.info("⚠️ /cron/ping chamado, mas não há processar_notificacoes_agendadas para rodar.")
-            return jsonify({"ok": True, "message": "cron ping ok (sem processamento direto)"}), 200
+                resultados.append("notificacoes: ok")
+
+        message = " | ".join(resultados) if resultados else "cron ping ok"
+        return jsonify({"ok": True, "message": message}), 200
 
     except Exception as e:
         logger.error(f"❌ Erro ao executar cron/ping: {e}", exc_info=True)

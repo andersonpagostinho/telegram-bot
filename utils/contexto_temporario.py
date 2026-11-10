@@ -284,6 +284,7 @@ async def limpar_contexto_agendamento_v2_transacional(
                 "evento_criado": firestore.DELETE_FIELD,
                 "duracao": firestore.DELETE_FIELD,
                 "cancelamento_pendente": firestore.DELETE_FIELD,
+                "confirmacao_pendente": firestore.DELETE_FIELD,
                 "evento_id_candidato_cancelamento": firestore.DELETE_FIELD,
                 "candidatos_cancelamento": firestore.DELETE_FIELD,
                 "interpretacao_conversacional": firestore.DELETE_FIELD,
