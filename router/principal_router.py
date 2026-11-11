@@ -5842,6 +5842,50 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     # ⚠️ AUTORIZAÇÃO FUTURA: Permitir consulta, bloquear agendamento
                     print(" [FIX 3.2] BLOQUEADO: Autorização futura detectada — responder consulta SEM agendamento")
                     ctx["modo_operacao"] = "consulta_sem_autorizacao_atual"
+
+                    # 🔥 FIX 3.2.1: Extrair contexto de consulta ANTES do early return
+                    # Permite que próxima mensagem (ex: "joana") encontre o contexto
+                    print(" [FIX 3.2.1] Extraindo contexto de consulta para preservar slots...")
+                    try:
+                        # Chamar extrair_slots_e_mesclar para extrair e persistir slots
+                        # Ela já chama salvar_contexto_temporario_v2() internamente
+                        ctx_atualizado = await extrair_slots_e_mesclar(ctx, texto_usuario, dono_id, cliente_id)
+                        ctx.update(ctx_atualizado)
+
+                        # 🔑 Construir contexto_consulta com informações extraídas
+                        contexto_consulta = {
+                            "servicos_mencionados": ctx.get("servico") or ctx_atualizado.get("servico"),
+                            "servicos_multiplos": ctx.get("servicos_opcao"),
+                            "data_hora": ctx.get("data_hora") or ctx_atualizado.get("data_hora"),
+                            "profissional_mencionada": ctx.get("profissional_escolhido") or ctx_atualizado.get("profissional_escolhido"),
+                            "preferencias_cliente": {
+                                "mesmo_profissional": "mesma profissional" in normalizar(mensagem) or "mesmo profissional" in normalizar(mensagem),
+                                "servicos_sequencia": "sequencia" in normalizar(mensagem) or "sequência" in normalizar(mensagem),
+                            },
+                            "mensagem_original_len": len(mensagem),
+                        }
+
+                        # Extrair horários mínimo/máximo se presentes
+                        import re
+                        # Padrões: "14h às 17h" ou "14:00 às 17:00" ou "das 14 às 17"
+                        match_horario = re.search(
+                            r"(?:das?|de)?\s*(\d{1,2})(?::00|h)?\s*(?:às?|a)\s*(\d{1,2})(?::00|h)?",
+                            mensagem
+                        )
+                        if match_horario:
+                            contexto_consulta["horario_minimo"] = int(match_horario.group(1))
+                            contexto_consulta["horario_maximo"] = int(match_horario.group(2))
+
+                        ctx["contexto_consulta"] = contexto_consulta
+                        print(f" [FIX 3.2.1] contexto_consulta construído: {contexto_consulta}", flush=True)
+
+                        # Salvar contexto atualizado com contexto_consulta
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                    except Exception as e:
+                        print(f" [FIX 3.2.1] ERRO ao extrair contexto consulta: {e}", flush=True)
+                        # Continuar mesmo se falhar (falha aberta)
+
                     return await _send_and_stop_ctx(context, user_id, resposta_informativa, ctx, texto_usuario, cliente_id, dono_id)
 
                 # Híbrido: consulta + agendamento — responder mas deixar prosseguir
