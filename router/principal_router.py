@@ -5866,7 +5866,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         }
 
                         # Extrair horários mínimo/máximo se presentes
-                        import re
                         # Padrões: "14h às 17h" ou "14:00 às 17:00" ou "das 14 às 17"
                         match_horario = re.search(
                             r"(?:das?|de)?\s*(\d{1,2})(?::00|h)?\s*(?:às?|a)\s*(\d{1,2})(?::00|h)?",
@@ -9592,24 +9591,42 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             # 🔥 ESCOLHA DE PROFISSIONAL ALTERNATIVA NO CONFLITO
             # Ex.: "troque para Bruna", "pode ser a Bruna", "com Joana"
             # Mantém serviço + data_hora original e troca só profissional.
+            # FIX 3.2.2: Prioritize professional preference from contexto_consulta
             # =====================================================
             texto_norm_alt = normalizar(texto_usuario or "")
+            contexto_consulta_check = ctx.get("contexto_consulta") or {}
+            profissional_preferida = contexto_consulta_check.get("profissional_mencionada")
 
             profissional_alt_escolhida = None
 
-            for nome_alt in alternativas_ctx:
-                if normalizar(nome_alt) in texto_norm_alt:
-                    profissional_alt_escolhida = nome_alt
-                    break
+            # FIX 3.2.2: Check if user confirmed preference (mentions preferred professional)
+            if profissional_preferida and normalizar(profissional_preferida) in texto_norm_alt:
+                profissional_alt_escolhida = profissional_preferida
+            else:
+                # Otherwise search in available alternatives
+                for nome_alt in alternativas_ctx:
+                    if normalizar(nome_alt) in texto_norm_alt:
+                        profissional_alt_escolhida = nome_alt
+                        break
 
             if profissional_alt_escolhida:
                 draft_alt = ctx.get("draft_agendamento") or {}
+                contexto_consulta = ctx.get("contexto_consulta") or {}
 
-                servico_alt = (
-                    draft_alt.get("servico")
-                    or ctx.get("servico")
-                    or (ctx.get("dados_anteriores") or {}).get("servico")
+                # FIX 3.2.2: Recuperar múltiplos serviços do contexto_consulta se disponível
+                servicos_para_validacao = (
+                    contexto_consulta.get("servicos_multiplos")
+                    or [draft_alt.get("servico")
+                        or ctx.get("servico")
+                        or (ctx.get("dados_anteriores") or {}).get("servico")]
                 )
+                # Garantir que é lista sem None
+                if isinstance(servicos_para_validacao, str):
+                    servicos_para_validacao = [servicos_para_validacao]
+                servicos_para_validacao = [s for s in servicos_para_validacao if s]
+
+                # Usar primeiro serviço como referência, mas manter lista para validação futura
+                servico_alt = servicos_para_validacao[0] if servicos_para_validacao else None
 
                 data_hora_alt = (
                     draft_alt.get("data_hora")
@@ -9622,7 +9639,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     dt_obj = datetime.fromisoformat(data_hora_alt)
                     data_str = dt_obj.strftime("%Y-%m-%d")
                     hora_str = dt_obj.strftime("%H:%M")
-                    duracao_minutos = estimar_duracao(servico_alt)
+
+                    # FIX 3.2.2: Calcular duração total para todos os serviços
+                    duracao_total = sum(estimar_duracao(s) for s in servicos_para_validacao)
+                    duracao_minutos = duracao_total if len(servicos_para_validacao) > 1 else estimar_duracao(servico_alt)
 
                     conflito_info = await verificar_conflito_e_sugestoes_profissional(
                         user_id=user_id,
@@ -9658,12 +9678,15 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         )
 
                     # ✅ Profissional está disponível: confirmar agendamento
+                    # FIX 3.2.2: Preservar múltiplos serviços
                     draft_alt["servico"] = servico_alt
+                    draft_alt["servicos_multiplos"] = servicos_para_validacao if len(servicos_para_validacao) > 1 else None
                     draft_alt["profissional"] = profissional_alt_escolhida
                     draft_alt["data_hora"] = data_hora_alt
 
                     ctx["draft_agendamento"] = draft_alt
                     ctx["servico"] = servico_alt
+                    ctx["servicos_opcao"] = servicos_para_validacao if len(servicos_para_validacao) > 1 else None
                     ctx["profissional_escolhido"] = profissional_alt_escolhida
                     ctx["data_hora"] = data_hora_alt
 
@@ -9676,23 +9699,28 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     ctx["dados_confirmacao_agendamento"] = {
                         "profissional": profissional_alt_escolhida,
                         "servico": servico_alt,
+                        "servicos_multiplos": servicos_para_validacao if len(servicos_para_validacao) > 1 else None,
                         "data_hora": data_hora_alt,
-                        "duracao": estimar_duracao(servico_alt),
+                        "duracao": duracao_total if len(servicos_para_validacao) > 1 else estimar_duracao(servico_alt),
                         "descricao": formatar_descricao_evento(
-                            servico_alt,
+                            ", ".join(servicos_para_validacao) if len(servicos_para_validacao) > 1 else servico_alt,
                             profissional_alt_escolhida
                         ),
                     }
 
                     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
+                    # FIX 3.2.2: Show all services in confirmation message
+                    servicos_display = ", ".join(servicos_para_validacao) if len(servicos_para_validacao) > 1 else servico_alt
+                    duracao_display = duracao_total if len(servicos_para_validacao) > 1 else estimar_duracao(servico_alt)
+
                     msg_p1 = await gerar_resposta_p1({
                         "tipo": "confirmar_agendamento",
-                        "servico": servico_alt,
+                        "servico": servicos_display,
                         "profissional": profissional_alt_escolhida,
                         "data_hora": data_hora_alt,
                         "data_hora_legivel": formatar_data_hora_br(data_hora_alt),
-                        "duracao": estimar_duracao(servico_alt),
+                        "duracao": duracao_display,
                         "origem": "escolha_profissional_alternativa_conflito",
                     })
 
@@ -9700,7 +9728,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         msg_p1
                         or (
                             f"Perfeito — seguimos com *{profissional_alt_escolhida}* "
-                            f"para *{servico_alt}* em *{formatar_data_hora_br(data_hora_alt)}*.\n"
+                            f"para *{servicos_display}* em *{formatar_data_hora_br(data_hora_alt)}*.\n"
                             f"Posso confirmar?"
                         )
                     )
