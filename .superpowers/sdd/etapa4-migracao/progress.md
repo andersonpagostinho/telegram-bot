@@ -122,3 +122,108 @@ Can integrate immediately upon receiving use case specifications.
 
 **Final Approval**: Infrastructure ready for production.
 No commit until integration locations confirmed.
+
+---
+
+## PHASE B: MAPPING THE 4 USES (COMPLETED)
+
+**Code References Found**:
+
+### Current Architecture
+- Professional data stored in: `Clientes/{dono_id}/Profissionais`
+- Professional identities (Atores) stored in: `Clientes/{dono_id}/Atores`
+- Duration currently estimated via `utils.gpt_utils.estimar_duracao(servico)`
+- No duration configuration in Profissionais collection yet
+
+### Key Functions Identified
+
+**USE 1: PRE-CHECK (Validation)**
+- Location: router/principal_router.py:1337
+- Function: `validar_profissional_para_servico(dono_id, profissional, servico)`
+- Current: Checks if service is in professional's services list
+- Data available: dono_id, profissional name, servico name
+- Need: Validate + get duration for booking
+- Status: Ready for migration to use wrapper
+
+**USE 2: CONFLICT CHECK & ALTERNATIVES**
+- Location: router/principal_router.py:8525  
+- Function: `verificar_conflito_e_sugestoes_profissional(..., profissional, servico)`
+- Current: Checks conflicts and suggests alternatives
+- Data available: dono_id, prof data, service name, time slots
+- Need: Get duration for each alternative professional
+- Status: Ready for migration
+
+**USE 3: CONFIRMATION**
+- Location: router/principal_router.py:2739+, 3104+, 3224+ (multiple)
+- Context: `dados_confirmacao_agendamento` dict
+- Current: Uses `estimar_duracao(servico)`
+- Data available: profissional, servico from context
+- Need: Get actual configured duration instead of estimate
+- Status: Ready for migration
+
+**USE 4: MULTIPLE SERVICE CHECKS (LOOP WITH CACHE)**
+- Location: Multiple lines calling `estimar_duracao` in loops
+- Current: Repeated calls for each service slot
+- Examples: Lines 7351, 7519, 7780, etc.
+- Need: Cache professional lookup during operation
+- Status: Ready for migration with operation-scoped cache
+
+### Integration Strategy
+
+Since current code uses `Profissionais` collection but wrapper uses Atores:
+- Option A: Update Profissionais collection to include duration configurations
+- Option B: Modify wrapper to also support Profissionais lookup
+- Option C: Bridge both collections (lookup Profissional → extract durations)
+
+**Recommendation**: Option C - Keep existing Profissionais structure, enhance with optional duration fields.
+
+**Next Step**: Confirm integration approach before Phase C (Migration).
+
+---
+
+## PHASE C: BRIDGE IMPLEMENTATION (COMPLETED)
+
+### Bridge Architecture Decision: OPTION 3
+- Atores: Canonical identity source
+- Profissionais: Operational configuration source
+- Bridge: Connect without migrating data
+
+### Bridge Function Implemented
+```python
+async def obter_duracao_por_profissional_bridge(
+    tenant_id, nome_profissional, nome_servico
+) -> int | None
+```
+
+### Tests Created & Passing (7/7)
+- test_bridge_happy_path ✅
+- test_bridge_ator_not_found ✅
+- test_bridge_config_not_found ✅
+- test_bridge_tenant_isolation ✅
+- test_bridge_ambiguous_name_rejected ✅
+- test_bridge_case_insensitive_matching ✅
+- test_bridge_missing_tenant_id_raises ✅
+
+### All 4 Uses Explicitly Located
+
+**USO 1 — PRE-CHECK**: Line 1337, `validar_profissional_para_servico()`
+**USO 2 — ALTERNATIVAS**: Line 8525, `verificar_conflito_e_sugestoes_profissional()`
+**USO 3 — LOOP COM CACHE**: Lines 7351, 7519, 7780+
+**USO 4 — CONFIRMAÇÃO**: Line 2770, `dados_confirmacao_agendamento` setup
+
+### Validation Report Created
+- ETAPA4_BRIDGE_VALIDACAO.md ✅
+- Status: APROVADO
+- No blockers identified
+- Ready for Phase D (Migration)
+
+### Protections Verified
+- ✅ No silent None→60 fallback
+- ✅ Tenant isolation enforced
+- ✅ Ambiguous matches rejected
+- ✅ Case-insensitive with unidecode
+- ✅ None returned explicitly
+- ✅ No data migration
+- ✅ Schema preserved
+
+**Status**: Bridge ready for integration. Phase D authorization needed.
