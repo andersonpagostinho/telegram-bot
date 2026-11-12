@@ -5878,6 +5878,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if contexto_consulta.get("intervalo_inicio"):
             print(f"[FASE6_P1] Intervalo enriquecido: {contexto_consulta.get('intervalo_inicio')}-{contexto_consulta.get('intervalo_fim')}h", flush=True)
 
+        # FASE 3: Extrair profissional mencionada (se disponível em features)
+        profissional_mencionada_features = class_intencao.get("features", {}).get("profissional_mencionada") if class_intencao else None
+        if profissional_mencionada_features:
+            contexto_consulta["profissional_mencionada"] = profissional_mencionada_features
+            print(f"[FASE6_P1] Profissional mencionada: {profissional_mencionada_features}", flush=True)
+
         from services.informacao_service import responder_consulta_informativa
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)
 
@@ -6678,10 +6684,35 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # ✅ 0) Consulta informativa só quando está IDLE (não atrapalha o fluxo de agendamento)
     if estado_fluxo == "idle":
         from services.informacao_service import responder_consulta_informativa
+
+        # 🔥 P1-FIX: Construir contexto_consulta ANTES de chamar responder_consulta_informativa
+        contexto_consulta = {}
+
+        # FASE 1: Extrair múltiplos serviços
+        servicos_multiplos_detectados = await extrair_multiplos_servicos_da_mensagem(texto_usuario, dono_id)
+        if len(servicos_multiplos_detectados) > 1:
+            contexto_consulta["servicos_multiplos"] = servicos_multiplos_detectados
+            print(f"[FASE6_P1_IDLE] Múltiplos serviços detectados: {servicos_multiplos_detectados}", flush=True)
+
+        # FASE 2: Enriquecer com intervalo horário
+        from services.multisservico_service import enriquecer_contexto_consulta
+        contexto_consulta = enriquecer_contexto_consulta(contexto_consulta, texto_usuario)
+        if contexto_consulta.get("intervalo_inicio"):
+            print(f"[FASE6_P1_IDLE] Intervalo enriquecido: {contexto_consulta.get('intervalo_inicio')}-{contexto_consulta.get('intervalo_fim')}h", flush=True)
+
+        # FASE 3: Extrair profissional mencionada (se disponível em features)
+        profissional_mencionada_features = class_intencao.get("features", {}).get("profissional_mencionada") if class_intencao else None
+        if profissional_mencionada_features:
+            contexto_consulta["profissional_mencionada"] = profissional_mencionada_features
+            print(f"[FASE6_P1_IDLE] Profissional mencionada: {profissional_mencionada_features}", flush=True)
+
         resposta_informativa = await responder_consulta_informativa(
             mensagem,
             dono_id,
-            features=class_intencao.get("features") if class_intencao else None
+            features=class_intencao.get("features") if class_intencao else None,
+            contexto_consulta=contexto_consulta,
+            actor_id=cliente_id,
+            tenant_id=dono_id
         )
         if resposta_informativa:
             # =========================================================

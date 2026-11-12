@@ -150,6 +150,7 @@ def extrair_intervalo_horario(mensagem: str) -> tuple[int | None, int | None]:
     - "das 14 às 17"
     - "de 14:00 a 17:00"
     - "14h às 17h"
+    - "das 14 as 17" (sem acento)
 
     Returns:
         (hora_inicio, hora_fim) ou (None, None) se não encontrado
@@ -161,7 +162,7 @@ def extrair_intervalo_horario(mensagem: str) -> tuple[int | None, int | None]:
     import re
 
     match = re.search(
-        r"(?:das?|de)?\s*(\d{1,2})(?::00|h)?\s*(?:às?|a)\s*(\d{1,2})(?::00|h)?",
+        r"(?:das?|de)?\s*(\d{1,2})(?::00|h)?\s*(?:as?|às?)\s*(\d{1,2})(?::00|h)?",
         mensagem,
         re.IGNORECASE
     )
@@ -172,6 +173,102 @@ def extrair_intervalo_horario(mensagem: str) -> tuple[int | None, int | None]:
     return None, None
 
 
+def extrair_data_da_mensagem(mensagem: str) -> str | None:
+    """
+    Extrai data da mensagem em formato ISO (YYYY-MM-DD).
+
+    Padrões suportados:
+    - "amanhã" → próximo dia
+    - "hoje" → dia atual
+    - "segunda", "terça", ..., "domingo" → próximo dia com esse nome
+    - "próxima segunda" → semana que vem
+    - "dia 15" → dia 15 do mês atual ou próximo
+
+    Returns:
+        String no formato "YYYY-MM-DD" ou None se não encontrado
+
+    Exemplo:
+        >>> # Assumindo hoje = 2026-11-12 (quinta)
+        >>> extrair_data_da_mensagem("manicure amanhã")
+        "2026-11-13"
+        >>> extrair_data_da_mensagem("manicure segunda")
+        "2026-11-16"  # Próxima segunda
+    """
+    import re
+    from datetime import datetime, timedelta
+
+    msg = (mensagem or "").lower().strip()
+    hoje = datetime.now().date()
+
+    # 1. "amanhã"
+    if "amanhã" in msg or "amanha" in msg:
+        data = hoje + timedelta(days=1)
+        return data.isoformat()
+
+    # 2. "hoje"
+    if "hoje" in msg:
+        return hoje.isoformat()
+
+    # 3. Nomes de dias da semana (segunda=0, ..., domingo=6)
+    # Mapa: português → número do dia (0=seg, 6=dom)
+    dias_semana = {
+        "segunda": 0, "segunda-feira": 0,
+        "terça": 1, "terça-feira": 1,
+        "quarta": 2, "quarta-feira": 2,
+        "quinta": 3, "quinta-feira": 3,
+        "sexta": 4, "sexta-feira": 4,
+        "sábado": 5, "sabado": 5,
+        "domingo": 6
+    }
+
+    # Detectar "próxima segunda" ou apenas "segunda"
+    eh_proxima = "próxima" in msg or "proxima" in msg or "semana que vem" in msg
+
+    for dia_nome, dia_num in dias_semana.items():
+        if dia_nome in msg:
+            # Calcular próxima ocorrência deste dia
+            dias_para_proximo = (dia_num - hoje.weekday()) % 7
+
+            # Se hoje É este dia e não houver "próxima", voltar 7 dias (próxima semana)
+            if dias_para_proximo == 0 and not eh_proxima:
+                dias_para_proximo = 7
+            elif dias_para_proximo == 0 and eh_proxima:
+                dias_para_proximo = 7
+            elif eh_proxima:
+                # "próxima segunda" = adiciona 7 dias
+                dias_para_proximo += 7
+
+            # Garantir que não volta para passado
+            if dias_para_proximo <= 0:
+                dias_para_proximo += 7
+
+            data = hoje + timedelta(days=dias_para_proximo)
+            return data.isoformat()
+
+    # 4. "dia 15" (dia específico do mês)
+    match_dia = re.search(r"dia\s+(\d{1,2})", msg)
+    if match_dia:
+        dia_alvo = int(match_dia.group(1))
+
+        # Tentar mês atual
+        try:
+            data = datetime(hoje.year, hoje.month, dia_alvo).date()
+            # Se data é no passado, tentar próximo mês
+            if data < hoje:
+                proximo_mes = hoje.month + 1
+                proximo_ano = hoje.year
+                if proximo_mes > 12:
+                    proximo_mes = 1
+                    proximo_ano += 1
+                data = datetime(proximo_ano, proximo_mes, dia_alvo).date()
+            return data.isoformat()
+        except ValueError:
+            # Dia inválido para o mês (ex: dia 31 em fevereiro)
+            pass
+
+    return None
+
+
 def enriquecer_contexto_consulta(
     contexto_consulta: dict,
     mensagem: str
@@ -179,6 +276,7 @@ def enriquecer_contexto_consulta(
     """
     Enriquecer contexto_consulta com campos adicionais:
     - intervalo_inicio, intervalo_fim (janela temporal)
+    - data_hora (data solicitada em YYYY-MM-DD)
 
     Args:
         contexto_consulta: Dicionário base de contexto
@@ -187,10 +285,16 @@ def enriquecer_contexto_consulta(
     Returns:
         contexto_consulta enriquecido
     """
-    # Extrair intervalo
+    # Extrair intervalo horário
     hora_inicio, hora_fim = extrair_intervalo_horario(mensagem)
     if hora_inicio is not None:
         contexto_consulta["intervalo_inicio"] = hora_inicio
         contexto_consulta["intervalo_fim"] = hora_fim
+
+    # Extrair data (se houver)
+    data_extraida = extrair_data_da_mensagem(mensagem)
+    if data_extraida:
+        contexto_consulta["data_hora"] = data_extraida
+        print(f"[P1-FIX] Data extraída: {data_extraida}", flush=True)
 
     return contexto_consulta
