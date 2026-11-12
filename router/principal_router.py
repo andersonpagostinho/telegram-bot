@@ -5937,9 +5937,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         ctx.update(ctx_atualizado)
 
                         # 🔑 Construir contexto_consulta com informações extraídas
+                        # P0-FIX: Normalizar servicos_multiplos — sempre usar lista
+                        servicos_mult = ctx.get("servicos_opcao") or []
+                        if isinstance(servicos_mult, str):
+                            servicos_mult = [servicos_mult]
+
                         contexto_consulta = {
                             "servicos_mencionados": ctx.get("servico") or ctx_atualizado.get("servico"),
-                            "servicos_multiplos": ctx.get("servicos_opcao"),
+                            "servicos_multiplos": servicos_mult if servicos_mult else None,
                             "data_hora": ctx.get("data_hora") or ctx_atualizado.get("data_hora"),
                             "profissional_mencionada": ctx.get("profissional_escolhido") or ctx_atualizado.get("profissional_escolhido"),
                             "preferencias_cliente": {

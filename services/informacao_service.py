@@ -88,8 +88,19 @@ async def responder_consulta_informativa(
         intervalo_inicio = contexto_consulta.get("intervalo_inicio")
         intervalo_fim = contexto_consulta.get("intervalo_fim")
 
+        print(f"[FASE6_MOTOR_ENTRADA] Serviços recebidos: {servicos_multiplos} (qty={len(servicos_multiplos)})", flush=True)
+        print(f"[FASE6_MOTOR_ENTRADA] Intervalo: inicio={intervalo_inicio}, fim={intervalo_fim}", flush=True)
+        print(f"[FASE6_MOTOR_ENTRADA] Profissional preferida: {contexto_consulta.get('profissional_mencionada')}", flush=True)
+        print(f"[FASE6_MOTOR_ENTRADA] Preferências: mesma_prof={contexto_consulta.get('preferencias_cliente', {}).get('mesmo_profissional')}, sequencial={contexto_consulta.get('preferencias_cliente', {}).get('servicos_sequencia')}", flush=True)
+
         if len(servicos_multiplos) > 1 and intervalo_inicio:
             print(f"[FASE6_MOTOR] Consultando bloco multisserviço: {servicos_multiplos}, janela {intervalo_inicio}h-{intervalo_fim}h", flush=True)
+        else:
+            if not servicos_multiplos or len(servicos_multiplos) <= 1:
+                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: len(servicos_multiplos)={len(servicos_multiplos)} <= 1", flush=True)
+            if not intervalo_inicio:
+                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: intervalo_inicio=None", flush=True)
+            print(f"[FASE6_MOTOR_BLOQUEADO] Entrada recusada. len={len(servicos_multiplos)}, intervalo_inicio={intervalo_inicio}", flush=True)
 
             from datetime import datetime, date
             from services.event_service_async import verificar_conflito_e_sugestoes_profissional

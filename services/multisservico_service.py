@@ -161,14 +161,31 @@ def extrair_intervalo_horario(mensagem: str) -> tuple[int | None, int | None]:
     """
     import re
 
+    msg = mensagem.lower()
+
+    # PADRÃO 1: "das 14 às 17" ou "de 14 a 17" (continuado)
     match = re.search(
         r"(?:das?|de)?\s*(\d{1,2})(?::00|h)?\s*(?:as?|às?)\s*(\d{1,2})(?::00|h)?",
-        mensagem,
+        msg,
         re.IGNORECASE
     )
-
     if match:
         return int(match.group(1)), int(match.group(2))
+
+    # PADRÃO 2: "a partir de" + "até" (separado)
+    inicio = None
+    fim = None
+
+    match_inicio = re.search(r"a partir d(?:e|as?)\s*(\d{1,2})(?::00|h)?", msg)
+    if match_inicio:
+        inicio = int(match_inicio.group(1))
+
+    match_fim = re.search(r"(?:até|ate)\s+(?:as?|o)?\s*(\d{1,2})(?::00|h)?", msg)
+    if match_fim:
+        fim = int(match_fim.group(1))
+
+    if inicio is not None or fim is not None:
+        return inicio, fim
 
     return None, None
 
@@ -200,7 +217,22 @@ def extrair_data_da_mensagem(mensagem: str) -> str | None:
     msg = (mensagem or "").lower().strip()
     hoje = datetime.now().date()
 
-    # 1. "amanhã"
+    # 1. DATA NUMÉRICA EXPLÍCITA (PRECEDÊNCIA MÁXIMA)
+    # Padrão: "13/11/2026" ou "13/11"
+    match_data_completa = re.search(r"(\d{1,2})/(\d{1,2})(?:/(\d{4}))?", msg)
+    if match_data_completa:
+        dia = int(match_data_completa.group(1))
+        mes = int(match_data_completa.group(2))
+        ano = int(match_data_completa.group(3)) if match_data_completa.group(3) else hoje.year
+
+        try:
+            data = datetime(ano, mes, dia).date()
+            if data >= hoje:
+                return data.isoformat()
+        except ValueError:
+            pass
+
+    # 2. "amanhã"
     if "amanhã" in msg or "amanha" in msg:
         data = hoje + timedelta(days=1)
         return data.isoformat()
