@@ -5878,11 +5878,23 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if contexto_consulta.get("intervalo_inicio"):
             print(f"[FASE6_P1] Intervalo enriquecido: {contexto_consulta.get('intervalo_inicio')}-{contexto_consulta.get('intervalo_fim')}h", flush=True)
 
-        # FASE 3: Extrair profissional mencionada (se disponível em features)
+        # FASE 3: Extrair profissional mencionada (features + mensagem)
         profissional_mencionada_features = class_intencao.get("features", {}).get("profissional_mencionada") if class_intencao else None
-        if profissional_mencionada_features:
-            contexto_consulta["profissional_mencionada"] = profissional_mencionada_features
-            print(f"[FASE6_P1] Profissional mencionada: {profissional_mencionada_features}", flush=True)
+
+        # Se não veio de features, tentar extrair da mensagem diretamente
+        profissional_mencionada = profissional_mencionada_features
+        if not profissional_mencionada:
+            from services.firebase_service_async import buscar_subcolecao
+            profs = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+            msg_norm = normalizar(texto_usuario)
+            for nome_prof in profs.keys():
+                if normalizar(nome_prof) in msg_norm:
+                    profissional_mencionada = nome_prof
+                    break
+
+        if profissional_mencionada:
+            contexto_consulta["profissional_mencionada"] = profissional_mencionada
+            print(f"[FASE6_P1] Profissional mencionada: {profissional_mencionada}", flush=True)
 
         from services.informacao_service import responder_consulta_informativa
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)

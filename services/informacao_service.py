@@ -166,9 +166,11 @@ async def responder_consulta_informativa(
                     return f"❌ Desculpe, {nome_prof} não executa todos esses serviços. {', '.join(servicos_multiplos)}"
 
             except Exception as e:
-                print(f"[FASE6_MOTOR] ERRO: {e}", flush=True)
-                # Fallback para consulta simples
-                pass
+                print(f"[FASE6_MOTOR] ERRO CRÍTICO: {e}", flush=True)
+                import traceback
+                traceback.print_exc()
+                # Não cair para fallback — retornar erro para diagnóstico
+                return f"❌ Erro ao processar disponibilidade: {str(e)[:100]}"
 
     # 🔍 Reutilizar features do classificador para detectar consulta por serviço
     # Sem adicionar novos padrões lexicais — usar o que já foi classificado
