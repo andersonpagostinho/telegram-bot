@@ -68,12 +68,96 @@ def formatar_resposta_disponibilidade(
         else:
             return f"Tenho sim. Para {servico} {periodo_str} em {data_str}, posso te atender com {nomes_formatados}.\n\nPrefere alguma delas?"
 
-async def responder_consulta_informativa(mensagem: str, dono_id: str, features: dict | None = None) -> str | None:
+async def responder_consulta_informativa(
+    mensagem: str,
+    dono_id: str,
+    features: dict | None = None,
+    contexto_consulta: dict | None = None,
+    actor_id: str | None = None,
+    tenant_id: str | None = None
+) -> str | None:
     mensagem_normalizada = unidecode(re.sub(r"[^\w\s]", " ", mensagem.lower())).strip()
     mensagem_normalizada = re.sub(r"\s+", " ", mensagem_normalizada)
 
     if not dono_id:
         return None
+
+    # 🔥 FASE 6: Consulta multisserviço com motor determinístico
+    if contexto_consulta and contexto_consulta.get("servicos_multiplos"):
+        servicos_multiplos = contexto_consulta.get("servicos_multiplos", [])
+        intervalo_inicio = contexto_consulta.get("intervalo_inicio")
+        intervalo_fim = contexto_consulta.get("intervalo_fim")
+
+        if len(servicos_multiplos) > 1 and intervalo_inicio:
+            print(f"[FASE6_MOTOR] Consultando bloco multisserviço: {servicos_multiplos}, janela {intervalo_inicio}h-{intervalo_fim}h", flush=True)
+
+            from datetime import datetime, date
+            from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+            from services.multisservico_service import resolver_bloco_servicos
+
+            try:
+                # Tentar com Bruna primeiro (preferência)
+                nome_prof = contexto_consulta.get("profissional_mencionada", "").strip()
+                data_str = contexto_consulta.get("data_hora", "")
+                if data_str:
+                    # Extrair YYYY-MM-DD de ISO string
+                    data_obj = datetime.fromisoformat(data_str).date()
+                    data_formatada = data_obj.strftime("%Y-%m-%d")
+                else:
+                    data_formatada = date.today().isoformat()
+
+                # Resolver duração total do bloco
+                resultado_bloco = await resolver_bloco_servicos(
+                    tenant_id=tenant_id or dono_id,
+                    nome_profissional=nome_prof,
+                    servicos=servicos_multiplos
+                )
+
+                if resultado_bloco["valido"]:
+                    duracao_total = resultado_bloco["duracao_total"]
+                    print(f"[FASE6_MOTOR] Duração bloco: {duracao_total} min", flush=True)
+
+                    # Chamar motor de disponibilidade com duração corrigida
+                    resultado_motor = await verificar_conflito_e_sugestoes_profissional(
+                        user_id=actor_id or dono_id,
+                        data=data_formatada,
+                        hora_inicio=f"{intervalo_inicio:02d}:00",
+                        duracao_min=duracao_total,
+                        profissional=nome_prof,
+                        servico=None,
+                        tenant_id=tenant_id or dono_id,
+                        servicos_bloco=servicos_multiplos
+                    )
+
+                    print(f"[FASE6_MOTOR] Resultado motor: conflito={resultado_motor.get('conflito')}", flush=True)
+
+                    # Formatar resposta
+                    if not resultado_motor.get("conflito"):
+                        # Disponível no horário solicitado
+                        resp = f"✅ Ótimo! Consegui esquadrar {', '.join(servicos_multiplos)} com {nome_prof}.\n\n"
+                        resp += f"⏰ {intervalo_inicio}h às {intervalo_fim}h de {data_obj.strftime('%d/%m')}\n"
+                        resp += f"⏱️ Duração total: {duracao_total} minutos\n\n"
+                        resp += f"Posso confirmar esse agendamento para você?"
+                        return resp
+                    else:
+                        # Conflito - oferecer alternativas
+                        alternativos = resultado_motor.get("profissional_alternativo", [])
+                        if alternativos:
+                            resp = f"❌ {nome_prof} não está disponível nesse horário.\n\n"
+                            resp += f"✅ Mas tenho essas opções:\n"
+                            for alt in alternativos[:3]:  # Max 3 alternativas
+                                resp += f"• {alt.get('nome', 'N/A')} ({alt.get('duracao', 0)} min)\n"
+                            resp += f"\nPrefere alguma dessas?"
+                            return resp
+                else:
+                    # Profissional não executa todos os serviços
+                    print(f"[FASE6_MOTOR] Profissional inválida: {resultado_bloco.get('mensagens')}", flush=True)
+                    return f"❌ Desculpe, {nome_prof} não executa todos esses serviços. {', '.join(servicos_multiplos)}"
+
+            except Exception as e:
+                print(f"[FASE6_MOTOR] ERRO: {e}", flush=True)
+                # Fallback para consulta simples
+                pass
 
     # 🔍 Reutilizar features do classificador para detectar consulta por serviço
     # Sem adicionar novos padrões lexicais — usar o que já foi classificado

@@ -5863,6 +5863,21 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # Handler retorna None se inaplicável, permitindo fluxo prosseguir
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Tentando handler informativo (estado={estado_fluxo})", flush=True)
 
+        # 🔥 FASE 6 P1: Construir contexto_consulta ANTES de chamar responder_consulta_informativa
+        contexto_consulta = {}
+
+        # FASE 1: Extrair múltiplos serviços
+        servicos_multiplos_detectados = await extrair_multiplos_servicos_da_mensagem(texto_usuario, dono_id)
+        if len(servicos_multiplos_detectados) > 1:
+            contexto_consulta["servicos_multiplos"] = servicos_multiplos_detectados
+            print(f"[FASE6_P1] Múltiplos serviços detectados: {servicos_multiplos_detectados}", flush=True)
+
+        # FASE 2: Enriquecer com intervalo horário
+        from services.multisservico_service import enriquecer_contexto_consulta
+        contexto_consulta = enriquecer_contexto_consulta(contexto_consulta, texto_usuario)
+        if contexto_consulta.get("intervalo_inicio"):
+            print(f"[FASE6_P1] Intervalo enriquecido: {contexto_consulta.get('intervalo_inicio')}-{contexto_consulta.get('intervalo_fim')}h", flush=True)
+
         from services.informacao_service import responder_consulta_informativa
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)
 
@@ -5873,7 +5888,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             resposta_informativa = await responder_consulta_informativa(
                 mensagem,
                 dono_id,
-                features=class_intencao.get("features") if class_intencao else None
+                features=class_intencao.get("features") if class_intencao else None,
+                contexto_consulta=contexto_consulta,
+                actor_id=actor_id,
+                tenant_id=dono_id
             )
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: {resposta_informativa is not None} | tipo={type(resposta_informativa)}", flush=True)
 
