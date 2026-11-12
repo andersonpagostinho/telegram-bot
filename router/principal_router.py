@@ -5890,7 +5890,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 dono_id,
                 features=class_intencao.get("features") if class_intencao else None,
                 contexto_consulta=contexto_consulta,
-                actor_id=actor_id,
+                actor_id=cliente_id,
                 tenant_id=dono_id
             )
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Resposta recebida: {resposta_informativa is not None} | tipo={type(resposta_informativa)}", flush=True)
