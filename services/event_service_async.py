@@ -1883,6 +1883,9 @@ async def verificar_conflito_e_sugestoes_profissional(
     # 7) Profissionais alternativos (apenas quando servico é string)
     alternativos = []
 
+    # USO 3: Operation-scoped cache to avoid repeated bridge lookups
+    prof_duracao_cache = {}
+
     if isinstance(servico, str) and servico.strip():
         servico_norm = unidecode((servico or "").strip().lower())
 
@@ -1937,7 +1940,30 @@ async def verificar_conflito_e_sugestoes_profissional(
                     break
 
             if not conflitos_alt:
-                alternativos.append(nome_alt)
+                # USO 2 + USO 3: Get each alternative's duration via bridge with cache
+                from services.duracao_service import obter_duracao_por_profissional_bridge
+
+                # USO 3: Check cache first (operation-scoped)
+                cache_key = f"{nome_alt}:{servico}"
+                if cache_key not in prof_duracao_cache:
+                    # First lookup: call bridge
+                    duracao_alt = await obter_duracao_por_profissional_bridge(
+                        tenant_id=user_id_efetivo,
+                        nome_profissional=nome_alt,
+                        nome_servico=servico
+                    )
+                    # Cache for this operation only
+                    prof_duracao_cache[cache_key] = duracao_alt
+                else:
+                    # Subsequent lookups: use cache
+                    duracao_alt = prof_duracao_cache[cache_key]
+
+                # Only include alternative if duration is configured
+                if duracao_alt is not None:
+                    alternativos.append({
+                        "nome": nome_alt,
+                        "duracao": duracao_alt
+                    })
 
     print(
         f"[RESULTADO_SUGESTOES] conflito={conflito}, sugestoes={sugestoes}, alternativos={alternativos}",

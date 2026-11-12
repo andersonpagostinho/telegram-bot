@@ -187,3 +187,61 @@ def _normalizar_nome(nome: str) -> str:
     return unidecode.unidecode(
         re.sub(r"[^\w\s]", " ", str(nome).lower())
     ).strip()
+
+
+# ============================================================================
+# PUBLIC WRAPPER: Validação com Duração (para PRE-CHECK e CONFIRMAÇÃO)
+# ============================================================================
+
+async def validar_profissional_com_duracao(
+    tenant_id: str,
+    nome_profissional: str,
+    nome_servico: str
+) -> dict:
+    """
+    Valida se profissional pode fazer o serviço E retorna duração.
+
+    Interface para USO 1 (PRE-CHECK) e USO 4 (CONFIRMAÇÃO).
+
+    Returns:
+        {
+            "valido": bool,
+            "duracao": int | None,
+            "motivo": str | None
+        }
+
+    Motivos possíveis:
+    - "profissional_inexistente"
+    - "duracao_nao_configurada"
+    - "valido"
+    """
+    if not tenant_id or not nome_profissional or not nome_servico:
+        raise ValueError("tenant_id, nome_profissional e nome_servico são obrigatórios")
+
+    # Step 1: Buscar profissional
+    duracao = await obter_duracao_por_profissional_bridge(
+        tenant_id, nome_profissional, nome_servico
+    )
+
+    if duracao is None:
+        # Try to distinguish: not found vs duration not configured
+        prof_ator = await buscar_profissional_por_nome(tenant_id, nome_profissional)
+
+        if prof_ator is None:
+            return {
+                "valido": False,
+                "duracao": None,
+                "motivo": "profissional_inexistente"
+            }
+        else:
+            return {
+                "valido": False,
+                "duracao": None,
+                "motivo": "duracao_nao_configurada"
+            }
+
+    return {
+        "valido": True,
+        "duracao": duracao,
+        "motivo": None
+    }

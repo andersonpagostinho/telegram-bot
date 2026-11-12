@@ -1375,7 +1375,18 @@ async def validar_profissional_para_servico(dono_id: str, profissional: str | No
     )
 
     if any(normalizar(servico) == normalizar(s) for s in servicos_prof):
-        return {"ok": True, "validos": []}
+        # USO 1 BRIDGE: Get actual configured duration
+        from services.duracao_service import obter_duracao_por_profissional_bridge
+
+        duracao = await obter_duracao_por_profissional_bridge(dono_id, profissional, servico)
+
+        if duracao is None:
+            # Duration not configured - can't proceed
+            print(f"[USO1 PRE-CHECK] Duração não configurada para {profissional} + {servico}", flush=True)
+            return {"ok": False, "validos": validos, "duracao": None}
+
+        print(f"[USO1 PRE-CHECK] Validado: {profissional} faz {servico} ({duracao}min)", flush=True)
+        return {"ok": True, "validos": [], "duracao": duracao}
 
     # lista de profissionais válidos para o serviço
     validos = []
@@ -2767,7 +2778,17 @@ async def precheck_e_confirmacao_agendamento(
                 duracao_catalogo = servico_data.get("duracao")
                 break
 
-    duracao_confirmacao = duracao_catalogo or estimar_duracao(servico)
+    # USO 4: Try bridge before estimate (priority: catalog → bridge → estimate)
+    duracao_bridge = None
+    if duracao_catalogo is None and prof and servico:
+        from services.duracao_service import obter_duracao_por_profissional_bridge
+        duracao_bridge = await obter_duracao_por_profissional_bridge(
+            tenant_id=dono_id,
+            nome_profissional=prof,
+            nome_servico=servico
+        )
+
+    duracao_confirmacao = duracao_catalogo or duracao_bridge or estimar_duracao(servico)
 
     ctx["dados_confirmacao_agendamento"] = {
         "profissional": prof,
