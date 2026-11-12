@@ -733,6 +733,45 @@ def eh_gatilho_reagendamento(txt: str) -> bool:
     ]
     return any(palavra in t for palavra in palavras_chave)
 
+async def extrair_multiplos_servicos_da_mensagem(texto: str, dono_id: str) -> list[str]:
+    """
+    Extrai TODOS os serviços mencionados na mensagem que existem no catálogo.
+    Usado tanto em agendamento_direto quanto em aguardando_data.
+
+    Args:
+        texto: Mensagem do usuário
+        dono_id: Tenant ID para buscar catálogo
+
+    Returns:
+        Lista de serviços normalizados encontrados (pode estar vazia)
+    """
+    profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+    servicos_catalogo = set()
+
+    for _, prof_data in profs_dict.items():
+        for s in (prof_data.get("servicos") or []):
+            servicos_catalogo.add(normalizar(str(s)))
+
+    texto_norm = normalizar(texto)
+    servicos_encontrados = []
+
+    # Ordenar por tamanho DESC (mais específico primeiro)
+    servicos_ord = sorted(servicos_catalogo, key=len, reverse=True)
+    for serv_cat in servicos_ord:
+        # Tentar match exato com word boundaries
+        if re.search(rf"\b{re.escape(serv_cat)}\b", texto_norm):
+            servicos_encontrados.append(serv_cat)
+            continue
+
+        # Fallback: match de prefixo (primeira palavra)
+        serv_palavras = serv_cat.split()
+        if serv_palavras:
+            primeira_palavra = serv_palavras[0]
+            if re.search(rf"\b{re.escape(primeira_palavra)}\b", texto_norm):
+                servicos_encontrados.append(serv_cat)
+
+    return servicos_encontrados
+
 def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     texto_lower = (texto or "").lower().strip()
 
@@ -8512,6 +8551,22 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             # ✅ FLUXO NORMAL: Agendamento com serviço(s) identificado(s)
             # ✅ P0: Suporte a múltiplos serviços sequenciais
+
+            # 🔥 FASE 1: Extrair múltiplos serviços SE NÃO FORAM EXTRAÍDOS AINDA
+            if not contexto_consulta.get("servicos_multiplos"):
+                servicos_multiplos_detectados = await extrair_multiplos_servicos_da_mensagem(texto_usuario, dono_id)
+                if len(servicos_multiplos_detectados) > 1:
+                    contexto_consulta["servicos_multiplos"] = servicos_multiplos_detectados
+                    ctx["servicos_opcao"] = servicos_multiplos_detectados
+                    print(f"[P0_FASE1] Múltiplos serviços detectados: {servicos_multiplos_detectados}", flush=True)
+
+            # 🔥 FASE 2: Enriquecer contexto_consulta com intervalo SE NÃO FOI FEITO
+            if not contexto_consulta.get("intervalo_inicio"):
+                from services.multisservico_service import enriquecer_contexto_consulta
+                contexto_consulta = enriquecer_contexto_consulta(contexto_consulta, texto_usuario)
+                ctx["contexto_consulta"] = contexto_consulta
+                print(f"[P0_FASE2] Contexto enriquecido: intervalo={contexto_consulta.get('intervalo_inicio')}-{contexto_consulta.get('intervalo_fim')}", flush=True)
+
             servicos_para_duracao = []
             if contexto_consulta.get("servicos_multiplos") and len(contexto_consulta.get("servicos_multiplos", [])) > 1:
                 servicos_para_duracao = contexto_consulta["servicos_multiplos"]
