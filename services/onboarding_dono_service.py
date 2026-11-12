@@ -8,6 +8,7 @@ from datetime import datetime
 import pytz
 from services.identidade_service import criar_ator_dono, normalizar_actor_id
 from services.firestore_client import get_db
+from services.cadastro_inicial_service import salvar_profissional
 
 # Estados do onboarding
 ETAPAS_ONBOARDING = [
@@ -17,6 +18,7 @@ ETAPAS_ONBOARDING = [
     "agenda_padrao",
     "primeiro_profissional",
     "canal_primeiro_profissional",
+    "jornada_primeiro_profissional",  # FASE 2: perguntar jornada individual
     "primeiro_servico",
     "duracao_primeiro_servico",
     "confirmacao_dados",
@@ -377,6 +379,10 @@ async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, va
         if campo == "agenda_padrao":
             await _criar_agenda_funcionamento_firestore(tenant_id, valor)
 
+        # FASE 2: Se jornada_primeiro_profissional, criar profissional com jornada individual
+        if campo == "jornada_primeiro_profissional":
+            await _criar_profissional_com_jornada(tenant_id, actor_id, valor)
+
         print(f"[OK] Etapa avançada para: {proxima_etapa} (tenant: {tenant_id})")
 
         return {
@@ -388,6 +394,169 @@ async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, va
     except Exception as e:
         print(f"[ERRO] Avançar etapa onboarding: {e}")
         raise
+
+
+async def _criar_profissional_com_jornada(tenant_id: str, actor_id: str, jornada_valor: str) -> None:
+    """
+    Cria profissional com jornada individual (ou sem, se "igual ao salão").
+
+    Args:
+        tenant_id: ID do tenant
+        actor_id: ID do ator (dono)
+        jornada_valor: Resposta do dono ("igual" ou "HH:MM-HH:MM")
+
+    Busca dados do profissional no onboarding state e cria documento em Firestore.
+    """
+    try:
+        # Buscar dados do profissional coletados nas etapas anteriores
+        onboarding_ref = get_db().collection("Clientes").document(tenant_id)\
+            .collection("Donos").document(actor_id)\
+            .collection("onboarding").document("ativo")
+
+        def buscar():
+            doc = onboarding_ref.get()
+            if not doc.exists:
+                return None
+            return doc.to_dict()
+
+        config = await asyncio.to_thread(buscar)
+        if not config:
+            raise ValueError(f"Onboarding não encontrado para actor {actor_id}")
+
+        nome_prof = config.get("primeiro_profissional")
+        servico_nome = config.get("primeiro_servico", "serviço").lower()
+        duracao_min = int(config.get("duracao_primeiro_servico", 60))
+
+        if not nome_prof:
+            raise ValueError("Nome do profissional não encontrado no onboarding")
+
+        # Preparar serviços dict para salvar_profissional
+        servicos_dict = {
+            servico_nome: {"preco": None, "duracao": duracao_min}
+        }
+
+        # Se resposta é "igual ao salão", não criar agenda individual
+        if "igual" in jornada_valor.lower():
+            print(f"[ONBOARDING] Profissional {nome_prof} herda agenda do salão", flush=True)
+            # Criar profissional SEM agenda individual
+            await salvar_profissional(
+                user_id=tenant_id,
+                nome=nome_prof,
+                servicos=servicos_dict,
+                agenda_funcionamento=None  # Herda do salão
+            )
+            return
+
+        # Se tem horário diferente, parsear e criar agenda individual
+        jornada_valor_lower = jornada_valor.lower().strip()
+
+        partes = jornada_valor_lower.split("-")
+        if len(partes) != 2:
+            raise ValueError(f"Formato de jornada inválido: {jornada_valor}")
+
+        inicio_str = partes[0].strip()
+        fim_str = partes[1].strip()
+
+        # Normalizar para HH:MM
+        if inicio_str.count(":") == 0:
+            inicio_str = f"{inicio_str}:00"
+        if fim_str.count(":") == 0:
+            fim_str = f"{fim_str}:00"
+
+        inicio_str = _normalizar_hora(inicio_str)
+        fim_str = _normalizar_hora(fim_str)
+
+        # Criar agenda_funcionamento: seg-sex com mesmo horário, dom fechado
+        agenda_funcionamento = {
+            "agenda_padrao": {
+                "0": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # segunda
+                "1": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # terça
+                "2": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quarta
+                "3": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quinta
+                "4": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sexta
+                "5": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sábado
+                "6": {"aberto": False}                                         # domingo
+            },
+            "excecoes_data": {}
+        }
+
+        print(f"[ONBOARDING] Profissional {nome_prof} com jornada {inicio_str}-{fim_str}", flush=True)
+
+        # Criar profissional COM agenda individual
+        await salvar_profissional(
+            user_id=tenant_id,
+            nome=nome_prof,
+            servicos=servicos_dict,
+            agenda_funcionamento=agenda_funcionamento
+        )
+
+    except Exception as e:
+        print(f"[ERRO] Criar profissional com jornada: {e}", flush=True)
+        raise
+
+
+def _validar_jornada_profissional(valor: str) -> bool:
+    """
+    Valida jornada do profissional.
+
+    Aceita:
+    - "igual" ou "igual ao salão" (herda horário do salão)
+    - "HH:MM-HH:MM" (ex: "14:00-17:00")
+
+    Rejeita:
+    - Formato inválido
+    - Início >= fim
+    """
+    v = valor.lower().strip()
+
+    # Resposta simples: "igual ao salão"
+    if "igual" in v:
+        return True
+
+    # Formato HH:MM-HH:MM
+    if "-" not in v:
+        return False
+
+    try:
+        partes = v.split("-")
+        if len(partes) != 2:
+            return False
+
+        inicio_str = partes[0].strip()
+        fim_str = partes[1].strip()
+
+        # Normalizar para HH:MM se necessário
+        if inicio_str.count(":") == 0:
+            inicio_str = f"{inicio_str}:00"
+        if fim_str.count(":") == 0:
+            fim_str = f"{fim_str}:00"
+
+        # Validar formato básico
+        if not _validar_formato_hora(inicio_str) or not _validar_formato_hora(fim_str):
+            return False
+
+        # Validar: início anterior ao fim
+        inicio_min = _hora_para_minutos(inicio_str)
+        fim_min = _hora_para_minutos(fim_str)
+
+        if inicio_min is None or fim_min is None:
+            return False
+
+        return inicio_min < fim_min
+
+    except Exception:
+        return False
+
+
+def _hora_para_minutos(hora_str: str) -> int | None:
+    """Converte HH:MM para minutos desde meia-noite."""
+    try:
+        hh, mm = map(int, hora_str.split(":"))
+        if not (0 <= hh < 24 and 0 <= mm < 60):
+            return None
+        return hh * 60 + mm
+    except Exception:
+        return None
 
 
 def validar_campo_onboarding(campo: str, valor: str) -> dict:
@@ -410,6 +579,7 @@ def validar_campo_onboarding(campo: str, valor: str) -> dict:
         "agenda_padrao": lambda v: ":" in v,  # Formato: "9:00-18:00"
         "primeiro_profissional": lambda v: len(v) > 0 and len(v) < 100,
         "canal_primeiro_profissional": lambda v: len(v) > 0,
+        "jornada_primeiro_profissional": _validar_jornada_profissional,  # FASE 2
         "primeiro_servico": lambda v: len(v) > 0 and len(v) < 100,
         "duracao_primeiro_servico": lambda v: v.isdigit() and int(v) > 0 and int(v) <= 480
     }
@@ -441,6 +611,7 @@ def obter_pergunta_etapa(etapa: str) -> str:
         "agenda_padrao": "Qual é o horário de funcionamento? (ex: 9:00-18:00)",
         "primeiro_profissional": "Nome do primeiro profissional?",
         "canal_primeiro_profissional": "Qual é o WhatsApp ou contato do(a) [nome]?",
+        "jornada_primeiro_profissional": "A profissional trabalha nos mesmos dias e horários do salão, ou tem um horário diferente? (ex: 'igual' ou '14:00-17:00')",
         "primeiro_servico": "Qual é o primeiro serviço que oferece?",
         "duracao_primeiro_servico": "Quanto tempo leva o(a) [serviço]? (em minutos)",
         "confirmacao_dados": "Revise os dados e confirme (sim/não)",

@@ -284,7 +284,10 @@ async def listar_servicos_negocio(user_id: str) -> dict:
 
 
 async def salvar_profissional(
-    user_id: str, nome: str, servicos: Dict[str, Dict[str, float | int]]
+    user_id: str,
+    nome: str,
+    servicos: Dict[str, Dict[str, float | int]],
+    agenda_funcionamento: dict = None
 ):
     """
     Salva:
@@ -292,6 +295,10 @@ async def salvar_profissional(
       - precos (dict)
       - duracoes (dict)
       - servicos_detalhe (dict completo)
+      - agenda_funcionamento (opcional, FASE 2)
+
+    Se agenda_funcionamento fornecida, inclui no documento.
+    Se não fornecida, não sobrescreve agenda existente.
     """
     nome_fmt = nome.strip().title()
 
@@ -315,6 +322,11 @@ async def salvar_profissional(
         "duracoes": {k: int(v) for k, v in duracoes.items()} if duracoes else {},
         "servicos_detalhe": servicos_norm,
     }
+
+    # FASE 2: Incluir jornada individual se fornecida
+    if agenda_funcionamento:
+        payload["agenda_funcionamento"] = agenda_funcionamento
+
     await salvar_dado_em_path(
         f"Clientes/{user_id}/Profissionais/{nome_fmt}", payload
     )
