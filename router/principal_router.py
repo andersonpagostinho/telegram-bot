@@ -5886,15 +5886,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                             "mensagem_original_len": len(mensagem),
                         }
 
-                        # Extrair horários mínimo/máximo se presentes
-                        # Padrões: "14h às 17h" ou "14:00 às 17:00" ou "das 14 às 17"
-                        match_horario = re.search(
-                            r"(?:das?|de)?\s*(\d{1,2})(?::00|h)?\s*(?:às?|a)\s*(\d{1,2})(?::00|h)?",
-                            mensagem
-                        )
-                        if match_horario:
-                            contexto_consulta["horario_minimo"] = int(match_horario.group(1))
-                            contexto_consulta["horario_maximo"] = int(match_horario.group(2))
+                        # ✅ P0: Enriquecer contexto_consulta com intervalo de horário
+                        from services.multisservico_service import enriquecer_contexto_consulta
+                        contexto_consulta = enriquecer_contexto_consulta(contexto_consulta, mensagem)
 
                         ctx["contexto_consulta"] = contexto_consulta
                         print(f" [FIX 3.2.1] contexto_consulta construído: {contexto_consulta}", flush=True)
@@ -8516,8 +8510,32 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         print(f"[P0.7.3_RESPOSTA] Horário livre | mensagem={mensagem}", flush=True)
                         return await _send_and_stop(context, user_id, mensagem)
 
-            # ✅ FLUXO NORMAL: Agendamento com serviço identificado
-            duracao_ctx = estimar_duracao(servico_ctx)
+            # ✅ FLUXO NORMAL: Agendamento com serviço(s) identificado(s)
+            # ✅ P0: Suporte a múltiplos serviços sequenciais
+            servicos_para_duracao = []
+            if contexto_consulta.get("servicos_multiplos") and len(contexto_consulta.get("servicos_multiplos", [])) > 1:
+                servicos_para_duracao = contexto_consulta["servicos_multiplos"]
+            elif servico_ctx:
+                servicos_para_duracao = [servico_ctx]
+
+            if len(servicos_para_duracao) > 1 and prof_ctx:
+                # Múltiplos serviços: usar resolver_bloco_servicos para duração total
+                from services.multisservico_service import resolver_bloco_servicos
+                resultado_bloco = await resolver_bloco_servicos(
+                    tenant_id=dono_id,
+                    nome_profissional=prof_ctx,
+                    servicos=servicos_para_duracao
+                )
+                if resultado_bloco["valido"]:
+                    duracao_ctx = resultado_bloco["duracao_total"]
+                    print(f"[P0_MULTISSERVICO] Bloco {servicos_para_duracao} = {duracao_ctx} min", flush=True)
+                else:
+                    # Fallback para estimation se bloco não válido
+                    duracao_ctx = sum(estimar_duracao(s) for s in servicos_para_duracao)
+                    print(f"[P0_MULTISSERVICO_FALLBACK] Bloco não válido, usando estimativa: {duracao_ctx} min", flush=True)
+            else:
+                # Serviço único: usar estimativa
+                duracao_ctx = estimar_duracao(servico_ctx)
 
             if not hora_preferida:
 
@@ -8549,7 +8567,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 hora_inicio=hora_preferida,
                 duracao_min=duracao_ctx,
                 profissional=prof_ctx,
-                servico=servico_ctx
+                servico=servico_ctx,
+                servicos_bloco=servicos_para_duracao  # ✅ P0 FAIL #4
             )
 
             # =========================================================

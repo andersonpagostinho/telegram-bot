@@ -1545,7 +1545,8 @@ async def verificar_conflito_e_sugestoes_profissional(
     profissional: str,
     servico,
     event_id: str = None,
-    tenant_id: str | None = None
+    tenant_id: str | None = None,
+    servicos_bloco: list[str] | None = None
 ) -> dict:
     from datetime import datetime, timedelta
     from unidecode import unidecode
@@ -1940,23 +1941,41 @@ async def verificar_conflito_e_sugestoes_profissional(
                     break
 
             if not conflitos_alt:
-                # USO 2 + USO 3: Get each alternative's duration via bridge with cache
+                # ✅ P0 FAIL #4: Suporte a múltiplos serviços para alternativas
                 from services.duracao_service import obter_duracao_por_profissional_bridge
+                from services.multisservico_service import resolver_bloco_servicos
 
-                # USO 3: Check cache first (operation-scoped)
-                cache_key = f"{nome_alt}:{servico}"
-                if cache_key not in prof_duracao_cache:
-                    # First lookup: call bridge
-                    duracao_alt = await obter_duracao_por_profissional_bridge(
-                        tenant_id=user_id_efetivo,
-                        nome_profissional=nome_alt,
-                        nome_servico=servico
-                    )
-                    # Cache for this operation only
-                    prof_duracao_cache[cache_key] = duracao_alt
+                # Determinar se usar bloco ou serviço singular
+                usar_bloco = servicos_bloco and len(servicos_bloco) > 1
+
+                if usar_bloco:
+                    # FAIL #4: Resolver bloco completo para alternativa
+                    cache_key = f"{nome_alt}:{':'.join(servicos_bloco)}"
+                    if cache_key not in prof_duracao_cache:
+                        resultado_bloco = await resolver_bloco_servicos(
+                            tenant_id=user_id_efetivo,
+                            nome_profissional=nome_alt,
+                            servicos=servicos_bloco
+                        )
+                        if resultado_bloco["valido"]:
+                            duracao_alt = resultado_bloco["duracao_total"]
+                        else:
+                            duracao_alt = None
+                        prof_duracao_cache[cache_key] = duracao_alt
+                    else:
+                        duracao_alt = prof_duracao_cache[cache_key]
                 else:
-                    # Subsequent lookups: use cache
-                    duracao_alt = prof_duracao_cache[cache_key]
+                    # Serviço singular: usar lógica existente
+                    cache_key = f"{nome_alt}:{servico}"
+                    if cache_key not in prof_duracao_cache:
+                        duracao_alt = await obter_duracao_por_profissional_bridge(
+                            tenant_id=user_id_efetivo,
+                            nome_profissional=nome_alt,
+                            nome_servico=servico
+                        )
+                        prof_duracao_cache[cache_key] = duracao_alt
+                    else:
+                        duracao_alt = prof_duracao_cache[cache_key]
 
                 # Only include alternative if duration is configured
                 if duracao_alt is not None:
