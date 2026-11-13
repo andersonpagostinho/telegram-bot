@@ -5884,7 +5884,6 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # Se não veio de features, tentar extrair da mensagem diretamente
         profissional_mencionada = profissional_mencionada_features
         if not profissional_mencionada:
-            from services.firebase_service_async import buscar_subcolecao
             profs = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
             msg_norm = normalizar(texto_usuario)
             for nome_prof in profs.keys():
