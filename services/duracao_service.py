@@ -45,8 +45,9 @@ async def obter_duracao_por_profissional_bridge(
     Raises:
         ValueError: Se tenant_id vazio ou nome ambíguo.
     """
+    # CORREÇÃO 4: Tratar strings vazias sem lançar exceção — retornar None silenciosamente
     if not tenant_id or not nome_profissional or not nome_servico:
-        raise ValueError("tenant_id, nome_profissional e nome_servico são obrigatórios")
+        return None
 
     # Step 1: Resolver identidade no Atores (validar tenant)
     prof_ator = await buscar_profissional_por_nome(tenant_id, nome_profissional)
@@ -175,6 +176,19 @@ def _extrair_duracao_do_profissional(prof_data: dict, nome_servico: str) -> int 
                         return int(duracao)
                     except (ValueError, TypeError):
                         continue
+
+    # CORREÇÃO 3: Suporte a servicos_detalhe com normalização case-insensitive
+    servicos_detalhe = prof_data.get("servicos_detalhe", {})
+    if isinstance(servicos_detalhe, dict):
+        for chave_servico, valor_servico in servicos_detalhe.items():
+            if _normalizar_nome(chave_servico) == servico_norm:
+                if isinstance(valor_servico, dict):
+                    duracao = valor_servico.get("duracao")
+                    if duracao:
+                        try:
+                            return int(duracao)
+                        except (ValueError, TypeError):
+                            continue
 
     # Se não encontrou em nenhum lugar, retorna None (não há fallback para 60)
     return None

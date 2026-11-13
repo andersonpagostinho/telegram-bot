@@ -5895,6 +5895,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             contexto_consulta["profissional_mencionada"] = profissional_mencionada
             print(f"[FASE6_P1] Profissional mencionada: {profissional_mencionada}", flush=True)
 
+        # FASE 4: Extrair preferências do cliente
+        contexto_consulta["preferencias_cliente"] = {
+            "mesmo_profissional": "mesma profissional" in normalizar(texto_usuario) or "mesmo profissional" in normalizar(texto_usuario),
+            "servicos_sequencia": "sequencia" in normalizar(texto_usuario) or "sequência" in normalizar(texto_usuario),
+        }
+        print(f"[FASE6_P1] Preferências extraídas: {contexto_consulta['preferencias_cliente']}", flush=True)
+
         from services.informacao_service import responder_consulta_informativa
         print(f" [ANTES_CONSULTA_INFORMATIVA_IDLE] Chamando responder_consulta_informativa com mensagem='{mensagem}'", flush=True)
 

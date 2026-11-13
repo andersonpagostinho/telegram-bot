@@ -95,12 +95,6 @@ async def responder_consulta_informativa(
 
         if len(servicos_multiplos) > 1 and intervalo_inicio:
             print(f"[FASE6_MOTOR] Consultando bloco multisserviço: {servicos_multiplos}, janela {intervalo_inicio}h-{intervalo_fim}h", flush=True)
-        else:
-            if not servicos_multiplos or len(servicos_multiplos) <= 1:
-                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: len(servicos_multiplos)={len(servicos_multiplos)} <= 1", flush=True)
-            if not intervalo_inicio:
-                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: intervalo_inicio=None", flush=True)
-            print(f"[FASE6_MOTOR_BLOQUEADO] Entrada recusada. len={len(servicos_multiplos)}, intervalo_inicio={intervalo_inicio}", flush=True)
 
             from datetime import datetime, date
             from services.event_service_async import verificar_conflito_e_sugestoes_profissional
@@ -171,6 +165,12 @@ async def responder_consulta_informativa(
                 traceback.print_exc()
                 # Não cair para fallback — retornar erro para diagnóstico
                 return f"❌ Erro ao processar disponibilidade: {str(e)[:100]}"
+        else:
+            if not servicos_multiplos or len(servicos_multiplos) <= 1:
+                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: len(servicos_multiplos)={len(servicos_multiplos)} <= 1", flush=True)
+            if not intervalo_inicio:
+                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: intervalo_inicio=None", flush=True)
+            print(f"[FASE6_MOTOR_BLOQUEADO] Entrada recusada. len={len(servicos_multiplos)}, intervalo_inicio={intervalo_inicio}", flush=True)
 
     # 🔍 Reutilizar features do classificador para detectar consulta por serviço
     # Sem adicionar novos padrões lexicais — usar o que já foi classificado
