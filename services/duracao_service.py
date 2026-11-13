@@ -28,10 +28,9 @@ async def obter_duracao_por_profissional_bridge(
     Bridge: Conecta Atores (identidade) com Profissionais (operações).
 
     Fluxo:
-    1. Resolve identidade no Atores/{tenant_id}
-    2. Localiza configuração em Profissionais/{tenant_id}
-    3. Valida associação (mesmo tenant)
-    4. Extrai duração validada
+    1. Localiza configuração em Profissionais/{tenant_id} com matching case-insensitive
+    2. Valida associação (mesmo tenant)
+    3. Extrai duração validada
 
     Args:
         tenant_id: ID do tenant (obrigatório)
@@ -49,17 +48,12 @@ async def obter_duracao_por_profissional_bridge(
     if not tenant_id or not nome_profissional or not nome_servico:
         return None
 
-    # Step 1: Resolver identidade no Atores (validar tenant)
-    prof_ator = await buscar_profissional_por_nome(tenant_id, nome_profissional)
-    if prof_ator is None:
-        return None
-
-    # Step 2: Localizar configuração operacional em Profissionais
+    # Localizar configuração operacional em Profissionais
     prof_config = await _buscar_profissional_operacional(tenant_id, nome_profissional)
     if prof_config is None:
         return None
 
-    # Step 3: Extrair duração da configuração operacional
+    # Extrair duração da configuração operacional
     return obter_duracao_servico_validada(prof_config, nome_servico)
 
 
