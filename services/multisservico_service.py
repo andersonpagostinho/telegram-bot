@@ -180,8 +180,8 @@ def extrair_intervalo_horario(mensagem: str) -> tuple[int | None, int | None]:
     if match_inicio:
         inicio = int(match_inicio.group(1))
 
-    # CORRECAO: Remover \s+ para permitir qualquer caractere (vírgula, espaço, etc) após "até"
-    match_fim = re.search(r"(?:até|ate)[^0-9]*?(\d{1,2})(?::00|h)?", msg)
+    # CORRECAO: Adicionar \b (word boundary) para evitar falso positivo em "tarde"
+    match_fim = re.search(r"\b(?:até|ate)\b[^0-9]*?(\d{1,2})(?::00|h)?", msg)
     if match_fim:
         fim = int(match_fim.group(1))
 
