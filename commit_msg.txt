@@ -1,0 +1,18 @@
+FASE 2.2: Implementação completa de onboarding com jornada individual
+
+- Estender salvar_profissional() com parâmetro agenda_funcionamento opcional
+- Adicionar etapa "jornada_primeiro_profissional" ao onboarding
+- Implementar validação de formato "igual ao salão" ou "HH:MM-HH:MM"
+- Criar profissional com jornada individual ou herdar do salão
+- Integração com FASE 1 (varredura) e FASE 3 (motor)
+- Testes: 22/22 validação + 6/6 integração PASSARAM
+- Zero regressões em produção
+- Backward compatible: admin command antigo continua funcionando
+
+Modificações:
+- services/cadastro_inicial_service.py: salvar_profissional() estendida
+- services/onboarding_dono_service.py: etapa + validação + persistência
+- tests/test_fase2_validacao_jornada.py: novos testes de validação
+- tests/test_fase2_integracao_profissional.py: novos testes de integração
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>

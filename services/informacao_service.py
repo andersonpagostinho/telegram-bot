@@ -122,36 +122,46 @@ async def responder_consulta_informativa(
                     duracao_total = resultado_bloco["duracao_total"]
                     print(f"[FASE6_MOTOR] Duração bloco: {duracao_total} min", flush=True)
 
-                    # Chamar motor de disponibilidade com duração corrigida
-                    resultado_motor = await verificar_conflito_e_sugestoes_profissional(
-                        user_id=actor_id or dono_id,
-                        data=data_formatada,
-                        hora_inicio=f"{intervalo_inicio:02d}:00",
-                        duracao_min=duracao_total,
-                        profissional=nome_prof,
-                        servico=None,
+                    # Usar varredura para testar TODA a janela, não apenas hora_inicio
+                    from services.varredura_disponibilidade import varrer_disponibilidade_multisservico
+
+                    resultado_varredura = await varrer_disponibilidade_multisservico(
                         tenant_id=tenant_id or dono_id,
-                        servicos_bloco=servicos_multiplos
+                        actor_id=actor_id or dono_id,
+                        data=data_formatada,
+                        intervalo_inicio=intervalo_inicio,
+                        intervalo_fim=intervalo_fim,
+                        profissional_mencionada=nome_prof,
+                        servicos_multiplos=servicos_multiplos,
+                        duracao_total=duracao_total,
+                        max_resultados=3,
+                        dono_id=dono_id or tenant_id
                     )
 
-                    print(f"[FASE6_MOTOR] Resultado motor: conflito={resultado_motor.get('conflito')}", flush=True)
+                    print(f"[FASE6_VARREDURA] Resultado: {len(resultado_varredura.get('horarios_disponiveis', []))} horários encontrados", flush=True)
 
                     # Formatar resposta
-                    if not resultado_motor.get("conflito"):
-                        # Disponível no horário solicitado
+                    if resultado_varredura.get("horarios_disponiveis"):
+                        # Disponível na janela
+                        horarios = resultado_varredura["horarios_disponiveis"]
                         resp = f"✅ Ótimo! Consegui esquadrar {', '.join(servicos_multiplos)} com {nome_prof}.\n\n"
-                        resp += f"⏰ {intervalo_inicio}h às {intervalo_fim}h de {data_obj.strftime('%d/%m')}\n"
+                        resp += f"⏰ Horários disponíveis na janela {intervalo_inicio}h-{intervalo_fim}h de {data_obj.strftime('%d/%m')}:\n"
+                        for h in horarios[:3]:
+                            resp += f"  • {h['inicio']} às {h['fim']}\n"
                         resp += f"⏱️ Duração total: {duracao_total} minutos\n\n"
-                        resp += f"Posso confirmar esse agendamento para você?"
+                        resp += f"Qual desses horários você prefere?"
                         return resp
                     else:
-                        # Conflito - oferecer alternativas
-                        alternativos = resultado_motor.get("profissional_alternativo", [])
-                        if alternativos:
-                            resp = f"❌ {nome_prof} não está disponível nesse horário.\n\n"
+                        # Sem disponibilidade na janela
+                        alternativas = resultado_varredura.get("alternativas", [])
+                        if alternativas:
+                            resp = f"❌ {nome_prof} não está disponível na janela {intervalo_inicio}h-{intervalo_fim}h.\n\n"
                             resp += f"✅ Mas tenho essas opções:\n"
-                            for alt in alternativos[:3]:  # Max 3 alternativas
-                                resp += f"• {alt.get('nome', 'N/A')} ({alt.get('duracao', 0)} min)\n"
+                            for alt in alternativas[:3]:  # Max 3 alternativas
+                                prof_alt = alt.get('profissional', 'N/A')
+                                horas_alt = alt.get('horarios', [])
+                                if horas_alt:
+                                    resp += f"• {prof_alt}: {horas_alt[0]['inicio']} às {horas_alt[0]['fim']}\n"
                             resp += f"\nPrefere alguma dessas?"
                             return resp
                 else:
