@@ -128,7 +128,8 @@ async def varrer_disponibilidade_multisservico(
             pass
 
     # VALIDAÇÃO: Intervalo deve ser válido antes de executar range()
-    if not isinstance(intervalo_inicio, int) or not isinstance(intervalo_fim, int):
+    # Usar type() is int em vez de isinstance() para rejeitar bool (que é subclasse de int)
+    if type(intervalo_inicio) is not int or type(intervalo_fim) is not int:
         print(f"[VARREDURA] Intervalo inválido: tipos {type(intervalo_inicio).__name__}, {type(intervalo_fim).__name__}", flush=True)
         return {
             "profissional": profissional_mencionada,

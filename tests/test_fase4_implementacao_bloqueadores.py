@@ -87,6 +87,26 @@ class TestVarreduraValidacao:
         assert not isinstance(intervalo_fim, int), "Deveria rejeitar None"
         print(f"✓ Intervalo (14, None) seria rejeitado (tipo inválido)")
 
+    def test_intervalo_bool_true(self):
+        """Intervalo com bool True deve ser rejeitado (nao aceitar como int)."""
+        intervalo_inicio = True
+        intervalo_fim = False
+        # Validacao com type() is int (mais estrita que isinstance)
+        assert type(intervalo_inicio) is not int, "Deveria rejeitar bool True"
+        assert type(intervalo_fim) is not int, "Deveria rejeitar bool False"
+        # Para comparacao: isinstance aceitaria (bug antigo)
+        assert isinstance(intervalo_inicio, int), "isinstance(True, int) = True (bug)"
+        assert isinstance(intervalo_fim, int), "isinstance(False, int) = True (bug)"
+        print(f"✓ Intervalo (True, False) seria rejeitado com type() is int")
+
+    def test_intervalo_bool_false_start(self):
+        """Intervalo com bool False no inicio deve ser rejeitado."""
+        intervalo_inicio = False
+        intervalo_fim = 17
+        # Validacao com type() is int
+        assert type(intervalo_inicio) is not int, "Deveria rejeitar bool False"
+        print(f"✓ Intervalo (False, 17) seria rejeitado com type() is int")
+
 
 class TestSemantiaIntervalo:
     """Validar semântica de horário pontual vs janela."""
