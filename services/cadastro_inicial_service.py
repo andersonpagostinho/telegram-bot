@@ -327,9 +327,12 @@ async def salvar_profissional(
     if agenda_funcionamento:
         payload["agenda_funcionamento"] = agenda_funcionamento
 
-    await salvar_dado_em_path(
+    ok = await salvar_dado_em_path(
         f"Clientes/{user_id}/Profissionais/{nome_fmt}", payload
     )
+    # Validação crítica: evita falso positivo de cadastro bem-sucedido quando Firestore falha
+    if not ok:
+        raise ValueError(f"Falha ao persistir profissional '{nome_fmt}' para tenant {user_id}")
     return payload
 
 
