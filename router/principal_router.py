@@ -5910,7 +5910,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             resposta_informativa = None
         else:
             resposta_informativa = await responder_consulta_informativa(
-                mensagem,
+                texto_usuario,
                 dono_id,
                 features=class_intencao.get("features") if class_intencao else None,
                 contexto_consulta=contexto_consulta,
@@ -5974,7 +5974,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                         # ✅ P0: Enriquecer contexto_consulta com intervalo de horário
                         from services.multisservico_service import enriquecer_contexto_consulta
-                        contexto_consulta = enriquecer_contexto_consulta(contexto_consulta, mensagem)
+                        contexto_consulta = enriquecer_contexto_consulta(contexto_consulta, texto_usuario)
 
                         ctx["contexto_consulta"] = contexto_consulta
                         print(f" [FIX 3.2.1] contexto_consulta construído: {contexto_consulta}", flush=True)
