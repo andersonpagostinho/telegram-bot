@@ -5341,63 +5341,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         return await _send_and_stop(context, user_id, resposta_nao_entendi)
 
     # =========================================================
-    # 🔥 PATCH P0.5 V3: Detectar novo agendamento via semântica + comparação
-    # 🔥 CRÍTICO: Evitar que usuário fique preso em estado "profissional_nao_atende"
-    # 🔥 NOVO: Verificar se é reiteration vs novo agendamento antes de limpar draft
-    # 🔥 GUARD: Se motivo_estado=="profissional_nao_atende_servico", NÃO executar
-    # Deixar que PATCH P1 (comparacao de profissional) trate a resposta
+    # 🔥 PATCH P0.5 V3: REMOVIDO DAQUI
+    # REORDENADO PARA APÓS modo_operacao SER DETERMINADO (linha ~6034+)
     # =========================================================
-    if (
-        ctx.get("motivo_estado") != "profissional_nao_atende_servico"
-        and ctx.get("intencao_conversacional") in ["agendamento_direto", "pedido_aberto_temporal", "ajuste_incremental"]
-    ):
-        # Verificar se a mensagem atual representa o mesmo pedido ou um novo pedido
-        alteracao = await detectar_alteracao_draft_agendamento(
-            texto_usuario,
-            ctx,
-            dono_id,
-            cliente_id
-        )
-
-        if alteracao is None:
-            # Reiteration: mesmo agendamento
-            # Limpar apenas o motivo_estado, preservar draft_agendamento
-            print(f"[PATCH_P0.5 V3] Reiteration detectada: mesmo agendamento, preservando draft", flush=True)
-            ctx.pop("motivo_estado", None)
-            await salvar_contexto_temporario_v2(dono_id, cliente_id, {
-                "motivo_estado": DELETE_FIELD
-            })
-        else:
-            # Novo agendamento: algo diverge (serviço, data, profissional)
-            # Executar limpeza completa do P0.5 atual
-            print(f"[PATCH_P0.5 V3] Novo agendamento detectado: {alteracao.get('tipo')}, limpando estado anterior", flush=True)
-
-            # [P0.9.4 GUARD] Não limpar draft se contém servico + data_hora válidos
-            # Isto permite continuação: msg1 (servico+data) + msg2 (profissional)
-            draft_existente = ctx.get("draft_agendamento") or {}
-            tem_draft_estruturado = bool(draft_existente) and draft_existente.get("servico") and draft_existente.get("data_hora")
-
-            ctx.pop("motivo_estado", None)
-            # 🔥 P0.9.8 FIX: Não fazer pop de estado_fluxo! Em vez disso, restaurar para estado apropriado
-            # Se há draft estruturado, aguarda profissional; senão, volta pra idle
-            if tem_draft_estruturado:
-                ctx["estado_fluxo"] = "aguardando_profissional"
-            else:
-                ctx["estado_fluxo"] = "idle"
-            ctx.pop("profissional_rejeitado", None)
-            ctx.pop("profissionais_validos", None)
-
-            # [P0.9.4] NUNCA deletar draft_agendamento — sempre preservar para continuação
-            # Isto permite msg1 (servico+data) + msg2 (profissional) workflows
-            # draft_agendamento será reconstruído se necessário em próximos passos
-
-            ctx.pop("profissional_escolhido", None)
-            ctx.pop("intencao_conversacional", None)
-            ctx.pop("objetivo_conversacional", None)
-            ctx.pop("tipo_ajuste_incremental", None)
-            ctx.pop("servico_contextual", None)  # ← P0.7.5 limpar contexto anterior
-            await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-            print(f"[PATCH_P0.5 V3] Estado anterior limpo, novo agendamento iniciado", flush=True)
 
     # =========================================================
     # 🔒 P1-C: Entrada indefinida com bloqueador profissional_nao_atende
@@ -6012,7 +5958,12 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         print(f" [FIX 3.2.1] contexto_consulta construído: {contexto_consulta}", flush=True)
 
                         # Salvar contexto atualizado com contexto_consulta
+                        # 🔥 P0.5 V3.1: NÃO persistir modo_operacao para evitar bloqueio pós-consulta
+                        # modo_operacao controla apenas ESTA mensagem, não deve bloquear próximas
+                        modo_op_temp = ctx.pop("modo_operacao", None)
                         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                        if modo_op_temp:
+                            ctx["modo_operacao"] = modo_op_temp  # Restaurar para memória desta request
 
                     except Exception as e:
                         print(f" [FIX 3.2.1] ERRO ao extrair contexto consulta: {e}", flush=True)
@@ -6030,6 +5981,64 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 print(" [CONSULTA_INFORMATIVA_IDLE] Consulta pura — respondendo")
                 ctx["modo_operacao"] = "consulta_pura"
                 return await _send_and_stop_ctx(context, user_id, resposta_informativa, ctx, texto_usuario, cliente_id, dono_id)
+
+    # =========================================================
+    # 🔥 PATCH P0.5 V3 REORDENADO: Detectar novo agendamento via semântica + comparação
+    # 🔥 EXECUTADO APENAS SE: modo_operacao != "consulta_sem_autorizacao_atual"
+    # 🔥 BLOQUEADO EM CONSULTAS PURAS SEM AUTORIZAÇÃO
+    # =========================================================
+    if ctx.get("modo_operacao") != "consulta_sem_autorizacao_atual":
+        if (
+            ctx.get("motivo_estado") != "profissional_nao_atende_servico"
+            and ctx.get("intencao_conversacional") in ["agendamento_direto", "pedido_aberto_temporal", "ajuste_incremental"]
+        ):
+            # Verificar se a mensagem atual representa o mesmo pedido ou um novo pedido
+            alteracao = await detectar_alteracao_draft_agendamento(
+                texto_usuario,
+                ctx,
+                dono_id,
+                cliente_id
+            )
+
+            if alteracao is None:
+                # Reiteration: mesmo agendamento
+                # Limpar apenas o motivo_estado, preservar draft_agendamento
+                print(f"[PATCH_P0.5 V3] Reiteration detectada: mesmo agendamento, preservando draft", flush=True)
+                ctx.pop("motivo_estado", None)
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, {
+                    "motivo_estado": DELETE_FIELD
+                })
+            else:
+                # Novo agendamento: algo diverge (serviço, data, profissional)
+                # Executar limpeza completa do P0.5 atual
+                print(f"[PATCH_P0.5 V3] Novo agendamento detectado: {alteracao.get('tipo')}, limpando estado anterior", flush=True)
+
+                # [P0.9.4 GUARD] Não limpar draft se contém servico + data_hora válidos
+                # Isto permite continuação: msg1 (servico+data) + msg2 (profissional)
+                draft_existente = ctx.get("draft_agendamento") or {}
+                tem_draft_estruturado = bool(draft_existente) and draft_existente.get("servico") and draft_existente.get("data_hora")
+
+                ctx.pop("motivo_estado", None)
+                # 🔥 P0.9.8 FIX: Não fazer pop de estado_fluxo! Em vez disso, restaurar para estado apropriado
+                # Se há draft estruturado, aguarda profissional; senão, volta pra idle
+                if tem_draft_estruturado:
+                    ctx["estado_fluxo"] = "aguardando_profissional"
+                else:
+                    ctx["estado_fluxo"] = "idle"
+                ctx.pop("profissional_rejeitado", None)
+                ctx.pop("profissionais_validos", None)
+
+                # [P0.9.4] NUNCA deletar draft_agendamento — sempre preservar para continuação
+                # Isto permite msg1 (servico+data) + msg2 (profissional) workflows
+                # draft_agendamento será reconstruído se necessário em próximos passos
+
+                ctx.pop("profissional_escolhido", None)
+                ctx.pop("intencao_conversacional", None)
+                ctx.pop("objetivo_conversacional", None)
+                ctx.pop("tipo_ajuste_incremental", None)
+                ctx.pop("servico_contextual", None)  # ← P0.7.5 limpar contexto anterior
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+                print(f"[PATCH_P0.5 V3] Estado anterior limpo, novo agendamento iniciado", flush=True)
 
     # =========================================================
     # 🔥 P0.7.5 INTERCEPTOR: Consulta Contextual de Alternativas
