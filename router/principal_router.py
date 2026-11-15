@@ -1629,17 +1629,32 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
         if len(servicos_mencionados) > 1:
             ctx["servicos_opcao"] = servicos_mencionados
-            ctx["estado_fluxo"] = "aguardando_servico"
 
-            if ctx.get("data_hora"):
-                draft["data_hora"] = ctx.get("data_hora")
-                draft["servico"] = None
-                ctx["draft_agendamento"] = draft
+            # 🛡️ [P0 FIX] GUARD: Não criar operational state em modo consulta
+            # Em consulta_sem_autorizacao_atual, preservar servicos_opcao para contexto mas
+            # NÃO definir estado_fluxo="aguardando_servico" (que é para seleção de serviço)
+            if ctx.get("modo_operacao") != "consulta_sem_autorizacao_atual":
+                ctx["estado_fluxo"] = "aguardando_servico"
+                if ctx.get("data_hora"):
+                    draft["data_hora"] = ctx.get("data_hora")
+                    draft["servico"] = None
+                    ctx["draft_agendamento"] = draft
+            else:
+                print(f"[CONSULTA_GUARD] Bloqueando estado_fluxo=aguardando_servico em modo consulta", flush=True)
 
             # print(f"[MULTIPLOS_SERVICOS] detected={servicos_mencionados} | perguntando", flush=True)
         else:
-            ctx["servico"] = servico_detectado
-            draft["servico"] = servico_detectado
+            # 🛡️ [P0 FIX] GUARD: Não singularizar draft["servico"] em modo consulta
+            # Em consulta, servico_detectado é apenas para contexto (pode ser plural depois)
+            # NÃO deve ser persisted como singular draft (perde informação de multisserviço)
+            if ctx.get("modo_operacao") != "consulta_sem_autorizacao_atual":
+                ctx["servico"] = servico_detectado
+                draft["servico"] = servico_detectado
+            else:
+                # Em consulta: preservar servico_detectado em contexto para informacao_service
+                ctx["servico"] = servico_detectado
+                # Mas NÃO adicionar a draft (evita singularização)
+                print(f"[CONSULTA_GUARD] Bloqueando singularização draft['servico']={servico_detectado} em modo consulta", flush=True)
 
     # ---------------- data/hora ----------------
     dt_e_meta = interpretar_data_e_hora(texto, return_metadata=True)
@@ -1982,8 +1997,16 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
                 set(f"{int(h[0]):02d}:{int(h[1] or 0):02d}" for h in hora_matches)
             )
 
-            ctx["horarios_sugeridos"] = horarios
-            ctx["estado_fluxo"] = "aguardando_escolha_horario"
+            # 🛡️ [P0 FIX] GUARD: Não converter time window em horarios_sugeridos/choice-state em modo consulta
+            # Em consulta_sem_autorizacao_atual, hora_matches são do intervalo temporal (14h-17h), não sugestões reais
+            # Somente set horarios_sugeridos se em modo booking (agendando, aguardando_*, etc)
+            if ctx.get("modo_operacao") != "consulta_sem_autorizacao_atual":
+                ctx["horarios_sugeridos"] = horarios
+                ctx["estado_fluxo"] = "aguardando_escolha_horario"
+            else:
+                # Em consulta: armazenar horarios para contexto apenas (não para choice-state)
+                # Motor multisserviço usará contexto_consulta, não estes horarios
+                print(f"[CONSULTA_GUARD] Bloqueando horarios_sugeridos e choice-state em modo consulta", flush=True)
 
         # =========================================================
         # 🔥 CASO 3 — data sem hora
@@ -2157,6 +2180,15 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
     # 🔥 persistir draft no contexto
     if draft:
         ctx["draft_agendamento"] = draft
+
+    # 🛡️ [P0 FIX] GUARD: Limpar campos de choice-state se em modo consulta (camada final de proteção)
+    # Evita que recarregamentos posteriores reativem escolha quando foi apenas consulta
+    if ctx.get("modo_operacao") == "consulta_sem_autorizacao_atual":
+        # Em modo consulta, NÃO devemos ter estes campos persistidos
+        ctx.pop("horarios_sugeridos", None)
+        if ctx.get("estado_fluxo") in ["aguardando_escolha_horario", "aguardando_servico"]:
+            # Não limpar completamente (pode ser set por outro path), mas logar
+            print(f"[CONSULTA_GUARD_FINAL] Detectado estado_fluxo={ctx.get('estado_fluxo')} em modo consulta", flush=True)
 
     # 🔴 P0.9.8 FIX: SALVAR no Firestore antes de retornar para evitar recarregamentos posteriores sobrescreverem!
     await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
