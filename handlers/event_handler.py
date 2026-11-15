@@ -1333,6 +1333,27 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                     identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                 )
                 await enviar_mensagem_whatsapp(user_id, msg_sucesso, phone_number_id=phone_number_id_alt)
+
+            # ✅ Notificar cliente após confirmação (PATCH P0 Estabilização)
+            try:
+                from services.notificacao_service import criar_notificacao_agendada
+                await criar_notificacao_agendada(
+                    user_id=user_id,
+                    descricao=evento_data.get("descricao", "Agendamento confirmado"),
+                    data=evento_data.get("data"),
+                    hora_inicio=evento_data.get("hora_inicio"),
+                    canal="telegram",
+                    minutos_antes=30,
+                    destinatario_user_id=user_id,
+                    alvo_evento={
+                        "data": evento_data.get("data"),
+                        "hora_inicio": evento_data.get("hora_inicio"),
+                    },
+                    tenant_id=tenant_id,
+                )
+            except Exception as e:
+                logger.warning(f"Falha ao agendar notificação para {user_id}: {e}")
+
             cleanup_ok = await limpar_contexto_agendamento_v2(dono_id, cliente_id)
             if not cleanup_ok:
                 print(f"[ERRO_P0_CLEAR] Falha ao limpar contexto | dono={dono_id} | cliente={cliente_id}", flush=True)

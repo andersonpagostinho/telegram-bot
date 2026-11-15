@@ -173,10 +173,24 @@ async def solicitar_encaixe(
             ev["profissional"] = profissional
 
         # 👇 salva no dono
-        await salvar_evento(dono_id, ev, dono_id)
+        resultado_salvar = await salvar_evento(dono_id, ev, dono_id)
+
+        # Validar persistência antes de notificar
+        sucesso_persistencia = (
+            resultado_salvar is True or
+            (isinstance(resultado_salvar, dict) and resultado_salvar.get("ok") is True)
+        )
+
+        if not sucesso_persistencia:
+            print(f"❌ Falha ao salvar evento: {resultado_salvar}", flush=True)
+            return {
+                "status": "erro",
+                "mensagem": f"Falha ao criar encaixe: {resultado_salvar}",
+            }
+
         print(f"💰 ENCAIXE DIRETO CONFIRMADO | dono={dono_id} | data={ev['data']} | hora={ev['hora_inicio']} | duracao={ev['duracao']}", flush=True)
 
-        # lembrete ao solicitante
+        # lembrete ao solicitante (APÓS persistência confirmada)
         try:
             await criar_notificacao_agendada(
                 user_id=solicitante_user_id,
@@ -415,7 +429,20 @@ async def confirmar_reagendamento_por_opcao(
     if ev_ori.get("profissional"):
         novo_ev_cliente["profissional"] = ev_ori.get("profissional")
 
-    await salvar_evento(dono_id, novo_ev_cliente, dono_id)
+    resultado_salvar_cliente = await salvar_evento(dono_id, novo_ev_cliente, dono_id)
+
+    # Validar persistência antes de continuar
+    sucesso_cliente = (
+        resultado_salvar_cliente is True or
+        (isinstance(resultado_salvar_cliente, dict) and resultado_salvar_cliente.get("ok") is True)
+    )
+
+    if not sucesso_cliente:
+        print(f"❌ Falha ao salvar evento do cliente: {resultado_salvar_cliente}", flush=True)
+        return {
+            "status": "erro",
+            "mensagem": f"Falha ao mover cliente: {resultado_salvar_cliente}",
+        }
 
     dt_desejado_str = alvo_doc.get("dt_desejado")
     dt_desejado = datetime.fromisoformat(dt_desejado_str).astimezone(FUSO_BR)
@@ -437,14 +464,28 @@ async def confirmar_reagendamento_por_opcao(
     if alvo_doc.get("profissional"):
         ev_encaixe["profissional"] = alvo_doc.get("profissional")
 
-    await salvar_evento(dono_id, ev_encaixe, dono_id)
+    resultado_salvar_encaixe = await salvar_evento(dono_id, ev_encaixe, dono_id)
+
+    # Validar persistência antes de marcar como concluída
+    sucesso_encaixe = (
+        resultado_salvar_encaixe is True or
+        (isinstance(resultado_salvar_encaixe, dict) and resultado_salvar_encaixe.get("ok") is True)
+    )
+
+    if not sucesso_encaixe:
+        print(f"❌ Falha ao salvar evento de encaixe: {resultado_salvar_encaixe}", flush=True)
+        return {
+            "status": "erro",
+            "mensagem": f"Falha ao criar encaixe: {resultado_salvar_encaixe}",
+        }
+
     print(
     f"💰 ENCAIXE VIA REMARCAÇÃO | dono={dono_id} | data={ev_encaixe['data']} | "
     f"hora={ev_encaixe['hora_inicio']} | cliente_movido={cliente_id}",
     flush=True
 )
 
-    # atualizar pendência
+    # atualizar pendência (SOMENTE após persistência confirmada)
     for c in alvo_doc.get("candidatos", []):
         if c.get("cliente_id") == cliente_id:
             c["status_cliente"] = "remarcado"
