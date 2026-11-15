@@ -5862,6 +5862,17 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     f"{resultado_selecao.get('proximo_passo', 'Confirme para prosseguir com o agendamento.')}"
                 )
 
+                # 🔥 CORREÇÃO: Sincronizar opcao_selecionada_id no ctx antes de salvar
+                # Evita que salvar_contexto_temporario_v2() sobrescreva com versão antiga em memória
+                opcao_selecionada = resultado_selecao.get("opcao_selecionada", {})
+                opcao_id_registrada = opcao_selecionada.get("opcao_id")
+
+                if opcao_id_registrada:
+                    contexto_resultado = ctx.get("contexto_resultado_consulta")
+                    if isinstance(contexto_resultado, dict):
+                        contexto_resultado["opcao_selecionada_id"] = opcao_id_registrada
+                        print(f"[FASE4A_SYNC] ✅ opcao_selecionada_id sincronizado em ctx: {opcao_id_registrada}", flush=True)
+
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return {
