@@ -304,5 +304,6 @@ async def processar_selecao_opcao(
         "sucesso": True,
         "mensagem": resultado_selecao["mensagem"],
         "opcao_selecionada": resultado_selecao["opcao"],
+        "opcao_id": resultado_selecao["opcao_id"],
         "proximo_passo": "Confirme este horário para iniciar o agendamento?"
     }

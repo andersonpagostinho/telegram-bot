@@ -5864,8 +5864,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 # 🔥 CORREÇÃO: Sincronizar opcao_selecionada_id no ctx antes de salvar
                 # Evita que salvar_contexto_temporario_v2() sobrescreva com versão antiga em memória
-                opcao_selecionada = resultado_selecao.get("opcao_selecionada", {})
-                opcao_id_registrada = opcao_selecionada.get("opcao_id")
+                opcao_id_registrada = resultado_selecao.get("opcao_id")
 
                 if opcao_id_registrada:
                     contexto_resultado = ctx.get("contexto_resultado_consulta")
