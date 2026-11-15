@@ -93,6 +93,7 @@ async def responder_consulta_informativa(
         print(f"[FASE6_MOTOR_ENTRADA] Profissional preferida: {contexto_consulta.get('profissional_mencionada')}", flush=True)
         print(f"[FASE6_MOTOR_ENTRADA] Preferências: mesma_prof={contexto_consulta.get('preferencias_cliente', {}).get('mesmo_profissional')}, sequencial={contexto_consulta.get('preferencias_cliente', {}).get('servicos_sequencia')}", flush=True)
 
+        # 🔥 SEPARAÇÃO: Consulta informativa (preço/info) vs. Disponibilidade (com opções)
         if len(servicos_multiplos) > 1 and intervalo_inicio:
             print(f"[FASE6_MOTOR] Consultando bloco multisserviço: {servicos_multiplos}, janela {intervalo_inicio}h-{intervalo_fim}h", flush=True)
 
@@ -144,6 +145,41 @@ async def responder_consulta_informativa(
                     if resultado_varredura.get("horarios_disponiveis"):
                         # Disponível na janela
                         horarios = resultado_varredura["horarios_disponiveis"]
+
+                        # 🔥 FASE 2: Persistir resultado estruturado ANTES de converter para texto
+                        from schemas.resultado_consulta_schema import ContextoResultadoConsulta, OpcaoHorario
+                        from services.resultado_consulta_service import persistir_resultado_consulta
+
+                        opcoes = [
+                            OpcaoHorario(
+                                opcao_id=f"{data_formatada}_{nome_prof}_{h['inicio'].replace(':', '')}",
+                                numero=i+1,
+                                profissional_id=nome_prof,
+                                data=data_formatada,
+                                hora_inicio=h["inicio"],
+                                hora_fim=h["fim"],
+                                servicos=servicos_multiplos,
+                                duracao_total_min=duracao_total
+                            )
+                            for i, h in enumerate(horarios)
+                        ]
+
+                        contexto_resultado = ContextoResultadoConsulta(
+                            servicos=servicos_multiplos,
+                            data=data_formatada,
+                            duracao_total_min=duracao_total,
+                            profissional_id=nome_prof,
+                            opcoes=opcoes
+                        )
+
+                        await persistir_resultado_consulta(
+                            tenant_id=tenant_id or dono_id,
+                            actor_id=actor_id or dono_id,
+                            contexto=contexto_resultado
+                        )
+                        print(f"[FASE2_PERSISTENCIA] ✅ Resultado persistido: {len(opcoes)} opções", flush=True)
+
+                        # Agora: converter para texto (sem mudanças)
                         resp = f"✅ Ótimo! Consegui esquadrar {', '.join(servicos_multiplos)} com {nome_prof}.\n\n"
                         resp += f"⏰ Horários disponíveis na janela {intervalo_inicio}h-{intervalo_fim}h de {data_obj.strftime('%d/%m')}:\n"
                         for h in horarios[:3]:
@@ -176,11 +212,41 @@ async def responder_consulta_informativa(
                 # Não cair para fallback — retornar erro para diagnóstico
                 return f"❌ Erro ao processar disponibilidade: {str(e)[:100]}"
         else:
-            if not servicos_multiplos or len(servicos_multiplos) <= 1:
-                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: len(servicos_multiplos)={len(servicos_multiplos)} <= 1", flush=True)
-            if not intervalo_inicio:
-                print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: intervalo_inicio=None", flush=True)
-            print(f"[FASE6_MOTOR_BLOQUEADO] Entrada recusada. len={len(servicos_multiplos)}, intervalo_inicio={intervalo_inicio}", flush=True)
+            # 🔥 CONSULTA INFORMATIVA SEM HORÁRIO: responder com informações, SEM gerar opções
+            if len(servicos_multiplos) > 1 and not intervalo_inicio:
+                print(f"[FASE6_CONSULTA_INFORMATIVA] Consulta informativa de múltiplos serviços (sem disponibilidade)", flush=True)
+
+                # Responder com informações do catálogo (preços, duração, profissionais)
+                from services.profissional_service import buscar_profissionais_por_servico
+
+                resp = f"✅ Temos {', '.join(servicos_multiplos)}!\n\n"
+
+                # Tabela de preços/duração
+                profissionais_dict = (await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais")) or {}
+                for servico in servicos_multiplos:
+                    precos = set()
+                    duracoes = set()
+                    for prof_data in profissionais_dict.values():
+                        if servico.lower() in [s.lower() for s in prof_data.get("servicos", [])]:
+                            preco = prof_data.get("precos", {}).get(servico)
+                            duracao = prof_data.get("duracoes", {}).get(servico)
+                            if preco:
+                                precos.add(f"R$ {preco:.2f}")
+                            if duracao:
+                                duracoes.add(f"{duracao}min")
+
+                    if precos or duracoes:
+                        resp += f"• {servico}: {', '.join(precos) if precos else 'N/A'} ({', '.join(duracoes) if duracoes else 'N/A'})\n"
+
+                resp += f"\nPara agendar, informe a data e horário desejados."
+                print(f"[FASE6_CONSULTA_INFORMATIVA] ✅ Resposta informativa gerada", flush=True)
+                return resp
+            else:
+                if not servicos_multiplos or len(servicos_multiplos) <= 1:
+                    print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: len(servicos_multiplos)={len(servicos_multiplos)} <= 1", flush=True)
+                if not intervalo_inicio:
+                    print(f"[FASE6_MOTOR_BLOQUEADO] Motivo: intervalo_inicio=None", flush=True)
+                print(f"[FASE6_MOTOR_BLOQUEADO] Entrada recusada. len={len(servicos_multiplos)}, intervalo_inicio={intervalo_inicio}", flush=True)
 
     # 🔍 Reutilizar features do classificador para detectar consulta por serviço
     # Sem adicionar novos padrões lexicais — usar o que já foi classificado

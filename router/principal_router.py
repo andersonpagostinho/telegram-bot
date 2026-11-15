@@ -113,6 +113,13 @@ async def _send_and_stop(context, user_id: str, text: str, parse_mode: str = "Ma
 async def _send_and_stop_ctx(context, user_id, mensagem, ctx, texto_usuario, cliente_id: str = None, dono_id: str = None):
     try:
         if dono_id:
+            # 🔍 DEBUG: Verificar o que está em ctx antes de salvar
+            tem_resultado = "contexto_resultado_consulta" in ctx
+            print(f"[DEBUG_SAVE_CTX] Antes de salvar: contexto_resultado_consulta em ctx? {tem_resultado}", flush=True)
+            if tem_resultado:
+                n_opcoes = len(ctx.get("contexto_resultado_consulta", {}).get("opcoes", []))
+                print(f"[DEBUG_SAVE_CTX] n_opcoes: {n_opcoes}", flush=True)
+
             await salvar_contexto_temporario_v2(dono_id, cliente_id or user_id, ctx)
         else:
             print(f"[WARN] _send_and_stop_ctx: chamado sem dono_id explícito para user_id={user_id}", flush=True)
@@ -5134,13 +5141,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     }
 
                     # [DIAGNOSTICO_P0_SAVE] Antes de salvar limpeza
-                    print(f"[DIAG_SAVE_PRE] tenant_id={dono_id} | actor_id={user_id} | path=Clientes/{dono_id}/Sessoes/{user_id}", flush=True)
-                    print(f"[DIAG_SAVE_PRE] PATCH_P0: Usando DELETE_FIELD para limpeza real", flush=True)
-                    print(f"[DIAG_SAVE_PRE] campos_remove={len([k for k, v in payload_limpeza.items() if v is DELETE_FIELD])}", flush=True)
 
                     resultado_save = await salvar_contexto_temporario_v2(dono_id, cliente_id, payload_limpeza)
 
-                    print(f"[DIAG_SAVE_POS] resultado={resultado_save} | tipo={type(resultado_save)}", flush=True)
 
                     resumo = cancelamento_pendente.get("resumo_evento", {})
                     resposta = f"Pronto! O evento {resumo.get('descricao', '')} foi cancelado e o horário ficou disponível."
@@ -5819,7 +5822,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # 🔥 FASE 4A: RECONHECIMENTO E SELEÇÃO DE OPÇÕES
     # Inserido após bloqueio de contexto pessoal, antes de consulta informativa
     # ---------------------------------------------------------
-    if ctx.get("modo_operacao") == "consulta_sem_autorizacao_atual":
+    # Validar consulta pendente: contexto com múltiplas opções estruturadas
+    contexto_consulta_valido = ctx.get("contexto_consulta", {})
+    servicos_multiplos = contexto_consulta_valido.get("servicos_multiplos", [])
+
+    # 🔥 VALIDAÇÃO CRÍTICA: FASE 4A só executa se há resultado com opções reais persistidas
+    # Não confiar apenas em contexto_consulta (pode ser informativa sem opções)
+    if contexto_consulta_valido or servicos_multiplos:
+        print(f"[FASE4A_DEBUG] contexto_consulta: {bool(contexto_consulta_valido)}, servicos: {len(servicos_multiplos) if servicos_multiplos else 0}", flush=True)
+
+    # Verificar que existe contexto_resultado_consulta com opções reais
+    resultado_consulta_persistido = ctx.get("contexto_resultado_consulta", {})
+    tem_opcoes_reais = isinstance(resultado_consulta_persistido, dict) and len(resultado_consulta_persistido.get("opcoes", [])) > 0
+
+    if contexto_consulta_valido and servicos_multiplos and len(servicos_multiplos) > 1 and tem_opcoes_reais:
         try:
             from services.reconhecimento_opcao_service import processar_selecao_opcao
 
@@ -5829,6 +5845,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 actor_id=cliente_id,
                 contexto=None  # Deixar função recuperar de Firestore
             )
+            print(f"[FASE4A_RESULTADO] sucesso={resultado_selecao.get('sucesso')}, msg={resultado_selecao.get('mensagem', 'N/A')[:80]}", flush=True)
 
             if resultado_selecao.get("sucesso"):
                 print(f"[FASE4A_SELECAO] ✅ Opção selecionada: {resultado_selecao['opcao_selecionada']['numero']}", flush=True)
@@ -6002,8 +6019,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         # Salvar contexto atualizado com contexto_consulta
                         # 🔥 P0.5 V3.1: NÃO persistir modo_operacao para evitar bloqueio pós-consulta
                         # modo_operacao controla apenas ESTA mensagem, não deve bloquear próximas
+
                         modo_op_temp = ctx.pop("modo_operacao", None)
-                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+
+                        persist_result = await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+
                         if modo_op_temp:
                             ctx["modo_operacao"] = modo_op_temp  # Restaurar para memória desta request
 
@@ -6022,18 +6044,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 # Pura consulta informativa — responder e parar
                 print(" [CONSULTA_INFORMATIVA_IDLE] Consulta pura — respondendo")
 
-                # 🔥 FASE 4A FIX: Detectar consulta multisserviço e definir modo_operacao apropriado
-                # Se consulta retornou com múltiplas opções estruturadas, próxima mensagem pode ser
-                # uma seleção como "o primeiro", "segunda", etc. Definir modo para permitir FASE 4A executar.
-                servicos_multiplos = contexto_consulta.get("servicos_multiplos", [])
-                if servicos_multiplos and len(servicos_multiplos) > 1:
-                    # Multisserviço: permite que próxima mensagem execute FASE 4A (reconhecimento de seleção)
-                    ctx["modo_operacao"] = "consulta_sem_autorizacao_atual"
-                    print(f" [CONSULTA_INFORMATIVA_IDLE_MULTISSERVICO] Modo definido para seleção de opção (servicos={servicos_multiplos})", flush=True)
-                else:
-                    # Consulta simples (endereço, preço, etc.)
-                    ctx["modo_operacao"] = "consulta_pura"
-                    print(f" [CONSULTA_INFORMATIVA_IDLE_PURA] Modo pura consulta (sem opções estruturadas)", flush=True)
+                # 🔥 CONTRATO CANÔNICO: Consulta pura sem horário NÃO gera opções
+                # contexto_consulta persiste para conversação, mas SEM contexto_resultado_consulta
+                # FASE 4A não será acionada (não há opções reais)
+                if contexto_consulta and contexto_consulta.get("servicos_multiplos"):
+                    contexto_consulta["timestamp"] = datetime.now().isoformat()
+                    ctx["contexto_consulta"] = contexto_consulta
+                    print(f"[CONSULTA_INFORMATIVA] ✅ contexto_consulta persistido (sem opções)", flush=True)
 
                 return await _send_and_stop_ctx(context, user_id, resposta_informativa, ctx, texto_usuario, cliente_id, dono_id)
 

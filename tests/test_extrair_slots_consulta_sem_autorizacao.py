@@ -13,7 +13,7 @@ import asyncio
 from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import datetime
 from router.principal_router import extrair_slots_e_mesclar
-from services.firebase_service_async import salvar_contexto_temporario_v2
+from utils.contexto_temporario import salvar_contexto_temporario_v2
 
 
 @pytest.fixture

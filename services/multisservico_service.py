@@ -163,9 +163,9 @@ def extrair_intervalo_horario(mensagem: str) -> tuple[int | None, int | None]:
 
     msg = mensagem.lower()
 
-    # PADRÃO 1: "das 14 às 17" ou "de 14 a 17" (continuado)
+    # PADRÃO 1: "das 14 às 17" ou "de 14 a 17" ou "entre 14 e 17" (continuado)
     match = re.search(
-        r"(?:das?|de)?\s*(\d{1,2})(?::00|h)?\s*(?:as?|às?)\s*(\d{1,2})(?::00|h)?",
+        r"(?:das?|de|entre)?\s*(\d{1,2})(?::00|h)?\s*(?:as?|às?|e)\s*(\d{1,2})(?::00|h)?",
         msg,
         re.IGNORECASE
     )

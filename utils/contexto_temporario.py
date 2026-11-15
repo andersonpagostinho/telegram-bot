@@ -43,7 +43,26 @@ async def salvar_sessao_temporaria(actor_id: str, contexto: dict, tenant_id: str
 
     # 🔥 merge manual defensivo
     atual = await buscar_dado_em_path(path) or {}
+
+    # 🔥 CONTRATO CANÔNICO: Preservar contexto_resultado_consulta se já tem opcoes em Firestore
+    # (não sobrescrever com versão vazia do ctx que foi carregada no router start)
+    resultado_firestore = atual.get("contexto_resultado_consulta", {})
+    n_opcoes_firestore = len(resultado_firestore.get("opcoes", [])) if isinstance(resultado_firestore, dict) else 0
+
     atual.update(contexto)
+
+    # Se Firestore tinha resultado com opcoes mas contexto sobrescreveu com vazio, restaurar
+    if n_opcoes_firestore > 0:
+        resultado_novo = atual.get("contexto_resultado_consulta", {})
+        n_opcoes_novo = len(resultado_novo.get("opcoes", [])) if isinstance(resultado_novo, dict) else 0
+        if n_opcoes_novo == 0:
+            # Sobrescreveu com vazio — restaurar resultado de Firestore
+            atual["contexto_resultado_consulta"] = resultado_firestore
+            print(f"[CONTRATO_CANONICO] ✅ Preservado contexto_resultado_consulta com {n_opcoes_firestore} opções (evitou sobrescrita com vazio)", flush=True)
+        else:
+            print(f"[CONTRATO_CANONICO] ℹ️ contexto_resultado_consulta atualizado no ctx: {n_opcoes_novo} opções", flush=True)
+    else:
+        print(f"[CONTRATO_CANONICO] ℹ️ Nenhuma opcão em Firestore para preservar", flush=True)
 
     # 🔥 PATCH P0.4: Adicionar metadados de segurança
     atual["_tenant_id_guard"] = tenant_id
