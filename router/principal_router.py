@@ -5816,6 +5816,48 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         }
 
     # ---------------------------------------------------------
+    # 🔥 FASE 4A: RECONHECIMENTO E SELEÇÃO DE OPÇÕES
+    # Inserido após bloqueio de contexto pessoal, antes de consulta informativa
+    # ---------------------------------------------------------
+    if ctx.get("modo_operacao") == "consulta_sem_autorizacao_atual":
+        try:
+            from services.reconhecimento_opcao_service import processar_selecao_opcao
+
+            resultado_selecao = await processar_selecao_opcao(
+                mensagem=texto_usuario,
+                tenant_id=dono_id,
+                actor_id=cliente_id,
+                contexto=None  # Deixar função recuperar de Firestore
+            )
+
+            if resultado_selecao.get("sucesso"):
+                print(f"[FASE4A_SELECAO] ✅ Opção selecionada: {resultado_selecao['opcao_selecionada']['numero']}", flush=True)
+
+                # Preparar resposta de seleção
+                opcao = resultado_selecao["opcao_selecionada"]
+                resposta_selecao = (
+                    f"✅ Perfeito! Você escolheu:\n\n"
+                    f"📅 Data: {resultado_selecao.get('data', 'N/A')}\n"
+                    f"⏰ Horário: {opcao['hora_inicio']} às {opcao['hora_fim']}\n"
+                    f"👩 Profissional: {opcao['profissional']}\n"
+                    f"💅 Serviços: {', '.join(opcao['servicos']) if 'servicos' in resultado_selecao else 'N/A'}\n"
+                    f"⏱️ Duração: {resultado_selecao.get('duracao', 'N/A')} minutos\n\n"
+                    f"{resultado_selecao.get('proximo_passo', 'Confirme para prosseguir com o agendamento.')}"
+                )
+
+                await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                return {
+                    "handled": True,
+                    "resposta": resposta_selecao,
+                    "opcao_selecionada_id": resultado_selecao.get("opcao_id")
+                }
+        except Exception as e:
+            print(f"[FASE4A_SELECAO] ⚠️ Erro ao processar seleção: {str(e)[:100]}", flush=True)
+            # Continuar com fluxo normal se houver erro
+            pass
+
+    # ---------------------------------------------------------
     # ✅ P0 COMPLEMENTAR: Consultas informativas em contexto idle
     # (antes de ignorar como "contexto_neutro")
     # ---------------------------------------------------------
@@ -5979,7 +6021,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             else:
                 # Pura consulta informativa — responder e parar
                 print(" [CONSULTA_INFORMATIVA_IDLE] Consulta pura — respondendo")
-                ctx["modo_operacao"] = "consulta_pura"
+
+                # 🔥 FASE 4A FIX: Detectar consulta multisserviço e definir modo_operacao apropriado
+                # Se consulta retornou com múltiplas opções estruturadas, próxima mensagem pode ser
+                # uma seleção como "o primeiro", "segunda", etc. Definir modo para permitir FASE 4A executar.
+                servicos_multiplos = contexto_consulta.get("servicos_multiplos", [])
+                if servicos_multiplos and len(servicos_multiplos) > 1:
+                    # Multisserviço: permite que próxima mensagem execute FASE 4A (reconhecimento de seleção)
+                    ctx["modo_operacao"] = "consulta_sem_autorizacao_atual"
+                    print(f" [CONSULTA_INFORMATIVA_IDLE_MULTISSERVICO] Modo definido para seleção de opção (servicos={servicos_multiplos})", flush=True)
+                else:
+                    # Consulta simples (endereço, preço, etc.)
+                    ctx["modo_operacao"] = "consulta_pura"
+                    print(f" [CONSULTA_INFORMATIVA_IDLE_PURA] Modo pura consulta (sem opções estruturadas)", flush=True)
+
                 return await _send_and_stop_ctx(context, user_id, resposta_informativa, ctx, texto_usuario, cliente_id, dono_id)
 
     # =========================================================
