@@ -5915,7 +5915,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if contexto_consulta.get("intervalo_inicio"):
             print(f"[FASE6_P1] Intervalo enriquecido: {contexto_consulta.get('intervalo_inicio')}-{contexto_consulta.get('intervalo_fim')}h", flush=True)
 
-        # FASE 3: Extrair profissional mencionada (features + mensagem)
+        # FASE 3: Extrair profissional mencionada (features + mensagem + preservação)
         profissional_mencionada_features = class_intencao.get("features", {}).get("profissional_mencionada") if class_intencao else None
 
         # Se não veio de features, tentar extrair da mensagem diretamente
@@ -5927,6 +5927,14 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 if normalizar(nome_prof) in msg_norm:
                     profissional_mencionada = nome_prof
                     break
+
+        # Se ainda não há profissional, tentar preservar do contexto anterior
+        if not profissional_mencionada:
+            contexto_consulta_anterior = ctx.get("contexto_consulta", {})
+            profissional_anterior = contexto_consulta_anterior.get("profissional_mencionada")
+            if profissional_anterior:
+                profissional_mencionada = profissional_anterior
+                print(f"[FASE6_P1] Profissional preservada do anterior: {profissional_mencionada}", flush=True)
 
         if profissional_mencionada:
             contexto_consulta["profissional_mencionada"] = profissional_mencionada
@@ -6824,6 +6832,26 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         # 🔥 P1-FIX: Construir contexto_consulta ANTES de chamar responder_consulta_informativa
         contexto_consulta = {}
 
+        # 🔥 P2-FIX: Preservação de profissional (Bloqueador #2)
+        # Se contexto anterior (carregado de Firestore) tem profissional e mensagem atual
+        # não menciona outro profissional, preservar o anterior
+        contexto_consulta_anterior = ctx.get("contexto_consulta", {})
+        profissional_anterior = contexto_consulta_anterior.get("profissional_mencionada")
+
+        # Verificar se mensagem menciona novo profissional
+        profs_cadastro = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
+        msg_norm = normalizar(texto_usuario)
+        novo_profissional = None
+        for nome_prof in profs_cadastro.keys():
+            if normalizar(nome_prof) in msg_norm:
+                novo_profissional = nome_prof
+                break
+
+        # Se não há novo profissional e há anterior, preservar anterior
+        if not novo_profissional and profissional_anterior:
+            contexto_consulta["profissional_mencionada"] = profissional_anterior
+            print(f"[FASE6_P2-FIX] Profissional preservada do contexto anterior: {profissional_anterior}", flush=True)
+
         # FASE 1: Extrair múltiplos serviços
         servicos_multiplos_detectados = await extrair_multiplos_servicos_da_mensagem(texto_usuario, dono_id)
         if len(servicos_multiplos_detectados) > 1:
@@ -6841,6 +6869,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
         if profissional_mencionada_features:
             contexto_consulta["profissional_mencionada"] = profissional_mencionada_features
             print(f"[FASE6_P1_IDLE] Profissional mencionada: {profissional_mencionada_features}", flush=True)
+        elif novo_profissional and not profissional_mencionada_features:
+            # Se features não informou mas mensagem menciona profissional, atualizar
+            contexto_consulta["profissional_mencionada"] = novo_profissional
+            print(f"[FASE6_P1_IDLE] Profissional da mensagem: {novo_profissional}", flush=True)
 
         resposta_informativa = await responder_consulta_informativa(
             mensagem,

@@ -199,10 +199,7 @@ async def registrar_opcao_selecionada(
 
         # Salvar (merge=True preserva draft_agendamento e outros campos)
         path = f"Clientes/{tenant_id.strip()}/Sessoes/{actor_id.strip()}"
-        client = await get_async_client()
-        ref = client.collection_group("Sessoes").where("__name__", "==", actor_id).limit(1)
 
-        # Alternativa: usar salvar_dado_em_path
         from services.firebase_service_async import salvar_dado_em_path
 
         resultado = await salvar_dado_em_path(

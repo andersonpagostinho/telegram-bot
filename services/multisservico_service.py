@@ -195,7 +195,9 @@ def extrair_data_da_mensagem(mensagem: str) -> str | None:
     """
     Extrai data da mensagem em formato ISO (YYYY-MM-DD).
 
-    Padrões suportados:
+    Padrões suportados (por precedência):
+    - "2026-11-16" (ISO YYYY-MM-DD) — PRECEDÊNCIA MÁXIMA
+    - "13/11/2026" ou "13/11" (DD/MM/YYYY)
     - "amanhã" → próximo dia
     - "hoje" → dia atual
     - "segunda", "terça", ..., "domingo" → próximo dia com esse nome
@@ -207,10 +209,10 @@ def extrair_data_da_mensagem(mensagem: str) -> str | None:
 
     Exemplo:
         >>> # Assumindo hoje = 2026-11-12 (quinta)
+        >>> extrair_data_da_mensagem("manicure 2026-11-16")
+        "2026-11-16"
         >>> extrair_data_da_mensagem("manicure amanhã")
         "2026-11-13"
-        >>> extrair_data_da_mensagem("manicure segunda")
-        "2026-11-16"  # Próxima segunda
     """
     import re
     from datetime import datetime, timedelta
@@ -218,7 +220,22 @@ def extrair_data_da_mensagem(mensagem: str) -> str | None:
     msg = (mensagem or "").lower().strip()
     hoje = datetime.now().date()
 
-    # 1. DATA NUMÉRICA EXPLÍCITA (PRECEDÊNCIA MÁXIMA)
+    # 0. ISO FORMAT (PRECEDÊNCIA MÁXIMA)
+    # Padrão: "2026-11-16" (YYYY-MM-DD)
+    match_iso = re.search(r"(\d{4})-(\d{2})-(\d{2})", msg)
+    if match_iso:
+        try:
+            ano = int(match_iso.group(1))
+            mes = int(match_iso.group(2))
+            dia = int(match_iso.group(3))
+            data = datetime(ano, mes, dia).date()
+            if data >= hoje:
+                print(f"[P1-FIX-ISO] Data ISO extraída: {data.isoformat()}", flush=True)
+                return data.isoformat()
+        except ValueError:
+            pass
+
+    # 1. DATA NUMÉRICA EXPLÍCITA (PRECEDÊNCIA ALTA)
     # Padrão: "13/11/2026" ou "13/11"
     match_data_completa = re.search(r"(\d{1,2})/(\d{1,2})(?:/(\d{4}))?", msg)
     if match_data_completa:
