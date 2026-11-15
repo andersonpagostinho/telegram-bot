@@ -57,7 +57,12 @@ async def salvar_sessao_temporaria(actor_id: str, contexto: dict, tenant_id: str
         n_opcoes_novo = len(resultado_novo.get("opcoes", [])) if isinstance(resultado_novo, dict) else 0
         if n_opcoes_novo == 0:
             # Sobrescreveu com vazio — restaurar resultado de Firestore
+            # 🔥 PRESERVAR opcao_selecionada_id sincronizado em memória (não sobrescrever com versão anterior)
+            opcao_selecionada_id_novo = resultado_novo.get("opcao_selecionada_id")
             atual["contexto_resultado_consulta"] = resultado_firestore
+            if opcao_selecionada_id_novo:
+                atual["contexto_resultado_consulta"]["opcao_selecionada_id"] = opcao_selecionada_id_novo
+                print(f"[CONTRATO_CANONICO] ✅ Preservado opcao_selecionada_id={opcao_selecionada_id_novo} durante restauração", flush=True)
             print(f"[CONTRATO_CANONICO] ✅ Preservado contexto_resultado_consulta com {n_opcoes_firestore} opções (evitou sobrescrita com vazio)", flush=True)
         else:
             print(f"[CONTRATO_CANONICO] ℹ️ contexto_resultado_consulta atualizado no ctx: {n_opcoes_novo} opções", flush=True)
