@@ -172,6 +172,18 @@ async def varrer_disponibilidade_multisservico(
                 print(f"[VARREDURA] {hora_candidata} + {duracao_total}min = {fim_candidato.strftime('%H:%M')} ultrapassa fechamento ({limite_fim_str}) ❌", flush=True)
                 continue
 
+            # P0 FIX: Validar que o horário ainda não passou (data = hoje)
+            # Se data é futura, não aplicar este filtro
+            data_obj_dt = datetime.fromisoformat(data)
+            hoje = datetime.now().date()
+
+            if data_obj_dt.date() == hoje:
+                # Data é hoje: filtrar horários passados
+                agora = datetime.now()
+                if fim_candidato <= agora:
+                    print(f"[VARREDURA] {hora_candidata} já passou (fim {fim_candidato.strftime('%H:%M')}, agora {agora.strftime('%H:%M')}) ❌", flush=True)
+                    continue
+
             print(f"[VARREDURA] Testando {hora_candidata}...", flush=True)
 
             # Chamar motor para validar este horário
