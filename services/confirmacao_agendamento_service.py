@@ -416,6 +416,96 @@ async def processar_confirmacao_agendamento(
             "mensagem": "Mismatch de tenant/actor"
         }
 
+    # P0-1: RE-VALIDAÇÃO FINAL ANTES DE REGISTRAR CONFIRMAÇÃO
+    # Garantir que o horário continua livre e os serviços continuam válidos
+    from services.event_service_async import verificar_conflito_e_sugestoes_profissional
+    from services.duracao_service import obter_duracao_por_profissional_bridge
+    from services.firebase_service_async import buscar_documento
+
+    # Re-validar conflitos
+    resultado_motor = await verificar_conflito_e_sugestoes_profissional(
+        user_id=actor_id,
+        data=autorizacao.data,
+        hora_inicio=autorizacao.hora_inicio,
+        duracao_min=autorizacao.duracao_total_min,
+        profissional=autorizacao.profissional,
+        servico=None,
+        tenant_id=tenant_id,
+        servicos_bloco=autorizacao.servicos
+    )
+
+    if resultado_motor.get("conflito"):
+        # Horário ficou indisponível
+        await invalidar_autorizacao_anterior(tenant_id, actor_id)
+        alternativas = resultado_motor.get("alternativas", [])
+        return {
+            "sucesso": False,
+            "mensagem": "O horário ficou indisponível. Escolha outro.",
+            "alternativas": alternativas
+        }
+
+    # P0-2: VALIDAÇÃO INTEGRAL DE DURAÇÃO DO CATÁLOGO ATUAL
+    # Carregar catálogo do tenant e validar todos os serviços
+    catalogo_path = f"Clientes/{tenant_id}/Configuracao/Servicos"
+    servicos_db = await buscar_documento(catalogo_path) or {}
+
+    # Validar que todos os serviços existem no catálogo
+    for servico in autorizacao.servicos:
+        if servico not in servicos_db:
+            await invalidar_autorizacao_anterior(tenant_id, actor_id)
+            return {
+                "sucesso": False,
+                "mensagem": f"Serviço '{servico}' não está mais disponível no catálogo."
+            }
+
+    # Validar que todas as durações são válidas
+    duracao_total_recalculada = 0
+    for servico in autorizacao.servicos:
+        servico_data = servicos_db.get(servico, {})
+        duracao = servico_data.get("duracao", None)
+
+        # Validar que duração existe, é número e é positiva
+        if duracao is None:
+            await invalidar_autorizacao_anterior(tenant_id, actor_id)
+            return {
+                "sucesso": False,
+                "mensagem": f"Serviço '{servico}' sem duração definida no catálogo."
+            }
+
+        try:
+            duracao = int(duracao)
+        except (ValueError, TypeError):
+            await invalidar_autorizacao_anterior(tenant_id, actor_id)
+            return {
+                "sucesso": False,
+                "mensagem": f"Duração de '{servico}' é inválida no catálogo."
+            }
+
+        if duracao <= 0:
+            await invalidar_autorizacao_anterior(tenant_id, actor_id)
+            return {
+                "sucesso": False,
+                "mensagem": f"Duração de '{servico}' deve ser positiva (encontrado: {duracao})."
+            }
+
+        duracao_total_recalculada += duracao
+
+    # Verificar se profissional atende todos os serviços
+    profissional_path = f"Clientes/{tenant_id}/Profissionais/{autorizacao.profissional}"
+    prof_data = await buscar_documento(profissional_path) or {}
+    servicos_prof = prof_data.get("servicos", [])
+
+    for servico in autorizacao.servicos:
+        if servico not in servicos_prof:
+            await invalidar_autorizacao_anterior(tenant_id, actor_id)
+            return {
+                "sucesso": False,
+                "mensagem": f"Profissional não executa '{servico}'."
+            }
+
+    # Atualizar duração total com o valor recalculado (catálogo atual prevalece)
+    autorizacao.duracao_total_min = duracao_total_recalculada
+
     # 5. Registrar confirmação (marcar autorização como confirmada)
     # Para FASE 4B.2, essa autorização será consumida para criar evento com confirmado=True
     autorizacao_confirmada = autorizacao
