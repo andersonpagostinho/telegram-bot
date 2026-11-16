@@ -29,56 +29,80 @@ ETAPAS_ONBOARDING = [
 INDICE_ETAPAS = {etapa: idx for idx, etapa in enumerate(ETAPAS_ONBOARDING)}
 
 
-async def _criar_agenda_funcionamento_firestore(tenant_id: str, agenda_padrao_str: str) -> None:
+async def _criar_agenda_funcionamento_firestore(tenant_id: str, agenda_padrao_str: str = None, agenda_padrao_dict: dict = None) -> None:
     """
     Cria documento de configuração de agenda_funcionamento no Firestore.
 
-    Converte formato coletado no onboarding (ex: "9:00-18:00") para estrutura
-    esperada por obter_janela_funcionamento().
+    Suporta dois formatos:
+    1. agenda_padrao_dict: Estrutura completa com horários por dia
+       {"0": {"aberto": True, "inicio": "09:00", "fim": "18:00"}, ...}
+    2. agenda_padrao_str: String simples "inicio-fim" (compatibilidade legada)
 
     Args:
         tenant_id: ID do tenant
-        agenda_padrao_str: String formato "inicio-fim", ex: "9:00-18:00"
+        agenda_padrao_str: String formato "inicio-fim", ex: "9:00-18:00" (opcional)
+        agenda_padrao_dict: Dict com estrutura completa (opcional)
 
     Raises:
         ValueError: Se formato inválido ou Firestore falhar
     """
     try:
-        # Parsear horários
-        partes = agenda_padrao_str.split("-")
-        if len(partes) != 2:
-            raise ValueError(f"Formato inválido: esperado 'inicio-fim', recebido '{agenda_padrao_str}'")
+        if agenda_padrao_dict:
+            # Novo formato: estrutura completa
+            if not isinstance(agenda_padrao_dict, dict):
+                raise ValueError("agenda_padrao_dict deve ser um dict")
 
-        inicio_str = partes[0].strip()
-        fim_str = partes[1].strip()
+            # Validar que tem dias
+            if not any(agenda_padrao_dict.get(str(i), {}).get("aberto") for i in range(7)):
+                raise ValueError("Nenhum dia aberto configurado")
 
-        # Normalizar para HH:MM
-        if inicio_str.count(":") == 0:
-            inicio_str = f"{inicio_str}:00"
-        if fim_str.count(":") == 0:
-            fim_str = f"{fim_str}:00"
+            agenda_config = {
+                "agenda_padrao": agenda_padrao_dict,
+                "excecoes_data": {}
+            }
 
-        # Validar formato básico
-        if not _validar_formato_hora(inicio_str) or not _validar_formato_hora(fim_str):
-            raise ValueError(f"Horários inválidos: inicio='{inicio_str}', fim='{fim_str}'")
+            print(f"[OK] Agenda funcionamento criada para tenant {tenant_id} (from dict)", flush=True)
 
-        # Normalizar para HH:MM (com zero à esquerda)
-        inicio_str = _normalizar_hora(inicio_str)
-        fim_str = _normalizar_hora(fim_str)
+        elif agenda_padrao_str:
+            # Formato legado: string simples
+            partes = agenda_padrao_str.split("-")
+            if len(partes) != 2:
+                raise ValueError(f"Formato inválido: esperado 'inicio-fim', recebido '{agenda_padrao_str}'")
 
-        # Criar configuração com padrão: seg-sáb aberto, domingo fechado
-        agenda_config = {
-            "agenda_padrao": {
-                "0": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # segunda
-                "1": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # terça
-                "2": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quarta
-                "3": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quinta
-                "4": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sexta
-                "5": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sábado
-                "6": {"aberto": False}                                         # domingo
-            },
-            "excecoes_data": {}
-        }
+            inicio_str = partes[0].strip()
+            fim_str = partes[1].strip()
+
+            # Normalizar para HH:MM
+            if inicio_str.count(":") == 0:
+                inicio_str = f"{inicio_str}:00"
+            if fim_str.count(":") == 0:
+                fim_str = f"{fim_str}:00"
+
+            # Validar formato básico
+            if not _validar_formato_hora(inicio_str) or not _validar_formato_hora(fim_str):
+                raise ValueError(f"Horários inválidos: inicio='{inicio_str}', fim='{fim_str}'")
+
+            # Normalizar para HH:MM (com zero à esquerda)
+            inicio_str = _normalizar_hora(inicio_str)
+            fim_str = _normalizar_hora(fim_str)
+
+            # Criar configuração com padrão: seg-sáb aberto, domingo fechado
+            agenda_config = {
+                "agenda_padrao": {
+                    "0": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # segunda
+                    "1": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # terça
+                    "2": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quarta
+                    "3": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # quinta
+                    "4": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sexta
+                    "5": {"aberto": True, "inicio": inicio_str, "fim": fim_str},   # sábado
+                    "6": {"aberto": False}                                         # domingo
+                },
+                "excecoes_data": {}
+            }
+
+            print(f"[OK] Agenda funcionamento criada para tenant {tenant_id}: {inicio_str}-{fim_str}", flush=True)
+        else:
+            raise ValueError("agenda_padrao_str ou agenda_padrao_dict obrigatório")
 
         def salvar():
             config_ref = get_db().collection("Clientes").document(tenant_id)\
@@ -86,8 +110,6 @@ async def _criar_agenda_funcionamento_firestore(tenant_id: str, agenda_padrao_st
             config_ref.set(agenda_config)
 
         await asyncio.to_thread(salvar)
-
-        print(f"[OK] Agenda funcionamento criada para tenant {tenant_id}: {inicio_str}-{fim_str}", flush=True)
 
     except Exception as e:
         print(f"[ERRO] Criar agenda_funcionamento: {e}", flush=True)
@@ -170,6 +192,142 @@ def _validar_formato_hora(hora_str: str) -> bool:
         return 0 <= horas <= 23 and 0 <= minutos <= 59
     except (ValueError, IndexError, AttributeError):
         return False
+
+
+def _parsear_dias_semana(texto: str) -> list:
+    """
+    Parseia dias da semana de texto natural.
+
+    Suporta:
+    - "segunda a sexta" → [0,1,2,3,4]
+    - "seg-sex" → [0,1,2,3,4]
+    - "segunda, quarta, sexta" → [0,2,4]
+    - etc
+
+    Returns:
+        Lista de índices de dias (0-6, onde 0=segunda, 6=domingo)
+    """
+    t = texto.lower().strip()
+
+    dias_mapa = {
+        "segunda": 0, "seg": 0, "segunda-feira": 0,
+        "terça": 1, "ter": 1, "terça-feira": 1,
+        "quarta": 2, "qua": 2, "quarta-feira": 2,
+        "quinta": 3, "qui": 3, "quinta-feira": 3,
+        "sexta": 4, "sex": 4, "sexta-feira": 4,
+        "sábado": 5, "sabado": 5, "sab": 5,
+        "domingo": 6, "dom": 6
+    }
+
+    dias = set()
+
+    # Padrão: "X a Y" ou "X-Y"
+    import re
+    match_range = re.search(r'(\w+)\s+a\s+(\w+)|(\w+)-(\w+)', t)
+    if match_range:
+        inicio_txt = match_range.group(1) or match_range.group(3)
+        fim_txt = match_range.group(2) or match_range.group(4)
+        inicio = dias_mapa.get(inicio_txt.strip())
+        fim = dias_mapa.get(fim_txt.strip())
+
+        if inicio is not None and fim is not None:
+            if inicio <= fim:
+                dias.update(range(inicio, fim+1))
+            else:
+                dias.update(range(inicio, 7))
+                dias.update(range(0, fim+1))
+            return sorted(list(dias))
+
+    # Padrão: "segunda, quarta, sexta"
+    for palavra in re.split(r'[,\s]+', t):
+        if palavra in dias_mapa:
+            dias.add(dias_mapa[palavra])
+
+    # Padrão: "todos os dias" ou "todo dia" (incluindo domingo)
+    if "todos" in t or ("todo" in t and "dia" in t):
+        return [0,1,2,3,4,5,6]
+
+    # Padrão: "segunda a sexta" (exceto domingo)
+    if ("segunda" in t or "seg" in t) and ("sexta" in t or "sex" in t):
+        return [0,1,2,3,4]
+
+    return sorted(list(dias)) if dias else []
+
+
+def _parsear_horarios(texto: str) -> dict:
+    """
+    Parseia horários de texto natural.
+
+    Suporta:
+    - "9h às 18h" → {"inicio": "09:00", "fim": "18:00"}
+    - "das 9:00 até 18:00" → {"inicio": "09:00", "fim": "18:00"}
+    - etc
+
+    Returns:
+        {"inicio": "HH:MM", "fim": "HH:MM"} ou {}
+    """
+    import re
+    t = texto.lower()
+
+    # Padrão: HH:MM, H:MM, Hh, ou HHh
+    horas = re.findall(r'(\d{1,2})(?::(\d{2}))?h?', t)
+
+    if len(horas) >= 2:
+        inicio_h = horas[0][0].zfill(2)
+        inicio_m = horas[0][1] or "00"
+        fim_h = horas[1][0].zfill(2)
+        fim_m = horas[1][1] or "00"
+
+        return {
+            "inicio": f"{inicio_h}:{inicio_m}",
+            "fim": f"{fim_h}:{fim_m}"
+        }
+
+    return {}
+
+
+def construir_agenda_por_dias(dias_config: dict) -> dict:
+    """
+    Constrói agenda_padrao para Firestore.
+
+    Args:
+        dias_config: {
+            "dias": [0,1,2,3,4],
+            "horarios": {
+                "0": {"inicio": "09:00", "fim": "18:00"},
+                "5": {"inicio": "09:00", "fim": "13:00"}
+            }
+        }
+
+    Returns:
+        Estrutura pronta para salvar em Firestore
+    """
+    agenda = {}
+    horarios = dias_config.get("horarios", {})
+
+    for dia in range(7):
+        dia_str = str(dia)
+        if dia in dias_config.get("dias", []):
+            # Verificar se tem horário específico para este dia
+            if dia_str in horarios:
+                h = horarios[dia_str]
+                agenda[dia_str] = {
+                    "aberto": True,
+                    "inicio": h.get("inicio", "09:00"),
+                    "fim": h.get("fim", "18:00")
+                }
+            else:
+                # Usar primeiro horário como padrão
+                primeiro_h = next(iter(horarios.values())) if horarios else {"inicio": "09:00", "fim": "18:00"}
+                agenda[dia_str] = {
+                    "aberto": True,
+                    "inicio": primeiro_h.get("inicio"),
+                    "fim": primeiro_h.get("fim")
+                }
+        else:
+            agenda[dia_str] = {"aberto": False}
+
+    return agenda
 
 
 async def iniciar_onboarding_dono(tenant_id: str, actor_id: str, dono_nome: str, dono_email: str) -> dict:
@@ -313,23 +471,78 @@ async def pegar_etapa_onboarding(tenant_id: str, actor_id: str = None) -> dict:
         return None
 
 
-async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, valor: str) -> dict:
+async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, valor: str, ctx: dict = None) -> dict:
     """
     Avança para próxima etapa e salva dado da etapa atual (isolado por actor).
+
+    FASE 3: Suporta draft e confirmação para "agenda_padrao".
 
     Args:
         tenant_id: ID do tenant
         actor_id: ID do ator
         campo: nome do campo (ex: "nome_negocio")
         valor: valor fornecido pelo dono
+        ctx: Contexto da sessão (para gerenciar draft de agenda)
 
     Returns:
-        {"etapa_atual": str, "proximo_passo": str}
+        {
+            "etapa_atual": str,
+            "proximo_passo": str,
+            "estado_interno": str (opcional: "aguardando_informacoes", "aguardando_confirmacao", "concluido")
+        }
     """
     if not tenant_id or not actor_id or not campo or not valor:
         raise ValueError("tenant_id, actor_id, campo e valor são obrigatórios")
 
     try:
+        # FASE 3: Lógica especial para "agenda_padrao" com draft e confirmação
+        if campo == "agenda_padrao":
+            # Inicializar draft se não existe
+            if "draft_agenda_padrao" not in (ctx or {}):
+                ctx = ctx or {}
+                ctx["draft_agenda_padrao"] = {
+                    "dias": [],
+                    "horarios": {},
+                    "estado": "aguardando_informacoes"
+                }
+
+            # Parsear dados da mensagem
+            dias_novos = _parsear_dias_semana(valor)
+            horarios_novos = _parsear_horarios(valor)
+
+            # Mesclar com draft anterior
+            draft = mesclar_draft_agenda(ctx["draft_agenda_padrao"], dias_novos, horarios_novos)
+            ctx["draft_agenda_padrao"] = draft
+
+            # Validar completude
+            validacao = validar_completude_agenda(draft)
+
+            if not validacao["completo"]:
+                # Ainda faltam dados — pedir próximo sem avançar etapa
+                return {
+                    "etapa_atual": "agenda_padrao",
+                    "estado_interno": "aguardando_informacoes",
+                    "proximo_passo": validacao["proximo_passo"],
+                    "draft_atualizado": True
+                }
+
+            # Agenda completa — mostrar resumo e pedir confirmação
+            agenda_estruturada = construir_agenda_por_dias({
+                "dias": draft["dias"],
+                "horarios": draft["horarios"]
+            })
+            resumo = formatar_resumo_agenda(agenda_estruturada)
+
+            ctx["draft_agenda_padrao"]["agenda_estruturada"] = agenda_estruturada
+            ctx["draft_agenda_padrao"]["estado"] = "aguardando_confirmacao"
+
+            return {
+                "etapa_atual": "agenda_padrao",
+                "estado_interno": "aguardando_confirmacao",
+                "proximo_passo": f"{resumo}\n\n✅ Confirma? (sim/não)",
+                "draft_atualizado": True
+            }
+
         # Novo path isolado por actor (source of truth)
         novo_ref = get_db().collection("Clientes").document(tenant_id)\
             .collection("Donos").document(actor_id)\
@@ -374,10 +587,6 @@ async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, va
             return proxima_etapa if proximo_indice < len(ETAPAS_ONBOARDING) else "completo"
 
         proxima_etapa = await asyncio.to_thread(atualizar)
-
-        # Se agenda_padrao, criar configuração de agenda_funcionamento
-        if campo == "agenda_padrao":
-            await _criar_agenda_funcionamento_firestore(tenant_id, valor)
 
         # FASE 2: Se jornada_primeiro_profissional, criar profissional com jornada individual
         if campo == "jornada_primeiro_profissional":
@@ -594,6 +803,102 @@ def validar_campo_onboarding(campo: str, valor: str) -> dict:
     return {"valido": True, "motivo": "OK"}
 
 
+def formatar_resumo_agenda(agenda_dict: dict) -> str:
+    """
+    Formata agenda_padrao para confirmação legível.
+
+    Args:
+        agenda_dict: {"0": {"aberto": True, "inicio": "09:00", "fim": "18:00"}, ...}
+
+    Returns:
+        String formatada para apresentar ao dono
+    """
+    nomes_dias = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+    linhas = ["📅 **Sua agenda de funcionamento:**\n"]
+
+    dias_abertos = []
+    for dia_num in range(7):
+        dia_config = agenda_dict.get(str(dia_num), {})
+        if dia_config.get("aberto"):
+            inicio = dia_config.get("inicio", "09:00")
+            fim = dia_config.get("fim", "18:00")
+            dias_abertos.append(f"{nomes_dias[dia_num].capitalize()}: {inicio}-{fim}")
+
+    if dias_abertos:
+        linhas.append("\n".join(dias_abertos))
+        linhas.append("\nDesde fechado: domingo")
+    else:
+        linhas.append("⚠️ Nenhum dia aberto configurado")
+
+    return "".join(linhas)
+
+
+def mesclar_draft_agenda(draft_anterior: dict, dias_novos: list = None, horarios_novos: dict = None) -> dict:
+    """
+    Mescla informações de agenda entre mensagens.
+
+    Args:
+        draft_anterior: Draft anterior {"dias": [...], "horarios": {...}, "estado": ...}
+        dias_novos: Lista de dias extraída da nova mensagem (opcional)
+        horarios_novos: Horários extraídos da nova mensagem (opcional)
+
+    Returns:
+        Draft mesclado
+    """
+    draft = draft_anterior.copy() if draft_anterior else {"dias": [], "horarios": {}, "estado": "aguardando_informacoes"}
+
+    if dias_novos:
+        draft["dias"] = dias_novos
+
+    if horarios_novos:
+        draft["horarios"].update(horarios_novos)
+
+    return draft
+
+
+def validar_completude_agenda(draft: dict) -> dict:
+    """
+    Valida se agenda está completa.
+
+    Args:
+        draft: Draft com {"dias": [...], "horarios": {...}}
+
+    Returns:
+        {
+            "completo": bool,
+            "faltando": [list de campos faltando],
+            "proximo_passo": str
+        }
+    """
+    faltando = []
+
+    if not draft.get("dias"):
+        faltando.append("dias")
+
+    if not draft.get("horarios"):
+        faltando.append("horarios")
+
+    if faltando:
+        if "dias" in faltando:
+            return {
+                "completo": False,
+                "faltando": faltando,
+                "proximo_passo": "Qual é o dia ou dias da semana? (ex: 'segunda a sexta' ou 'todos os dias')"
+            }
+        else:
+            return {
+                "completo": False,
+                "faltando": faltando,
+                "proximo_passo": "Qual é o horário? (ex: 'das 9h às 18h')"
+            }
+
+    return {
+        "completo": True,
+        "faltando": [],
+        "proximo_passo": "Agenda completa - confirma?"
+    }
+
+
 def obter_pergunta_etapa(etapa: str) -> str:
     """
     Retorna pergunta conversacional para etapa.
@@ -608,7 +913,7 @@ def obter_pergunta_etapa(etapa: str) -> str:
         "nome_negocio": "Qual é o nome do seu negócio?",
         "segmento": "Que tipo de negócio? (Salão, Spa, Clínica, Barbershop, etc)",
         "endereco": "Qual é o endereço do seu negócio?",
-        "agenda_padrao": "Qual é o horário de funcionamento? (ex: 9:00-18:00)",
+        "agenda_padrao": "Qual é o horário de funcionamento? (ex: 'segunda a sexta, das 9h às 18h')",
         "primeiro_profissional": "Nome do primeiro profissional?",
         "canal_primeiro_profissional": "Qual é o WhatsApp ou contato do(a) [nome]?",
         "jornada_primeiro_profissional": "A profissional trabalha nos mesmos dias e horários do salão, ou tem um horário diferente? (ex: 'igual' ou '14:00-17:00')",
@@ -650,6 +955,109 @@ async def marcar_onboarding_completo(tenant_id: str) -> bool:
     except Exception as e:
         print(f"[ERRO] Marcar onboarding completo: {e}")
         return False
+
+
+async def processar_confirmacao_agenda_padrao(
+    tenant_id: str,
+    actor_id: str,
+    texto_usuario: str,
+    draft_agenda: dict
+) -> dict:
+    """
+    Processa confirmação de agenda durante onboarding.
+
+    Args:
+        tenant_id: ID do tenant
+        actor_id: ID do ator
+        texto_usuario: Resposta do dono ("sim", "não", etc)
+        draft_agenda: Draft com agenda_estruturada
+
+    Returns:
+        {
+            "confirmado": bool,
+            "acao": "gravar" | "rejeitar" | "corrigir",
+            "proximo_passo": str
+        }
+    """
+    texto_lower = texto_usuario.lower().strip()
+
+    # Confirmação positiva
+    if any(palavra in texto_lower for palavra in ["sim", "confirma", "ok", "perfeito", "salva", "pronto"]):
+        # Gravar em Firestore
+        try:
+            agenda_estruturada = draft_agenda.get("agenda_estruturada", {})
+            await _criar_agenda_funcionamento_firestore(tenant_id, agenda_padrao_dict=agenda_estruturada)
+
+            # Avançar etapa normalmente
+            novo_ref = get_db().collection("Clientes").document(tenant_id)\
+                .collection("Donos").document(actor_id)\
+                .collection("onboarding").document("ativo")
+
+            def avançar():
+                doc = novo_ref.get()
+                if not doc.exists:
+                    raise ValueError("Onboarding não encontrado")
+
+                config = doc.to_dict()
+                etapa_atual = config.get("onboarding_etapa_atual")
+                indice_atual = INDICE_ETAPAS.get(etapa_atual, 0)
+                proximo_indice = indice_atual + 1
+
+                if proximo_indice < len(ETAPAS_ONBOARDING):
+                    proxima_etapa = ETAPAS_ONBOARDING[proximo_indice]
+                    novo_ref.update({
+                        "onboarding_etapa_atual": proxima_etapa,
+                        "onboarding_indice": proximo_indice,
+                        "agenda_padrao": draft_agenda.get("horarios", {}),
+                        "atualizado_em": datetime.now(pytz.UTC).isoformat()
+                    })
+                    return proxima_etapa
+                else:
+                    novo_ref.update({
+                        "onboarding_status": "completo",
+                        "onboarding_etapa_atual": "completo"
+                    })
+                    return "completo"
+
+            proxima_etapa = await asyncio.to_thread(avançar)
+
+            return {
+                "confirmado": True,
+                "acao": "gravar",
+                "proximo_passo": obter_pergunta_etapa(proxima_etapa),
+                "proxima_etapa": proxima_etapa
+            }
+        except Exception as e:
+            print(f"[ERRO] Gravar agenda: {e}")
+            return {
+                "confirmado": False,
+                "acao": "erro",
+                "proximo_passo": f"Erro ao salvar: {str(e)}"
+            }
+
+    # Rejeição
+    elif any(palavra in texto_lower for palavra in ["não", "cancela", "volta", "outra"]):
+        return {
+            "confirmado": False,
+            "acao": "rejeitar",
+            "proximo_passo": "Tudo bem. Qual é o horário correto? (ex: 'segunda a sexta, 9h às 18h')"
+        }
+
+    # Correção
+    elif any(palavra in texto_lower for palavra in ["corrige", "muda", "errado", "outra", "diferente"]):
+        return {
+            "confirmado": False,
+            "acao": "corrigir",
+            "proximo_passo": "Qual é o horário correto? (ex: 'segunda a sexta, 9h às 18h')"
+        }
+
+    # Ambíguo — pedir confirmação explícita
+    else:
+        return {
+            "confirmado": False,
+            "acao": "ambiguo",
+            "proximo_passo": "Pode confirmar? (sim/não)"
+        }
 
 
 async def validar_onboarding_minimo(tenant_id: str) -> dict:

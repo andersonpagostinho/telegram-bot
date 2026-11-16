@@ -14,7 +14,8 @@ from services.onboarding_dono_service import (
     validar_campo_onboarding,
     obter_pergunta_etapa,
     marcar_onboarding_completo,
-    validar_onboarding_minimo
+    validar_onboarding_minimo,
+    processar_confirmacao_agenda_padrao
 )
 from services.identidade_service import normalizar_actor_id
 
@@ -241,6 +242,8 @@ async def processar_resposta_onboarding_dono(
     3. Avança etapa em Firestore
     4. Retorna próxima pergunta ou marca como completo
 
+    FASE 3: Suporta confirmação de agenda_padrao com draft
+
     Retorna:
         dict com handled=True e resposta, ou None se não está em onboarding
     """
@@ -256,6 +259,45 @@ async def processar_resposta_onboarding_dono(
         # Normalizar actor_id a partir de user_id (WhatsApp)
         actor_id = normalizar_actor_id("whatsapp", user_id)
 
+        # FASE 3: Verificar se está em confirmação de agenda_padrao
+        if ctx.get("agenda_padrao_state") == "aguardando_confirmacao":
+            from services.onboarding_dono_service import processar_confirmacao_agenda_padrao
+            draft = ctx.get("draft_agenda_padrao", {})
+            resultado = await processar_confirmacao_agenda_padrao(
+                tenant_id, actor_id, texto_usuario, draft
+            )
+
+            if resultado["acao"] == "gravar":
+                # Agenda gravada — avançar para próxima etapa
+                proxima_etapa = resultado.get("proxima_etapa", "primeiro_profissional")
+                ctx.update({
+                    "onboarding_etapa": proxima_etapa,
+                    "agenda_padrao_state": None,
+                    "draft_agenda_padrao": None
+                })
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+                return {
+                    "handled": True,
+                    "resposta": f"✅ Horário salvo!\n\n{resultado['proximo_passo']}"
+                }
+            elif resultado["acao"] == "rejeitar":
+                # Rejeitar — limpar draft e pedir novamente
+                ctx.update({
+                    "agenda_padrao_state": "aguardando_informacoes",
+                    "draft_agenda_padrao": {"dias": [], "horarios": {}, "estado": "aguardando_informacoes"}
+                })
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+                return {
+                    "handled": True,
+                    "resposta": resultado["proximo_passo"]
+                }
+            else:
+                # Ambíguo ou correção — pedir confirmação ou correção
+                return {
+                    "handled": True,
+                    "resposta": resultado["proximo_passo"]
+                }
+
         # Obter etapa atual (isolada por ator)
         etapa_info = await pegar_etapa_onboarding(tenant_id, actor_id)
         if not etapa_info:
@@ -269,7 +311,41 @@ async def processar_resposta_onboarding_dono(
         print(f"[ONBOARDING] etapa_atual={etapa_atual}", flush=True)
         print(f"[ONBOARDING] resposta_recebida='{texto_usuario}'", flush=True)
 
-        # Guard: validar resposta
+        # FASE 3: Se etapa é "agenda_padrao", usar lógica de draft
+        if etapa_atual == "agenda_padrao":
+            resultado_draft = await avancar_etapa_onboarding(
+                tenant_id=tenant_id,
+                actor_id=actor_id,
+                campo=etapa_atual,
+                valor=texto_usuario,
+                ctx=ctx
+            )
+
+            estado_interno = resultado_draft.get("estado_interno")
+            if estado_interno == "aguardando_informacoes":
+                # Ainda faltam dados
+                ctx.update({
+                    "agenda_padrao_state": "aguardando_informacoes",
+                    "draft_agenda_padrao": resultado_draft.get("draft_agenda_padrao", {})
+                })
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+                return {
+                    "handled": True,
+                    "resposta": resultado_draft["proximo_passo"]
+                }
+            elif estado_interno == "aguardando_confirmacao":
+                # Agenda completa — pedir confirmação
+                ctx.update({
+                    "agenda_padrao_state": "aguardando_confirmacao",
+                    "draft_agenda_padrao": resultado_draft.get("draft_agenda_padrao", {})
+                })
+                await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
+                return {
+                    "handled": True,
+                    "resposta": resultado_draft["proximo_passo"]
+                }
+
+        # Guard: validar resposta (para outros campos)
         validacao = validar_campo_onboarding(etapa_atual, texto_usuario)
         print(f"[ONBOARDING] validacao={validacao}", flush=True)
         if not validacao.get("valido"):
@@ -287,7 +363,8 @@ async def processar_resposta_onboarding_dono(
             tenant_id=tenant_id,
             actor_id=actor_id,
             campo=etapa_atual,
-            valor=texto_usuario
+            valor=texto_usuario,
+            ctx=ctx
         )
 
         proxima_etapa = resultado_avanço.get("etapa_atual")
@@ -319,9 +396,11 @@ async def processar_resposta_onboarding_dono(
 
         # Atualizar contexto com próxima etapa
         ctx.update({
-            "onboarding_etapa": proxima_etapa
+            "onboarding_etapa": proxima_etapa,
+            "agenda_padrao_state": None,
+            "draft_agenda_padrao": None
         })
-        await salvar_contexto_temporario(user_id, ctx)
+        await salvar_contexto_temporario(user_id, ctx, tenant_id=tenant_id)
 
         # Retornar próxima pergunta
         print(f"[ONBOARDING] retorno: handled=True, resposta='{proximo_passo[:50]}...'", flush=True)
