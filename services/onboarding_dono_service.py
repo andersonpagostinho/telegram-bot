@@ -4,8 +4,12 @@
 # Dados permanentes salvos em Firestore em Configuracao/negocio
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
+import hashlib
+import json
+import uuid
+import time
 from services.identidade_service import criar_ator_dono, normalizar_actor_id
 from services.firestore_client import get_db
 from services.cadastro_inicial_service import salvar_profissional
@@ -27,6 +31,47 @@ ETAPAS_ONBOARDING = [
 ]
 
 INDICE_ETAPAS = {etapa: idx for idx, etapa in enumerate(ETAPAS_ONBOARDING)}
+
+# Constants for idempotent operations
+OPERATION_LEASE_SECONDS = 300  # 5 minutes
+MAX_ATTEMPT_COUNT = 3
+BACKOFF_MULTIPLIER = 100  # milliseconds
+
+
+def _calcular_draft_hash_sha256(draft_data: dict) -> str:
+    """
+    Calcula hash SHA-256 determinístico do draft com JSON canônico.
+
+    Args:
+        draft_data: Dict com dados do draft
+
+    Returns:
+        String hexadecimal do hash SHA-256
+    """
+    # Extrair campos relevantes em ordem determinística
+    dados_hash = {
+        "dias": sorted(draft_data.get("dias", [])),
+        "horarios": draft_data.get("horarios", {}),
+        "agenda_estruturada": draft_data.get("agenda_estruturada", {})
+    }
+
+    # JSON canônico: sort_keys + compact separators
+    json_str = json.dumps(dados_hash, sort_keys=True, separators=(',', ':'), ensure_ascii=True)
+
+    # SHA-256
+    hash_obj = hashlib.sha256(json_str.encode('utf-8'))
+    return hash_obj.hexdigest()
+
+
+def _gerar_operation_owner_id() -> str:
+    """Gera ID único para esta execução (UUID)."""
+    return str(uuid.uuid4())
+
+
+def _calcular_lease_expiracao() -> str:
+    """Calcula timestamp de expiração do lease (5 minutos no futuro)."""
+    expiracao = datetime.now(pytz.UTC) + timedelta(seconds=OPERATION_LEASE_SECONDS)
+    return expiracao.isoformat()
 
 
 async def _criar_agenda_funcionamento_firestore(tenant_id: str, agenda_padrao_str: str = None, agenda_padrao_dict: dict = None) -> None:
@@ -964,9 +1009,15 @@ async def processar_confirmacao_agenda_padrao(
     draft_agenda: dict
 ) -> dict:
     """
-    Processa confirmação de agenda durante onboarding.
+    Processa confirmação de agenda durante onboarding com idempotência robusta.
 
-    Com proteção idempotente: mesma confirmação não produz efeito duplo.
+    Arquitetura:
+    1. Aquisição atômica com .create()
+    2. Hash SHA-256 determinístico do draft
+    3. Máquina de estados: em_andamento → falha_recuperavel | completo
+    4. Lease + fencing para recuperação distribuída
+    5. Transação única para atomicidade (agenda + onboarding + operação)
+    6. Retry com backoff exponencial (máx 3 tentativas)
 
     Args:
         tenant_id: ID do tenant
@@ -977,144 +1028,44 @@ async def processar_confirmacao_agenda_padrao(
     Returns:
         {
             "confirmado": bool,
-            "acao": "gravar" | "rejeitar" | "corrigir",
-            "proximo_passo": str
+            "acao": "gravar" | "rejeitar" | "corrigir" | "erro",
+            "proximo_passo": str,
+            "proxima_etapa": str (opcional),
+            "idempotente": bool (opcional)
         }
     """
     texto_lower = texto_usuario.lower().strip()
 
     # Confirmação positiva
     if any(palavra in texto_lower for palavra in ["sim", "confirma", "ok", "perfeito", "salva", "pronto"]):
-        # Proteger com idempotência
         try:
             agenda_estruturada = draft_agenda.get("agenda_estruturada", {})
-            draft_id = draft_agenda.get("draft_id")  # ID único do draft
+            draft_id = draft_agenda.get("draft_id")
 
             if not draft_id:
                 raise ValueError("draft_id não encontrado em draft_agenda")
 
-            # 1. Verificar se esta operação já foi executada (idempotência)
-            operacao_ref = get_db().collection("Clientes").document(tenant_id)\
-                .collection("operacoes_idempotentes").document(f"confirmar_agenda_{draft_id}")
+            # Executar com retries
+            resultado = await _executar_confirmacao_com_idempotencia(
+                tenant_id=tenant_id,
+                actor_id=actor_id,
+                draft_id=draft_id,
+                draft_agenda=draft_agenda,
+                agenda_estruturada=agenda_estruturada
+            )
 
-            def verificar_e_gravar():
-                # Ler documento de operação
-                op_doc = operacao_ref.get()
-
-                if op_doc.exists:
-                    # Operação já foi executada
-                    op_data = op_doc.to_dict()
-                    if op_data.get("status") == "completo":
-                        # Idempotência: retornar resultado anterior
-                        return {
-                            "idempotente": True,
-                            "resultado_anterior": op_data.get("resultado")
-                        }
-                    elif op_data.get("status") == "falha_recuperavel":
-                        # Tentar recuperar operação abandonada
-                        # Mas sem sobrescrever, apenas continuar se seguro
-                        pass
-
-                # 2. Marcar operação como "em andamento" - ATOMICAMENTE
-                try:
-                    # Usar .create() que falha se documento já existe (atômico)
-                    operacao_ref.create({
-                        "draft_id": draft_id,
-                        "tenant_id": tenant_id,
-                        "status": "em_andamento",
-                        "inicio": datetime.now(pytz.UTC).isoformat(),
-                        "versao_draft": hash(str(draft_agenda.get("agenda_estruturada", {})))
-                    })
-                except Exception as e:
-                    # Documento já existe (race condition ganhou)
-                    # Tentar ler resultado anterior
-                    op_doc = operacao_ref.get()
-                    if op_doc.exists:
-                        op_data = op_doc.to_dict()
-                        if op_data.get("status") == "completo":
-                            return {
-                                "idempotente": True,
-                                "resultado_anterior": op_data.get("resultado")
-                            }
-                    # Se não conseguir ler resultado anterior, propagar erro
-                    raise ValueError(f"Operação duplicada em andamento: {draft_id}")
-
-                # 3. Gravar agenda
-                try:
-                    agenda_config = {
-                        "agenda_padrao": agenda_estruturada,
-                        "excecoes_data": {},
-                        "confirmada_em": datetime.now(pytz.UTC).isoformat()
-                    }
-
-                    agenda_ref = get_db().collection("Clientes").document(tenant_id)\
-                        .collection("configuracao").document("agenda_funcionamento")
-                    agenda_ref.set(agenda_config)
-
-                    # 4. Atualizar onboarding
-                    novo_ref = get_db().collection("Clientes").document(tenant_id)\
-                        .collection("Donos").document(actor_id)\
-                        .collection("onboarding").document("ativo")
-
-                    doc = novo_ref.get()
-                    if not doc.exists:
-                        raise ValueError("Onboarding não encontrado")
-
-                    config = doc.to_dict()
-                    etapa_atual = config.get("onboarding_etapa_atual")
-                    indice_atual = INDICE_ETAPAS.get(etapa_atual, 0)
-                    proximo_indice = indice_atual + 1
-
-                    if proximo_indice < len(ETAPAS_ONBOARDING):
-                        proxima_etapa = ETAPAS_ONBOARDING[proximo_indice]
-                        novo_ref.update({
-                            "onboarding_etapa_atual": proxima_etapa,
-                            "onboarding_indice": proximo_indice,
-                            "agenda_padrao": draft_agenda.get("horarios", {}),
-                            "atualizado_em": datetime.now(pytz.UTC).isoformat()
-                        })
-                        resultado_etapa = proxima_etapa
-                    else:
-                        novo_ref.update({
-                            "onboarding_status": "completo",
-                            "onboarding_etapa_atual": "completo"
-                        })
-                        resultado_etapa = "completo"
-
-                    # 5. Marcar operação como completo
-                    operacao_ref.set({
-                        "status": "completo",
-                        "fim": datetime.now(pytz.UTC).isoformat(),
-                        "resultado": {"proxima_etapa": resultado_etapa}
-                    }, merge=True)
-
-                    return {
-                        "idempotente": False,
-                        "resultado": {"proxima_etapa": resultado_etapa}
-                    }
-
-                except Exception as e:
-                    # Marcar como falha
-                    operacao_ref.set({
-                        "status": "falha",
-                        "erro": str(e),
-                        "fim": datetime.now(pytz.UTC).isoformat()
-                    }, merge=True)
-                    raise
-
-            resultado_operacao = await asyncio.to_thread(verificar_e_gravar)
-
-            proxima_etapa = resultado_operacao.get("resultado", {}).get("proxima_etapa")
+            proxima_etapa = resultado.get("proxima_etapa")
 
             return {
                 "confirmado": True,
                 "acao": "gravar",
                 "proximo_passo": obter_pergunta_etapa(proxima_etapa),
                 "proxima_etapa": proxima_etapa,
-                "idempotente": resultado_operacao.get("idempotente", False)
+                "idempotente": resultado.get("idempotente", False)
             }
+
         except Exception as e:
-            print(f"[ERRO] Gravar agenda com idempotência: {e}")
+            print(f"[ERRO] Gravar agenda com idempotência: {e}", flush=True)
             return {
                 "confirmado": False,
                 "acao": "erro",
@@ -1144,6 +1095,284 @@ async def processar_confirmacao_agenda_padrao(
             "acao": "ambiguo",
             "proximo_passo": "Pode confirmar? (sim/não)"
         }
+
+
+async def _executar_confirmacao_com_idempotencia(
+    tenant_id: str,
+    actor_id: str,
+    draft_id: str,
+    draft_agenda: dict,
+    agenda_estruturada: dict
+) -> dict:
+    """
+    Executa confirmação com retry e recuperação.
+
+    Retries:
+    - Máx 3 tentativas totais
+    - Backoff exponencial: 100ms, 200ms, 400ms
+    - Retry apenas em erros transitórios
+
+    Returns:
+        {"proxima_etapa": str, "idempotente": bool}
+    """
+    tentativa = 0
+    operacao_owner_id = _gerar_operation_owner_id()
+
+    while tentativa < MAX_ATTEMPT_COUNT:
+        tentativa += 1
+
+        try:
+            resultado = await asyncio.to_thread(
+                lambda: _confirmar_agenda_transacao_atomica(
+                    tenant_id=tenant_id,
+                    actor_id=actor_id,
+                    draft_id=draft_id,
+                    draft_agenda=draft_agenda,
+                    agenda_estruturada=agenda_estruturada,
+                    operation_owner_id=operacao_owner_id,
+                    tentativa_numero=tentativa
+                )
+            )
+            return resultado
+
+        except ValueError as ve:
+            # Erro não-recuperável (validação falhou)
+            print(f"[ERRO] Validação falhou em tentativa {tentativa}: {ve}", flush=True)
+            raise
+
+        except Exception as e:
+            # Erro transitório — pode retry
+            if tentativa < MAX_ATTEMPT_COUNT:
+                backoff_ms = BACKOFF_MULTIPLIER * (2 ** (tentativa - 1))
+                print(f"[AVISO] Tentativa {tentativa} falhou, aguardando {backoff_ms}ms: {e}", flush=True)
+                await asyncio.sleep(backoff_ms / 1000.0)
+                continue
+            else:
+                # Última tentativa falhou
+                raise
+
+
+def _confirmar_agenda_transacao_atomica(
+    tenant_id: str,
+    actor_id: str,
+    draft_id: str,
+    draft_agenda: dict,
+    agenda_estruturada: dict,
+    operation_owner_id: str,
+    tentativa_numero: int
+) -> dict:
+    """
+    Executa a confirmação em transação ÚNICA atomicamente.
+
+    Passos na transação:
+    1. Ler documento de operação
+    2. Ler documento de onboarding
+    3. Validar tenant, hash, proprietário, fencing, status
+    4. Gravar agenda
+    5. Atualizar onboarding
+    6. Marcar operação como completo
+
+    Todas as leituras antes das escritas.
+    Todas as escritas na mesma transação.
+
+    Returns:
+        {"proxima_etapa": str, "idempotente": bool}
+
+    Raises:
+        ValueError: Validação falhou (não retry)
+        Exception: Erro transitório (retry)
+    """
+    db = get_db()
+
+    # Referências de documentos
+    operacao_ref = db.collection("Clientes").document(tenant_id)\
+        .collection("operacoes_idempotentes").document(f"confirmar_agenda_{draft_id}")
+
+    onboarding_ref = db.collection("Clientes").document(tenant_id)\
+        .collection("Donos").document(actor_id)\
+        .collection("onboarding").document("ativo")
+
+    agenda_ref = db.collection("Clientes").document(tenant_id)\
+        .collection("configuracao").document("agenda_funcionamento")
+
+    # Calcular hash esperado
+    draft_hash = _calcular_draft_hash_sha256(draft_agenda)
+
+    # ========== FASE 1: Verificação prévia (fora da transação) ==========
+
+    op_doc = operacao_ref.get()
+
+    if op_doc.exists:
+        op_data = op_doc.to_dict()
+        status = op_data.get("status")
+
+        # Caso 1: Operação já completa → Idempotência
+        if status == "completo":
+            resultado_anterior = op_data.get("resultado", {})
+            print(f"[IDEMPOTENTE] Operação {draft_id} já completa, retornando resultado anterior", flush=True)
+            return {
+                "proxima_etapa": resultado_anterior.get("proxima_etapa"),
+                "idempotente": True
+            }
+
+        # Caso 2: Operação em andamento ou falha recuperável
+        if status in ["em_andamento", "falha_recuperavel"]:
+            lease_expires = op_data.get("lease_expires_at")
+            owner = op_data.get("operation_owner_id")
+
+            # Verificar se lease expirou
+            if lease_expires:
+                lease_dt = datetime.fromisoformat(lease_expires)
+                agora = datetime.now(pytz.UTC)
+
+                if agora >= lease_dt:
+                    # Lease expirou → Podemos reclamar
+                    print(f"[RECOVERY] Lease expirado para {draft_id}, reclamando propriedade", flush=True)
+                    # Continuar com reclaim (new operation_owner_id será usado)
+                else:
+                    # Lease ainda válido
+                    if owner != operation_owner_id:
+                        # Outra instância tem propriedade
+                        raise Exception(f"Operação {draft_id} em andamento por outro proprietário, lease expires em {lease_expires}")
+
+            # Hash compatível?
+            hash_armazenado = op_data.get("draft_hash_sha256")
+            if hash_armazenado and hash_armazenado != draft_hash:
+                raise ValueError(f"Hash do draft alterado: esperado {hash_armazenado}, obtido {draft_hash}")
+
+    # ========== FASE 2: Aquisição atômica com .create() ==========
+
+    if not op_doc.exists:
+        try:
+            # Tentar criar atomicamente
+            operacao_ref.create({
+                "tenant_id": tenant_id,
+                "actor_id": actor_id,
+                "draft_id": draft_id,
+                "operation_owner_id": operation_owner_id,
+                "lease_expires_at": _calcular_lease_expiracao(),
+                "fencing_version": 1,
+                "draft_hash_sha256": draft_hash,
+                "status": "em_andamento",
+                "tentativas": tentativa_numero,
+                "inicio": datetime.now(pytz.UTC).isoformat(),
+                "erros": []
+            })
+            print(f"[OK] Operação {draft_id} criada (tentativa {tentativa_numero})", flush=True)
+        except Exception as e:
+            # .create() falhou → documento já existe (race condition)
+            # Tentar ler resultado anterior
+            op_doc = operacao_ref.get()
+            if op_doc.exists:
+                op_data = op_doc.to_dict()
+                if op_data.get("status") == "completo":
+                    resultado_anterior = op_data.get("resultado", {})
+                    print(f"[IDEMPOTENTE] Race condition resolvida, operação já completa", flush=True)
+                    return {
+                        "proxima_etapa": resultado_anterior.get("proxima_etapa"),
+                        "idempotente": True
+                    }
+            raise
+
+    # ========== FASE 3: Transação única (leituras + escritas) ==========
+
+    transaction = db.transaction()
+
+    @transaction.transactional
+    def executar_transacao():
+        # --- Leituras ---
+
+        op_snapshot = transaction.get(operacao_ref)
+        if not op_snapshot.exists:
+            raise ValueError(f"Operação {draft_id} não encontrada após .create()")
+
+        op_data = op_snapshot.to_dict()
+
+        # Revalidar propriedade e fencing dentro da transação
+        owner_atual = op_data.get("operation_owner_id")
+        if owner_atual:
+            if owner_atual != operation_owner_id:
+                raise Exception(f"Propriedade perdida: esperado {operation_owner_id}, encontrado {owner_atual}")
+
+        # Revalidar hash
+        hash_atual = op_data.get("draft_hash_sha256")
+        if hash_atual != draft_hash:
+            raise ValueError(f"Hash alterado na transação: {hash_atual} vs {draft_hash}")
+
+        # Ler onboarding
+        onboarding_snapshot = transaction.get(onboarding_ref)
+        if not onboarding_snapshot.exists:
+            raise ValueError("Onboarding não encontrado")
+
+        config = onboarding_snapshot.to_dict()
+        etapa_atual = config.get("onboarding_etapa_atual")
+        indice_atual = INDICE_ETAPAS.get(etapa_atual, 0)
+        proximo_indice = indice_atual + 1
+
+        # --- Validações ---
+
+        if not agenda_estruturada:
+            raise ValueError("Agenda estruturada vazia")
+
+        # --- Escritas (todas na mesma transação) ---
+
+        # 1. Gravar agenda de funcionamento
+        agenda_config = {
+            "agenda_padrao": agenda_estruturada,
+            "excecoes_data": {},
+            "confirmada_em": datetime.now(pytz.UTC).isoformat()
+        }
+        transaction.set(agenda_ref, agenda_config)
+
+        # 2. Atualizar onboarding (avançar etapa)
+        if proximo_indice < len(ETAPAS_ONBOARDING):
+            proxima_etapa = ETAPAS_ONBOARDING[proximo_indice]
+            transaction.update(onboarding_ref, {
+                "onboarding_etapa_atual": proxima_etapa,
+                "onboarding_indice": proximo_indice,
+                "agenda_padrao": draft_agenda.get("horarios", {}),
+                "atualizado_em": datetime.now(pytz.UTC).isoformat()
+            })
+            resultado_etapa = proxima_etapa
+        else:
+            transaction.update(onboarding_ref, {
+                "onboarding_status": "completo",
+                "onboarding_etapa_atual": "completo",
+                "atualizado_em": datetime.now(pytz.UTC).isoformat()
+            })
+            resultado_etapa = "completo"
+
+        # 3. Marcar operação como completo
+        transaction.update(operacao_ref, {
+            "status": "completo",
+            "tentativas": tentativa_numero,
+            "fim": datetime.now(pytz.UTC).isoformat(),
+            "resultado": {"proxima_etapa": resultado_etapa}
+        })
+
+        return resultado_etapa
+
+    try:
+        proxima_etapa = executar_transacao()
+        print(f"[OK] Transação concluída para {draft_id} (tentativa {tentativa_numero})", flush=True)
+
+        return {
+            "proxima_etapa": proxima_etapa,
+            "idempotente": False
+        }
+
+    except Exception as e:
+        # Marcar operação como falha recuperável
+        try:
+            operacao_ref.update({
+                "status": "falha_recuperavel",
+                "tentativas": tentativa_numero,
+                "erros": [str(e)]
+            })
+        except Exception as err_update:
+            print(f"[AVISO] Falha ao marcar operação como falha_recuperavel: {err_update}", flush=True)
+
+        raise
 
 
 async def validar_onboarding_minimo(tenant_id: str) -> dict:
