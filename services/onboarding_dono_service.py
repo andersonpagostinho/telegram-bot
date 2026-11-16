@@ -1010,15 +1010,34 @@ async def processar_confirmacao_agenda_padrao(
                             "idempotente": True,
                             "resultado_anterior": op_data.get("resultado")
                         }
-                    # Se status != completo, tentar recuperar
+                    elif op_data.get("status") == "falha_recuperavel":
+                        # Tentar recuperar operação abandonada
+                        # Mas sem sobrescrever, apenas continuar se seguro
+                        pass
 
-                # 2. Marcar operação como "em andamento"
-                operacao_ref.set({
-                    "draft_id": draft_id,
-                    "tenant_id": tenant_id,
-                    "status": "em_andamento",
-                    "inicio": datetime.now(pytz.UTC).isoformat()
-                }, merge=True)
+                # 2. Marcar operação como "em andamento" - ATOMICAMENTE
+                try:
+                    # Usar .create() que falha se documento já existe (atômico)
+                    operacao_ref.create({
+                        "draft_id": draft_id,
+                        "tenant_id": tenant_id,
+                        "status": "em_andamento",
+                        "inicio": datetime.now(pytz.UTC).isoformat(),
+                        "versao_draft": hash(str(draft_agenda.get("agenda_estruturada", {})))
+                    })
+                except Exception as e:
+                    # Documento já existe (race condition ganhou)
+                    # Tentar ler resultado anterior
+                    op_doc = operacao_ref.get()
+                    if op_doc.exists:
+                        op_data = op_doc.to_dict()
+                        if op_data.get("status") == "completo":
+                            return {
+                                "idempotente": True,
+                                "resultado_anterior": op_data.get("resultado")
+                            }
+                    # Se não conseguir ler resultado anterior, propagar erro
+                    raise ValueError(f"Operação duplicada em andamento: {draft_id}")
 
                 # 3. Gravar agenda
                 try:
