@@ -966,11 +966,13 @@ async def processar_confirmacao_agenda_padrao(
     """
     Processa confirmação de agenda durante onboarding.
 
+    Com proteção idempotente: mesma confirmação não produz efeito duplo.
+
     Args:
         tenant_id: ID do tenant
         actor_id: ID do ator
         texto_usuario: Resposta do dono ("sim", "não", etc)
-        draft_agenda: Draft com agenda_estruturada
+        draft_agenda: Draft com agenda_estruturada + draft_id
 
     Returns:
         {
@@ -983,52 +985,117 @@ async def processar_confirmacao_agenda_padrao(
 
     # Confirmação positiva
     if any(palavra in texto_lower for palavra in ["sim", "confirma", "ok", "perfeito", "salva", "pronto"]):
-        # Gravar em Firestore
+        # Proteger com idempotência
         try:
             agenda_estruturada = draft_agenda.get("agenda_estruturada", {})
-            await _criar_agenda_funcionamento_firestore(tenant_id, agenda_padrao_dict=agenda_estruturada)
+            draft_id = draft_agenda.get("draft_id")  # ID único do draft
 
-            # Avançar etapa normalmente
-            novo_ref = get_db().collection("Clientes").document(tenant_id)\
-                .collection("Donos").document(actor_id)\
-                .collection("onboarding").document("ativo")
+            if not draft_id:
+                raise ValueError("draft_id não encontrado em draft_agenda")
 
-            def avançar():
-                doc = novo_ref.get()
-                if not doc.exists:
-                    raise ValueError("Onboarding não encontrado")
+            # 1. Verificar se esta operação já foi executada (idempotência)
+            operacao_ref = get_db().collection("Clientes").document(tenant_id)\
+                .collection("operacoes_idempotentes").document(f"confirmar_agenda_{draft_id}")
 
-                config = doc.to_dict()
-                etapa_atual = config.get("onboarding_etapa_atual")
-                indice_atual = INDICE_ETAPAS.get(etapa_atual, 0)
-                proximo_indice = indice_atual + 1
+            def verificar_e_gravar():
+                # Ler documento de operação
+                op_doc = operacao_ref.get()
 
-                if proximo_indice < len(ETAPAS_ONBOARDING):
-                    proxima_etapa = ETAPAS_ONBOARDING[proximo_indice]
-                    novo_ref.update({
-                        "onboarding_etapa_atual": proxima_etapa,
-                        "onboarding_indice": proximo_indice,
-                        "agenda_padrao": draft_agenda.get("horarios", {}),
-                        "atualizado_em": datetime.now(pytz.UTC).isoformat()
-                    })
-                    return proxima_etapa
-                else:
-                    novo_ref.update({
-                        "onboarding_status": "completo",
-                        "onboarding_etapa_atual": "completo"
-                    })
-                    return "completo"
+                if op_doc.exists:
+                    # Operação já foi executada
+                    op_data = op_doc.to_dict()
+                    if op_data.get("status") == "completo":
+                        # Idempotência: retornar resultado anterior
+                        return {
+                            "idempotente": True,
+                            "resultado_anterior": op_data.get("resultado")
+                        }
+                    # Se status != completo, tentar recuperar
 
-            proxima_etapa = await asyncio.to_thread(avançar)
+                # 2. Marcar operação como "em andamento"
+                operacao_ref.set({
+                    "draft_id": draft_id,
+                    "tenant_id": tenant_id,
+                    "status": "em_andamento",
+                    "inicio": datetime.now(pytz.UTC).isoformat()
+                }, merge=True)
+
+                # 3. Gravar agenda
+                try:
+                    agenda_config = {
+                        "agenda_padrao": agenda_estruturada,
+                        "excecoes_data": {},
+                        "confirmada_em": datetime.now(pytz.UTC).isoformat()
+                    }
+
+                    agenda_ref = get_db().collection("Clientes").document(tenant_id)\
+                        .collection("configuracao").document("agenda_funcionamento")
+                    agenda_ref.set(agenda_config)
+
+                    # 4. Atualizar onboarding
+                    novo_ref = get_db().collection("Clientes").document(tenant_id)\
+                        .collection("Donos").document(actor_id)\
+                        .collection("onboarding").document("ativo")
+
+                    doc = novo_ref.get()
+                    if not doc.exists:
+                        raise ValueError("Onboarding não encontrado")
+
+                    config = doc.to_dict()
+                    etapa_atual = config.get("onboarding_etapa_atual")
+                    indice_atual = INDICE_ETAPAS.get(etapa_atual, 0)
+                    proximo_indice = indice_atual + 1
+
+                    if proximo_indice < len(ETAPAS_ONBOARDING):
+                        proxima_etapa = ETAPAS_ONBOARDING[proximo_indice]
+                        novo_ref.update({
+                            "onboarding_etapa_atual": proxima_etapa,
+                            "onboarding_indice": proximo_indice,
+                            "agenda_padrao": draft_agenda.get("horarios", {}),
+                            "atualizado_em": datetime.now(pytz.UTC).isoformat()
+                        })
+                        resultado_etapa = proxima_etapa
+                    else:
+                        novo_ref.update({
+                            "onboarding_status": "completo",
+                            "onboarding_etapa_atual": "completo"
+                        })
+                        resultado_etapa = "completo"
+
+                    # 5. Marcar operação como completo
+                    operacao_ref.set({
+                        "status": "completo",
+                        "fim": datetime.now(pytz.UTC).isoformat(),
+                        "resultado": {"proxima_etapa": resultado_etapa}
+                    }, merge=True)
+
+                    return {
+                        "idempotente": False,
+                        "resultado": {"proxima_etapa": resultado_etapa}
+                    }
+
+                except Exception as e:
+                    # Marcar como falha
+                    operacao_ref.set({
+                        "status": "falha",
+                        "erro": str(e),
+                        "fim": datetime.now(pytz.UTC).isoformat()
+                    }, merge=True)
+                    raise
+
+            resultado_operacao = await asyncio.to_thread(verificar_e_gravar)
+
+            proxima_etapa = resultado_operacao.get("resultado", {}).get("proxima_etapa")
 
             return {
                 "confirmado": True,
                 "acao": "gravar",
                 "proximo_passo": obter_pergunta_etapa(proxima_etapa),
-                "proxima_etapa": proxima_etapa
+                "proxima_etapa": proxima_etapa,
+                "idempotente": resultado_operacao.get("idempotente", False)
             }
         except Exception as e:
-            print(f"[ERRO] Gravar agenda: {e}")
+            print(f"[ERRO] Gravar agenda com idempotência: {e}")
             return {
                 "confirmado": False,
                 "acao": "erro",
