@@ -743,6 +743,7 @@ def eh_gatilho_reagendamento(txt: str) -> bool:
 async def extrair_multiplos_servicos_da_mensagem(texto: str, dono_id: str) -> list[str]:
     """
     Extrai TODOS os serviços mencionados na mensagem que existem no catálogo.
+    PRESERVA ORDEM DE PRIMEIRA MENÇÃO na mensagem original.
     Usado tanto em agendamento_direto quanto em aguardando_data.
 
     Args:
@@ -750,7 +751,7 @@ async def extrair_multiplos_servicos_da_mensagem(texto: str, dono_id: str) -> li
         dono_id: Tenant ID para buscar catálogo
 
     Returns:
-        Lista de serviços normalizados encontrados (pode estar vazia)
+        Lista de serviços normalizados encontrados em ordem de menção (pode estar vazia)
     """
     profs_dict = await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais") or {}
     servicos_catalogo = set()
@@ -761,21 +762,36 @@ async def extrair_multiplos_servicos_da_mensagem(texto: str, dono_id: str) -> li
 
     texto_norm = normalizar(texto)
     servicos_encontrados = []
+    servicos_visto = set()
 
-    # Ordenar por tamanho DESC (mais específico primeiro)
+    # 🔥 PRESERVAÇÃO DE ORDEM: Iterar sobre palavras/matches no texto, não sobre catálogo
+    # Ordenar por tamanho DESC para match mais específico PRIMEIRO
     servicos_ord = sorted(servicos_catalogo, key=len, reverse=True)
+
+    # Encontrar posições de matches para ordenação
+    matches_com_posicao = []
+
     for serv_cat in servicos_ord:
         # Tentar match exato com word boundaries
-        if re.search(rf"\b{re.escape(serv_cat)}\b", texto_norm):
-            servicos_encontrados.append(serv_cat)
+        match_exato = re.search(rf"\b{re.escape(serv_cat)}\b", texto_norm)
+        if match_exato:
+            if serv_cat not in servicos_visto:
+                matches_com_posicao.append((match_exato.start(), serv_cat))
+                servicos_visto.add(serv_cat)
             continue
 
         # Fallback: match de prefixo (primeira palavra)
         serv_palavras = serv_cat.split()
         if serv_palavras:
             primeira_palavra = serv_palavras[0]
-            if re.search(rf"\b{re.escape(primeira_palavra)}\b", texto_norm):
-                servicos_encontrados.append(serv_cat)
+            match_prefixo = re.search(rf"\b{re.escape(primeira_palavra)}\b", texto_norm)
+            if match_prefixo and serv_cat not in servicos_visto:
+                matches_com_posicao.append((match_prefixo.start(), serv_cat))
+                servicos_visto.add(serv_cat)
+
+    # Ordenar por posição de primeira menção e extrair serviços
+    matches_com_posicao.sort(key=lambda x: x[0])
+    servicos_encontrados = [serv for _, serv in matches_com_posicao]
 
     return servicos_encontrados
 
