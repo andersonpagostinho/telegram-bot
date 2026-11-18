@@ -214,6 +214,104 @@ def extrair_trecho_temporal(texto: str) -> str:
 
     return t
 
+def _extrair_data_explicita(texto: str) -> str | None:
+    """
+    Extrai uma data explícita do formato DD/MM/AAAA ou similar.
+    Retorna string "DD/MM/AAAA" ou None.
+    """
+    if not texto:
+        return None
+
+    # Padrão: DD/MM/AAAA
+    m = re.search(r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b', texto)
+    if m:
+        return f"{m.group(1)}/{m.group(2)}/{m.group(3)}"
+
+    # Padrão: AAAA-MM-DD (ISO)
+    m = re.search(r'\b(\d{4})-(\d{2})-(\d{2})\b', texto)
+    if m:
+        return f"{m.group(2)}/{m.group(3)}/{m.group(1)}"
+
+    return None
+
+
+def _extrair_dia_semana_mencionado(texto: str) -> str | None:
+    """
+    Extrai o dia da semana mencionado no texto.
+    Retorna: "segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo" ou None.
+    """
+    if not texto:
+        return None
+
+    texto_norm = texto.lower()
+
+    mapeamento = {
+        "segunda": "segunda",
+        "terça": "terça",
+        "terca": "terça",
+        "quarta": "quarta",
+        "quinta": "quinta",
+        "sexta": "sexta",
+        "sábado": "sábado",
+        "sabado": "sábado",
+        "domingo": "domingo",
+    }
+
+    for palavra, dia in mapeamento.items():
+        if re.search(rf"\b{palavra}\b", texto_norm):
+            return dia
+
+    return None
+
+
+def _validar_data_vs_weekday(data_explicita_str: str, dia_semana_str: str) -> bool:
+    """
+    Valida se uma data explícita (DD/MM/AAAA) corresponde ao dia da semana mencionado.
+
+    Retorna:
+        True se correspondem (ou se só uma foi informada)
+        False se há conflito
+    """
+    if not data_explicita_str or not dia_semana_str:
+        # Se falta um dos dois, não há conflito a validar
+        return True
+
+    try:
+        # Parsear data explícita
+        partes = data_explicita_str.split("/")
+        if len(partes) != 3:
+            return True
+
+        dia, mes, ano = int(partes[0]), int(partes[1]), int(partes[2])
+        dt = datetime(ano, mes, dia)
+
+        # Mapeamento: weekday() retorna 0=segunda, 1=terça, ..., 6=domingo
+        indice_calculado = dt.weekday()
+
+        mapeamento_reverso = {
+            "segunda": 0,
+            "terça": 1,
+            "quarta": 2,
+            "quinta": 3,
+            "sexta": 4,
+            "sábado": 5,
+            "domingo": 6,
+        }
+
+        indice_mencionado = mapeamento_reverso.get(dia_semana_str.lower())
+
+        if indice_mencionado is None:
+            return True
+
+        # Comparar
+        correspondem = (indice_calculado == indice_mencionado)
+        return correspondem
+
+    except Exception as e:
+        print(f"[_validar_data_vs_weekday] Erro ao validar: {e}", flush=True)
+        return True  # Falha aberta: se erro, considera válido
+
+
 def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> datetime | None | dict:
     """
     Interpreta data+hora.
@@ -229,11 +327,13 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
         Se return_metadata=False (default):
             datetime | None (comportamento legado preservado)
         Se return_metadata=True:
-            dict com estrutura: {datetime, data_detectada, hora_detectada, data_tipo, hora_modo, fonte, motivo_nenhum, criado_em}
+            dict com estrutura: {datetime, data_detectada, hora_detectada, data_tipo, hora_modo, fonte, motivo_nenhum, criado_em,
+                                 data_explicita, dia_semana_mencionado, conflito_data_weekday}
     """
 
     # Helper para construir metadados
-    def _build_metadata(dt_result, data_detectada, hora_detectada, data_tipo=None, hora_modo=None, fonte=None, motivo=None):
+    def _build_metadata(dt_result, data_detectada, hora_detectada, data_tipo=None, hora_modo=None, fonte=None, motivo=None,
+                       data_explicita=None, dia_semana_mencionado=None, conflito_data_weekday=False):
         if not return_metadata:
             return dt_result
         return {
@@ -245,6 +345,9 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
             "fonte": fonte,
             "motivo_nenhum": motivo,
             "criado_em": agora_br_naive().isoformat(),
+            "data_explicita": data_explicita,
+            "dia_semana_mencionado": dia_semana_mencionado,
+            "conflito_data_weekday": conflito_data_weekday,
         }
 
     if not texto:
@@ -261,6 +364,16 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
         # ✅ Se não houver qualquer pista temporal explícita, não interpreta nada
         if not _tem_indicio_temporal(texto_norm):
             return _build_metadata(None, False, False, motivo="sem_pista")
+
+        # 🔥 NOVA LÓGICA: Extrair data explícita e dia da semana independentemente
+        data_explicita = _extrair_data_explicita(texto_original)
+        dia_semana_mencionado = _extrair_dia_semana_mencionado(texto_original)
+        conflito = False
+
+        if data_explicita and dia_semana_mencionado:
+            conflito = not _validar_data_vs_weekday(data_explicita, dia_semana_mencionado)
+            if conflito:
+                print(f"[CONFLITO_DATA_WEEKDAY] data={data_explicita} != weekday={dia_semana_mencionado}", flush=True)
 
         # 🔥 PRIORIDADE 1: Detecta dia da semana isolado ou com hora
         # (MOVIDO ANTES de "hoje/amanhã" para dar prioridade a menção explícita de dia)
@@ -304,7 +417,8 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
             )
             result = dt_aware.replace(tzinfo=None)
             print(f"[PARSER] fonte_parse=manual_dia_semana resultado={result}", flush=True)
-            return _build_metadata(result, True, hora_detectada, data_tipo="dia_semana", hora_modo=hora_modo, fonte="manual_dia_semana")
+            return _build_metadata(result, True, hora_detectada, data_tipo="dia_semana", hora_modo=hora_modo, fonte="manual_dia_semana",
+                                 data_explicita=data_explicita, dia_semana_mencionado=dia_semana_mencionado, conflito_data_weekday=conflito)
 
         # 🔥 PRIORIDADE 2: Se tiver "hoje" ou "amanhã" e tiver hora, monta a data manualmente
         # (Agora vem DEPOIS de dia_semana para dar menos prioridade)
@@ -325,15 +439,18 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
                 dt_aware = FUSO_BR.localize(datetime(base.year, base.month, base.day, hora, minuto, 0, 0))
                 result = dt_aware.replace(tzinfo=None)
                 print(f"[PARSER] fonte_parse=manual_hoje_amanha resultado={result}", flush=True)
-                return _build_metadata(result, True, True, data_tipo=data_tipo, hora_modo="explicita", fonte="manual_hoje_amanha")
+                return _build_metadata(result, True, True, data_tipo=data_tipo, hora_modo="explicita", fonte="manual_hoje_amanha",
+                                     data_explicita=data_explicita, dia_semana_mencionado=dia_semana_mencionado, conflito_data_weekday=conflito)
             else:
                 # Sem hora explícita → retornar None (apenas data, sem hora)
                 print(f"[PARSER] fonte_parse=data_pura (hoje/amanhã sem hora) resultado=None", flush=True)
-                return _build_metadata(None, True, False, data_tipo=data_tipo, motivo="so_data", fonte="manual_hoje_amanha_sem_hora")
+                return _build_metadata(None, True, False, data_tipo=data_tipo, motivo="so_data", fonte="manual_hoje_amanha_sem_hora",
+                                     data_explicita=data_explicita, dia_semana_mencionado=dia_semana_mencionado, conflito_data_weekday=conflito)
 
         # ✅ Se for só hora, não decide data aqui (isso é do fluxo/sessão)
         if _so_hora(texto_norm):
-            return _build_metadata(None, False, True, hora_modo="explicita", motivo="so_hora", fonte="so_hora_bloqueado")
+            return _build_metadata(None, False, True, hora_modo="explicita", motivo="so_hora", fonte="so_hora_bloqueado",
+                                 data_explicita=data_explicita, dia_semana_mencionado=dia_semana_mencionado, conflito_data_weekday=conflito)
 
         # Base correta (Brasil), evitando UTC no Render
         base_aware = agora_br_aware()
@@ -371,7 +488,8 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
             dt_aware = FUSO_BR.localize(datetime(ano, mes, dia, hora, minuto, 0, 0))
             result = dt_aware.replace(tzinfo=None)
             print(f"[PARSER] fonte_parse=manual_dia_mes resultado={result}", flush=True)
-            return _build_metadata(result, True, hora_detectada, data_tipo="dia_mes_ano", hora_modo=hora_modo, fonte="manual_dia_mes")
+            return _build_metadata(result, True, hora_detectada, data_tipo="dia_mes_ano", hora_modo=hora_modo, fonte="manual_dia_mes",
+                                 data_explicita=data_explicita, dia_semana_mencionado=dia_semana_mencionado, conflito_data_weekday=conflito)
 
         # ✅ Caso geral: dateparser com base BR
         # 🧪 PATCH MÍNIMO: tentar texto completo primeiro
@@ -426,14 +544,63 @@ def interpretar_data_e_hora(texto: str, return_metadata: bool = False) -> dateti
             motivo = None
             data_detectada = True
             hora_detectada = True
-            return _build_metadata(parsed, data_detectada, hora_detectada, data_tipo="dateparser", hora_modo="parsed", fonte=fonte_parse, motivo=motivo)
+            return _build_metadata(parsed, data_detectada, hora_detectada, data_tipo="dateparser", hora_modo="parsed", fonte=fonte_parse, motivo=motivo,
+                                 data_explicita=data_explicita, dia_semana_mencionado=dia_semana_mencionado, conflito_data_weekday=conflito)
 
         # Fallback: dateparser failed or returned None
-        return _build_metadata(parsed, False, False, motivo="invalido", fonte=fonte_parse)
+        return _build_metadata(parsed, False, False, motivo="invalido", fonte=fonte_parse,
+                             data_explicita=data_explicita, dia_semana_mencionado=dia_semana_mencionado, conflito_data_weekday=conflito)
 
     except Exception as e:
         print(f"[interpretar_data_e_hora] Erro: {e}")
-        return _build_metadata(None, False, False, motivo="excepcao", fonte=None)
+        return _build_metadata(None, False, False, motivo="excepcao", fonte=None,
+                             data_explicita=None, dia_semana_mencionado=None, conflito_data_weekday=False)
+
+
+def validar_compatibilidade_data_weekday(texto: str, tenant_id: str = None, actor_id: str = None) -> dict | bool:
+    """
+    Valida se há conflito entre data explícita e dia da semana mencionado.
+
+    Uso: Chamar ANTES de verificar_conflito_e_sugestoes_profissional().
+
+    Args:
+        texto: Mensagem do usuário
+        tenant_id: Para isolamento multi-tenant (opcional, registrado em log)
+        actor_id: Para rastreamento de ator (opcional, registrado em log)
+
+    Returns:
+        True: Sem conflito, pode prosseguir
+        False: Há conflito, bloquear fluxo
+        dict: {'bloqueio': True, 'razao': 'conflito_data_weekday', 'detalhes': {...}}
+    """
+    if not texto:
+        return True
+
+    resultado = interpretar_data_e_hora(texto, return_metadata=True)
+
+    if not isinstance(resultado, dict):
+        # Legado: se return_metadata=False for usado em algum lugar
+        return True
+
+    conflito = resultado.get("conflito_data_weekday", False)
+
+    if conflito:
+        detalhes = {
+            "data_explicita": resultado.get("data_explicita"),
+            "dia_semana_mencionado": resultado.get("dia_semana_mencionado"),
+            "tenant_id": tenant_id,
+            "actor_id": actor_id,
+        }
+        print(f"[BLOQUEIO_DATA_WEEKDAY] {detalhes}", flush=True)
+        return {
+            "bloqueio": True,
+            "razao": "conflito_data_weekday",
+            "detalhes": detalhes,
+            "bloqueio_razao": "conflito_data_weekday",  # Compatibilidade com testes
+        }
+
+    return True
+
 
 def detectar_bloqueio_agenda_salao(texto: str) -> dict | None:
     texto_lower = (texto or "").lower()

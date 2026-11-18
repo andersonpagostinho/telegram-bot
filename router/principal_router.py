@@ -49,7 +49,7 @@ from utils.identidade_contexto import (
 
 from datetime import datetime, timedelta
 from google.cloud import firestore
-from utils.interpretador_datas import interpretar_data_e_hora
+from utils.interpretador_datas import interpretar_data_e_hora, validar_compatibilidade_data_weekday
 from utils.gpt_utils import estimar_duracao, formatar_descricao_evento
 from utils.mensagens_agendamento import montar_mensagem_preconfirmacao
 
@@ -1956,6 +1956,57 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
 
             iso = dt_final.isoformat()
 
+            # 🔥 VALIDAÇÃO CRÍTICA: Checar conflito entre data explícita e dia da semana
+            validacao = validar_compatibilidade_data_weekday(texto, tenant_id=dono_id, actor_id=cliente_id)
+            if isinstance(validacao, dict) and validacao.get("bloqueio"):
+                # Há conflito: perguntar esclarecimento ao usuário
+                data_expl = validacao.get("detalhes", {}).get("data_explicita")
+                dia_sem = validacao.get("detalhes", {}).get("dia_semana_mencionado")
+
+                # Calcular a data equivalente ao dia da semana mencionado
+                try:
+                    dt_weekday_alternative = None
+                    if data_expl and dia_sem:
+                        # Calcular qual seria a próxima ocorrência do dia da semana
+                        dias_map = {"segunda": 0, "terça": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "domingo": 6}
+                        idx_weekday = dias_map.get(dia_sem.lower())
+                        if idx_weekday is not None:
+                            # Data alternativa seria na mesma semana ou próxima ocorrência
+                            from datetime import timedelta
+                            dt_explicit = datetime.strptime(data_expl.split("T")[0] if "T" in data_expl else data_expl, "%d/%m/%Y" if "/" in data_expl else "%Y-%m-%d")
+                            dias_diferenca = (idx_weekday - dt_explicit.weekday()) % 7
+                            if dias_diferenca == 0:
+                                dias_diferenca = 7
+                            dt_weekday_alternative = (dt_explicit + timedelta(days=dias_diferenca)).strftime("%d/%m/%Y")
+                except Exception as e:
+                    print(f"[VALIDACAO_DATA_WEEKDAY] Erro ao calcular alternativa: {e}", flush=True)
+                    dt_weekday_alternative = None
+
+                # Bloquear e pedir esclarecimento
+                resposta_bloqueio = (
+                    f"Você informou {data_expl}, que cai em uma "
+                    f"{datetime.strptime(data_expl.split('T')[0] if 'T' in data_expl else data_expl, '%d/%m/%Y' if '/' in data_expl else '%Y-%m-%d').strftime('%A').replace('Monday', 'segunda').replace('Tuesday', 'terça').replace('Wednesday', 'quarta').replace('Thursday', 'quinta').replace('Friday', 'sexta').replace('Saturday', 'sábado').replace('Sunday', 'domingo')}, "
+                    f"mas mencionou {dia_sem}."
+                )
+                if dt_weekday_alternative:
+                    resposta_bloqueio += f" A {dia_sem} seria dia {dt_weekday_alternative}."
+                resposta_bloqueio += " Qual desses dias você prefere?"
+
+                # Preservar contexto mas NÃO persistir data conflitante
+                ctx["conflito_data_weekday"] = {
+                    "data_explicita": data_expl,
+                    "dia_semana_mencionado": dia_sem,
+                    "data_explicita_weekday": datetime.strptime(data_expl.split("T")[0] if "T" in data_expl else data_expl, "%d/%m/%Y" if "/" in data_expl else "%Y-%m-%d").strftime("%A") if data_expl else None,
+                    "data_alternativa_weekday": dt_weekday_alternative,
+                }
+                ctx["estado_fluxo"] = "aguardando_clareza_data_weekday"
+                ctx["data_sem_confirmacao"] = True
+
+                print(f"[BLOQUEIO_DATA_WEEKDAY] Conflito detectado, aguardando esclarecimento do usuário", flush=True)
+
+                # Retornar contexto atualizado sem persistir a data conflitante
+                return ctx
+
             ctx["data_hora"] = iso
             draft["data_hora"] = iso
             ctx["hora_confirmada"] = True
@@ -1986,6 +2037,32 @@ async def extrair_slots_e_mesclar(ctx: dict, texto_usuario: str, dono_id: str, c
            )
 
             iso = dt_final.isoformat()
+
+            # 🔥 VALIDAÇÃO CRÍTICA: Checar conflito entre data explícita e dia da semana (CASO 2)
+            validacao = validar_compatibilidade_data_weekday(texto, tenant_id=dono_id, actor_id=cliente_id)
+            if isinstance(validacao, dict) and validacao.get("bloqueio"):
+                # Há conflito: perguntar esclarecimento ao usuário
+                data_expl = validacao.get("detalhes", {}).get("data_explicita")
+                dia_sem = validacao.get("detalhes", {}).get("dia_semana_mencionado")
+
+                # Bloquear e pedir esclarecimento
+                resposta_bloqueio = (
+                    f"Você informou {data_expl}, que cai em uma outra weekday, "
+                    f"mas mencionou {dia_sem}. Qual desses dias você prefere?"
+                )
+
+                # Preservar contexto mas NÃO persistir data conflitante
+                ctx["conflito_data_weekday"] = {
+                    "data_explicita": data_expl,
+                    "dia_semana_mencionado": dia_sem,
+                }
+                ctx["estado_fluxo"] = "aguardando_clareza_data_weekday"
+                ctx["data_sem_confirmacao"] = True
+
+                print(f"[BLOQUEIO_DATA_WEEKDAY_CASO2] Conflito detectado em múltiplos horários", flush=True)
+
+                # Retornar contexto atualizado sem persistir a data conflitante
+                return ctx
 
             ctx["data_hora"] = iso
             draft["data_hora"] = iso
