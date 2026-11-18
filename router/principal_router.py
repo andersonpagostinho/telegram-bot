@@ -8602,21 +8602,34 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
             texto_norm_multiplos = normalizar(texto_usuario)
             servicos_mencionados = []
+            servicos_visto = set()
 
-            # Use word-boundary matching like _match_servico_puro (ordered by length, specific first)
+            # 🔥 CORREÇÃO: Preservar ordem de primeira menção (não ordenar por tamanho)
+            # Use word-boundary matching (específico primeiro) mas rastrear posição real
             servicos_ord = sorted(servicos_catalogo_multiplos, key=len, reverse=True)
+            matches_com_posicao = []
+
             for serv_cat in servicos_ord:
                 # Tentar match exato com word boundaries
-                if re.search(rf"\b{re.escape(serv_cat)}\b", texto_norm_multiplos):
-                    servicos_mencionados.append(serv_cat)
+                match_exato = re.search(rf"\b{re.escape(serv_cat)}\b", texto_norm_multiplos)
+                if match_exato:
+                    if serv_cat not in servicos_visto:
+                        matches_com_posicao.append((match_exato.start(), serv_cat))
+                        servicos_visto.add(serv_cat)
                     continue
 
                 # Fallback: match de prefixo (primeira palavra)
                 serv_palavras = serv_cat.split()
                 if serv_palavras:
                     primeira_palavra = serv_palavras[0]
-                    if re.search(rf"\b{re.escape(primeira_palavra)}\b", texto_norm_multiplos):
-                        servicos_mencionados.append(serv_cat)
+                    match_prefixo = re.search(rf"\b{re.escape(primeira_palavra)}\b", texto_norm_multiplos)
+                    if match_prefixo and serv_cat not in servicos_visto:
+                        matches_com_posicao.append((match_prefixo.start(), serv_cat))
+                        servicos_visto.add(serv_cat)
+
+            # Ordenar por posição de primeira menção
+            matches_com_posicao.sort(key=lambda x: x[0])
+            servicos_mencionados = [serv for _, serv in matches_com_posicao]
 
             # Se múltiplos serviços mencionados, pedir esclarecimento
             if len(servicos_mencionados) > 1:
