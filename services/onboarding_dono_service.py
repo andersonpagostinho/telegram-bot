@@ -331,9 +331,58 @@ def _parsear_horarios(texto: str) -> dict:
     return {}
 
 
-def construir_agenda_por_dias(dias_config: dict) -> dict:
+def validar_integridade_agenda(agenda_dict: dict) -> tuple[bool, str]:
     """
-    Constrói agenda_padrao para Firestore.
+    Valida integridade de agenda_padrao antes de persistir.
+
+    Verifica:
+    - Formato HH:MM para horários
+    - Hora 00-23, Minuto 00-59
+    - Para dia aberto: fim > inicio
+    - Sem meia-noite atravessada
+
+    Args:
+        agenda_dict: {"0": {"aberto": bool, "inicio": "HH:MM", "fim": "HH:MM"}, ...}
+
+    Returns:
+        (válido: bool, mensagem: str)
+    """
+    dias_semana = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+
+    for dia_str in ["0", "1", "2", "3", "4", "5", "6"]:
+        dia_config = agenda_dict.get(dia_str, {})
+
+        # Dias fechados não precisam de horários
+        if not dia_config.get("aberto"):
+            continue
+
+        # Dias abertos precisam de inicio e fim
+        inicio = dia_config.get("inicio")
+        fim = dia_config.get("fim")
+
+        if not inicio or not fim:
+            return False, f"Dia {dias_semana[int(dia_str)]}: falta horário de início ou fim."
+
+        # Validar formato HH:MM
+        if not _validar_formato_hora(inicio):
+            return False, f"Dia {dias_semana[int(dia_str)]}: horário de início '{inicio}' inválido (use HH:MM)."
+
+        if not _validar_formato_hora(fim):
+            return False, f"Dia {dias_semana[int(dia_str)]}: horário de fim '{fim}' inválido (use HH:MM)."
+
+        # Validar que fim > inicio
+        inicio_minutos = int(inicio.split(":")[0]) * 60 + int(inicio.split(":")[1])
+        fim_minutos = int(fim.split(":")[0]) * 60 + int(fim.split(":")[1])
+
+        if fim_minutos <= inicio_minutos:
+            return False, f"Dia {dias_semana[int(dia_str)]}: horário de fim ({fim}) deve ser posterior ao início ({inicio})."
+
+    return True, ""
+
+
+def construir_agenda_por_dias(dias_config: dict) -> tuple[dict, bool, str]:
+    """
+    Constrói agenda_padrao para Firestore com validação.
 
     Args:
         dias_config: {
@@ -345,7 +394,7 @@ def construir_agenda_por_dias(dias_config: dict) -> dict:
         }
 
     Returns:
-        Estrutura pronta para salvar em Firestore
+        (agenda_dict, válido: bool, mensagem_erro: str)
     """
     agenda = {}
     horarios = dias_config.get("horarios", {})
@@ -372,7 +421,12 @@ def construir_agenda_por_dias(dias_config: dict) -> dict:
         else:
             agenda[dia_str] = {"aberto": False}
 
-    return agenda
+    # Validar integridade
+    valido, erro = validar_integridade_agenda(agenda)
+    if not valido:
+        return agenda, False, erro
+
+    return agenda, True, ""
 
 
 async def iniciar_onboarding_dono(tenant_id: str, actor_id: str, dono_nome: str, dono_email: str) -> dict:
@@ -571,11 +625,20 @@ async def avancar_etapa_onboarding(tenant_id: str, actor_id: str, campo: str, va
                     "draft_atualizado": True
                 }
 
-            # Agenda completa — mostrar resumo e pedir confirmação
-            agenda_estruturada = construir_agenda_por_dias({
+            # Agenda completa — validar e pedir confirmação
+            agenda_estruturada, valida, erro_msg = construir_agenda_por_dias({
                 "dias": draft["dias"],
                 "horarios": draft["horarios"]
             })
+
+            if not valida:
+                return {
+                    "etapa_atual": "agenda_padrao",
+                    "estado_interno": "erro_validacao",
+                    "proximo_passo": f"❌ {erro_msg}\n\nPor favor, verifique e tente novamente.",
+                    "draft_atualizado": False
+                }
+
             resumo = formatar_resumo_agenda(agenda_estruturada)
 
             ctx["draft_agenda_padrao"]["agenda_estruturada"] = agenda_estruturada
@@ -1313,6 +1376,11 @@ def _confirmar_agenda_transacao_atomica(
 
         if not agenda_estruturada:
             raise ValueError("Agenda estruturada vazia")
+
+        # 🔥 RE-VALIDAÇÃO P0: Integridade de agenda antes de persistir
+        valida, erro_validacao = validar_integridade_agenda(agenda_estruturada)
+        if not valida:
+            raise ValueError(f"Agenda inválida na persistência: {erro_validacao}")
 
         # --- Escritas (todas na mesma transação) ---
 
