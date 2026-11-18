@@ -863,7 +863,13 @@ def run_bot():
         # Removido start_daily_summary() para evitar duplicação com notificacoes_scheduler
         # (ambos disparavam às 08:00, agora há apenas uma implementação canônica)
 
-        bot_loop.run_until_complete(application.initialize())
+        # 🔥 HOTFIX: Tornar Telegram opcional (WhatsApp continua se Telegram falhar)
+        try:
+            bot_loop.run_until_complete(application.initialize())
+        except Exception as telegram_init_err:
+            logger.warning(f"⚠️ Telegram inicialização falhou (não-crítico): {telegram_init_err}")
+            logger.info("ℹ️ WhatsApp webhook continua operacional")
+
         bot_loop.run_until_complete(setup_webhook())
         bot_loop.run_until_complete(application.start())
 
