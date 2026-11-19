@@ -1400,6 +1400,27 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             tipo_erro = resultado_salvamento.split("_", 1)[1]
             print(f"[PATCH_P0_CONFLITO] Conflito detectado: {tipo_erro} — gerando sugestões", flush=True)
 
+            # [IDEMPOTÊNCIA] Verificar se evento já foi criado com sucesso (conflito com lock existente da PRIMEIRA tentativa)
+            evento_id = f"{cliente_id}_{profissional.lower()}_{data}_{hora_inicio.replace(':', '')}"
+            evento_ja_existe = await buscar_dado_em_path(f"Clientes/{dono_id}/Eventos/{evento_id}")
+
+            if evento_ja_existe and evento_ja_existe.get("status") == "confirmado":
+                # ✅ Evento já foi criado na primeira confirmação — responder como sucesso duplicado
+                print(f"[IDEMPOTENCIA_CONFLITO] Evento já existe como confirmado: {evento_id}", flush=True)
+                msg_sucesso = montar_mensagem_confirmacao_sucesso(servico or "Atendimento", profissional, start_time.isoformat())
+                if update and hasattr(update, "message"):
+                    await update.message.reply_text(msg_sucesso)
+                else:
+                    from utils.whatsapp_utils import enviar_mensagem_whatsapp
+                    phone_number_id_alt = (
+                        identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
+                    )
+                    await enviar_mensagem_whatsapp(user_id, msg_sucesso, phone_number_id=phone_number_id_alt)
+                cleanup_ok = await limpar_contexto_agendamento_v2(dono_id, cliente_id)
+                if not cleanup_ok:
+                    print(f"[ERRO_P0_CLEAR] Falha ao limpar contexto | dono={dono_id} | cliente={cliente_id}", flush=True)
+                return True
+
             try:
                 # [PATCH_P0] Reutilizar exatamente o código que funciona (linhas 839-990)
                 duracao_evento = evento_data.get("duracao", 30)
