@@ -5997,9 +5997,9 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
         # Verificar se é confirmação
         confirmacoes_validas = ["sim", "confirmo", "confirm", "yes", "ok", "👍", "✅", "certo", "perfeito", "blz"]
-        eh_confirmacao = any(c in texto_usuario.lower() for c in confirmacoes_validas)
+        confirmacao_detectada = any(c in texto_usuario.lower() for c in confirmacoes_validas)
 
-        if eh_confirmacao:
+        if confirmacao_detectada:
             print(f"[P3_CONFIRMACAO] ✅ Confirmação detectada", flush=True)
 
             try:
