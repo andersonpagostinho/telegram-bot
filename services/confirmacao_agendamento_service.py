@@ -454,12 +454,22 @@ async def processar_confirmacao_agendamento(
 
     # P0-2: VALIDAÇÃO INTEGRAL DE DURAÇÃO DO CATÁLOGO ATUAL
     # Carregar catálogo do tenant e validar todos os serviços
+    from unidecode import unidecode
+
     catalogo_path = f"Clientes/{tenant_id}/Configuracao/Servicos"
     servicos_db = await buscar_documento(catalogo_path) or {}
 
     # Validar que todos os serviços existem no catálogo
+    # Mapa de serviços normalizados para dados completos
+    servicos_normalizados = {}
+    for doc_id, doc_data in servicos_db.items():
+        if isinstance(doc_data, dict) and "nome" in doc_data:
+            nome_norm = unidecode(doc_data["nome"].strip().lower())
+            servicos_normalizados[nome_norm] = doc_data
+
     for servico in autorizacao.servicos:
-        if servico not in servicos_db:
+        servico_norm = unidecode(servico.strip().lower())
+        if servico_norm not in servicos_normalizados:
             await invalidar_autorizacao_anterior(tenant_id, actor_id)
             return {
                 "sucesso": False,
@@ -469,7 +479,8 @@ async def processar_confirmacao_agendamento(
     # Validar que todas as durações são válidas
     duracao_total_recalculada = 0
     for servico in autorizacao.servicos:
-        servico_data = servicos_db.get(servico, {})
+        servico_norm = unidecode(servico.strip().lower())
+        servico_data = servicos_normalizados.get(servico_norm, {})
         duracao = servico_data.get("duracao", None)
 
         # Validar que duração existe, é número e é positiva
