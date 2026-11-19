@@ -18,8 +18,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# Importar AlreadyExists do serviço (source of truth)
-from services.whatsapp_msg_state_service import AlreadyExists
+# Importar AlreadyExists do Google (source of truth)
+from google.api_core.exceptions import AlreadyExists
 
 
 # ==============================================================================

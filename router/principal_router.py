@@ -5969,6 +5969,13 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         contexto_resultado["opcao_selecionada_id"] = opcao_id_registrada
                         print(f"[FASE4A_SYNC] ✅ opcao_selecionada_id sincronizado em ctx: {opcao_id_registrada}", flush=True)
 
+                # 🔥 [P2 FIX] Transicionar estado após seleção bem-sucedida
+                # Avança de idle para aguardando confirmação explícita
+                ctx["estado_fluxo"] = "aguardando_confirmacao_agendamento"
+                ctx["aguardando_confirmacao_agendamento"] = True
+                ctx["ultima_acao"] = "selecionar_opcao"
+                print(f"[FASE4A_TRANSICAO] ✅ Estado transicionado para aguardando_confirmacao_agendamento", flush=True)
+
                 await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
                 return {
@@ -5980,6 +5987,98 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             print(f"[FASE4A_SELECAO] ⚠️ Erro ao processar seleção: {str(e)[:100]}", flush=True)
             # Continuar com fluxo normal se houver erro
             pass
+
+    # ---------------------------------------------------------
+    # 🔥 [P3 FIX] Bloco de Confirmação e Criação de Evento
+    # Aguarda confirmação explícita após seleção
+    # ---------------------------------------------------------
+    if ctx.get("estado_fluxo") == "aguardando_confirmacao_agendamento" and ctx.get("aguardando_confirmacao_agendamento") == True:
+        print(f"[P3_CONFIRMACAO] Estado aguardando confirmação, processando: '{texto_usuario[:50]}'", flush=True)
+
+        # Verificar se é confirmação
+        confirmacoes_validas = ["sim", "confirmo", "confirm", "yes", "ok", "👍", "✅", "certo", "perfeito", "blz"]
+        eh_confirmacao = any(c in texto_usuario.lower() for c in confirmacoes_validas)
+
+        if eh_confirmacao:
+            print(f"[P3_CONFIRMACAO] ✅ Confirmação detectada", flush=True)
+
+            try:
+                from services.confirmacao_agendamento_service import autorizar_revalidacao
+
+                # 1. Revalidar disponibilidade
+                contexto_resultado = ctx.get("contexto_resultado_consulta")
+                resultado_revalidacao = await autorizar_revalidacao(
+                    tenant_id=dono_id,
+                    actor_id=cliente_id,
+                    contexto_resultado=contexto_resultado
+                )
+
+                if resultado_revalidacao.get("sucesso"):
+                    print(f"[P3_CONFIRMACAO] ✅ Revalidação OK, criando evento", flush=True)
+
+                    # 2. Criar evento
+                    opcao_selecionada = resultado_revalidacao.get("autorizacao", {})
+
+                    # Preparar dados para criar evento
+                    evento_dados = {
+                        "tenant_id": dono_id,
+                        "actor_id": cliente_id,
+                        "profissional": opcao_selecionada.get("profissional"),
+                        "data_hora": f"{opcao_selecionada.get('data')}T{opcao_selecionada.get('hora_inicio')}:00",
+                        "servicos": opcao_selecionada.get("servicos", []),
+                        "duracao_min": opcao_selecionada.get("duracao_total_min"),
+                    }
+
+                    # Executar criar_evento via GPT
+                    resultado_evento = await executar_acao_gpt_resultado(
+                        update, context, "criar_evento", evento_dados, identidade=identidade
+                    )
+
+                    if resultado_evento:
+                        print(f"[P3_CONFIRMACAO] ✅ Evento criado com sucesso", flush=True)
+
+                        # Limpar estado de confirmação
+                        ctx["estado_fluxo"] = "idle"
+                        ctx["aguardando_confirmacao_agendamento"] = False
+                        ctx["ultima_acao"] = "evento_criado"
+                        ctx["opcao_selecionada_id"] = None
+
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
+
+                        resposta_evento = f"✅ Agendamento confirmado!\n\n{opcao_selecionada.get('profissional')} - {opcao_selecionada.get('hora_inicio')} até {opcao_selecionada.get('hora_fim')}\nServiços: {', '.join(opcao_selecionada.get('servicos', []))}"
+
+                        return {
+                            "handled": True,
+                            "resposta": resposta_evento,
+                            "evento_criado": True
+                        }
+                    else:
+                        print(f"[P3_CONFIRMACAO] ❌ Falha ao criar evento", flush=True)
+                        return {
+                            "handled": True,
+                            "resposta": "❌ Desculpa, não consegui criar o agendamento. Tente novamente.",
+                            "erro": "falha_criar_evento"
+                        }
+                else:
+                    print(f"[P3_CONFIRMACAO] ❌ Revalidação falhou: {resultado_revalidacao.get('mensagem')}", flush=True)
+                    return {
+                        "handled": True,
+                        "resposta": f"❌ {resultado_revalidacao.get('mensagem', 'Horário não está mais disponível')}",
+                        "erro": "horario_indisponivel"
+                    }
+
+            except Exception as e:
+                print(f"[P3_CONFIRMACAO] ⚠️ Erro ao processar confirmação: {str(e)[:100]}", flush=True)
+                return {
+                    "handled": True,
+                    "resposta": "❌ Erro ao processar confirmação. Tente novamente.",
+                    "erro": str(e)[:50]
+                }
+        else:
+            # Não é confirmação, deixar passar para fluxo normal (texto livre)
+            # Sistema classifica intenção e processa normalmente
+            print(f"[P3_CONFIRMACAO] ⚠️ Resposta não é confirmação, processando como texto livre", flush=True)
+            # NÃO retornar aqui — deixar passar para fluxo normal de processamento
 
     # ---------------------------------------------------------
     # ✅ P0 COMPLEMENTAR: Consultas informativas em contexto idle

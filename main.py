@@ -334,7 +334,7 @@ def whatsapp_webhook_post():
 
                         if not ganhou_disputa:
                             logger.info(f"[WA-P0] Outra instância processando: {phone_number_id}/{msg_id}")
-                            continue
+                            return 200  # Segunda instância encerra sem processar
 
                         # ✅ Resolver tenant pelo endpoint
                         from services.whatsapp_endpoint_service import resolver_tenant_por_endpoint

@@ -25,14 +25,9 @@ from typing import Dict, Any, Optional
 from uuid import uuid5, NAMESPACE_DNS
 
 from services.firebase_service_async import get_async_client
+from google.api_core.exceptions import AlreadyExists as GoogleAlreadyExists
 
 logger = logging.getLogger(__name__)
-
-
-# Exceção customizada para documento já existe (simula Firestore AlreadyExists)
-class AlreadyExists(Exception):
-    """Levantada quando tentamos criar um documento que já existe."""
-    pass
 
 
 # ==============================================================================
@@ -86,7 +81,7 @@ async def marcar_processando(
         logger.info(f"[WA-DEDUP] Mensagem marcada PROCESSANDO: {phone_number_id}/{msg_id}")
         return True
 
-    except AlreadyExists:
+    except GoogleAlreadyExists:
         logger.info(f"[WA-DEDUP] Outra instância processando: {phone_number_id}/{msg_id}")
         return False
 
