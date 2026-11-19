@@ -149,11 +149,12 @@ async def selecionar_opcao(contexto: ContextoResultadoConsulta, numero: int) -> 
         "opcao_id": opcao_encontrada.opcao_id,
         "opcao": {
             "numero": opcao_encontrada.numero,
+            "data": opcao_encontrada.data,
             "hora_inicio": opcao_encontrada.hora_inicio,
             "hora_fim": opcao_encontrada.hora_fim,
             "profissional": opcao_encontrada.profissional_id,
             "servicos": opcao_encontrada.servicos,
-            "duracao": opcao_encontrada.duracao_total_min,
+            "duracao_total_min": opcao_encontrada.duracao_total_min,
         },
         "mensagem": f"✅ Você escolheu o {numero}º horário: {opcao_encontrada.hora_inicio} até {opcao_encontrada.hora_fim}"
     }

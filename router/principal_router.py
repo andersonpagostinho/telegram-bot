@@ -5956,7 +5956,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     f"👩 Profissional: {opcao['profissional']}\n"
                     f"💅 Serviços: {', '.join(opcao.get('servicos', []))}\n"
                     f"⏱️ Duração: {opcao.get('duracao_total_min', 'N/A')} minutos\n\n"
-                    f"{resultado_selecao.get('proximo_passo', 'Confirme para prosseguir com o agendamento.')}"
+                    f"Confirme este horário para iniciar o agendamento?"
                 )
 
                 # 🔥 CORREÇÃO: Sincronizar opcao_selecionada_id no ctx antes de salvar
