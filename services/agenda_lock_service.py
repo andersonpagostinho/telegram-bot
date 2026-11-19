@@ -376,6 +376,123 @@ async def tem_conflito_real(
         return True  # Falha aberta: assume conflito se não conseguir verificar
 
 
+async def _salvar_evento_e_locks_atomicamente(
+    dono_id: str,
+    evento: dict,
+    evento_path: str,
+    event_id: str,
+    locks_criados: list
+) -> Dict[str, Any]:
+    """
+    [ATOMIC_FIX] Salva evento + marca locks como confirmados em UMA TRANSAÇÃO.
+
+    Garantias:
+    - Se evento não pode ser salvo, locks NÃO são marcados confirmados
+    - Se locks não podem ser marcados, evento NÃO é criado
+    - Idempotência: reexecução detecta evento existente
+
+    Returns:
+        {"ok": True/False, "confirmado_nesta_requisicao": bool, "status": str, "motivo": str}
+    """
+
+    def transacao_salvar_evento_sync():
+        """Transação sincronea para salvar evento + locks atomicamente."""
+        db = get_db()
+
+        @firestore.transactional
+        def callback(transaction):
+            """
+            [ATOMIC] Dentro da transação:
+            1. Lê evento para verificar idempotência
+            2. Se não existe, cria novo
+            3. Marca todos os locks como confirmados
+
+            Tudo ou nada — se qualquer passo falhar, transação inteira falha.
+            """
+            evento_ref = (
+                db.collection("Clientes")
+                .document(dono_id)
+                .collection("Eventos")
+                .document(event_id)
+            )
+
+            # (1) VERIFICAR IDEMPOTÊNCIA — ler evento existente
+            evento_docs = list(transaction.get(evento_ref))
+            evento_existente = evento_docs[0].to_dict() if evento_docs else None
+
+            confirmado_nesta_requisicao = True
+            status = "criado"
+
+            if evento_existente:
+                # Evento já existe
+                era_confirmado = evento_existente.get("confirmado") is True
+
+                if not era_confirmado:
+                    # Confirmação legítima de evento pendente
+                    evento_existente["confirmado"] = True
+                    evento_existente["status"] = "confirmado"
+                    evento_existente["confirmado_em"] = datetime.now(FUSO_BR).isoformat()
+                    transaction.set(evento_ref, evento_existente)
+                    confirmado_nesta_requisicao = True
+                    status = "duplicado_pendente_agora"
+                else:
+                    # Evento já confirmado — idempotência pura
+                    confirmado_nesta_requisicao = False
+                    status = "duplicado_confirmado"
+            else:
+                # Novo evento — criar
+                transaction.set(evento_ref, evento)
+                confirmado_nesta_requisicao = True
+                status = "criado"
+
+            # (2) MARCAR LOCKS COMO CONFIRMADOS
+            for lock_path in locks_criados:
+                lock_key = lock_path.split("/")[-1]
+                lock_ref = (
+                    db.collection("Clientes")
+                    .document(dono_id)
+                    .collection("AgendaLocks")
+                    .document(lock_key)
+                )
+                lock_doc = {
+                    "status": "confirmado",
+                    "evento_id": event_id,
+                    "timestamp_confirmacao": datetime.now().isoformat()
+                }
+                transaction.update(lock_ref, lock_doc)
+
+            return {
+                "ok": True,
+                "confirmado_nesta_requisicao": confirmado_nesta_requisicao,
+                "status": status,
+                "motivo": "Evento e locks persistidos atomicamente"
+            }
+
+        transaction = db.transaction()
+        result = callback(transaction)
+        return result
+
+    try:
+        # Envolver em asyncio.to_thread() para não bloquear event loop
+        result = await asyncio.to_thread(transacao_salvar_evento_sync)
+
+        if result.get("ok"):
+            logger.info(f"[ATOMIC_OK] Evento+locks persistidos: {event_id}, status={result.get('status')}")
+        else:
+            logger.error(f"[ATOMIC_FAIL] {result.get('motivo')}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"[ATOMIC_ERROR] Falha em transação evento+locks: {e}")
+        return {
+            "ok": False,
+            "confirmado_nesta_requisicao": False,
+            "status": "erro",
+            "motivo": f"Erro ao salvar evento e locks atomicamente: {str(e)}"
+        }
+
+
 async def _atualizar_evento_com_locks_idempotente(
     dono_id: str,
     event_id: str,
@@ -722,88 +839,50 @@ async def criar_evento_com_lock(
                 "tipo_erro": "erro"
             }
 
-        # 5️⃣ SEM CONFLITO: SALVAR EVENTO
+        # 5️⃣ SEM CONFLITO: SALVAR EVENTO E LOCKS ATOMICAMENTE
         try:
             evento["criado_em"] = datetime.now().isoformat()
             evento_path = f"Clientes/{dono_id}/Eventos/{event_id}"
 
-            # Verificar idempotência
-            evento_existente = await buscar_dado_em_path(evento_path)
-            if evento_existente:
-                logger.warning(f"Evento já existe (idempotente): {event_id}")
+            # [ATOMIC_FIX] Salvar evento + locks em transação única
+            resultado_salvar = await _salvar_evento_e_locks_atomicamente(
+                dono_id=dono_id,
+                evento=evento,
+                evento_path=evento_path,
+                event_id=event_id,
+                locks_criados=locks_criados
+            )
 
-                # ✅ [FIX] Verificar se evento estava pendente ou já confirmado
-                era_confirmado = evento_existente.get("confirmado") is True
-
-                if not era_confirmado:
-                    # Confirmação legítima de evento pendente — ATUALIZAR para confirmado
-                    evento_existente["confirmado"] = True
-                    evento_existente["status"] = "confirmado"
-                    evento_existente["confirmado_em"] = datetime.now(FUSO_BR).isoformat()
-                    await salvar_dado_em_path(evento_path, evento_existente)
-                    confirmado_nesta_requisicao = True
-                else:
-                    # [P0.11] Evento já confirmado — verificar se hora mudou
-                    resultado_update = await _atualizar_evento_com_locks_idempotente(
-                        dono_id=dono_id,
-                        event_id=event_id,
-                        evento_existente=evento_existente,
-                        evento_novo=evento,
-                        locks_criados=locks_criados
-                    )
-
-                    # [P0.11] Atualização trata todos os casos e sempre retorna
-                    # Se houve update, retorna sucesso; se idempotência, retorna ja_existente
-                    # Se conflito, retorna indisponivel; se erro, retorna erro
-                    return resultado_update
-
-                # Marcar locks como confirmados
-                for lock_path in locks_criados:
-                    lock_doc = {
-                        "status": "confirmado",
-                        "evento_id": event_id,
-                        "timestamp_confirmacao": datetime.now().isoformat()
-                    }
-                    await atualizar_dado_em_path(lock_path, lock_doc)
-
+            if not resultado_salvar.get("ok"):
+                # Falha ao salvar (evento OU locks falharam) — transação reverteu
+                logger.error(f"[ATOMIC_FAIL] Falha ao salvar evento+locks: {resultado_salvar.get('motivo')}")
                 return {
-                    "ok": True,
-                    "evento_id": event_id,
-                    "status": "duplicado_pendente_agora" if confirmado_nesta_requisicao else "duplicado_confirmado",
-                    "confirmado_nesta_requisicao": confirmado_nesta_requisicao,
+                    "ok": False,
                     "lock_ids": [p.split("/")[-1] for p in locks_criados],
                     "lock_keys": [p.split("/")[-1] for p in locks_criados],
-                    "motivo": "Confirmação concluída" if confirmado_nesta_requisicao else "Evento já estava confirmado"
+                    "motivo": f"Falha ao confirmar evento e locks: {resultado_salvar.get('motivo')}",
+                    "tipo_erro": "erro"
                 }
 
-            # Criar evento
-            await salvar_dado_em_path(evento_path, evento)
-            logger.info(f"Evento criado: {event_id}")
-
-            # 6️⃣ MARCAR LOCKS COMO CONFIRMADOS
-            for lock_path in locks_criados:
-                lock_doc = {
-                    "status": "confirmado",
-                    "evento_id": event_id,
-                    "timestamp_confirmacao": datetime.now().isoformat()
-                }
-                await atualizar_dado_em_path(lock_path, lock_doc)
+            confirmado_nesta_requisicao = resultado_salvar.get("confirmado_nesta_requisicao", True)
+            status = resultado_salvar.get("status", "criado")
 
             return {
                 "ok": True,
                 "evento_id": event_id,
-                "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                "motivo": "Evento criado com sucesso",
-                "confirmado_nesta_requisicao": True
+                "status": status,
+                "confirmado_nesta_requisicao": confirmado_nesta_requisicao,
+                "lock_ids": [p.split("/")[-1] for p in locks_criados],
+                "lock_keys": [p.split("/")[-1] for p in locks_criados],
+                "motivo": resultado_salvar.get("motivo", "Evento criado com sucesso")
             }
 
         except Exception as save_error:
             logger.error(f"Erro ao salvar evento: {save_error}")
             return {
                 "ok": False,
-                "lock_ids": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
-                "lock_keys": [p.split("/")[-1] for p in locks_criados],  # [P4.9N]
+                "lock_ids": [p.split("/")[-1] for p in locks_criados],
+                "lock_keys": [p.split("/")[-1] for p in locks_criados],
                 "motivo": f"Erro ao salvar evento: {str(save_error)}",
                 "tipo_erro": "erro"
             }
