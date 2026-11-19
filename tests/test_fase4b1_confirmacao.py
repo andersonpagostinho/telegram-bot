@@ -290,3 +290,42 @@ async def test_4b1_extra_confirmacao_explicita():
     assert eh_confirmacao_explicita("Sim, confirmo") is True
     assert eh_confirmacao_explicita("Confirmar agendamento") is True
     print("✅ Extra: Confirmações explícitas aceitas")
+
+
+@pytest.mark.asyncio
+async def test_4b1_erro_producao_dict_em_vez_objeto():
+    """REPRODUCE PRODUCTION ERROR: Dict passed instead of ContextoResultadoConsulta object"""
+    from services.confirmacao_agendamento_service import autorizar_revalidacao
+    from unittest.mock import AsyncMock, patch
+
+    # Simular o que acontece em produção: ctx retorna dict de Firestore
+    contexto_dict = {
+        "consulta_id": "test-id",
+        "criado_em": datetime.utcnow().isoformat(),
+        "expira_em": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+        "servicos": ["manicure"],
+        "data": "2026-11-16",
+        "duracao_total_min": 30,
+        "profissional_id": "Bruna",
+        "opcoes": [{
+            "opcao_id": "1_xxx",
+            "numero": 1,
+            "profissional_id": "Bruna",
+            "data": "2026-11-16",
+            "hora_inicio": "14:00",
+            "hora_fim": "14:30",
+            "servicos": ["manicure"],
+            "duracao_total_min": 30
+        }],
+        "opcao_selecionada_id": "1_xxx"
+    }
+
+    with patch('services.varredura_disponibilidade.varrer_disponibilidade_multisservico', new_callable=AsyncMock) as m:
+        m.return_value = {"horarios_disponiveis": [{"inicio": "14:00", "fim": "14:30"}]}
+
+        # This should work but currently fails with: 'dict' object has no attribute 'esta_expirado'
+        resultado = await autorizar_revalidacao("tenant", "actor", contexto_dict)
+
+    assert resultado["sucesso"] is True
+    assert resultado["horario_disponivel"] is True
+    print("✅ Reprodução corrigida: Dict aceito como input")

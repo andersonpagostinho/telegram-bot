@@ -86,6 +86,7 @@ async def autorizar_revalidacao(
 
     from services.resultado_consulta_service import recuperar_resultado_consulta
     from services.varredura_disponibilidade import varrer_disponibilidade_multisservico
+    from schemas.resultado_consulta_schema import ContextoResultadoConsulta
 
     # 1. Recuperar contexto
     if contexto_resultado is None:
@@ -97,6 +98,10 @@ async def autorizar_revalidacao(
             "mensagem": "Nenhuma consulta ativa para revalidar",
             "horario_disponivel": False
         }
+
+    # Desserializar se recebido como dict (defensive: principal_router passa dict de Firestore)
+    if isinstance(contexto_resultado, dict):
+        contexto_resultado = ContextoResultadoConsulta.from_dict(contexto_resultado)
 
     # 2. Validar tenant, actor, TTL
     if not tenant_id or not actor_id:
