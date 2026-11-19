@@ -475,9 +475,49 @@ async def processar_confirmacao_agendamento(
             nome_norm = unidecode(doc_data["nome"].strip().lower())
             servicos_normalizados[nome_norm] = doc_data
 
+    # PHASE 6: Sincronizar serviços faltando do profissional para catálogo
+    from services.cadastro_inicial_service import salvar_servico_negocio
+    from services.firebase_service_async import buscar_documento
+
     for servico in autorizacao.servicos:
         servico_norm = unidecode(servico.strip().lower())
         if servico_norm not in servicos_normalizados:
+            # Serviço não existe no catálogo - tentar sincronizar do profissional
+            prof_path = f"Clientes/{tenant_id}/Profissionais/{autorizacao.profissional}"
+            prof_doc = await buscar_documento(prof_path)
+
+            if prof_doc and isinstance(prof_doc, dict):
+                precos = prof_doc.get("precos", {})
+                duracoes = prof_doc.get("duracoes", {})
+                servicos_detalhe = prof_doc.get("servicos_detalhe", {})
+
+                # Buscar preço e duração do profissional (com normalização)
+                preco = None
+                duracao = None
+
+                for chave_prof, preco_prof in precos.items():
+                    if unidecode(chave_prof.strip().lower()) == servico_norm:
+                        preco = preco_prof
+                        break
+
+                for chave_prof, dur_prof in duracoes.items():
+                    if unidecode(chave_prof.strip().lower()) == servico_norm:
+                        duracao = dur_prof
+                        break
+
+                # Se encontrou dados, sincronizar com catálogo
+                if preco is not None and duracao is not None:
+                    await salvar_servico_negocio(tenant_id, servico, float(preco), int(duracao))
+                    # Recarregar catálogo após sincronização
+                    servicos_db = await buscar_subcolecao(catalogo_path) or {}
+                    servicos_normalizados = {}
+                    for doc_id, doc_data in servicos_db.items():
+                        if isinstance(doc_data, dict) and "nome" in doc_data:
+                            nome_norm = unidecode(doc_data["nome"].strip().lower())
+                            servicos_normalizados[nome_norm] = doc_data
+                    continue
+
+            # Se chegou aqui, não conseguiu sincronizar
             await invalidar_autorizacao_anterior(tenant_id, actor_id)
             return {
                 "sucesso": False,
