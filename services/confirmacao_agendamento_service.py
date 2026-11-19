@@ -312,16 +312,23 @@ def eh_confirmacao_explicita(mensagem: str) -> bool:
 
     msg_norm = mensagem.lower().strip()
 
-    # Aceitar confirmações explícitas
+    # Aceitar confirmações explícitas (conversacional, sem palavras fixas)
     confirmacoes_aceitas = [
         "sim, pode agendar",
         "confirmo o agendamento",
         "sim, confirmo",
         "confirmo",
+        "confirmado",
         "pode agendar",
         "sim",
         "confirmar agendamento",
-        "agendar"
+        "agendar",
+        "ok, pode agendar",
+        "ok",
+        "tudo bem",
+        "beleza",
+        "certo",
+        "bueno"
     ]
 
     for confirmacao in confirmacoes_aceitas:
