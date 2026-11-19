@@ -5951,11 +5951,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 opcao = resultado_selecao["opcao_selecionada"]
                 resposta_selecao = (
                     f"✅ Perfeito! Você escolheu:\n\n"
-                    f"📅 Data: {resultado_selecao.get('data', 'N/A')}\n"
+                    f"📅 Data: {opcao.get('data', 'N/A')}\n"
                     f"⏰ Horário: {opcao['hora_inicio']} às {opcao['hora_fim']}\n"
                     f"👩 Profissional: {opcao['profissional']}\n"
-                    f"💅 Serviços: {', '.join(opcao['servicos']) if 'servicos' in resultado_selecao else 'N/A'}\n"
-                    f"⏱️ Duração: {resultado_selecao.get('duracao', 'N/A')} minutos\n\n"
+                    f"💅 Serviços: {', '.join(opcao.get('servicos', []))}\n"
+                    f"⏱️ Duração: {opcao.get('duracao_total_min', 'N/A')} minutos\n\n"
                     f"{resultado_selecao.get('proximo_passo', 'Confirme para prosseguir com o agendamento.')}"
                 )
 
