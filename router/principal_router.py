@@ -5928,7 +5928,11 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     resultado_consulta_persistido = ctx.get("contexto_resultado_consulta", {})
     tem_opcoes_reais = isinstance(resultado_consulta_persistido, dict) and len(resultado_consulta_persistido.get("opcoes", [])) > 0
 
-    if contexto_consulta_valido and servicos_multiplos and len(servicos_multiplos) > 1 and tem_opcoes_reais:
+    # 🔥 CORREÇÃO P0 (ETAPA 2): Expandir reconhecimento de seleção
+    # Aceitar seleção MESMO se contexto_consulta está vazio, desde que contexto_resultado_consulta com opções exista
+    pode_reconhecer_selecao = tem_opcoes_reais  # Suficiente: há opções persistidas
+
+    if pode_reconhecer_selecao:
         try:
             from services.reconhecimento_opcao_service import processar_selecao_opcao
 
@@ -6069,9 +6073,10 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
     if resposta_informativa:
             # Detectar se há intenção simultânea de agendamento + consulta
+            # 🔥 CORREÇÃO P0: Remover "consigo" (indica capacidade/disponibilidade, não intenção de agendar)
             tem_agendar = any(x in normalizar(mensagem) for x in [
                 "agendar", "marcar", "horario", "horário", "dá para", "da para",
-                "pode ser", "posso", "consigo", "faço", "faz", "reserva"
+                "pode ser", "posso", "faço", "faz", "reserva"
             ])
 
             tem_temporal = any(x in normalizar(mensagem) for x in [
