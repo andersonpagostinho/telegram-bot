@@ -329,7 +329,7 @@ async def salvar_evento(user_id: str, evento: dict, tenant_id: str, event_id: st
         # 🔒 EVENTOS só podem ser persistidos quando confirmados
         # Pré-agendamento deve ficar em MemoriaTemporaria
         # =====================================================
-        if evento.get("confirmado") is not True:
+        if not evento.get("confirmado"):
             print(
                 "🚫 [SALVAR_EVENTO_BLOQUEADO] tentativa de salvar evento não confirmado. "
                 f"evento={evento}",

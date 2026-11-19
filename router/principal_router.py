@@ -6043,6 +6043,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         "data_hora": f"{opcao_selecionada.get('data')}T{opcao_selecionada.get('hora_inicio')}:00",
                         "servicos": opcao_selecionada.get("servicos", []),
                         "duracao_min": opcao_selecionada.get("duracao_total_min"),
+                        "confirmado": True,
                     }
 
                     # Executar criar_evento via GPT
