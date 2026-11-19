@@ -739,9 +739,12 @@ async def processar_texto_cadastro(user_id: str, texto: str) -> Optional[str]:
         }
 
         servicos_filtrados: Dict[str, Dict[str, float | int]] = {}
+        servicos_faltando_dados = []
+
         for nome_serv, info in servs.items():
             chave = nome_serv.strip().lower()
             if chave in catalogo_map:
+                # PHASE 6: Serviço existe no catálogo - preservar dados oficiais
                 base = catalogo_map[chave]
                 preco = (
                     info.get("preco")
@@ -755,11 +758,34 @@ async def processar_texto_cadastro(user_id: str, texto: str) -> Optional[str]:
                 )
                 servicos_filtrados[chave] = {"preco": preco, "duracao": dur}
             else:
-                # serviço não está no catálogo, mas vamos salvar mesmo assim
-                servicos_filtrados[chave] = {
-                    "preco": info.get("preco"),
-                    "duracao": info.get("duracao"),
-                }
+                # PHASE 6: Serviço não existe - sincronizar se dados completos, senão solicitar
+                preco = info.get("preco")
+                duracao = info.get("duracao")
+
+                if preco is None or duracao is None:
+                    # Dados incompletos - solicitar informação ausente
+                    falta = []
+                    if preco is None:
+                        falta.append("preço")
+                    if duracao is None:
+                        falta.append("duração")
+                    servicos_faltando_dados.append(f"{nome_serv} ({' e '.join(falta)})")
+                else:
+                    # Dados válidos - sincronizar com catálogo
+                    try:
+                        await salvar_servico_negocio(user_id, nome_serv, preco, duracao)
+                        servicos_filtrados[chave] = {"preco": float(preco), "duracao": int(duracao)}
+                    except Exception as e:
+                        print(f"[SYNC-CATALOGO] Erro ao sincronizar '{nome_serv}': {e}", flush=True)
+                        servicos_filtrados[chave] = {"preco": preco, "duracao": duracao}
+
+        # PHASE 6: Bloquear se faltam dados em algum serviço novo
+        if servicos_faltando_dados:
+            return (
+                f"⚠️ Faltam informações para cadastrar {', '.join(servicos_faltando_dados)}.\n"
+                f"Use o formato: `profissional {nome} faz serviço PRECO DURACAO`.\n"
+                f"Exemplo: `profissional {nome} faz pedicure 40 30`."
+            )
 
         payload = await salvar_profissional(user_id, nome, servicos_filtrados)
 
