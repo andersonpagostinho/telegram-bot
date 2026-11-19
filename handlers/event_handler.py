@@ -1363,7 +1363,12 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
         elif status == "duplicado_confirmado" or resultado_salvamento == "duplicado":
             # ✅ CASO A: Se foi confirmado NESTA requisição = criação exitosa
             if resultado_salvamento.get("confirmado_nesta_requisicao") is True:
-                msg_sucesso = montar_mensagem_confirmacao_sucesso(servico, profissional, start_time.isoformat())
+                # Se servico é None, usar descricao ou primeiro serviço dos dados
+                servico_para_msg = servico
+                if not servico_para_msg:
+                    servico_para_msg = dados.get("descricao") or "Atendimento"
+
+                msg_sucesso = montar_mensagem_confirmacao_sucesso(servico_para_msg, profissional, start_time.isoformat())
                 if update and hasattr(update, "message"):
                     await update.message.reply_text(msg_sucesso)
                 else:
