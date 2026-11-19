@@ -1401,7 +1401,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
             print(f"[PATCH_P0_CONFLITO] Conflito detectado: {tipo_erro} — gerando sugestões", flush=True)
 
             # [IDEMPOTÊNCIA] Verificar se evento já foi criado com sucesso (conflito com lock existente da PRIMEIRA tentativa)
-            evento_id = f"{cliente_id}_{profissional.lower()}_{data}_{hora_inicio.replace(':', '')}"
+            evento_data_str = evento_data.get("data", "")
+            hora_str = evento_data.get("hora_inicio", "").replace(":", "")
+            evento_id = f"{cliente_id}_{profissional.lower()}_{evento_data_str}_{hora_str}"
             evento_ja_existe = await buscar_dado_em_path(f"Clientes/{dono_id}/Eventos/{evento_id}")
 
             if evento_ja_existe and evento_ja_existe.get("status") == "confirmado":
