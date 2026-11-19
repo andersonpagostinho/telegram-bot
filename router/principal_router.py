@@ -6047,7 +6047,7 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                     # Executar criar_evento via GPT
                     resultado_evento = await executar_acao_gpt_resultado(
-                        update, context, "criar_evento", evento_dados, identidade=identidade
+                        update, context, "criar_evento", evento_dados, identidade=identidade_p01
                     )
 
                     if resultado_evento:
