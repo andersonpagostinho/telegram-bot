@@ -6016,14 +6016,29 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                 if resultado_revalidacao.get("sucesso"):
                     print(f"[P3_CONFIRMACAO] ✅ Revalidação OK, criando evento", flush=True)
 
-                    # 2. Criar evento
-                    opcao_selecionada = resultado_revalidacao.get("autorizacao", {})
+                    # 2. Recuperar opção selecionada do contexto (tem todos os dados)
+                    opcao_selecionada_id = ctx.get("opcao_selecionada_id")
+                    opcao_selecionada = None
+
+                    if contexto_resultado and contexto_resultado.get("opcoes"):
+                        for opcao in contexto_resultado.get("opcoes", []):
+                            if opcao.get("opcao_id") == opcao_selecionada_id:
+                                opcao_selecionada = opcao
+                                break
+
+                    if not opcao_selecionada:
+                        print(f"[P3_CONFIRMACAO] ❌ Opção selecionada não encontrada", flush=True)
+                        return {
+                            "handled": True,
+                            "resposta": "❌ Erro: opção não encontrada. Tente novamente.",
+                            "erro": "opcao_nao_encontrada"
+                        }
 
                     # Preparar dados para criar evento
                     evento_dados = {
                         "tenant_id": dono_id,
                         "actor_id": cliente_id,
-                        "profissional": opcao_selecionada.get("profissional"),
+                        "profissional": opcao_selecionada.get("profissional_id"),
                         "data_hora": f"{opcao_selecionada.get('data')}T{opcao_selecionada.get('hora_inicio')}:00",
                         "servicos": opcao_selecionada.get("servicos", []),
                         "duracao_min": opcao_selecionada.get("duracao_total_min"),
@@ -6045,7 +6060,17 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                         await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
-                        resposta_evento = f"✅ Agendamento confirmado!\n\n{opcao_selecionada.get('profissional')} - {opcao_selecionada.get('hora_inicio')} até {opcao_selecionada.get('hora_fim')}\nServiços: {', '.join(opcao_selecionada.get('servicos', []))}"
+                        # Montar resposta com todos os dados corretos
+                        servicos_str = ", ".join(opcao_selecionada.get("servicos", []))
+                        resposta_evento = f"""✅ Agendamento confirmado!
+
+📅 Data: {opcao_selecionada.get('data')}
+⏰ Horário: {opcao_selecionada.get('hora_inicio')} às {opcao_selecionada.get('hora_fim')}
+👩 Profissional: {opcao_selecionada.get('profissional_id')}
+💅 Serviços: {servicos_str}
+⏱️ Duração: {opcao_selecionada.get('duracao_total_min')} minutos
+
+Seu agendamento está confirmado! Obrigado!"""
 
                         return {
                             "handled": True,
