@@ -5969,6 +5969,43 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                         contexto_resultado["opcao_selecionada_id"] = opcao_id_registrada
                         print(f"[FASE4A_SYNC] ✅ opcao_selecionada_id sincronizado em ctx: {opcao_id_registrada}", flush=True)
 
+                # 🔥 ETAPA INTERMEDIÁRIA: Revalidar após seleção
+                # Necessário antes de pedir confirmação explícita
+                from services.confirmacao_agendamento_service import autorizar_revalidacao, registrar_autorizacao_pendente
+
+                contexto_resultado = ctx.get("contexto_resultado_consulta")
+                if isinstance(contexto_resultado, dict):
+                    from schemas.resultado_consulta_schema import ContextoResultadoConsulta
+                    contexto_resultado = ContextoResultadoConsulta.from_dict(contexto_resultado)
+
+                resultado_revalidacao = await autorizar_revalidacao(
+                    tenant_id=dono_id,
+                    actor_id=cliente_id,
+                    contexto_resultado=contexto_resultado
+                )
+
+                if not resultado_revalidacao.get("sucesso"):
+                    print(f"[REVALIDACAO_POS_SELECAO] ❌ Revalidação falhou: {resultado_revalidacao.get('mensagem')}", flush=True)
+                    return {
+                        "handled": True,
+                        "resposta": f"❌ {resultado_revalidacao.get('mensagem', 'Horário não está mais disponível')}",
+                        "erro": "horario_indisponivel"
+                    }
+
+                # Registrar autorização pendente
+                autorizacao = resultado_revalidacao.get("autorizacao")
+                resultado_registro = await registrar_autorizacao_pendente(dono_id, cliente_id, autorizacao)
+
+                if not resultado_registro:
+                    print(f"[REVALIDACAO_POS_SELECAO] ❌ Falha ao registrar autorização", flush=True)
+                    return {
+                        "handled": True,
+                        "resposta": "❌ Erro ao registrar disponibilidade. Tente novamente.",
+                        "erro": "falha_registro_autorizacao"
+                    }
+
+                print(f"[REVALIDACAO_POS_SELECAO] ✅ Autorização registrada: {autorizacao.autorizacao_id}", flush=True)
+
                 # 🔥 [P2 FIX] Transicionar estado após seleção bem-sucedida
                 # Avança de idle para aguardando confirmação explícita
                 ctx["estado_fluxo"] = "aguardando_confirmacao_agendamento"
@@ -6026,6 +6063,20 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
 
                 if resultado_evento:
                     print(f"[P3_CONFIRMACAO] ✅ Evento criado com sucesso", flush=True)
+
+                    # 🔥 DEPOIS da criação do evento: marcar confirmada_em e registrar
+                    from services.confirmacao_agendamento_service import registrar_autorizacao_pendente
+
+                    autorizacao.confirmada_em = datetime.utcnow().isoformat()
+                    resultado_registro_confirmacao = await registrar_autorizacao_pendente(
+                        dono_id, cliente_id, autorizacao
+                    )
+
+                    if not resultado_registro_confirmacao:
+                        print(f"[P3_CONFIRMACAO] ⚠️ Aviso: evento criado mas falha ao registrar confirmada_em", flush=True)
+                        # Continuar mesmo assim - evento foi criado, estado será consistente na próxima tentativa
+                    else:
+                        print(f"[P3_CONFIRMACAO] ✅ Autorização registrada como confirmada", flush=True)
 
                     # Limpar estado
                     ctx["estado_fluxo"] = "idle"

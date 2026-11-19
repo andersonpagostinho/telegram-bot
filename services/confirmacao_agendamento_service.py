@@ -386,7 +386,7 @@ async def processar_confirmacao_agendamento(
     }
     """
 
-    from services.resultado_consulta_service import recuperar_resultado_consulta
+    from services.firebase_service_async import buscar_dado_em_path
 
     # 1. Verificar se é confirmação explícita
     if not eh_confirmacao_explicita(mensagem):
@@ -395,15 +395,18 @@ async def processar_confirmacao_agendamento(
             "mensagem": "Confirmação não é clara. Use 'Sim, pode agendar' ou 'Confirmo o agendamento'."
         }
 
-    # 2. Recuperar autorização pendente
+    # 2. Recuperar autorização pendente do Firestore
     if autorizacao is None:
-        contexto = await recuperar_resultado_consulta(tenant_id, actor_id)
-        if not contexto or not contexto.autorizacao_pendente:
+        path = f"Clientes/{tenant_id}/Sessoes/{actor_id}"
+        sessao_data = await buscar_dado_em_path(path)
+
+        if not sessao_data or "autorizacao_pendente" not in sessao_data:
             return {
                 "sucesso": False,
                 "mensagem": "Nenhuma revalidação ativa para confirmar."
             }
-        autorizacao = AutorizacaoPendente.from_dict(contexto.autorizacao_pendente)
+
+        autorizacao = AutorizacaoPendente.from_dict(sessao_data["autorizacao_pendente"])
 
     # 3. Validar autorização não expirou
     if autorizacao.esta_expirada():
@@ -511,21 +514,13 @@ async def processar_confirmacao_agendamento(
     # Atualizar duração total com o valor recalculado (catálogo atual prevalece)
     autorizacao.duracao_total_min = duracao_total_recalculada
 
-    # 5. Registrar confirmação (marcar autorização como confirmada)
-    # Para FASE 4B.2, essa autorização será consumida para criar evento com confirmado=True
-    autorizacao_confirmada = autorizacao
-    autorizacao_confirmada.confirmada_em = datetime.utcnow().isoformat()
-
-    resultado = await registrar_autorizacao_pendente(tenant_id, actor_id, autorizacao_confirmada)
-
-    if not resultado:
-        return {
-            "sucesso": False,
-            "mensagem": "Erro ao registrar confirmação"
-        }
+    # 5. Validações concluídas com sucesso
+    # NÃO marcar confirmada_em aqui - será feito DEPOIS da criação do evento (router)
+    # Permite recuperação segura se a criação falhar
+    autorizacao_validada = autorizacao
 
     return {
         "sucesso": True,
-        "mensagem": f"✅ Agendamento confirmado para {autorizacao.hora_inicio}",
-        "autorizacao_confirmada": autorizacao_confirmada
+        "mensagem": f"✅ Agendamento validado para {autorizacao.hora_inicio}",
+        "autorizacao_confirmada": autorizacao_validada
     }
