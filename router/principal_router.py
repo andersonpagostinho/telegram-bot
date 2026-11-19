@@ -5989,123 +5989,75 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
             pass
 
     # ---------------------------------------------------------
-    # 🔥 [P3 FIX] Bloco de Confirmação e Criação de Evento
-    # Aguarda confirmação explícita após seleção
+    # 🔥 [P3] Confirmação de Agendamento (PADRÃO)
+    # Usa processar_confirmacao_agendamento() pronto
     # ---------------------------------------------------------
     if ctx.get("estado_fluxo") == "aguardando_confirmacao_agendamento" and ctx.get("aguardando_confirmacao_agendamento") == True:
-        print(f"[P3_CONFIRMACAO] Estado aguardando confirmação, processando: '{texto_usuario[:50]}'", flush=True)
+        from services.confirmacao_agendamento_service import processar_confirmacao_agendamento
 
-        # Verificar se é confirmação
-        confirmacoes_validas = ["sim", "confirmo", "confirm", "yes", "ok", "👍", "✅", "certo", "perfeito", "blz"]
-        confirmacao_detectada = any(c in texto_usuario.lower() for c in confirmacoes_validas)
+        print(f"[P3_CONFIRMACAO] Processando confirmação: '{texto_usuario[:50]}'", flush=True)
 
-        if confirmacao_detectada:
-            print(f"[P3_CONFIRMACAO] ✅ Confirmação detectada", flush=True)
+        try:
+            resultado_confirmacao = await processar_confirmacao_agendamento(
+                mensagem=texto_usuario,
+                tenant_id=dono_id,
+                actor_id=cliente_id
+            )
 
-            try:
-                from services.confirmacao_agendamento_service import autorizar_revalidacao
+            if resultado_confirmacao.get("sucesso"):
+                print(f"[P3_CONFIRMACAO] ✅ Confirmação registrada", flush=True)
+                autorizacao = resultado_confirmacao.get("autorizacao_confirmada")
 
-                # 1. Revalidar disponibilidade
-                contexto_resultado = ctx.get("contexto_resultado_consulta")
-                resultado_revalidacao = await autorizar_revalidacao(
-                    tenant_id=dono_id,
-                    actor_id=cliente_id,
-                    contexto_resultado=contexto_resultado
+                # Criar evento a partir da autorização confirmada
+                evento_dados = {
+                    "tenant_id": dono_id,
+                    "actor_id": cliente_id,
+                    "profissional": autorizacao.profissional,
+                    "data_hora": f"{autorizacao.data}T{autorizacao.hora_inicio}:00",
+                    "servicos": autorizacao.servicos,
+                    "duracao_min": autorizacao.duracao_total_min,
+                    "confirmado": True,
+                }
+
+                # Criar evento
+                resultado_evento = await executar_acao_gpt_resultado(
+                    update, context, "criar_evento", evento_dados, identidade=identidade_p01
                 )
 
-                if resultado_revalidacao.get("sucesso"):
-                    print(f"[P3_CONFIRMACAO] ✅ Revalidação OK, criando evento", flush=True)
+                if resultado_evento:
+                    print(f"[P3_CONFIRMACAO] ✅ Evento criado com sucesso", flush=True)
 
-                    # 2. Recuperar opção selecionada do contexto (tem todos os dados)
-                    # IMPORTANTE: opcao_selecionada_id foi setado em contexto_resultado (linha 5969), não em ctx
-                    opcao_selecionada_id = contexto_resultado.get("opcao_selecionada_id") if contexto_resultado else ctx.get("opcao_selecionada_id")
-                    opcao_selecionada = None
+                    # Limpar estado
+                    ctx["estado_fluxo"] = "idle"
+                    ctx["aguardando_confirmacao_agendamento"] = False
+                    ctx["ultima_acao"] = "evento_criado"
+                    ctx["opcao_selecionada_id"] = None
+                    await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
 
-                    if contexto_resultado and contexto_resultado.get("opcoes"):
-                        for opcao in contexto_resultado.get("opcoes", []):
-                            if opcao.get("opcao_id") == opcao_selecionada_id:
-                                opcao_selecionada = opcao
-                                break
+                    # Resposta final
+                    servicos_str = ", ".join(autorizacao.servicos)
+                    resposta = f"""✅ Agendamento confirmado!
 
-                    if not opcao_selecionada:
-                        print(f"[P3_CONFIRMACAO] ❌ Opção selecionada não encontrada", flush=True)
-                        return {
-                            "handled": True,
-                            "resposta": "❌ Erro: opção não encontrada. Tente novamente.",
-                            "erro": "opcao_nao_encontrada"
-                        }
-
-                    # Preparar dados para criar evento
-                    evento_dados = {
-                        "tenant_id": dono_id,
-                        "actor_id": cliente_id,
-                        "profissional": opcao_selecionada.get("profissional_id"),
-                        "data_hora": f"{opcao_selecionada.get('data')}T{opcao_selecionada.get('hora_inicio')}:00",
-                        "servicos": opcao_selecionada.get("servicos", []),
-                        "duracao_min": opcao_selecionada.get("duracao_total_min"),
-                        "confirmado": True,
-                    }
-
-                    # Executar criar_evento via GPT
-                    resultado_evento = await executar_acao_gpt_resultado(
-                        update, context, "criar_evento", evento_dados, identidade=identidade_p01
-                    )
-
-                    if resultado_evento:
-                        print(f"[P3_CONFIRMACAO] ✅ Evento criado com sucesso", flush=True)
-
-                        # Limpar estado de confirmação
-                        ctx["estado_fluxo"] = "idle"
-                        ctx["aguardando_confirmacao_agendamento"] = False
-                        ctx["ultima_acao"] = "evento_criado"
-                        ctx["opcao_selecionada_id"] = None
-
-                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx)
-
-                        # Montar resposta com todos os dados corretos
-                        servicos_str = ", ".join(opcao_selecionada.get("servicos", []))
-                        resposta_evento = f"""✅ Agendamento confirmado!
-
-📅 Data: {opcao_selecionada.get('data')}
-⏰ Horário: {opcao_selecionada.get('hora_inicio')} às {opcao_selecionada.get('hora_fim')}
-👩 Profissional: {opcao_selecionada.get('profissional_id')}
+📅 Data: {autorizacao.data}
+⏰ Horário: {autorizacao.hora_inicio} às {autorizacao.hora_fim}
+👩 Profissional: {autorizacao.profissional}
 💅 Serviços: {servicos_str}
-⏱️ Duração: {opcao_selecionada.get('duracao_total_min')} minutos
+⏱️ Duração: {autorizacao.duracao_total_min} minutos
 
 Seu agendamento está confirmado! Obrigado!"""
 
-                        return {
-                            "handled": True,
-                            "resposta": resposta_evento,
-                            "evento_criado": True
-                        }
-                    else:
-                        print(f"[P3_CONFIRMACAO] ❌ Falha ao criar evento", flush=True)
-                        return {
-                            "handled": True,
-                            "resposta": "❌ Desculpa, não consegui criar o agendamento. Tente novamente.",
-                            "erro": "falha_criar_evento"
-                        }
+                    return {"handled": True, "resposta": resposta, "evento_criado": True}
                 else:
-                    print(f"[P3_CONFIRMACAO] ❌ Revalidação falhou: {resultado_revalidacao.get('mensagem')}", flush=True)
-                    return {
-                        "handled": True,
-                        "resposta": f"❌ {resultado_revalidacao.get('mensagem', 'Horário não está mais disponível')}",
-                        "erro": "horario_indisponivel"
-                    }
+                    print(f"[P3_CONFIRMACAO] ❌ Falha ao criar evento", flush=True)
+                    return {"handled": True, "resposta": "❌ Erro ao criar agendamento. Tente novamente.", "erro": "falha_evento"}
 
-            except Exception as e:
-                print(f"[P3_CONFIRMACAO] ⚠️ Erro ao processar confirmação: {str(e)[:100]}", flush=True)
-                return {
-                    "handled": True,
-                    "resposta": "❌ Erro ao processar confirmação. Tente novamente.",
-                    "erro": str(e)[:50]
-                }
-        else:
-            # Não é confirmação, deixar passar para fluxo normal (texto livre)
-            # Sistema classifica intenção e processa normalmente
-            print(f"[P3_CONFIRMACAO] ⚠️ Resposta não é confirmação, processando como texto livre", flush=True)
-            # NÃO retornar aqui — deixar passar para fluxo normal de processamento
+            else:
+                print(f"[P3_CONFIRMACAO] ❌ {resultado_confirmacao.get('mensagem')}", flush=True)
+                return {"handled": True, "resposta": f"❌ {resultado_confirmacao.get('mensagem')}", "erro": "confirmacao_falhou"}
+
+        except Exception as e:
+            print(f"[P3_CONFIRMACAO] ⚠️ Erro: {str(e)[:100]}", flush=True)
+            return {"handled": True, "resposta": "❌ Erro ao processar confirmação.", "erro": str(e)[:50]}
 
     # ---------------------------------------------------------
     # ✅ P0 COMPLEMENTAR: Consultas informativas em contexto idle
