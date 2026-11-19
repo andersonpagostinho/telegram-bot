@@ -6017,7 +6017,8 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
                     print(f"[P3_CONFIRMACAO] ✅ Revalidação OK, criando evento", flush=True)
 
                     # 2. Recuperar opção selecionada do contexto (tem todos os dados)
-                    opcao_selecionada_id = ctx.get("opcao_selecionada_id")
+                    # IMPORTANTE: opcao_selecionada_id foi setado em contexto_resultado (linha 5969), não em ctx
+                    opcao_selecionada_id = contexto_resultado.get("opcao_selecionada_id") if contexto_resultado else ctx.get("opcao_selecionada_id")
                     opcao_selecionada = None
 
                     if contexto_resultado and contexto_resultado.get("opcoes"):
