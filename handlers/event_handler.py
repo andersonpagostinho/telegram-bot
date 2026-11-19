@@ -1517,7 +1517,9 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 )
                 print(f"[PATCH_P0_CONFLITO] Contexto salvo: estado_fluxo=aguardando_escolha_horario", flush=True)
 
-                return True  # Não continuar com notificações ou sucesso
+                # [FIX] Retornar False para indicar que evento NÃO foi criado (conflito real)
+                # True deve indicar SUCESSO em criar evento, não "processamento completo"
+                return False
 
             except Exception as e:
                 print(f"[PATCH_P0_CONFLITO] Erro ao gerar sugestões: {e}", flush=True)
@@ -1530,7 +1532,8 @@ async def add_evento_por_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE,
                         identidade.phone_number_id if identidade and hasattr(identidade, "phone_number_id") else None
                     )
                     await enviar_mensagem_whatsapp(user_id, msg_erro_sugestoes, phone_number_id=phone_number_id_alt)
-                return True
+                # [FIX] Retornar False para indicar que evento NÃO foi criado
+                return False
 
         # [PATCH_P0] Erro genérico (sem conflito específico)
         if not resultado_salvamento:
