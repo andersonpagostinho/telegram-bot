@@ -455,9 +455,10 @@ async def processar_confirmacao_agendamento(
     # P0-2: VALIDAÇÃO INTEGRAL DE DURAÇÃO DO CATÁLOGO ATUAL
     # Carregar catálogo do tenant e validar todos os serviços
     from unidecode import unidecode
+    from services.firebase_service_async import buscar_subcolecao
 
-    catalogo_path = f"Clientes/{tenant_id}/Configuracao/Servicos"
-    servicos_db = await buscar_documento(catalogo_path) or {}
+    catalogo_path = f"Clientes/{tenant_id}/ServicosNegocio"
+    servicos_db = await buscar_subcolecao(catalogo_path) or {}
 
     # Validar que todos os serviços existem no catálogo
     # Mapa de serviços normalizados para dados completos
