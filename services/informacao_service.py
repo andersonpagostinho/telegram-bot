@@ -1,8 +1,8 @@
 from unidecode import unidecode
+from services.normalizacao_service import encontrar_servico_mais_proximo
 from services.profissional_service import (
     buscar_profissionais_por_servico,
-    buscar_profissionais_disponiveis_no_horario,
-    encontrar_servico_mais_proximo
+    buscar_profissionais_disponiveis_no_horario
 )
 from services.firebase_service_async import buscar_subcolecao, obter_id_dono
 from utils.interpretador_datas import interpretar_data_e_hora
@@ -416,7 +416,8 @@ async def responder_consulta_informativa(
         termo_busca = re.sub(r"\bfaz\b", "", termo_busca).strip()
         termo_busca = re.sub(r"\s+", " ", termo_busca).strip()
 
-        servico_normalizado = await encontrar_servico_mais_proximo(termo_busca)
+        # P0.2 FIX: Usar implementação canônica com dono_id para catálogo correto
+        servico_normalizado = await encontrar_servico_mais_proximo(termo_busca, dono_id=dono_id)
 
         if servico_normalizado:
             profissionais = await buscar_profissionais_por_servico([servico_normalizado], tenant_id=dono_id)
@@ -492,7 +493,8 @@ async def responder_consulta_informativa(
 
     if any(p in mensagem_normalizada for p in palavras_chave_disponibilidade):
         # Extrair serviço
-        servico = await encontrar_servico_mais_proximo(mensagem)
+        # P0.2 FIX: Usar implementação canônica com dono_id para catálogo correto
+        servico = await encontrar_servico_mais_proximo(mensagem, dono_id=dono_id)
         if not servico:
             return "❌ Qual serviço você quer? (corte, escova, manicure...?)"
 
@@ -621,18 +623,9 @@ async def responder_consulta_informativa(
         if eh_consulta_disponibilidade:
             print(f"[H2_DISPONIBILIDADE_SEMANTICA] Entrada: tem_pedido={features.get('tem_pedido')}, tem_tempo={features.get('tem_tempo')}, contexto_ou_pergunta={features.get('tem_contexto_servico') or features.get('tem_pergunta')}", flush=True)
 
-            # Tentar extrair serviço com fuzzy matching (encontrar_servico_mais_proximo usa similaridade)
-            # P0 FIX: Passar actor_id para garantir catálogo correto do tenant (resolve user_id internamente)
-            # Função esperada: encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None)
-            # Resolvemos user_id a partir de actor_id se necessário
-            user_id_param = None
-            if actor_id and ":" in actor_id:
-                try:
-                    user_id_param = actor_id.split(":")[-1]  # Extract user_id from "whatsapp:5511991382080"
-                except:
-                    pass
-
-            servico = await encontrar_servico_mais_proximo(mensagem, user_id=user_id_param or None)
+            # Tentar extrair serviço com fuzzy matching via implementação canônica
+            # P0.2 FIX: Usar normalizacao_service com dono_id para catálogo correto do tenant
+            servico = await encontrar_servico_mais_proximo(mensagem, dono_id=dono_id)
             if not servico:
                 print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Serviço não extraído, skip rota", flush=True)
             else:
