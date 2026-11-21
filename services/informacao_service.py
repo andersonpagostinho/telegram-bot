@@ -24,6 +24,120 @@ def formatar_nomes_humanos(profs: list[str]) -> str:
         return f"{profs[0]} ou {profs[1]}"
     return ", ".join(profs[:-1]) + f" ou {profs[-1]}"
 
+async def processar_disponibilidade_por_servico_data(
+    servico: str,
+    dt: "datetime",
+    mensagem_normalizada: str,
+    dono_id: str,
+    actor_id: str | None = None
+) -> str | None:
+    """
+    Processa consulta de disponibilidade para um serviço e data específicos.
+    Reutiliza a lógica da ROTA 7 (Disponibilidade).
+
+    Retorna str (resposta formatada) ou None (sem disponibilidade/erro).
+    """
+    # Extrair período → converter em janela horária
+    periodo_str = ""
+    if "manha" in mensagem_normalizada or "cedo" in mensagem_normalizada:
+        hora_inicio, hora_fim = 8, 12
+        periodo_str = "de manhã"
+    elif "tarde" in mensagem_normalizada or "fim_tarde" in mensagem_normalizada:
+        hora_inicio, hora_fim = 13, 18
+        periodo_str = "à tarde"
+    elif "noite" in mensagem_normalizada:
+        hora_inicio, hora_fim = 18, 21
+        periodo_str = "à noite"
+    else:
+        hora_inicio, hora_fim = 8, 21
+        periodo_str = ""
+
+    # Buscar profissionais que fazem o serviço
+    profs_servico = await buscar_profissionais_por_servico([servico], None)
+    if not profs_servico:
+        return None
+
+    # Determinar duração do serviço
+    duracao = 30
+    duracao_map = {
+        "corte": 30,
+        "escova": 40,
+        "hidratacao": 40,
+        "hidratação": 40,
+        "coloracao": 90,
+        "coloração": 90,
+        "manicure": 30,
+        "pedicure": 30,
+        "unha gel": 60,
+        "unhasegel": 60,
+        "gel": 60
+    }
+    servico_norm = unidecode(servico.lower().strip())
+    if servico_norm in duracao_map:
+        duracao = duracao_map[servico_norm]
+    else:
+        try:
+            servicos_negocio = (await buscar_subcolecao(f"Clientes/{dono_id}/ServicosNegocio")) or {}
+            for serv_id, serv_dados in servicos_negocio.items():
+                serv_nome = unidecode((serv_dados.get("nome") or "").lower().strip())
+                if serv_nome == servico_norm:
+                    duracao = serv_dados.get("duracao", 30)
+                    break
+        except Exception:
+            pass
+
+    # Iterar janela horária com passo de 30 minutos
+    data_obj = dt.date()
+    horarios_disponiveis = {}
+
+    for hora_num in range(hora_inicio, hora_fim + 1):
+        for minuto in [0, 30]:
+            if hora_num == hora_fim and minuto == 30:
+                continue
+
+            hora_str = f"{hora_num:02d}:{minuto:02d}"
+
+            # Chamar motor determinístico
+            disponiveis = await buscar_profissionais_disponiveis_no_horario(
+                user_id=None,
+                data=data_obj,
+                hora=hora_str,
+                duracao=duracao
+            )
+
+            # Filtrar apenas profissionais que fazem o serviço
+            disponiveis_servico = {
+                nome: info for nome, info in disponiveis.items()
+                if nome in profs_servico
+            }
+
+            if disponiveis_servico:
+                horarios_disponiveis[hora_str] = disponiveis_servico
+
+    # Formatar resposta
+    if horarios_disponiveis:
+        data_str = data_obj.strftime("%d/%m")
+        primeira_hora, primeira_profs = next(iter(horarios_disponiveis.items()))
+        profs_disponiveis = list(primeira_profs.keys())
+
+        return formatar_resposta_disponibilidade(
+            servico=servico,
+            data_str=data_str,
+            periodo_str=periodo_str,
+            profissionais_disponiveis=profs_disponiveis,
+            com_horario=True,
+            horario=primeira_hora
+        )
+    else:
+        data_str = data_obj.strftime("%d/%m")
+        return formatar_resposta_disponibilidade(
+            servico=servico,
+            data_str=data_str,
+            periodo_str=periodo_str,
+            profissionais_disponiveis=[]
+        )
+
+
 def formatar_resposta_disponibilidade(
     servico: str,
     data_str: str,
@@ -489,6 +603,52 @@ async def responder_consulta_informativa(
                 periodo_str=periodo_str,
                 profissionais_disponiveis=[]
             )
+
+    # 🧠 H2: ROTA INTELIGENTE - Consulta de Disponibilidade Semântica
+    # (Entrada: Pedido com data/hora, independente de palavras-chave)
+    # (Saída: Disponibilidade formatada)
+    # Regra: Sem palavras-chave fixas, baseada em features do classificador
+    if features:
+        eh_consulta_disponibilidade = (
+            features.get("tem_pedido") and
+            features.get("tem_tempo") and
+            (
+                features.get("tem_contexto_servico") or
+                features.get("tem_pergunta")
+            )
+        )
+
+        if eh_consulta_disponibilidade:
+            print(f"[H2_DISPONIBILIDADE_SEMANTICA] Entrada: tem_pedido={features.get('tem_pedido')}, tem_tempo={features.get('tem_tempo')}, contexto_ou_pergunta={features.get('tem_contexto_servico') or features.get('tem_pergunta')}", flush=True)
+
+            # Tentar extrair serviço com fuzzy matching (encontrar_servico_mais_proximo usa similaridade)
+            servico = await encontrar_servico_mais_proximo(mensagem)
+            if not servico:
+                print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Serviço não extraído, skip rota", flush=True)
+            else:
+                print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Serviço extraído: {servico}", flush=True)
+
+                # Extrair data/hora
+                dt = interpretar_data_e_hora(mensagem)
+                if not dt:
+                    print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Data/hora não interpretada, skip rota", flush=True)
+                else:
+                    print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Data/hora interpretada: {dt}", flush=True)
+
+                    # Reutilizar lógica de ROTA 7 via função auxiliar
+                    resposta = await processar_disponibilidade_por_servico_data(
+                        servico=servico,
+                        dt=dt,
+                        mensagem_normalizada=mensagem_normalizada,
+                        dono_id=dono_id,
+                        actor_id=actor_id
+                    )
+
+                    if resposta:
+                        print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Resposta processada", flush=True)
+                        return resposta
+                    else:
+                        print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Sem disponibilidade ou erro ao processar", flush=True)
 
     # 👥 Comparação entre profissionais — Quem oferece o quê
     # Padrões: "A Carla faz as mesmas coisa que a Bruna?"
