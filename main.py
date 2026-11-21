@@ -326,15 +326,15 @@ def whatsapp_webhook_post():
                             # Quota ou erro de persistência: aceitar webhook, deixar Meta retentar
                             elif "429" in str(e) or "Quota" in str(e):
                                 logger.error(f"[WA-P0] Quota ao adquirir msg: {e}")
-                                return 200
+                                return "OK", 200
                             # Outras falhas: aceitar webhook, deixar Meta retentar
                             else:
                                 logger.error(f"[WA-P0] Erro ao adquirir msg: {e}")
-                                return 200
+                                return "OK", 200
 
                         if not ganhou_disputa:
                             logger.info(f"[WA-P0] Outra instância processando: {phone_number_id}/{msg_id}")
-                            return 200  # Segunda instância encerra sem processar
+                            return "OK", 200  # Segunda instância encerra sem processar
 
                         # ✅ Resolver tenant pelo endpoint
                         from services.whatsapp_endpoint_service import resolver_tenant_por_endpoint
