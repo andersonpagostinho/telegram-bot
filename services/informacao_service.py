@@ -622,33 +622,51 @@ async def responder_consulta_informativa(
             print(f"[H2_DISPONIBILIDADE_SEMANTICA] Entrada: tem_pedido={features.get('tem_pedido')}, tem_tempo={features.get('tem_tempo')}, contexto_ou_pergunta={features.get('tem_contexto_servico') or features.get('tem_pergunta')}", flush=True)
 
             # Tentar extrair serviço com fuzzy matching (encontrar_servico_mais_proximo usa similaridade)
-            servico = await encontrar_servico_mais_proximo(mensagem)
+            # P0 FIX: Passar dono_id para garantir catálogo correto do tenant
+            servico = await encontrar_servico_mais_proximo(mensagem, dono_id=dono_id)
             if not servico:
                 print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Serviço não extraído, skip rota", flush=True)
             else:
                 print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Serviço extraído: {servico}", flush=True)
 
-                # Extrair data/hora
-                dt = interpretar_data_e_hora(mensagem)
-                if not dt:
-                    print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Data/hora não interpretada, skip rota", flush=True)
+                # P0 FIX: Validar que serviço existe no catálogo real (evitar "botox capilar")
+                profissionais_db = (await buscar_subcolecao(f"Clientes/{dono_id}/Profissionais")) or {}
+                todos_servicos_validos = set()
+                for prof_dados in profissionais_db.values():
+                    for s in prof_dados.get("servicos", []):
+                        s_norm = unidecode(s.lower().strip())
+                        s_norm = re.sub(r"\s+", " ", s_norm)
+                        todos_servicos_validos.add(s_norm)
+
+                servico_norm = unidecode(servico.lower().strip())
+                servico_norm = re.sub(r"\s+", " ", servico_norm)
+
+                if servico_norm not in todos_servicos_validos:
+                    print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Serviço '{servico}' não existe no catálogo (validação fallou), skip rota", flush=True)
                 else:
-                    print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Data/hora interpretada: {dt}", flush=True)
+                    print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Serviço validado contra catálogo", flush=True)
 
-                    # Reutilizar lógica de ROTA 7 via função auxiliar
-                    resposta = await processar_disponibilidade_por_servico_data(
-                        servico=servico,
-                        dt=dt,
-                        mensagem_normalizada=mensagem_normalizada,
-                        dono_id=dono_id,
-                        actor_id=actor_id
-                    )
-
-                    if resposta:
-                        print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Resposta processada", flush=True)
-                        return resposta
+                    # Extrair data/hora
+                    dt = interpretar_data_e_hora(mensagem)
+                    if not dt:
+                        print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Data/hora não interpretada, skip rota", flush=True)
                     else:
-                        print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Sem disponibilidade ou erro ao processar", flush=True)
+                        print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Data/hora interpretada: {dt}", flush=True)
+
+                        # Reutilizar lógica de ROTA 7 via função auxiliar
+                        resposta = await processar_disponibilidade_por_servico_data(
+                            servico=servico,
+                            dt=dt,
+                            mensagem_normalizada=mensagem_normalizada,
+                            dono_id=dono_id,
+                            actor_id=actor_id
+                        )
+
+                        if resposta:
+                            print(f"[H2_DISPONIBILIDADE_SEMANTICA] ✅ Resposta processada", flush=True)
+                            return resposta
+                        else:
+                            print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Sem disponibilidade ou erro ao processar", flush=True)
 
     # 👥 Comparação entre profissionais — Quem oferece o quê
     # Padrões: "A Carla faz as mesmas coisa que a Bruna?"
