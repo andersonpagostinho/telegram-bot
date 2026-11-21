@@ -622,8 +622,17 @@ async def responder_consulta_informativa(
             print(f"[H2_DISPONIBILIDADE_SEMANTICA] Entrada: tem_pedido={features.get('tem_pedido')}, tem_tempo={features.get('tem_tempo')}, contexto_ou_pergunta={features.get('tem_contexto_servico') or features.get('tem_pergunta')}", flush=True)
 
             # Tentar extrair serviço com fuzzy matching (encontrar_servico_mais_proximo usa similaridade)
-            # P0 FIX: Passar dono_id para garantir catálogo correto do tenant
-            servico = await encontrar_servico_mais_proximo(mensagem, dono_id=dono_id)
+            # P0 FIX: Passar actor_id para garantir catálogo correto do tenant (resolve user_id internamente)
+            # Função esperada: encontrar_servico_mais_proximo(texto_usuario: str, user_id: str = None)
+            # Resolvemos user_id a partir de actor_id se necessário
+            user_id_param = None
+            if actor_id and ":" in actor_id:
+                try:
+                    user_id_param = actor_id.split(":")[-1]  # Extract user_id from "whatsapp:5511991382080"
+                except:
+                    pass
+
+            servico = await encontrar_servico_mais_proximo(mensagem, user_id=user_id_param or None)
             if not servico:
                 print(f"[H2_DISPONIBILIDADE_SEMANTICA] ⚠️ Serviço não extraído, skip rota", flush=True)
             else:
