@@ -53,7 +53,8 @@ async def processar_disponibilidade_por_servico_data(
         periodo_str = ""
 
     # Buscar profissionais que fazem o serviço
-    profs_servico = await buscar_profissionais_por_servico([servico], None)
+    # P0.3 FIX: Passar dono_id para resolver tenant correto
+    profs_servico = await buscar_profissionais_por_servico([servico], None, dono_id)
     if not profs_servico:
         return None
 
@@ -519,7 +520,8 @@ async def responder_consulta_informativa(
             periodo_str = ""
 
         # Buscar profissionais que fazem o serviço
-        profs_servico = await buscar_profissionais_por_servico([servico], None)
+        # P0.3 FIX: Passar dono_id para resolver tenant correto
+        profs_servico = await buscar_profissionais_por_servico([servico], None, dono_id)
         if not profs_servico:
             return f"❌ Nenhum profissional encontrado para {servico}."
 
