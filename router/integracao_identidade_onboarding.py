@@ -26,7 +26,7 @@ from services.onboarding_dono_service import (
     pegar_etapa_onboarding,
     obter_pergunta_etapa,
 )
-from services.firebase_service_async import obter_id_dono
+from services.firebase_service_async import obter_id_dono, buscar_dado_em_path
 from utils.contexto_temporario import salvar_contexto_temporario_v2, salvar_contexto_temporario_v2 as salvar_contexto_temporario
 
 
@@ -132,6 +132,30 @@ async def resolver_ator_e_validar_guard(
                     "error": "Profissional sem permissão operacional",
                     "proxima_acao": "falha_segura"
                 }
+
+        # [P0 FIX] Guard: Verificar consistência — ator deve ter cliente correspondente
+        # Cenário B: Ator existe mas cliente não
+        cliente_path = f"Clientes/{tenant_id}/Clientes/{actor_id}"
+        cliente_existente = None
+        try:
+            cliente_existente = await buscar_dado_em_path(cliente_path)
+        except Exception as e:
+            print(f"[AUDIT] Erro ao verificar cliente: {e}", flush=True)
+
+        if not cliente_existente and tipo_usuario == "cliente":
+            # Cliente não existe — criar para manter consistência
+            print(f"[P0_FIX] Cenário B detectado: Ator existe mas Cliente não. Criando cliente.", flush=True)
+            try:
+                await criar_ator_cliente_automatico(
+                    tenant_id=tenant_id,
+                    canal=canal,
+                    identificador=identificador,
+                    nome_detectado=""
+                )
+                print(f"[P0_FIX] Cliente criado com sucesso em Cenário B.")
+            except Exception as e:
+                print(f"[AVISO] Falha ao criar cliente em Cenário B: {e}", flush=True)
+                # Continuar mesmo se falhar (ator já existe, sessão vai funcionar)
 
         # Ator válido — retornar sucesso
         return {
