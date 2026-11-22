@@ -6307,7 +6307,7 @@ Seu agendamento está confirmado! Obrigado!"""
     if ctx.get("modo_operacao") != "consulta_sem_autorizacao_atual":
         if (
             ctx.get("motivo_estado") != "profissional_nao_atende_servico"
-            and ctx.get("intencao_conversacional") in ["agendamento_direto", "pedido_aberto_temporal", "ajuste_incremental"]
+            and ctx.get("intencao_conversacional") in ["agendamento_direto", "ajuste_incremental"]
         ):
             # Verificar se a mensagem atual representa o mesmo pedido ou um novo pedido
             alteracao = await detectar_alteracao_draft_agendamento(
