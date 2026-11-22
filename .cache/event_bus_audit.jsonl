@@ -312,3 +312,4 @@
 {"timestamp": "2026-11-22T14:25:22.868600Z", "event_id": "evt-20261122142522-74f75588", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
 {"timestamp": "2026-11-22T14:25:22.879769Z", "event_id": "evt-20261122142522-7ea31d7e", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
 {"timestamp": "2026-11-22T14:38:10.763008Z", "event_id": "evt-20261122143810-5b7ae18e", "event_type": "task_assigned", "mission_id": "test-mission", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:43:32.498599Z", "event_id": "evt-20261122144332-f875cd69", "event_type": "task_assigned", "mission_id": "test", "state": "PUBLISHED", "details": {}}
