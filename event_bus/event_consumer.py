@@ -22,7 +22,8 @@ class EventConsumer:
         Get pending events for processing with atomic reservation.
 
         Atomically transitions events from PENDING -> PROCESSING to prevent
-        race conditions with concurrent consumers.
+        race conditions with concurrent consumers. Loops until `limit` events
+        are reserved or no more PENDING events exist.
 
         Args:
             mission_id: Mission to get events for
@@ -31,14 +32,30 @@ class EventConsumer:
         Returns:
             List of reserved events that were successfully transitioned to PROCESSING
         """
-        # Get candidate events (not reserved yet)
-        events = self.event_store.get_pending_events(mission_id, limit)
-
-        # Atomically reserve each event (prevent race condition)
         reserved = []
-        for event in events:
-            if self.event_store.reserve_event_atomic(event.event_id):
-                reserved.append(event)
+        attempts = 0
+        max_attempts = 3  # Prevent infinite loop
+
+        while len(reserved) < limit and attempts < max_attempts:
+            attempts += 1
+
+            # Get candidate events (loop to handle concurrent reservations)
+            events = self.event_store.get_pending_events(mission_id, limit)
+
+            if not events:  # No more pending events
+                break
+
+            # Atomically reserve each event (prevent race condition)
+            for event in events:
+                if len(reserved) >= limit:
+                    break
+
+                if self.event_store.reserve_event_atomic(event.event_id):
+                    reserved.append(event)
+
+            # If we got all requested events, exit loop
+            if len(reserved) >= limit:
+                break
 
         return reserved
 
