@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .core import settings
-from .database.connection import init_db
+from ..database.connection import init_db
 from .api.router import api_router
 
 # Setup logging
@@ -95,7 +95,7 @@ async def health_check_detailed():
     - PostgreSQL connection
     - Projection Worker health (if available)
     """
-    from .database.connection import test_connection
+    from ..database.connection import test_connection
 
     db_status = "connected"
     db_error = None
