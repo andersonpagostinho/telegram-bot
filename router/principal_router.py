@@ -6139,11 +6139,14 @@ Seu agendamento está confirmado! Obrigado!"""
         # 🔥 FASE 6 P1: Construir contexto_consulta ANTES de chamar responder_consulta_informativa
         contexto_consulta = {}
 
-        # FASE 1: Extrair múltiplos serviços
+        # FASE 1: Extrair múltiplos (ou único) serviço
         servicos_multiplos_detectados = await extrair_multiplos_servicos_da_mensagem(texto_usuario, dono_id)
-        if len(servicos_multiplos_detectados) > 1:
+        if len(servicos_multiplos_detectados) >= 1:  # Aceita 1 ou mais serviços
             contexto_consulta["servicos_multiplos"] = servicos_multiplos_detectados
-            print(f"[FASE6_P1] Múltiplos serviços detectados: {servicos_multiplos_detectados}", flush=True)
+            if len(servicos_multiplos_detectados) > 1:
+                print(f"[FASE6_P1] Múltiplos serviços detectados: {servicos_multiplos_detectados}", flush=True)
+            else:
+                print(f"[FASE6_P1] Serviço detectado: {servicos_multiplos_detectados}", flush=True)
 
         # FASE 2: Enriquecer com intervalo horário
         from services.multisservico_service import enriquecer_contexto_consulta
