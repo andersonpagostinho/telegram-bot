@@ -277,6 +277,36 @@ class EventStore:
         except Exception as e:
             raise PersistenceException(f"Failed to get history: {e}")
 
+    def get_events_by_correlation(self, correlation_id: str) -> List[Event]:
+        """
+        Retrieve all events with given correlation_id across all missions.
+
+        Returns events in chronological order (by created_at).
+
+        Args:
+            correlation_id: Correlation ID to match
+
+        Returns:
+            List of events, ordered by created_at ASC
+
+        Raises:
+            PersistenceException if query fails
+        """
+        with self._lock:
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT * FROM events
+                        WHERE correlation_id = ?
+                        ORDER BY created_at ASC
+                    """, (correlation_id,))
+
+                    rows = cursor.fetchall()
+                    return [self._row_to_event(row) for row in rows]
+            except Exception as e:
+                raise PersistenceException(f"Failed to get events by correlation: {e}")
+
     def get_stuck_events(self, timeout_minutes: int = 30) -> List[Event]:
         """
         Get events stuck in PROCESSING state.

@@ -47,15 +47,16 @@ class EventDispatcher:
     - Auditability via correlation_id
     """
 
-    def __init__(self, event_bus: EventBus):
+    def __init__(self, event_bus: EventBus, governance=None):
         self.event_bus = event_bus
+        self.governance = governance
         self.handlers: Dict[str, Callable] = {}
         self._lock = threading.RLock()
 
         # Routing rules: event_type → authorized_agents
         self.routing_rules = {
             EventType.TASK_ASSIGNED: [AgentRole.BACKEND, AgentRole.DEBUGGER, AgentRole.QA],
-            EventType.REVIEW_REQUESTED: [AgentRole.SECURITY, AgentRole.QA],
+            EventType.REVIEW_REQUESTED: [AgentRole.SECURITY, AgentRole.QA, AgentRole.RELEASE],
             EventType.VALIDATION_REQUESTED: [AgentRole.VALIDATOR],
             EventType.MISSION_CREATED: [AgentRole.ARCHITECT],
         }
@@ -79,6 +80,13 @@ class EventDispatcher:
                 f"Unauthorized: {target_agent.value} cannot receive {event.event_type.value}"
             )
             return False
+
+        # Check governance rules if available
+        if self.governance:
+            decision = self.governance.evaluate(event, target_agent.value, "dispatch")
+            if not decision.allowed:
+                logger.warning(f"Governance blocked dispatch: {decision.reason}")
+                return False
 
         # Get handler
         handler = self.handlers.get(target_agent.value)

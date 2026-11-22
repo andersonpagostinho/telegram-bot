@@ -122,10 +122,27 @@ class GovernanceEngine:
 
     def _rule_security_veto(self, event: Event, target_agent: str) -> GovernanceDecision:
         """
-        Rule 3: Security Auditor can block operations.
+        Rule 3: Security Auditor can block operations based on severity.
+
+        CRITICAL/HIGH findings = block immediately
+        MEDIUM findings = allow with warning
+        LOW findings = allow silently
         """
-        # Check if Security previously rejected this event
-        if event.payload.get("security_rejected"):
+        # Check if Security explicitly rejected
+        if event.event_type == EventType.REVIEW_REJECTED and event.agent_id == "security":
+            severity = event.payload.get("severity", "UNKNOWN") if event.payload else "UNKNOWN"
+            severity = severity.upper()
+
+            if severity in ["CRITICAL", "HIGH"]:
+                reason = f"Security veto: {severity} severity finding blocks operation"
+                self._rule_audit_trail(event, target_agent, "REJECTED_SECURITY_VETO", False)
+                return GovernanceDecision(allowed=False, reason=reason, rule_id=3)
+            elif severity == "MEDIUM":
+                # Log but allow
+                logger.warning(f"Security warning: {severity} severity finding requires review")
+
+        # Check legacy security_rejected flag for backward compatibility
+        if event.payload and event.payload.get("security_rejected"):
             reason = "Security Auditor blocked this operation"
             self._rule_audit_trail(event, target_agent, "REJECTED_SECURITY_VETO", False)
             return GovernanceDecision(allowed=False, reason=reason, rule_id=3)

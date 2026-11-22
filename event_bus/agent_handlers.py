@@ -326,18 +326,48 @@ class SecurityAuditorHandler:
         self.event_bus = event_bus
         self.name = "security"
 
+    def _determine_severity(self, payload: dict) -> str:
+        """Determine severity level from findings"""
+        # Check explicit severity in payload
+        if "severity" in payload:
+            severity = payload["severity"].upper()
+            if severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+                return severity
+
+        # Infer from vulnerabilities
+        vulnerabilities = payload.get("vulnerabilities", 0)
+        if vulnerabilities >= 3:
+            return "CRITICAL"
+        elif vulnerabilities >= 2:
+            return "HIGH"
+        elif vulnerabilities >= 1:
+            return "MEDIUM"
+        return "LOW"
+
     def handle_event(self, event: Event) -> bool:
         logger.info(f"[SECURITY] Auditing: {event.event_id}")
         try:
+            # Determine severity from findings
+            severity = self._determine_severity(event.payload or {})
+            logger.info(f"[SECURITY] Finding severity: {severity}")
+
+            # CRITICAL or HIGH = REJECT, others = APPROVE
+            should_approve = severity not in ["CRITICAL", "HIGH"]
+
             result_event = Event(
-                event_type=EventType.REVIEW_APPROVED,
+                event_type=EventType.REVIEW_APPROVED if should_approve else EventType.REVIEW_REJECTED,
                 mission_id=event.mission_id,
                 task_id=event.task_id,
                 agent_id=self.name,
                 agent_role=self.name,
                 correlation_id=event.correlation_id,
                 causation_id=event.event_id,
-                payload={"evidence": {"vulnerabilities": 0}, "security_decision": "APPROVED"},
+                payload={
+                    "evidence": {"vulnerabilities": event.payload.get("vulnerabilities", 0) if event.payload else 0},
+                    "severity": severity,
+                    "security_decision": "APPROVED" if should_approve else "REJECTED",
+                    "reason": f"Security finding: {severity}" if severity != "LOW" else "No critical findings"
+                },
                 schema_version="1.0"
             )
             self.event_bus.publish(result_event)

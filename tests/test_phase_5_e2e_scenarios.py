@@ -44,8 +44,8 @@ class TestPhase5E2EScenarios:
         try:
             event_bus = EventBus(db_path=db_path, use_wal=False)
             store = event_bus.store
-            dispatcher = EventDispatcher(event_bus)
             governance = GovernanceEngine(event_bus)
+            dispatcher = EventDispatcher(event_bus, governance=governance)
 
             # Register all handlers
             architect = ArchitectHandler(event_bus)
@@ -88,10 +88,9 @@ class TestPhase5E2EScenarios:
         """Helper to create mission_id"""
         return mission_id or f"mission-{uuid4().hex[:8]}"
 
-    def _get_events_by_correlation(self, store, mission_id: str, correlation_id: str) -> List[Event]:
+    def _get_events_by_correlation(self, store, correlation_id: str) -> List[Event]:
         """Helper to get all events in correlation chain"""
-        all_events = store.get_history(mission_id, limit=1000)
-        return [evt for evt in all_events if evt.correlation_id == correlation_id]
+        return store.get_events_by_correlation(correlation_id)
 
     def _validate_chain(self, events: List[Event]) -> bool:
         """Validate causation_id chain is complete"""
@@ -167,7 +166,7 @@ class TestPhase5E2EScenarios:
         logger.info("✓ Dispatched to Backend")
 
         # Verify Backend published result
-        events = self._get_events_by_correlation(store, mission_id, correlation_id)
+        events = self._get_events_by_correlation(store, correlation_id)
         assert len(events) >= 2, f"Expected >=2 events, got {len(events)}"
 
         backend_result = None
@@ -262,7 +261,7 @@ class TestPhase5E2EScenarios:
         # STEP 7: Verify complete chain
         logger.info("\n[STEP 7] Verify correlation chain")
 
-        final_events = self._get_events_by_correlation(store, mission_id, correlation_id)
+        final_events = self._get_events_by_correlation(store, correlation_id)
         logger.info(f"Total events in chain: {len(final_events)}")
 
         for i, evt in enumerate(final_events):
@@ -657,7 +656,7 @@ class TestPhase5E2EScenarios:
         # Verify only one TASK_COMPLETED published
         logger.info("\n[STEP 4] Verify single execution")
 
-        events = self._get_events_by_correlation(store, mission_id, correlation_id)
+        events = self._get_events_by_correlation(store, correlation_id)
         completed_events = [e for e in events if e.event_type == EventType.TASK_COMPLETED]
 
         logger.info(f"Total completed events: {len(completed_events)}")
@@ -738,7 +737,7 @@ class TestPhase5E2EScenarios:
         # STEP 5: Verify correlation maintained
         logger.info("\n[STEP 5] Verify correlation maintained")
 
-        chain_events = self._get_events_by_correlation(store, mission_id, correlation_id)
+        chain_events = self._get_events_by_correlation(store, correlation_id)
         logger.info(f"Events in correlation chain: {len(chain_events)}")
 
         assert len(chain_events) >= 3, "Correlation chain incomplete"
