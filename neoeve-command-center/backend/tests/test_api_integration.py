@@ -55,6 +55,28 @@ def test_token(test_tenant):
 
 
 @pytest.fixture
+def admin_token(test_tenant):
+    """Create JWT token for admin user."""
+    return create_access_token(
+        user_id=f"admin_{uuid.uuid4().hex[:8]}",
+        tenant_id=test_tenant,
+        actor_id=f"admin_actor_{uuid.uuid4().hex[:8]}",
+        actor_role="admin",
+    )
+
+
+@pytest.fixture
+def non_admin_token(test_tenant):
+    """Create JWT token for non-admin user."""
+    return create_access_token(
+        user_id=f"user_{uuid.uuid4().hex[:8]}",
+        tenant_id=test_tenant,
+        actor_id=f"actor_{uuid.uuid4().hex[:8]}",
+        actor_role="backend",
+    )
+
+
+@pytest.fixture
 def test_mission(db_session, test_tenant):
     """Create test mission."""
     mission = Mission(
@@ -386,6 +408,85 @@ class TestErrorHandling:
         # Should have error detail
         data = response.json()
         assert "detail" in data
+
+
+class TestWebSocketAdminSecurity:
+    """
+    ETAPA 2: Security tests for WebSocket admin endpoints.
+
+    Validates that admin-only endpoints require:
+    1. Valid JWT token
+    2. actor_role="admin"
+    3. No hardcoded fake identities
+    """
+
+    def test_ws_connections_admin_access(self, admin_token):
+        """Test that admin can access connections endpoint."""
+        response = client.get(
+            "/api/v1/ws/connections",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        # Should return 200 with valid response
+        assert response.status_code == 200
+        data = response.json()
+        assert "total" in data
+        assert "by_tenant" in data
+        assert isinstance(data["total"], int)
+        assert isinstance(data["by_tenant"], dict)
+
+    def test_ws_connections_non_admin_denied(self, non_admin_token):
+        """Test that non-admin cannot access connections endpoint."""
+        response = client.get(
+            "/api/v1/ws/connections",
+            headers={"Authorization": f"Bearer {non_admin_token}"},
+        )
+        # Should return 403 Forbidden
+        assert response.status_code == 403
+        data = response.json()
+        assert "detail" in data
+        assert "Admin role required" in data["detail"]
+
+    def test_ws_connections_no_auth(self):
+        """Test that unauthenticated request is denied."""
+        response = client.get("/api/v1/ws/connections")
+        # Should return 403 or 401 (no bearer token)
+        assert response.status_code in [401, 403]
+
+    def test_ws_connections_invalid_token(self):
+        """Test that invalid token is rejected."""
+        response = client.get(
+            "/api/v1/ws/connections",
+            headers={"Authorization": "Bearer invalid_token_xyz"},
+        )
+        # Should return 401 Unauthorized
+        assert response.status_code == 401
+
+    def test_no_hardcoded_identity(self, non_admin_token):
+        """
+        Test that non-admin cannot bypass auth with hardcoded identity.
+
+        This validates that the vulnerable lambda-based identity is gone
+        and proper get_admin_user validation is in place.
+        """
+        # First, verify non-admin is denied
+        response = client.get(
+            "/api/v1/ws/connections",
+            headers={"Authorization": f"Bearer {non_admin_token}"},
+        )
+        assert response.status_code == 403
+
+        # Then verify admin IS allowed
+        admin_token = create_access_token(
+            user_id="admin_user",
+            tenant_id="admin_tenant",
+            actor_id="admin_actor",
+            actor_role="admin",
+        )
+        response = client.get(
+            "/api/v1/ws/connections",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 200
 
 
 if __name__ == "__main__":

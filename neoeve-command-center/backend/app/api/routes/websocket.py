@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, WebSocket, Query, Depends
 from sqlalchemy.orm import Session
 
-from ...core.security import get_current_user, Identity
+from ...core.security import get_current_user, get_admin_user, Identity
 from ...core.dependencies import get_db
 from ...services.websocket_manager import connection_manager
 from ...services.websocket_ticket_service import ticket_service
@@ -168,17 +168,22 @@ async def websocket_endpoint(
 
 @router.get("/ws/connections")
 async def get_connections_count(
-    current_user: Identity = Depends(lambda: Identity(
-        user_id="system", tenant_id="system", actor_id="system", actor_role="admin"
-    ))
+    current_user: Identity = Depends(get_admin_user)
 ):
     """
     Get active WebSocket connections count (admin only).
+
+    Security:
+    - Requires JWT authentication
+    - Requires actor_role="admin"
+    - Returns 403 Forbidden if not admin
 
     Returns:
     - total: Total active connections
     - by_tenant: Breakdown by tenant
     """
+    logger.info(f"Admin querying connections: user={current_user.user_id} tenant={current_user.tenant_id}")
+
     total = connection_manager.get_active_connections_count()
 
     return {

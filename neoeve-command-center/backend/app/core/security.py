@@ -159,3 +159,31 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication failed",
         )
+
+
+async def get_admin_user(current_user: Identity = Depends(get_current_user)) -> Identity:
+    """
+    Validate that current user has admin role.
+
+    SECURITY: This function validates that only users with actor_role="admin"
+    can access admin-only endpoints. Never allow fallback or implicit admin.
+
+    Args:
+        current_user: Authenticated user identity from JWT
+
+    Returns:
+        Identity if user is admin
+
+    Raises:
+        HTTPException: 403 Forbidden if user is not admin
+    """
+    if current_user.actor_role != "admin":
+        logger.warning(
+            f"Admin endpoint accessed by non-admin: "
+            f"user={current_user.user_id} role={current_user.actor_role}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required",
+        )
+    return current_user
