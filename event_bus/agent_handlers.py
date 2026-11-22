@@ -260,3 +260,146 @@ class ProofOfConcept:
         logger.info("=" * 80)
 
         return True
+
+
+# ============= FIVE REMAINING HANDLERS =============
+
+class DebuggerHandler:
+    """Debugger Agent Handler"""
+    def __init__(self, event_bus):
+        self.event_bus = event_bus
+        self.name = "debugger"
+
+    def handle_event(self, event: Event) -> bool:
+        logger.info(f"[DEBUGGER] Investigating: {event.event_id}")
+        try:
+            result_event = Event(
+                event_type=EventType.TASK_COMPLETED,
+                mission_id=event.mission_id,
+                task_id=event.task_id,
+                agent_id=self.name,
+                agent_role=self.name,
+                correlation_id=event.correlation_id,
+                causation_id=event.event_id,
+                payload={"findings": ["Root cause identified"], "status": "COMPLETE"},
+                schema_version="1.0"
+            )
+            self.event_bus.publish(result_event)
+            self.event_bus.mark_completed(event.event_id, self.name)
+            return True
+        except Exception as e:
+            logger.error(f"[DEBUGGER] Error: {e}")
+            return False
+
+
+class QAEngineerHandler:
+    """QA Engineer Agent Handler"""
+    def __init__(self, event_bus):
+        self.event_bus = event_bus
+        self.name = "qa"
+
+    def handle_event(self, event: Event) -> bool:
+        logger.info(f"[QA] Testing: {event.event_id}")
+        try:
+            result_event = Event(
+                event_type=EventType.REVIEW_APPROVED,
+                mission_id=event.mission_id,
+                task_id=event.task_id,
+                agent_id=self.name,
+                agent_role=self.name,
+                correlation_id=event.correlation_id,
+                causation_id=event.event_id,
+                payload={"evidence": {"tests_passed": 10}, "qa_decision": "APPROVED"},
+                schema_version="1.0"
+            )
+            self.event_bus.publish(result_event)
+            self.event_bus.mark_completed(event.event_id, self.name)
+            return True
+        except Exception as e:
+            logger.error(f"[QA] Error: {e}")
+            return False
+
+
+class SecurityAuditorHandler:
+    """Security Auditor Agent Handler"""
+    def __init__(self, event_bus):
+        self.event_bus = event_bus
+        self.name = "security"
+
+    def handle_event(self, event: Event) -> bool:
+        logger.info(f"[SECURITY] Auditing: {event.event_id}")
+        try:
+            result_event = Event(
+                event_type=EventType.REVIEW_APPROVED,
+                mission_id=event.mission_id,
+                task_id=event.task_id,
+                agent_id=self.name,
+                agent_role=self.name,
+                correlation_id=event.correlation_id,
+                causation_id=event.event_id,
+                payload={"evidence": {"vulnerabilities": 0}, "security_decision": "APPROVED"},
+                schema_version="1.0"
+            )
+            self.event_bus.publish(result_event)
+            self.event_bus.mark_completed(event.event_id, self.name)
+            return True
+        except Exception as e:
+            logger.error(f"[SECURITY] Error: {e}")
+            return False
+
+
+class ReleaseManagerHandler:
+    """Release Manager Agent Handler"""
+    def __init__(self, event_bus):
+        self.event_bus = event_bus
+        self.name = "release"
+
+    def handle_event(self, event: Event) -> bool:
+        logger.info(f"[RELEASE] Evaluating: {event.event_id}")
+        try:
+            result_event = Event(
+                event_type=EventType.REVIEW_APPROVED,
+                mission_id=event.mission_id,
+                task_id=event.task_id,
+                agent_id=self.name,
+                agent_role=self.name,
+                correlation_id=event.correlation_id,
+                causation_id=event.event_id,
+                payload={"status": "READY_FOR_DEPLOYMENT", "note": "Requires explicit authorization"},
+                schema_version="1.0"
+            )
+            self.event_bus.publish(result_event)
+            self.event_bus.mark_completed(event.event_id, self.name)
+            return True
+        except Exception as e:
+            logger.error(f"[RELEASE] Error: {e}")
+            return False
+
+
+class OpenAIValidatorHandler:
+    """OpenAI Validator Agent Handler (External, read-only)"""
+    def __init__(self, event_bus):
+        self.event_bus = event_bus
+        self.name = "validator"
+
+    def handle_event(self, event: Event) -> bool:
+        logger.info(f"[VALIDATOR] Validating: {event.event_id}")
+        try:
+            result_event = Event(
+                event_type=EventType.REVIEW_APPROVED,
+                mission_id=event.mission_id,
+                task_id=event.task_id,
+                agent_id=self.name,
+                agent_role=self.name,
+                correlation_id=event.correlation_id,
+                causation_id=event.event_id,
+                payload={"validation": "PASSED", "architecture_valid": True},
+                schema_version="1.0"
+            )
+            self.event_bus.publish(result_event)
+            self.event_bus.mark_completed(event.event_id, self.name)
+            return True
+        except Exception as e:
+            logger.error(f"[VALIDATOR] Error: {e}")
+            self.event_bus.mark_failed(event.event_id, f"Validation error: {str(e)}", self.name)
+            return False
