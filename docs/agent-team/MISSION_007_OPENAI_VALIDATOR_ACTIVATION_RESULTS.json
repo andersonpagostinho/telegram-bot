@@ -1,0 +1,63 @@
+{
+  "execution_id": "4ddc452e-26a4-4fd9-bd15-8c9a795053da",
+  "timestamp_created": "2026-11-22T16:27:59.883783+00:00",
+  "agent": "validator",
+  "runtime": "OpenAI API (External)",
+  "status": "SUCCESS",
+  "events": [
+    {
+      "event_id": "evt-20261122162800-2422a8a7",
+      "type": "TASK_ASSIGNED",
+      "from": "architect",
+      "to": "validator"
+    },
+    {
+      "event_id": "evt-20261122162800-2ed99924",
+      "type": "TASK_COMPLETED",
+      "from": "validator",
+      "causation_id": "evt-20261122162800-2422a8a7"
+    }
+  ],
+  "governance_decision": {
+    "allowed": true,
+    "reason": "All rules passed"
+  },
+  "validator_response": {
+    "validation_result": "API_NOT_CONFIGURED",
+    "fallback": "synthetic_validation",
+    "external_validation": false
+  },
+  "validation": {
+    "api_available": false,
+    "task_event_persisted": true,
+    "result_event_persisted": true,
+    "correlation_preserved": true,
+    "causation_chain": true,
+    "no_secrets_exposed": true
+  },
+  "metrics": {
+    "queued_at": "2026-11-22T16:27:59.884120+00:00",
+    "reserved_at": "2026-11-22T16:28:00.078390+00:00",
+    "started_at": "2026-11-22T16:28:00.139746+00:00",
+    "completed_at": "2026-11-22T16:28:00.139765+00:00",
+    "validated_at": "2026-11-22T16:28:00.166276+00:00",
+    "recorded_at": "2026-11-22T16:28:00.169855+00:00"
+  },
+  "calculated_durations": {
+    "queue_time_ms": 194,
+    "init_time_ms": 61,
+    "execution_time_ms": 0,
+    "validation_time_ms": 26,
+    "total_duration_ms": 282
+  },
+  "api_metrics": {
+    "request_tokens": 0,
+    "response_tokens": 0,
+    "total_tokens": 0,
+    "estimated_cost_usd": 0.0,
+    "api_latency_ms": 0
+  },
+  "errors": [
+    "OPENAI_API_KEY not configured - fail-closed"
+  ]
+}
