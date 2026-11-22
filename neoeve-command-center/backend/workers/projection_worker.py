@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 import logging
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from event_bus.event import Event, EventType, EventStatus
 from event_bus.event_store import EventStore
@@ -144,26 +145,32 @@ class ProjectionWorker:
 
     def _project_event(self, event: Event) -> bool:
         """
-        Project single event to PostgreSQL AgentEvent table.
+        Project single event to PostgreSQL AgentEvent table (idempotent UPSERT).
+
+        Implements fail-safe idempotency:
+        1. Query first to check if event already projected
+        2. If not, insert with UNIQUE constraint protection
+        3. If UNIQUE violation (race condition), handle gracefully
 
         Returns:
-            True if successful
+            True if successful (new projection or already idempotent)
         """
         try:
             # Extract tenant/project context
             tenant_id, project_id = self._extract_tenant_context(event)
 
-            # Create or update AgentEvent row (UPSERT)
+            # UPSERT Pattern Step 1: Query to detect if already projected
             agent_event = self.db_session.query(AgentEvent).filter_by(
                 event_id=event.event_id
             ).first()
 
             if agent_event:
-                # Event already projected - check for update
+                # Event already projected
                 self._metrics["duplicates"] += 1
-                return True  # Idempotent
+                logger.debug(f"Event {event.event_id} already projected (duplicate)")
+                return True  # Idempotent - safe to return success
 
-            # Create new AgentEvent row
+            # UPSERT Pattern Step 2: Insert new projection (first observer wins)
             agent_event = AgentEvent(
                 event_id=event.event_id,
                 event_type=event.event_type.value,
@@ -177,18 +184,35 @@ class ProjectionWorker:
                 tenant_id=tenant_id,
                 actor_id=event.agent_id,
                 source_agent=event.agent_role,
-                target_agent=None,  # Will be enhanced later
+                target_agent=None,  # Enhanced in future phases
                 payload_summary=event.payload,
                 created_at=datetime.fromisoformat(event.timestamp.replace('Z', '+00:00')),
                 processed_at=datetime.now(timezone.utc),
             )
 
             self.db_session.add(agent_event)
-            self.db_session.flush()  # Verify constraint before commit
+            self.db_session.flush()  # Verify constraints before commit
 
+            logger.debug(f"Event {event.event_id} projected successfully")
             return True
+
+        except IntegrityError as e:
+            # UPSERT Pattern Step 3: Handle race condition (concurrent projection)
+            # This occurs when another worker projected the same event between our query and insert
+            if "event_id" in str(e) and "UNIQUE" in str(e):
+                self._metrics["duplicates"] += 1
+                logger.warning(f"Event {event.event_id} projected concurrently (UNIQUE violation handled)")
+                self.db_session.rollback()  # Rollback partial transaction
+                return True  # Still idempotent - return success
+            else:
+                # Non-idempotency constraint violation - re-raise
+                logger.error(f"Non-idempotency constraint violation for {event.event_id}: {e}")
+                self.db_session.rollback()
+                raise
+
         except Exception as e:
             logger.error(f"Event projection failed for {event.event_id}: {e}")
+            self.db_session.rollback()
             raise
 
     def _extract_tenant_context(self, event: Event) -> tuple[str, str]:

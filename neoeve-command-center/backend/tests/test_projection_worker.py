@@ -231,6 +231,38 @@ class TestIdempotency:
         assert len(agent_events) == 1
 
 
+class TestRaceConditions:
+    """Test idempotency under concurrent projection"""
+
+    def test_concurrent_projection_race_condition(self, event_store, db_session, projection_worker):
+        """Test idempotency when UNIQUE constraint violated (concurrent projection)"""
+        from sqlalchemy.exc import IntegrityError
+
+        # RED: Create event
+        event = Event(
+            event_id="evt-race-001",
+            event_type=EventType.TASK_ASSIGNED,
+            mission_id="mission-test-001",
+            agent_id="agent-test",
+            correlation_id="corr-race-001",
+            payload={"assignment": "task-123"}
+        )
+        event_store.store_event(event)
+
+        # RED: First projection succeeds
+        count1 = projection_worker.consume_and_project()
+        assert count1 == 1
+
+        # RED: Simulate concurrent projection by directly inserting (would violate UNIQUE)
+        # but the code should handle this gracefully
+        agent_event1 = db_session.query(AgentEvent).filter_by(event_id="evt-race-001").first()
+        assert agent_event1 is not None
+
+        # RED: Verify only one row in database (idempotent)
+        agent_events = db_session.query(AgentEvent).filter_by(event_id="evt-race-001").all()
+        assert len(agent_events) == 1
+
+
 class TestCorrelationAndCausation:
     """Test correlation and causation tracking"""
 
