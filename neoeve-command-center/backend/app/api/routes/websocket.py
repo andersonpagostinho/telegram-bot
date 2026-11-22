@@ -1,33 +1,59 @@
 """
 WebSocket endpoint for real-time event updates.
-Handles multi-tenant subscriptions with JWT authentication.
+Handles multi-tenant subscriptions with ticket-based authentication.
 """
 
-import json
 import logging
 from fastapi import APIRouter, WebSocket, Query, Depends
 from sqlalchemy.orm import Session
 
 from ...core.security import get_current_user, Identity
 from ...core.dependencies import get_db
-from ...services.websocket_manager import connection_manager, ClientConnection
+from ...services.websocket_manager import connection_manager
+from ...services.websocket_ticket_service import ticket_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["websocket"])
 
 
+@router.post("/ticket")
+async def issue_websocket_ticket(
+    current_user: Identity = Depends(get_current_user),
+):
+    """
+    Issue a short-lived WebSocket ticket.
+
+    Security: JWT auth required, ticket is single-use and expires in 5 minutes.
+
+    Returns: {"ticket": "..."}
+    """
+    ticket = ticket_service.issue_ticket(
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.user_id,
+        actor_id=current_user.actor_id,
+        actor_role=current_user.actor_role,
+    )
+
+    logger.info(
+        f"WebSocket ticket issued for tenant={current_user.tenant_id} "
+        f"user={current_user.user_id}"
+    )
+
+    return {"ticket": ticket}
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: str = Query(..., description="JWT token for authentication"),
+    ticket: str = Query(..., description="WebSocket ticket from /ticket endpoint"),
     db: Session = Depends(get_db),
 ):
     """
     WebSocket endpoint for real-time Command Center updates.
 
     Features:
-    - JWT authentication via query parameter
+    - Ticket-based authentication (single-use, 5 minute expiry)
     - Multi-tenant isolation (events scoped to tenant)
     - Event subscription management
     - Automatic heartbeat and reconnection
@@ -40,32 +66,21 @@ async def websocket_endpoint(
     - Server sends: {"type": "heartbeat", "cursor": N}
     """
 
-    # Authenticate using provided token
-    try:
-        from jose import jwt
-        from ...core.config import settings
+    # Validate and consume ticket (atomic operation)
+    ws_ticket = ticket_service.validate_and_consume_ticket(ticket)
 
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-        )
-
-        identity = Identity(
-            user_id=payload.get("user_id"),
-            tenant_id=payload.get("tenant_id"),
-            actor_id=payload.get("actor_id"),
-            actor_role=payload.get("actor_role"),
-        )
-
-        if not all([identity.user_id, identity.tenant_id, identity.actor_id]):
-            await websocket.close(code=1008, reason="Invalid token claims")
-            return
-
-    except Exception as e:
-        logger.warning(f"WebSocket auth failed: {e}")
-        await websocket.close(code=1008, reason="Authentication failed")
+    if not ws_ticket:
+        logger.warning(f"WebSocket ticket validation failed: {ticket[:8]}...")
+        await websocket.close(code=1008, reason="Invalid or expired ticket")
         return
+
+    # Build identity from ticket claims
+    identity = Identity(
+        user_id=ws_ticket.user_id,
+        tenant_id=ws_ticket.tenant_id,
+        actor_id=ws_ticket.actor_id,
+        actor_role=ws_ticket.actor_role,
+    )
 
     # Accept connection
     connection_id = await connection_manager.connect(
