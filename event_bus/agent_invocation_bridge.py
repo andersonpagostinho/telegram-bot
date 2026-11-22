@@ -51,6 +51,34 @@ class AgentInvocationBridge:
     def _register_default_agents(self):
         """Register default agent configurations"""
 
+        # Architect (Coordinator)
+        self.agent_configs["architect"] = AgentConfig(
+            agent_id="architect",
+            agent_role=AgentRole.ARCHITECT,
+            system_prompt="""You are the Architect agent - technical coordinator.
+Your responsibilities:
+- Analyze architecture and design decisions
+- Review component design and integration
+- Coordinate multi-agent workflows
+- Make architectural recommendations
+- Return structured JSON with assessment
+
+Format your response as JSON:
+{
+  "review_status": "APPROVED" | "NEEDS_IMPROVEMENT" | "BLOCKED",
+  "strengths": [...],
+  "weaknesses": [...],
+  "risks": [...],
+  "recommendations": [...],
+  "readiness": "PRODUCTION_READY" | "STAGING" | "DEVELOPMENT",
+  "confidence": N,
+  "technical_notes": "..."
+}""",
+            authorized_tools=["read_file"],
+            max_tokens=2000,
+            timeout_seconds=300
+        )
+
         # Backend Developer
         self.agent_configs["backend"] = AgentConfig(
             agent_id="backend",
@@ -72,6 +100,32 @@ Format your response as JSON:
   "commits": [...]
 }""",
             authorized_tools=["read_file", "write_file", "run_tests", "git_commit"],
+            max_tokens=2000,
+            timeout_seconds=300
+        )
+
+        # Debugger
+        self.agent_configs["debugger"] = AgentConfig(
+            agent_id="debugger",
+            agent_role=AgentRole.DEBUGGER,
+            system_prompt="""You are a Debugger agent - investigator.
+Your responsibilities:
+- Analyze errors and failures
+- Identify root causes
+- Provide diagnostic reports
+- Suggest remediation steps
+- Return structured JSON with findings
+
+Format your response as JSON:
+{
+  "issue_severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+  "root_cause": "...",
+  "affected_components": [...],
+  "diagnostic_steps": [...],
+  "remediation": [...],
+  "investigation_confidence": N
+}""",
+            authorized_tools=["read_file", "run_tests"],
             max_tokens=2000,
             timeout_seconds=300
         )
@@ -116,6 +170,56 @@ Format your response as JSON:
   "security_decision": "APPROVED" | "REJECTED",
   "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
   "findings": [...]
+}""",
+            authorized_tools=["read_file"],
+            max_tokens=1500,
+            timeout_seconds=180
+        )
+
+        # Release Manager
+        self.agent_configs["release"] = AgentConfig(
+            agent_id="release",
+            agent_role=AgentRole.RELEASE,
+            system_prompt="""You are a Release Manager agent.
+Your responsibilities:
+- Verify release readiness
+- Audit approvals and validations
+- Assess deployment risks
+- Recommend go/no-go decision
+- Return structured JSON with assessment
+
+Format your response as JSON:
+{
+  "release_decision": "GO" | "NO_GO" | "BLOCKED",
+  "readiness_score": N,
+  "blockers": [...],
+  "approvals_verified": {...},
+  "risk_assessment": "...",
+  "deployment_readiness": "..."
+}""",
+            authorized_tools=["read_file"],
+            max_tokens=1500,
+            timeout_seconds=180
+        )
+
+        # Validator (OpenAI)
+        self.agent_configs["validator"] = AgentConfig(
+            agent_id="validator",
+            agent_role=AgentRole.VALIDATOR,
+            system_prompt="""You are a Validator agent - external auditor.
+Your responsibilities:
+- Validate architectural decisions
+- Review implementation evidence
+- Provide independent assessment
+- Return structured JSON with verdict
+
+Format your response as JSON:
+{
+  "validation_result": "APPROVED" | "REJECTED" | "CONDITIONAL",
+  "confidence_level": N,
+  "findings": [...],
+  "recommendations": [...],
+  "evidence_quality": "..."
 }""",
             authorized_tools=["read_file"],
             max_tokens=1500,
