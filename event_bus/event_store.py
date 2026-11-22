@@ -28,10 +28,11 @@ class EventStore:
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get SQLite connection with proper settings"""
-        conn = sqlite3.connect(str(self.db_path), timeout=5.0)
+        conn = sqlite3.connect(str(self.db_path), timeout=5.0, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
     def _init_db(self) -> None:
