@@ -308,3 +308,6 @@
 {"timestamp": "2026-11-22T14:20:40.163942Z", "event_id": "evt-20261122142040-1e6e7e2d", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
 {"timestamp": "2026-11-22T14:20:40.844369Z", "event_id": "evt-20261122142040-824a0ad8", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
 {"timestamp": "2026-11-22T14:20:40.866809Z", "event_id": "evt-20261122142040-824a0ad8", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T14:25:22.855437Z", "event_id": "evt-20261122142522-6c7d4e6f", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:25:22.868600Z", "event_id": "evt-20261122142522-74f75588", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:25:22.879769Z", "event_id": "evt-20261122142522-7ea31d7e", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
