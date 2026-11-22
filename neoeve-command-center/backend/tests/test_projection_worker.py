@@ -263,6 +263,38 @@ class TestRaceConditions:
         assert len(agent_events) == 1
 
 
+class TestRecovery:
+    """Test recovery mechanisms"""
+
+    def test_recover_stuck_events(self, event_store, db_session, projection_worker):
+        """Test recovery of stuck events (interrupted processing)"""
+        # RED: Create event and mark as PROCESSING (stuck state)
+        event = Event(
+            event_id="evt-stuck-001",
+            event_type=EventType.TASK_PROGRESS,
+            mission_id="mission-test-001",
+            agent_id="agent-test",
+            correlation_id="corr-stuck-001",
+            payload={"progress": "50%"}
+        )
+        event_store.store_event(event)
+
+        # RED: Manually set to PROCESSING (simulate stuck)
+        event_store.update_event_status(event.event_id, EventStatus.PROCESSING)
+
+        # Verify event is PROCESSING
+        stuck = event_store.get_stuck_events(timeout_minutes=0)  # 0 = all in PROCESSING
+        assert len(stuck) >= 1
+
+        # RED: Recover stuck events
+        recovered = projection_worker.recover_stuck_events(timeout_minutes=0)
+        assert recovered >= 1
+
+        # Verify event is back to PENDING
+        event_check = event_store.get_event(event.event_id)
+        assert event_check.status == EventStatus.PENDING
+
+
 class TestCorrelationAndCausation:
     """Test correlation and causation tracking"""
 

@@ -6,12 +6,14 @@ Responsibilities:
 - Transform to PostgreSQL row(s)
 - Handle idempotency (UPSERT)
 - Manage checkpoints for recovery
+- Implement retry with backoff
 - Track metrics
 """
 
 from typing import Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
+import time
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -40,6 +42,8 @@ class ProjectionWorker:
         consumer_id: str = "projection-worker",
         mission_id: Optional[str] = None,
         batch_size: int = 10,
+        max_retries: int = 3,
+        retry_backoff_seconds: int = 2,
     ):
         """
         Initialize ProjectionWorker.
@@ -50,18 +54,24 @@ class ProjectionWorker:
             consumer_id: Unique consumer identifier for checkpoint tracking
             mission_id: Specific mission to process (None = all missions)
             batch_size: Events to fetch per batch
+            max_retries: Maximum retry attempts per event
+            retry_backoff_seconds: Initial backoff for retries (exponential)
         """
         self.event_store = event_store
         self.db_session = db_session
         self.consumer_id = consumer_id
         self.mission_id = mission_id or "default"
         self.batch_size = batch_size
+        self.max_retries = max_retries
+        self.retry_backoff_seconds = retry_backoff_seconds
 
         self._event_consumer = EventConsumer(event_store, consumer_id)
         self._metrics = {
             "processed": 0,
             "duplicates": 0,
             "failures": 0,
+            "retries": 0,
+            "recovered": 0,
             "last_processed": None,
         }
 
@@ -230,3 +240,69 @@ class ProjectionWorker:
         project_id = event.mission_id
 
         return tenant_id, project_id
+
+    def recover_stuck_events(self, timeout_minutes: int = 30) -> int:
+        """
+        Recover events stuck in PROCESSING state (interrupted processing).
+
+        Events stuck > timeout_minutes are reset to PENDING for reprocessing.
+        This handles cases where the worker crashed or was forcibly terminated.
+
+        Args:
+            timeout_minutes: Consider events older than this as stuck
+
+        Returns:
+            Number of events recovered
+        """
+        try:
+            stuck_events = self.event_store.get_stuck_events(timeout_minutes)
+
+            if not stuck_events:
+                logger.debug("No stuck events found for recovery")
+                return 0
+
+            logger.warning(f"Found {len(stuck_events)} stuck events, recovering...")
+
+            recovered = 0
+            for event in stuck_events:
+                try:
+                    # Reset to PENDING so they can be reprocessed
+                    self.event_store.update_event_status(
+                        event.event_id,
+                        EventStatus.PENDING,
+                        "Recovered from PROCESSING state"
+                    )
+                    recovered += 1
+                    self._metrics["recovered"] += 1
+                except Exception as e:
+                    logger.error(f"Failed to recover event {event.event_id}: {e}")
+
+            logger.info(f"Successfully recovered {recovered} stuck events")
+            return recovered
+
+        except Exception as e:
+            logger.error(f"Error during stuck event recovery: {e}")
+            return 0
+
+    def _retry_with_backoff(self, event: Event, attempt: int) -> bool:
+        """
+        Retry event projection with exponential backoff.
+
+        Args:
+            event: Event to retry
+            attempt: Current attempt number (0-based)
+
+        Returns:
+            True if retry should proceed, False if max retries exceeded
+        """
+        if attempt >= self.max_retries:
+            logger.error(f"Event {event.event_id} exceeded max retries ({self.max_retries})")
+            return False
+
+        # Exponential backoff: 2^attempt seconds
+        backoff = self.retry_backoff_seconds * (2 ** attempt)
+        logger.warning(f"Retrying event {event.event_id} in {backoff}s (attempt {attempt + 1}/{self.max_retries})")
+
+        time.sleep(backoff)
+        self._metrics["retries"] += 1
+        return True
