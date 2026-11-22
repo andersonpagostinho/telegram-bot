@@ -1,0 +1,109 @@
+{"timestamp": "2026-11-22T04:19:19.634056Z", "event_id": "evt-20261122041919-65212f4a", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:19.649402Z", "event_id": "evt-20261122041919-d5b781ad", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:19.658699Z", "event_id": "evt-20261122041919-26a341e9", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:19.673093Z", "event_id": "evt-20261122041919-f6847f69", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:19.673093Z", "event_id": "evt-20261122041919-9c23b5e6", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:19.974821Z", "event_id": "evt-20261122041919-ecf41866", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:19.983876Z", "event_id": "evt-20261122041919-5bbfa137", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.000975Z", "event_id": "evt-20261122041919-c2d1ed3e", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.016258Z", "event_id": "evt-20261122041920-576bf760", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.024393Z", "event_id": "evt-20261122041920-f613147b", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.030650Z", "event_id": "evt-20261122041920-bc40c184", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.034648Z", "event_id": "evt-20261122041920-c392c1c0", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.046691Z", "event_id": "evt-20261122041920-56264f3e", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.054113Z", "event_id": "evt-20261122041920-7604ad70", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.062580Z", "event_id": "evt-20261122041920-9641d2e8", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.100989Z", "event_id": "evt-20261122041919-ecf41866", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.100989Z", "event_id": "evt-20261122041919-5bbfa137", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.100989Z", "event_id": "evt-20261122041919-c2d1ed3e", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.137978Z", "event_id": "evt-20261122041920-576bf760", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.137978Z", "event_id": "evt-20261122041920-f613147b", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.138988Z", "event_id": "evt-20261122041920-bc40c184", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.156059Z", "event_id": "evt-20261122041919-ecf41866", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.187128Z", "event_id": "evt-20261122041920-576bf760", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.204042Z", "event_id": "evt-20261122041920-f613147b", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.204042Z", "event_id": "evt-20261122041919-5bbfa137", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.221279Z", "event_id": "evt-20261122041920-bc40c184", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.232733Z", "event_id": "evt-20261122041919-c2d1ed3e", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:20.890021Z", "event_id": "evt-20261122041920-418f90dc", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.903701Z", "event_id": "evt-20261122041920-147d24e1", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:20.907021Z", "event_id": "evt-20261122041920-c1d76c04", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.061823Z", "event_id": "evt-20261122041921-bedfe71a", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.075154Z", "event_id": "evt-20261122041921-bedfe71a", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:21.078129Z", "event_id": "evt-20261122041921-bedfe71a", "state": "ERROR", "error": "Recovered from stuck state after 0m"}
+{"timestamp": "2026-11-22T04:19:21.244056Z", "event_id": "evt-20261122041921-b453d8f1", "event_type": "mission_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.257650Z", "event_id": "evt-20261122041921-40a13588", "event_type": "mission_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.265439Z", "event_id": "evt-20261122041921-f051a244", "event_type": "mission_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.529336Z", "event_id": "evt-20261122041921-c260773b", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.540759Z", "event_id": "evt-20261122041921-c260773b", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:19:21.686349Z", "event_id": "evt-20261122041921-1ca42472", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.956686Z", "event_id": "evt-20261122041921-a67a46cb", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:19:21.985240Z", "event_id": "evt-20261122041921-a67a46cb", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:03.425406Z", "event_id": "evt-20261122042503-d5e0dec5", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.437523Z", "event_id": "evt-20261122042503-06621d6d", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.445580Z", "event_id": "evt-20261122042503-b0c6f559", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.463299Z", "event_id": "evt-20261122042503-f4eae660", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.477013Z", "event_id": "evt-20261122042503-f7b5fc88", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.782116Z", "event_id": "evt-20261122042503-8a8e5352", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.796652Z", "event_id": "evt-20261122042503-ffaed434", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.805310Z", "event_id": "evt-20261122042503-57c6d043", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.819326Z", "event_id": "evt-20261122042503-522f7c9e", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.830557Z", "event_id": "evt-20261122042503-a5c18c7b", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.843343Z", "event_id": "evt-20261122042503-28e57521", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.857934Z", "event_id": "evt-20261122042503-fadbe78f", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.869344Z", "event_id": "evt-20261122042503-a1ea517d", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.880355Z", "event_id": "evt-20261122042503-00ce5224", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.894204Z", "event_id": "evt-20261122042503-78a29630", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:03.932369Z", "event_id": "evt-20261122042503-8a8e5352", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:03.932768Z", "event_id": "evt-20261122042503-ffaed434", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:03.933166Z", "event_id": "evt-20261122042503-57c6d043", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:03.973337Z", "event_id": "evt-20261122042503-522f7c9e", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:03.973641Z", "event_id": "evt-20261122042503-a5c18c7b", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:03.973931Z", "event_id": "evt-20261122042503-28e57521", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:03.996836Z", "event_id": "evt-20261122042503-8a8e5352", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:04.006998Z", "event_id": "evt-20261122042503-522f7c9e", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:04.015736Z", "event_id": "evt-20261122042503-ffaed434", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:04.027228Z", "event_id": "evt-20261122042503-a5c18c7b", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:04.040594Z", "event_id": "evt-20261122042503-57c6d043", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:04.053347Z", "event_id": "evt-20261122042503-28e57521", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:04.667267Z", "event_id": "evt-20261122042504-379825f9", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:04.676702Z", "event_id": "evt-20261122042504-f7d69f54", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:04.689520Z", "event_id": "evt-20261122042504-82a51471", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:04.847373Z", "event_id": "evt-20261122042504-f7ca28d3", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:04.861914Z", "event_id": "evt-20261122042504-f7ca28d3", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:04.871533Z", "event_id": "evt-20261122042504-f7ca28d3", "state": "ERROR", "error": "Recovered from stuck state after 0m"}
+{"timestamp": "2026-11-22T04:25:05.025876Z", "event_id": "evt-20261122042505-002e0c48", "event_type": "mission_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:05.038591Z", "event_id": "evt-20261122042505-ffc1c6b2", "event_type": "mission_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:05.048395Z", "event_id": "evt-20261122042505-e489f792", "event_type": "mission_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:05.312807Z", "event_id": "evt-20261122042505-792abc57", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:05.328454Z", "event_id": "evt-20261122042505-792abc57", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:25:05.475994Z", "event_id": "evt-20261122042505-56f6ff8c", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:05.730728Z", "event_id": "evt-20261122042505-f3908d64", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:25:05.748989Z", "event_id": "evt-20261122042505-f3908d64", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:26:58.095960Z", "event_id": "evt-20261122042658-73e145f1", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:26:58.129904Z", "event_id": "evt-20261122042658-9abce27c", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:26:58.167521Z", "event_id": "evt-20261122042658-574fe60d", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:26:58.204169Z", "event_id": "evt-20261122042658-92d7625d", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:26:58.239640Z", "event_id": "evt-20261122042658-f53d2b0e", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.170108Z", "event_id": "evt-20261122042708-3f49e2ee", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.204866Z", "event_id": "evt-20261122042708-05129c0d", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.239784Z", "event_id": "evt-20261122042708-7d6c8ef1", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.274128Z", "event_id": "evt-20261122042708-5544039f", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.307565Z", "event_id": "evt-20261122042708-fd61df03", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.340635Z", "event_id": "evt-20261122042708-068ebc08", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.375118Z", "event_id": "evt-20261122042708-dd60d6b3", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.410453Z", "event_id": "evt-20261122042708-3b4f1d1c", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.442729Z", "event_id": "evt-20261122042708-fe3a6433", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.478427Z", "event_id": "evt-20261122042708-32e9b933", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T04:27:08.540045Z", "event_id": "evt-20261122042708-3f49e2ee", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.540667Z", "event_id": "evt-20261122042708-05129c0d", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.541150Z", "event_id": "evt-20261122042708-7d6c8ef1", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.583326Z", "event_id": "evt-20261122042708-5544039f", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.583718Z", "event_id": "evt-20261122042708-fd61df03", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.584192Z", "event_id": "evt-20261122042708-068ebc08", "event_type": "task_created", "mission_id": "mission-001", "state": "PROCESSING", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.627855Z", "event_id": "evt-20261122042708-3f49e2ee", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.701579Z", "event_id": "evt-20261122042708-05129c0d", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.702550Z", "event_id": "evt-20261122042708-5544039f", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.741370Z", "event_id": "evt-20261122042708-7d6c8ef1", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.776001Z", "event_id": "evt-20261122042708-fd61df03", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}
+{"timestamp": "2026-11-22T04:27:08.811755Z", "event_id": "evt-20261122042708-068ebc08", "event_type": "task_created", "mission_id": "mission-001", "state": "COMPLETED", "details": {"consumer": "consumer-1"}}

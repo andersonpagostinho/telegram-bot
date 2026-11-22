@@ -19,22 +19,28 @@ class EventConsumer:
 
     def consume_pending(self, mission_id: str, limit: int = 10) -> List[Event]:
         """
-        Get pending events for processing.
+        Get pending events for processing with atomic reservation.
+
+        Atomically transitions events from PENDING -> PROCESSING to prevent
+        race conditions with concurrent consumers.
 
         Args:
             mission_id: Mission to get events for
             limit: Maximum events to return
 
         Returns:
-            List of pending events
+            List of reserved events that were successfully transitioned to PROCESSING
         """
+        # Get candidate events (not reserved yet)
         events = self.event_store.get_pending_events(mission_id, limit)
 
-        # Mark as processing
+        # Atomically reserve each event (prevent race condition)
+        reserved = []
         for event in events:
-            self.event_store.update_event_status(event.event_id, EventStatus.PROCESSING)
+            if self.event_store.reserve_event_atomic(event.event_id):
+                reserved.append(event)
 
-        return events
+        return reserved
 
     def mark_completed(self, event_id: str) -> None:
         """Mark event as successfully processed"""

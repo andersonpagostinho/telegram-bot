@@ -1,0 +1,36 @@
+{
+  "validation_id": "val-mock-task-test-002-2026-11-22T00:24:40.884405",
+  "mission_id": "mission-test",
+  "task_id": "task-test-002",
+  "verdict": "NEEDS_HUMAN_REVIEW",
+  "confidence": 0,
+  "executive_summary": "MOCK VALIDATION: OpenAI API key not configured. Human review required.",
+  "findings": [
+    {
+      "severity": "INFO",
+      "category": "validator_unavailable",
+      "description": "Real OpenAI validation not performed. Using mock mode.",
+      "evidence_reference": "OPENAI_API_KEY environment variable",
+      "recommended_action": "Set OPENAI_API_KEY environment variable for real validation"
+    }
+  ],
+  "critical_issues": [
+    "Validator not available in mock mode"
+  ],
+  "missing_evidence": [],
+  "contradictions": [],
+  "architecture_compliance": false,
+  "security_assessment": "NOT_VALIDATED",
+  "test_assessment": "NOT_VALIDATED",
+  "required_actions": [
+    "Set OPENAI_API_KEY",
+    "Re-submit for validation"
+  ],
+  "recommended_owner": "SECURITY_AUDITOR",
+  "human_review_required": true,
+  "model_id": "mock",
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "estimated_cost": 0.0,
+  "created_at": "2026-11-22T00:24:40.884405"
+}

@@ -140,6 +140,7 @@ class EventStore:
                     ))
 
                     conn.commit()
+                    self._checkpoint_wal(conn)
         except sqlite3.IntegrityError as e:
             if "UNIQUE" in str(e):
                 raise PersistenceException(f"Event already exists: {event.event_id}")
@@ -228,6 +229,7 @@ class EventStore:
                     """, (event_id, status.value, datetime.utcnow().isoformat(), error_msg))
 
                     conn.commit()
+                    self._checkpoint_wal(conn)
         except Exception as e:
             raise PersistenceException(f"Failed to update event status: {e}")
 
@@ -313,6 +315,78 @@ class EventStore:
         event.created_at_local = row["created_at"]
         return event
 
+    def reserve_event_atomic(self, event_id: str) -> bool:
+        """
+        Atomically reserve event for processing (PENDING -> PROCESSING).
+
+        Uses BEGIN IMMEDIATE to prevent race conditions with concurrent consumers.
+
+        Args:
+            event_id: Event to reserve
+
+        Returns:
+            True if successfully reserved, False if event in different state
+
+        Raises:
+            PersistenceException: If operation fails
+        """
+        try:
+            with self._lock:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+
+                    # Explicit IMMEDIATE transaction for exclusive lock
+                    cursor.execute("BEGIN IMMEDIATE")
+
+                    try:
+                        # Atomic: Check status AND update in single operation
+                        cursor.execute("""
+                            UPDATE events
+                            SET status = ?, updated_at = ?
+                            WHERE event_id = ? AND status = ?
+                        """, (
+                            EventStatus.PROCESSING.value,
+                            datetime.utcnow().isoformat(),
+                            event_id,
+                            EventStatus.PENDING.value
+                        ))
+
+                        success = cursor.rowcount > 0
+
+                        if success:
+                            # Also log state transition
+                            cursor.execute("""
+                                INSERT INTO processing_log (event_id, status, processed_at)
+                                VALUES (?, ?, ?)
+                            """, (event_id, EventStatus.PROCESSING.value, datetime.utcnow().isoformat()))
+
+                            conn.commit()
+                        else:
+                            conn.rollback()
+
+                        return success
+                    except Exception as e:
+                        conn.rollback()
+                        raise e
+        except Exception as e:
+            raise PersistenceException(f"Failed to reserve event: {e}")
+
+    def _checkpoint_wal(self, conn: sqlite3.Connection) -> None:
+        """
+        Checkpoint WAL to ensure all data persisted and locks released.
+
+        Windows/SQLite issue: WAL checkpoint must be explicit and forceful.
+        RESTART mode waits for all readers to finish then restarts checkpoint.
+        """
+        try:
+            cursor = conn.cursor()
+            # RESTART: waits for readers, then restarts - most forceful
+            cursor.execute("PRAGMA wal_checkpoint(RESTART)")
+            # Double-check with PASSIVE
+            cursor.execute("PRAGMA wal_checkpoint(PASSIVE)")
+        except Exception:
+            pass  # Silently ignore if not in WAL mode
+
     def cleanup_old_events(self, days: int = 30) -> int:
         """
         Clean up old completed/failed events.
@@ -337,6 +411,7 @@ class EventStore:
 
                     deleted = cursor.rowcount
                     conn.commit()
+                    self._checkpoint_wal(conn)
                     return deleted
         except Exception as e:
             raise PersistenceException(f"Failed to cleanup events: {e}")

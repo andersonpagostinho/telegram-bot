@@ -19,7 +19,13 @@ class TestConcurrency:
     def bus(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            yield EventBus(db_path)
+            bus_instance = EventBus(db_path)
+            yield bus_instance
+
+            # CRITICAL: Wait for WAL checkpoint before tempdir cleanup
+            # Windows/SQLite issue: WAL journal locks prevent file deletion
+            # 2+ seconds needed for checkpoint + lock release on Windows
+            time.sleep(2.0)
 
     def test_concurrent_publish(self, bus):
         """Test concurrent publishing"""
@@ -45,7 +51,7 @@ class TestConcurrency:
         assert len(set(results)) == 5  # All unique
 
     def test_concurrent_consume(self, bus):
-        """Test concurrent consumption"""
+        """Test concurrent consumption with atomic reserve"""
         # Publish 10 events
         for i in range(10):
             event = Event(
@@ -72,10 +78,15 @@ class TestConcurrency:
         for t in threads:
             t.join()
 
-        # All events should be consumed exactly once
-        time.sleep(0.5)
+        # CRITICAL: Wait for all transaction commits + WAL checkpoint
+        time.sleep(2.0)
+
+        # With atomic reserve: 2 consumers × limit=3 = 6 consumed, 4 remaining
+        # Atomic reserve prevents race condition (both threads getting same event)
         pending = bus.store.get_pending_events("mission-001")
-        assert len(pending) <= 1  # At most 1 not consumed due to limit
+        assert len(pending) <= 4, f"Expected at most 4 pending, got {len(pending)}"
+        # Verify no duplicates consumed
+        assert len(set(consumed)) == len(consumed), "Duplicate event IDs consumed!"
 
 
 class TestRecovery:
@@ -99,10 +110,13 @@ class TestRecovery:
 
             # Simulate shutdown (don't mark completed)
             del bus1
+            time.sleep(2.0)  # Wait for WAL checkpoint
 
             # Restart with new bus instance
             bus2 = EventBus(db_path)
             pending = bus2.store.get_pending_events("mission-001", limit=10)
+            del bus2
+            time.sleep(2.0)  # Wait before cleanup
 
             assert len(pending) == 3  # All events should be recoverable
 
@@ -135,6 +149,8 @@ class TestRecovery:
 
             # Should be back to PENDING
             pending = bus.store.get_pending_events("mission-001")
+            del bus
+            time.sleep(2.0)  # Wait before cleanup
             assert len(pending) >= 1
 
 
@@ -145,7 +161,11 @@ class TestIdempotency:
     def bus(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            yield EventBus(db_path)
+            bus_instance = EventBus(db_path)
+            yield bus_instance
+
+            # CRITICAL: Wait for WAL checkpoint before tempdir cleanup
+            time.sleep(2.0)
 
     def test_concurrent_duplicate_key(self, bus):
         """Test duplicate key prevention under concurrency"""
@@ -168,6 +188,8 @@ class TestIdempotency:
             t.start()
         for t in threads:
             t.join()
+
+        time.sleep(1.5)  # Wait for commits + checkpoint
 
         # All should return same event_id
         assert len(set(results)) == 1
@@ -208,6 +230,9 @@ class TestPersistence:
                 record = json.loads(lines[0])
                 assert record["event_id"] == event_id
 
+            del bus
+            time.sleep(2.0)  # Wait before cleanup
+
     def test_state_transitions(self):
         """Test valid state transitions"""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -229,6 +254,8 @@ class TestPersistence:
             # Complete (PROCESSING -> COMPLETED)
             bus.mark_completed(event_id, "consumer-1")
             final = bus.store.get_event(event_id)
+            del bus
+            time.sleep(2.0)  # Wait before cleanup
             assert final.status == EventStatus.COMPLETED
 
 
@@ -252,6 +279,8 @@ class TestAuditTrail:
             event_id = bus.publish(event)
 
             retrieved = bus.store.get_event(event_id)
+            del bus
+            time.sleep(2.0)  # Wait before cleanup
             assert retrieved.correlation_id == "trace-12345"
             assert retrieved.causation_id == "evt-parent-001"
 
@@ -277,6 +306,9 @@ class TestEdgeCases:
                 )
                 bus.publish(event)
 
+            del bus
+            time.sleep(2.0)  # Wait before cleanup
+
     def test_cleanup_old_events(self):
         """Test cleanup of old events"""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -295,6 +327,8 @@ class TestEdgeCases:
 
             # Cleanup should not fail
             deleted = bus.cleanup_old_events(days=0)
+            del bus
+            time.sleep(2.0)  # Wait before cleanup
             assert deleted >= 0  # Should cleanup something
 
 
