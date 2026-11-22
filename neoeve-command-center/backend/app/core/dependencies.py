@@ -9,7 +9,7 @@ from typing import Generator
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from ..database.connection import SessionLocal
+from database.connection import SessionLocal
 from .security import get_current_user, Identity
 
 logger = logging.getLogger(__name__)
