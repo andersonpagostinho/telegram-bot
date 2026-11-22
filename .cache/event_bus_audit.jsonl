@@ -313,3 +313,60 @@
 {"timestamp": "2026-11-22T14:25:22.879769Z", "event_id": "evt-20261122142522-7ea31d7e", "event_type": "task_created", "mission_id": "mission-001", "state": "PUBLISHED", "details": {}}
 {"timestamp": "2026-11-22T14:38:10.763008Z", "event_id": "evt-20261122143810-5b7ae18e", "event_type": "task_assigned", "mission_id": "test-mission", "state": "PUBLISHED", "details": {}}
 {"timestamp": "2026-11-22T14:43:32.498599Z", "event_id": "evt-20261122144332-f875cd69", "event_type": "task_assigned", "mission_id": "test", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:13.751077Z", "event_id": "evt-20261122145713-2e5ec5d5", "event_type": "task_assigned", "mission_id": "mission-b75fefb2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:13.774543Z", "event_id": "evt-20261122145713-e87541c4", "event_type": "task_completed", "mission_id": "mission-b75fefb2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:13.803875Z", "event_id": "evt-20261122145713-2e5ec5d5", "event_type": "task_assigned", "mission_id": "mission-b75fefb2", "state": "COMPLETED", "details": {"consumer": "backend"}}
+{"timestamp": "2026-11-22T14:57:45.699439Z", "event_id": "evt-20261122145745-a6622a3d", "event_type": "task_assigned", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.723823Z", "event_id": "evt-20261122145745-7dfc158b", "event_type": "task_completed", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.759344Z", "event_id": "evt-20261122145745-a6622a3d", "event_type": "task_assigned", "mission_id": "mission-4c1ae8c0", "state": "COMPLETED", "details": {"consumer": "backend"}}
+{"timestamp": "2026-11-22T14:57:45.786433Z", "event_id": "evt-20261122145745-b8848cc8", "event_type": "review_requested", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.812923Z", "event_id": "evt-20261122145745-aeef5b00", "event_type": "review_approved", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.829173Z", "event_id": "evt-20261122145745-b8848cc8", "event_type": "review_requested", "mission_id": "mission-4c1ae8c0", "state": "COMPLETED", "details": {"consumer": "qa"}}
+{"timestamp": "2026-11-22T14:57:45.840010Z", "event_id": "evt-20261122145745-75118a29", "event_type": "review_requested", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.854440Z", "event_id": "evt-20261122145745-c123e400", "event_type": "review_approved", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.873845Z", "event_id": "evt-20261122145745-75118a29", "event_type": "review_requested", "mission_id": "mission-4c1ae8c0", "state": "COMPLETED", "details": {"consumer": "security"}}
+{"timestamp": "2026-11-22T14:57:45.888723Z", "event_id": "evt-20261122145745-fb95246e", "event_type": "validation_requested", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.900795Z", "event_id": "evt-20261122145745-1cdd689f", "event_type": "review_approved", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:57:45.912833Z", "event_id": "evt-20261122145745-fb95246e", "event_type": "validation_requested", "mission_id": "mission-4c1ae8c0", "state": "COMPLETED", "details": {"consumer": "validator"}}
+{"timestamp": "2026-11-22T14:57:45.923706Z", "event_id": "evt-20261122145745-6bef343d", "event_type": "review_requested", "mission_id": "mission-4c1ae8c0", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.598580Z", "event_id": "evt-20261122145843-6acc422a", "event_type": "task_assigned", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.620938Z", "event_id": "evt-20261122145843-fc5aa45c", "event_type": "task_completed", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.649533Z", "event_id": "evt-20261122145843-6acc422a", "event_type": "task_assigned", "mission_id": "mission-6dd075d2", "state": "COMPLETED", "details": {"consumer": "backend"}}
+{"timestamp": "2026-11-22T14:58:43.681681Z", "event_id": "evt-20261122145843-fd65f557", "event_type": "review_requested", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.706371Z", "event_id": "evt-20261122145843-9771c578", "event_type": "review_approved", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.731682Z", "event_id": "evt-20261122145843-fd65f557", "event_type": "review_requested", "mission_id": "mission-6dd075d2", "state": "COMPLETED", "details": {"consumer": "qa"}}
+{"timestamp": "2026-11-22T14:58:43.751668Z", "event_id": "evt-20261122145843-28d2938a", "event_type": "review_requested", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.774441Z", "event_id": "evt-20261122145843-dc3056b6", "event_type": "review_approved", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.800736Z", "event_id": "evt-20261122145843-28d2938a", "event_type": "review_requested", "mission_id": "mission-6dd075d2", "state": "COMPLETED", "details": {"consumer": "security"}}
+{"timestamp": "2026-11-22T14:58:43.824295Z", "event_id": "evt-20261122145843-6e057341", "event_type": "validation_requested", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.847586Z", "event_id": "evt-20261122145843-37e8fc50", "event_type": "review_approved", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:43.872134Z", "event_id": "evt-20261122145843-6e057341", "event_type": "validation_requested", "mission_id": "mission-6dd075d2", "state": "COMPLETED", "details": {"consumer": "validator"}}
+{"timestamp": "2026-11-22T14:58:43.893505Z", "event_id": "evt-20261122145843-ff21ae35", "event_type": "review_requested", "mission_id": "mission-6dd075d2", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.126613Z", "event_id": "evt-20261122145844-1bf51ee2", "event_type": "task_assigned", "mission_id": "mission-b4c18a47", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.147872Z", "event_id": "evt-20261122145844-46f12a2e", "event_type": "task_completed", "mission_id": "mission-b4c18a47", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.177062Z", "event_id": "evt-20261122145844-1bf51ee2", "event_type": "task_assigned", "mission_id": "mission-b4c18a47", "state": "COMPLETED", "details": {"consumer": "backend"}}
+{"timestamp": "2026-11-22T14:58:44.199900Z", "event_id": "evt-20261122145844-7bce3c96", "event_type": "review_rejected", "mission_id": "mission-b4c18a47", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.442768Z", "event_id": "evt-20261122145844-77e61587", "event_type": "task_assigned", "mission_id": "mission-5f570d77", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.469098Z", "event_id": "evt-20261122145844-ffd01113", "event_type": "task_completed", "mission_id": "mission-5f570d77", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.500758Z", "event_id": "evt-20261122145844-77e61587", "event_type": "task_assigned", "mission_id": "mission-5f570d77", "state": "COMPLETED", "details": {"consumer": "backend"}}
+{"timestamp": "2026-11-22T14:58:44.523139Z", "event_id": "evt-20261122145844-a47a571d", "event_type": "review_rejected", "mission_id": "mission-5f570d77", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.780385Z", "event_id": "evt-20261122145844-c3f97edb", "event_type": "validation_requested", "mission_id": "mission-f2b4bf5a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:44.808620Z", "event_id": "evt-20261122145844-c3f97edb", "event_type": "validation_requested", "mission_id": "mission-f2b4bf5a", "state": "FAILED", "details": {"consumer": "validator", "reason": "Validation timeout after 30s"}}
+{"timestamp": "2026-11-22T14:58:45.066565Z", "event_id": "evt-20261122145845-fef4d423", "event_type": "task_assigned", "mission_id": "mission-537ac33d", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:45.098160Z", "event_id": "evt-20261122145845-fef4d423", "event_type": "task_assigned", "mission_id": "mission-537ac33d", "state": "FAILED", "details": {"consumer": "backend", "reason": "Backend execution failed: out of memory"}}
+{"timestamp": "2026-11-22T14:58:45.125602Z", "event_id": "evt-20261122145845-34bb0b69", "event_type": "task_assigned", "mission_id": "mission-537ac33d", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:45.375514Z", "event_id": "evt-20261122145845-e165e853", "event_type": "task_assigned", "mission_id": "mission-ff0e02ca", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T14:58:45.637580Z", "event_id": "evt-20261122145845-87c3d88a", "event_type": "task_assigned", "mission_id": "mission-7d980846", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.281764Z", "event_id": "evt-20261122150005-cae551de", "event_type": "task_assigned", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.308405Z", "event_id": "evt-20261122150005-dc00507b", "event_type": "task_completed", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.341952Z", "event_id": "evt-20261122150005-cae551de", "event_type": "task_assigned", "mission_id": "mission-ff15786a", "state": "COMPLETED", "details": {"consumer": "backend"}}
+{"timestamp": "2026-11-22T15:00:05.368047Z", "event_id": "evt-20261122150005-0c517ef1", "event_type": "review_requested", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.395555Z", "event_id": "evt-20261122150005-92411fb6", "event_type": "review_approved", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.425372Z", "event_id": "evt-20261122150005-0c517ef1", "event_type": "review_requested", "mission_id": "mission-ff15786a", "state": "COMPLETED", "details": {"consumer": "qa"}}
+{"timestamp": "2026-11-22T15:00:05.448931Z", "event_id": "evt-20261122150005-aca0d332", "event_type": "review_requested", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.474310Z", "event_id": "evt-20261122150005-c9b709ca", "event_type": "review_approved", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.503788Z", "event_id": "evt-20261122150005-aca0d332", "event_type": "review_requested", "mission_id": "mission-ff15786a", "state": "COMPLETED", "details": {"consumer": "security"}}
+{"timestamp": "2026-11-22T15:00:05.527203Z", "event_id": "evt-20261122150005-f5a190c6", "event_type": "validation_requested", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.550576Z", "event_id": "evt-20261122150005-a12fad54", "event_type": "review_approved", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
+{"timestamp": "2026-11-22T15:00:05.577357Z", "event_id": "evt-20261122150005-f5a190c6", "event_type": "validation_requested", "mission_id": "mission-ff15786a", "state": "COMPLETED", "details": {"consumer": "validator"}}
+{"timestamp": "2026-11-22T15:00:05.603706Z", "event_id": "evt-20261122150005-93973c0f", "event_type": "review_requested", "mission_id": "mission-ff15786a", "state": "PUBLISHED", "details": {}}
