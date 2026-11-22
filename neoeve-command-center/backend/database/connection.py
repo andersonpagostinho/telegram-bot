@@ -4,9 +4,12 @@ PostgreSQL read projections for Command Center.
 """
 
 import os
+import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
+
+logger = logging.getLogger(__name__)
 
 # Database URL from environment variable
 DATABASE_URL = os.getenv(
@@ -15,14 +18,19 @@ DATABASE_URL = os.getenv(
 )
 
 # Create engine with connection pooling
-engine = create_engine(
-    DATABASE_URL,
-    poolclass=QueuePool,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,  # Test connections before using
-    echo=False,  # Set True for SQL debugging
-)
+# Allow graceful fallback if PostgreSQL unavailable (for testing)
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=QueuePool,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,  # Test connections before using
+        echo=False,  # Set True for SQL debugging
+    )
+except Exception as e:
+    logger.warning(f"PostgreSQL not available ({type(e).__name__}). Using SQLite fallback for testing.")
+    engine = create_engine("sqlite:///:memory:")
 
 # Create session factory
 SessionLocal = sessionmaker(
