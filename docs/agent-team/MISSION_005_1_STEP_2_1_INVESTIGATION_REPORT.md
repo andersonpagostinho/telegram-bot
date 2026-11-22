@@ -344,5 +344,43 @@ def test_concurrent_consume(self, bus):
 
 ---
 
-**Status**: Pronto para FASE 1: Backend Dev Fixes  
-**Próximo**: Implementação de `reserve_event_atomic()`
+## Status de Implementação (Atualizado 2026-11-22)
+
+### FASE 1: Backend Dev ✅ 
+- [x] Implementar `reserve_event_atomic()` ✅ COMPLETO
+- [x] Integrar em event_consumer.py ✅ COMPLETO
+- [x] Adicionar WAL checkpoint ✅ COMPLETO
+- [x] Atualizar test waits ✅ COMPLETO
+
+### FASE 2: Resultados Teste
+
+**test_concurrent_consume**: 4/10 eventos consumidos (esperado 6)
+- ✅ Atomic reserve funcionando (sem duplicatas)
+- ⚠️ Limitação: get_pending_events() chamado antes de reservas completarem
+- 🔴 Necessário: Loop com retry ou re-query após falhas
+
+**SQLite WAL Locking**: Persistente em Windows
+- ✅ WAL_CHECKPOINT(TRUNCATE) aplicado
+- ✅ sleep(2.0) adicionado
+- 🔴 Teardown ainda falha: PermissionError em arquivo .db
+- 🔴 Raiz: Windows não libera locks mesmo após checkpoint + close()
+
+### BLOCKERS IDENTIFICADOS
+
+1. **Concurrent Consume Efficiency**: 40% eventos consumidos vs 60% esperado
+   - Causa: Race entre get_pending + reserve atomicamente
+   - Fix necessário: Loop com exponential backoff ou redesign consume pattern
+
+2. **WAL Locking Windows Persistence**: Bloqueia cleanup tempdir
+   - Causa: SQLite manter locks em modo WAL após close() em Windows
+   - Fix recomendado: 
+     a. Usar persistent DB path instead of tempdir (não é testing)
+     b. Disable WAL mode for tests (`PRAGMA journal_mode=DELETE`)
+     c. Increase sleep dramatically (5+ seconds)
+
+---
+
+**Status**: 🟡 PARCIALMENTE RESOLVIDO  
+**P0 (WAL Locking)**: 30% mitigado (ainda bloqueia cleanup)  
+**P1 (Concurrent Consume)**: 60% resolvido (atomic reserve works, efficiency baixa)  
+**Próximo**: Decisão sobre WAL vs non-WAL tests

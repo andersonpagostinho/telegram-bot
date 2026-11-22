@@ -19,13 +19,12 @@ class TestConcurrency:
     def bus(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            bus_instance = EventBus(db_path)
+            # Disable WAL for tests: Windows has issues with WAL cleanup
+            bus_instance = EventBus(db_path, use_wal=False)
             yield bus_instance
 
-            # CRITICAL: Wait for WAL checkpoint before tempdir cleanup
-            # Windows/SQLite issue: WAL journal locks prevent file deletion
-            # 2+ seconds needed for checkpoint + lock release on Windows
-            time.sleep(2.0)
+            # Minimal wait with DELETE journal mode (no WAL locks)
+            time.sleep(0.5)
 
     def test_concurrent_publish(self, bus):
         """Test concurrent publishing"""
@@ -78,8 +77,8 @@ class TestConcurrency:
         for t in threads:
             t.join()
 
-        # CRITICAL: Wait for all transaction commits + WAL checkpoint
-        time.sleep(2.0)
+        # With DELETE mode, minimal wait needed
+        time.sleep(0.5)
 
         # With atomic reserve: 2 consumers × limit=3 = 6 consumed, 4 remaining
         # Atomic reserve prevents race condition (both threads getting same event)
@@ -97,8 +96,8 @@ class TestRecovery:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
 
-            # Create bus and publish
-            bus1 = EventBus(db_path)
+            # Create bus and publish (disable WAL for Windows compatibility)
+            bus1 = EventBus(db_path, use_wal=False)
             for i in range(3):
                 event = Event(
                     event_type=EventType.TASK_CREATED,
@@ -110,13 +109,13 @@ class TestRecovery:
 
             # Simulate shutdown (don't mark completed)
             del bus1
-            time.sleep(2.0)  # Wait for WAL checkpoint
+            time.sleep(0.1)  # Minimal wait with DELETE mode
 
             # Restart with new bus instance
-            bus2 = EventBus(db_path)
+            bus2 = EventBus(db_path, use_wal=False)
             pending = bus2.store.get_pending_events("mission-001", limit=10)
             del bus2
-            time.sleep(2.0)  # Wait before cleanup
+            time.sleep(0.1)  # Minimal wait
 
             assert len(pending) == 3  # All events should be recoverable
 
@@ -124,7 +123,7 @@ class TestRecovery:
         """Test recovery of events stuck in PROCESSING"""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            bus = EventBus(db_path)
+            bus = EventBus(db_path, use_wal=False)
 
             # Publish and consume (without completing)
             event = Event(
@@ -150,7 +149,7 @@ class TestRecovery:
             # Should be back to PENDING
             pending = bus.store.get_pending_events("mission-001")
             del bus
-            time.sleep(2.0)  # Wait before cleanup
+            time.sleep(0.1)  # Minimal wait
             assert len(pending) >= 1
 
 
@@ -161,11 +160,12 @@ class TestIdempotency:
     def bus(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            bus_instance = EventBus(db_path)
+            # Disable WAL for tests: Windows has issues with WAL cleanup
+            bus_instance = EventBus(db_path, use_wal=False)
             yield bus_instance
 
-            # CRITICAL: Wait for WAL checkpoint before tempdir cleanup
-            time.sleep(2.0)
+            # Minimal wait with DELETE journal mode (no WAL locks)
+            time.sleep(0.5)
 
     def test_concurrent_duplicate_key(self, bus):
         """Test duplicate key prevention under concurrency"""
@@ -189,7 +189,7 @@ class TestIdempotency:
         for t in threads:
             t.join()
 
-        time.sleep(1.5)  # Wait for commits + checkpoint
+        time.sleep(0.2)  # Minimal wait
 
         # All should return same event_id
         assert len(set(results)) == 1
@@ -204,7 +204,7 @@ class TestPersistence:
             db_path = os.path.join(tmpdir, "test.db")
             audit_path = os.path.join(tmpdir, "audit.jsonl")
 
-            bus = EventBus(db_path)
+            bus = EventBus(db_path, use_wal=False)
             bus.audit_logger.log_path = audit_path
 
             # Publish event
@@ -231,13 +231,13 @@ class TestPersistence:
                 assert record["event_id"] == event_id
 
             del bus
-            time.sleep(2.0)  # Wait before cleanup
+            time.sleep(0.1)  # Minimal wait
 
     def test_state_transitions(self):
         """Test valid state transitions"""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            bus = EventBus(db_path)
+            bus = EventBus(db_path, use_wal=False)
 
             event = Event(
                 event_type=EventType.TASK_CREATED,
@@ -255,7 +255,7 @@ class TestPersistence:
             bus.mark_completed(event_id, "consumer-1")
             final = bus.store.get_event(event_id)
             del bus
-            time.sleep(2.0)  # Wait before cleanup
+            time.sleep(0.1)  # Minimal wait
             assert final.status == EventStatus.COMPLETED
 
 
@@ -266,7 +266,7 @@ class TestAuditTrail:
         """Test that correlation_id is preserved through event lifecycle"""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            bus = EventBus(db_path)
+            bus = EventBus(db_path, use_wal=False)
 
             event = Event(
                 event_type=EventType.TASK_CREATED,
@@ -280,7 +280,7 @@ class TestAuditTrail:
 
             retrieved = bus.store.get_event(event_id)
             del bus
-            time.sleep(2.0)  # Wait before cleanup
+            time.sleep(0.1)  # Minimal wait
             assert retrieved.correlation_id == "trace-12345"
             assert retrieved.causation_id == "evt-parent-001"
 
@@ -294,7 +294,7 @@ class TestEdgeCases:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            bus = EventBus(db_path)
+            bus = EventBus(db_path, use_wal=False)
 
             # Missing required field
             with pytest.raises(InvalidEventException):
@@ -307,13 +307,13 @@ class TestEdgeCases:
                 bus.publish(event)
 
             del bus
-            time.sleep(2.0)  # Wait before cleanup
+            time.sleep(0.1)  # Minimal wait
 
     def test_cleanup_old_events(self):
         """Test cleanup of old events"""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
-            bus = EventBus(db_path)
+            bus = EventBus(db_path, use_wal=False)
 
             # Publish and complete event
             event = Event(
@@ -328,7 +328,7 @@ class TestEdgeCases:
             # Cleanup should not fail
             deleted = bus.cleanup_old_events(days=0)
             del bus
-            time.sleep(2.0)  # Wait before cleanup
+            time.sleep(0.1)  # Minimal wait
             assert deleted >= 0  # Should cleanup something
 
 

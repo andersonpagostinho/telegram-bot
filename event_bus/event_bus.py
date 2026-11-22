@@ -21,8 +21,8 @@ class EventBus:
     Coordinates event publication, consumption, and persistence across the multi-agent system.
     """
 
-    def __init__(self, db_path: str = "C:/dev/neoeve/.cache/event_bus.db"):
-        self.store = EventStore(db_path)
+    def __init__(self, db_path: str = "C:/dev/neoeve/.cache/event_bus.db", use_wal: bool = True):
+        self.store = EventStore(db_path, use_wal=use_wal)
         self.idempotency = IdempotencyManager(self.store)
         self.publisher = EventPublisher(self.store, self.idempotency)
         self.audit_logger = AuditLogger()

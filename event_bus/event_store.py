@@ -14,24 +14,33 @@ from event_bus.exceptions import PersistenceException
 class EventStore:
     """Manages event persistence in SQLite database"""
 
-    def __init__(self, db_path: str = "C:/dev/neoeve/.cache/event_bus.db"):
+    def __init__(self, db_path: str = "C:/dev/neoeve/.cache/event_bus.db", use_wal: bool = True):
         """
         Initialize event store.
 
         Args:
             db_path: Path to SQLite database file
+            use_wal: Use WAL mode (disable for testing on Windows)
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self.use_wal = use_wal
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get SQLite connection with proper settings"""
         conn = sqlite3.connect(str(self.db_path), timeout=5.0, check_same_thread=False)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
+
+        # Use WAL for production (better concurrency), DELETE mode for tests (avoid locks)
+        if self.use_wal:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+        else:
+            conn.execute("PRAGMA journal_mode=DELETE")  # Traditional rollback journal
+            conn.execute("PRAGMA synchronous=FULL")  # More conservative for tests
+
         conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
@@ -375,17 +384,22 @@ class EventStore:
         """
         Checkpoint WAL to ensure all data persisted and locks released.
 
-        Windows/SQLite issue: WAL checkpoint must be explicit and forceful.
-        RESTART mode waits for all readers to finish then restarts checkpoint.
+        Windows/SQLite: WAL checkpoint must be AGGRESSIVE to release locks before close().
         """
         try:
             cursor = conn.cursor()
-            # RESTART: waits for readers, then restarts - most forceful
-            cursor.execute("PRAGMA wal_checkpoint(RESTART)")
-            # Double-check with PASSIVE
-            cursor.execute("PRAGMA wal_checkpoint(PASSIVE)")
+            # Aggressive checkpoint: TRUNCATE restarts and truncates WAL file
+            cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         except Exception:
-            pass  # Silently ignore if not in WAL mode
+            pass
+
+    def _close_connection(self, conn: sqlite3.Connection) -> None:
+        """Explicitly close connection and checkpoint WAL"""
+        try:
+            self._checkpoint_wal(conn)
+            conn.close()
+        except Exception:
+            pass
 
     def cleanup_old_events(self, days: int = 30) -> int:
         """
