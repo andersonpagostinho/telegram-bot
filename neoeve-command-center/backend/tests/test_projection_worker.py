@@ -295,6 +295,79 @@ class TestRecovery:
         assert event_check.status == EventStatus.PENDING
 
 
+class TestMetrics:
+    """Test real metrics collection"""
+
+    def test_metrics_tracked_correctly(self, event_store, db_session, projection_worker):
+        """Test that metrics are derived from real execution"""
+        # Store 3 events
+        for i in range(3):
+            event = Event(
+                event_id=f"evt-metrics-{i:03d}",
+                event_type=EventType.TASK_PROGRESS,
+                mission_id="mission-test-001",
+                agent_id="agent-test",
+                correlation_id=f"corr-metrics-{i:03d}",
+                payload={"progress": f"{(i+1)*30}%"}
+            )
+            event_store.store_event(event)
+
+        # Initial metrics should show zeros
+        initial_metrics = projection_worker.get_metrics()
+        assert initial_metrics["total_events_found"] == 0
+        assert initial_metrics["total_events_processed"] == 0
+
+        # Process events
+        processed = projection_worker.consume_and_project()
+        assert processed == 3
+
+        # Get metrics after processing
+        metrics = projection_worker.get_metrics()
+
+        # Verify real metrics (not simulated)
+        assert metrics["total_events_found"] == 3  # From consume_pending()
+        assert metrics["total_events_processed"] == 3  # Successfully projected
+        assert metrics["events_duplicate"] == 0  # None were duplicates
+        assert metrics["process_failures"] == 0  # No failures
+        assert metrics["current_status"] == "IDLE"
+        assert metrics["last_event_id"] == "evt-metrics-002"
+        assert metrics["last_sync_at"] is not None
+
+        # Verify latency metrics are real (not zero)
+        assert metrics["latency_ms_avg"] is not None
+        assert metrics["latency_ms_avg"] > 0
+        assert metrics["latency_ms_max"] > 0
+
+    def test_duplicate_metrics_tracked(self, event_store, db_session, projection_worker):
+        """Test that duplicates are tracked in metrics"""
+        # Create and process event
+        event = Event(
+            event_id="evt-dup-metric-001",
+            event_type=EventType.TASK_COMPLETED,
+            mission_id="mission-test-001",
+            agent_id="agent-test",
+            correlation_id="corr-dup-metric-001",
+            payload={"result": "done"}
+        )
+        event_store.store_event(event)
+
+        # First projection
+        count1 = projection_worker.consume_and_project()
+        assert count1 == 1
+        metrics1 = projection_worker.get_metrics()
+        assert metrics1["total_events_processed"] == 1
+        assert metrics1["events_duplicate"] == 0
+
+        # Second attempt to process (event now COMPLETED, not PENDING)
+        count2 = projection_worker.consume_and_project()
+        assert count2 == 0
+        metrics2 = projection_worker.get_metrics()
+
+        # Metrics should not double-count
+        assert metrics2["total_events_processed"] == 1  # Still 1, not 2
+        assert metrics2["events_duplicate"] == 0  # Duplicate not encountered
+
+
 class TestMultiTenantIsolation:
     """Test multi-tenant isolation and security"""
 

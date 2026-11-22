@@ -66,14 +66,59 @@ class ProjectionWorker:
         self.retry_backoff_seconds = retry_backoff_seconds
 
         self._event_consumer = EventConsumer(event_store, consumer_id)
+
+        # Real metrics (derived from actual execution, not simulated)
         self._metrics = {
-            "processed": 0,
-            "duplicates": 0,
-            "failures": 0,
-            "retries": 0,
-            "recovered": 0,
-            "last_processed": None,
+            "total_events_found": 0,      # Total from consume_pending()
+            "total_events_processed": 0,  # Successfully projected
+            "events_duplicate": 0,        # Already-projected events skipped
+            "events_rejected": 0,         # Failed projections (not retried)
+            "events_pending": 0,          # Still in PENDING state
+            "process_failures": 0,        # Exceptions during projection
+            "retries_attempted": 0,       # Total retry attempts
+            "recovered_stuck": 0,         # Events recovered from PROCESSING
+            "latency_ms_sum": 0.0,        # Sum of event processing times
+            "latency_ms_count": 0,        # Count of latency measurements
+            "latency_ms_max": 0.0,        # Maximum processing time
+            "last_event_id": None,        # Last successfully processed event_id
+            "last_sync_at": None,         # Last consume_and_project() completion
+            "current_status": "INITIALIZED",  # INITIALIZED, PROCESSING, IDLE, ERROR
+            "_event_times": {},           # {event_id: start_time} for latency calc
         }
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """
+        Get current worker metrics (real data, not simulated).
+
+        Returns dict with:
+        - total_events_found: Total events from consume_pending()
+        - total_events_processed: Successfully projected
+        - events_duplicate: Already projected
+        - events_rejected: Failed (non-retried)
+        - events_pending: Still in PENDING state
+        - process_failures: Exceptions during projection
+        - retries_attempted: Total retry attempts
+        - recovered_stuck: Events recovered from stuck state
+        - latency_ms_avg: Average processing time (or None if no data)
+        - latency_ms_max: Maximum processing time
+        - last_event_id: Last processed event
+        - last_sync_at: Last sync timestamp
+        - current_status: Worker status
+        """
+        metrics = dict(self._metrics)  # Shallow copy
+
+        # Calculate derived metrics
+        if self._metrics["latency_ms_count"] > 0:
+            metrics["latency_ms_avg"] = round(
+                self._metrics["latency_ms_sum"] / self._metrics["latency_ms_count"], 2
+            )
+        else:
+            metrics["latency_ms_avg"] = None
+
+        # Remove internal state
+        metrics.pop("_event_times", None)
+
+        return metrics
 
     def consume_and_project(self, limit: Optional[int] = None) -> int:
         """
@@ -94,45 +139,68 @@ class ProjectionWorker:
         self.db_session.commit()
 
         try:
+            self._metrics["current_status"] = "PROCESSING"
+
             # Consume pending events with atomic reservation
             events = self._event_consumer.consume_pending(self.mission_id, limit)
+            self._metrics["total_events_found"] += len(events)
 
             if not events:
                 checkpoint.status = "IDLE"
+                self._metrics["current_status"] = "IDLE"
+                self._metrics["last_sync_at"] = datetime.now(timezone.utc)
                 self.db_session.commit()
                 return 0
 
             processed = 0
             for event in events:
+                event_start_time = time.time()
+                self._metrics["_event_times"][event.event_id] = event_start_time
+
                 try:
                     # Project event to PostgreSQL
                     if self._project_event(event):
                         # Mark as completed in EventStore
                         self._event_consumer.mark_completed(event.event_id)
                         processed += 1
+                        self._metrics["total_events_processed"] += 1
+
+                        # Track latency for successfully processed events
+                        event_time_ms = (time.time() - event_start_time) * 1000
+                        self._metrics["latency_ms_sum"] += event_time_ms
+                        self._metrics["latency_ms_count"] += 1
+                        self._metrics["latency_ms_max"] = max(
+                            self._metrics["latency_ms_max"],
+                            event_time_ms
+                        )
 
                         # Update checkpoint
                         checkpoint.last_processed_event_id = event.event_id
                         checkpoint.last_processed_at = datetime.now(timezone.utc)
                         checkpoint.error_count = 0
+                        self._metrics["last_event_id"] = event.event_id
+
                 except Exception as e:
                     logger.error(f"Failed to project event {event.event_id}: {e}")
-                    self._metrics["failures"] += 1
+                    self._metrics["process_failures"] += 1
                     # Mark as failed with retry flag
                     self._event_consumer.mark_failed(event.event_id, str(e), retry=True)
                     checkpoint.error_count += 1
 
             # Finalize checkpoint
             checkpoint.status = "IDLE"
+            self._metrics["current_status"] = "IDLE"
+            self._metrics["last_sync_at"] = datetime.now(timezone.utc)
             self.db_session.commit()
 
-            self._metrics["processed"] += processed
             return processed
 
         except Exception as e:
             logger.error(f"Projection worker error: {e}")
             checkpoint.status = "ERROR"
             checkpoint.error_count += 1
+            self._metrics["current_status"] = "ERROR"
+            self._metrics["last_sync_at"] = datetime.now(timezone.utc)
             self.db_session.commit()
             raise
 
@@ -179,7 +247,7 @@ class ProjectionWorker:
 
             if agent_event:
                 # Event already projected
-                self._metrics["duplicates"] += 1
+                self._metrics["events_duplicate"] += 1
                 logger.debug(f"Event {event.event_id} already projected (duplicate)")
                 return True  # Idempotent - safe to return success
 
@@ -213,7 +281,7 @@ class ProjectionWorker:
             # UPSERT Pattern Step 3: Handle race condition (concurrent projection)
             # This occurs when another worker projected the same event between our query and insert
             if "event_id" in str(e) and "UNIQUE" in str(e):
-                self._metrics["duplicates"] += 1
+                self._metrics["events_duplicate"] += 1
                 logger.warning(f"Event {event.event_id} projected concurrently (UNIQUE violation handled)")
                 self.db_session.rollback()  # Rollback partial transaction
                 return True  # Still idempotent - return success
@@ -299,7 +367,7 @@ class ProjectionWorker:
                         "Recovered from PROCESSING state"
                     )
                     recovered += 1
-                    self._metrics["recovered"] += 1
+                    self._metrics["recovered_stuck"] += 1
                 except Exception as e:
                     logger.error(f"Failed to recover event {event.event_id}: {e}")
 
@@ -330,7 +398,7 @@ class ProjectionWorker:
         logger.warning(f"Retrying event {event.event_id} in {backoff}s (attempt {attempt + 1}/{self.max_retries})")
 
         time.sleep(backoff)
-        self._metrics["retries"] += 1
+        self._metrics["retries_attempted"] += 1
         return True
 
     def _validate_isolation(self, event: Event, tenant_id: str, project_id: str) -> bool:
