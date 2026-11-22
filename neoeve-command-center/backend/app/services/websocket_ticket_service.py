@@ -56,18 +56,31 @@ class WebSocketTicketService:
     Issue and validate short-lived WebSocket authentication tickets.
 
     Prevents JWT from appearing in URLs while maintaining security.
+
+    Security Features:
+    - Single-use tickets (consumed after first validation)
+    - Short TTL (default 5 minutes)
+    - Rate limiting per user (default 10 tickets/minute)
+    - Atomic consumption (thread-safe with lock)
     """
 
-    def __init__(self, ticket_ttl_minutes: int = 5):
+    def __init__(self, ticket_ttl_minutes: int = 5, rate_limit: int = 10, rate_window_seconds: int = 60):
         """
         Initialize ticket service.
 
         Args:
             ticket_ttl_minutes: Ticket time-to-live in minutes (default: 5)
+            rate_limit: Max tickets per user per rate window (default: 10)
+            rate_window_seconds: Rate limit window size in seconds (default: 60)
         """
         self.tickets: dict[str, WebSocketTicket] = {}
         self.ticket_ttl = timedelta(minutes=ticket_ttl_minutes)
         self._ticket_lock = threading.Lock()  # Protects atomic consume operation
+
+        # Rate limiting
+        self.rate_limit = rate_limit
+        self.rate_window_seconds = rate_window_seconds
+        self.user_ticket_times: dict[str, list[datetime]] = {}  # user_id -> [timestamps]
 
     def issue_ticket(
         self,
@@ -75,9 +88,11 @@ class WebSocketTicketService:
         user_id: str,
         actor_id: str,
         actor_role: str,
-    ) -> str:
+    ) -> Optional[str]:
         """
-        Issue a new WebSocket ticket (thread-safe).
+        Issue a new WebSocket ticket (thread-safe, rate-limited).
+
+        SECURITY: Rate limiting enforced per user to prevent ticket flooding attacks.
 
         Args:
             tenant_id: Authenticated tenant
@@ -86,11 +101,35 @@ class WebSocketTicketService:
             actor_role: User role
 
         Returns:
-            Ticket string (should be transmitted securely, not logged)
+            Ticket string if rate limit not exceeded, None if rate-limited
+
+        Raises:
+            None - Returns None on rate limit instead of raising (safe fail)
         """
         with self._ticket_lock:
-            ticket_id = secrets.token_urlsafe(32)
             now = datetime.now(timezone.utc)
+
+            # Check rate limit for this user
+            if user_id not in self.user_ticket_times:
+                self.user_ticket_times[user_id] = []
+
+            # Remove old entries outside the rate window
+            cutoff = now - timedelta(seconds=self.rate_window_seconds)
+            self.user_ticket_times[user_id] = [
+                ts for ts in self.user_ticket_times[user_id]
+                if ts > cutoff
+            ]
+
+            # Check if rate limit exceeded
+            if len(self.user_ticket_times[user_id]) >= self.rate_limit:
+                logger.warning(
+                    f"Rate limit exceeded for user={user_id} tenant={tenant_id} "
+                    f"({len(self.user_ticket_times[user_id])}/{self.rate_limit} in {self.rate_window_seconds}s)"
+                )
+                return None
+
+            # Issue new ticket
+            ticket_id = secrets.token_urlsafe(32)
 
             ticket = WebSocketTicket(
                 ticket_id=ticket_id,
@@ -103,11 +142,12 @@ class WebSocketTicketService:
             )
 
             self.tickets[ticket_id] = ticket
+            self.user_ticket_times[user_id].append(now)
 
             # Log only minimal info (not the ticket itself)
             logger.debug(
                 f"WebSocket ticket issued for tenant={tenant_id} "
-                f"user={user_id}"
+                f"user={user_id} ({len(self.user_ticket_times[user_id])}/{self.rate_limit})"
             )
 
             return ticket_id

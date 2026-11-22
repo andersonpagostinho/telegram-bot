@@ -316,9 +316,14 @@ class WebSocketConnectionManager:
             await self.disconnect(connection_id)
             if connection_id in self.active_connections:
                 try:
+                    # Try to close websocket, but don't fail if already closed
                     await self.active_connections[connection_id].websocket.close()
-                except:
-                    pass
+                except (RuntimeError, ConnectionClosedError) as e:
+                    # Connection already closed - this is expected for stale connections
+                    logger.debug(f"WebSocket already closed: {connection_id} ({type(e).__name__})")
+                except Exception as e:
+                    # Unexpected error - log but don't crash
+                    logger.error(f"Error closing stale WebSocket {connection_id}: {e}")
 
         return len(stale)
 

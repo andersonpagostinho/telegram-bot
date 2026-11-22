@@ -26,25 +26,36 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 hours
 
-    # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql://neoeve_dev:neoeve_dev_123@localhost:5432/neoeve_command_center"
-    )
+    # Database (SECURITY: No default credentials - must be set in environment)
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+
+    # WebSocket Security
+    WEBSOCKET_TICKET_TTL_MINUTES: int = int(os.getenv("WEBSOCKET_TICKET_TTL_MINUTES", "5"))
+    WEBSOCKET_TICKET_RATE_LIMIT: int = int(os.getenv("WEBSOCKET_TICKET_RATE_LIMIT", "10"))  # Max 10 per minute per user
+    WEBSOCKET_TICKET_RATE_WINDOW_SECONDS: int = 60  # Rate limit window in seconds
 
     # CORS
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8080"]
+    CORS_ORIGINS: list = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:8080"
+    ).split(",")
 
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
     def __init__(self, **data):
         super().__init__(**data)
-        # Validate critical settings
+        # Validate critical settings (SECURITY: Require environment variables in production)
         if not self.SECRET_KEY:
             raise ValueError(
-                "SECRET_KEY environment variable is required for production. "
+                "SECRET_KEY environment variable is required. "
                 "Set it in environment before running API."
+            )
+        if not self.DATABASE_URL:
+            raise ValueError(
+                "DATABASE_URL environment variable is required. "
+                "Set it in environment before running API. "
+                "Format: postgresql://user:password@host:port/dbname"
             )
 
     class Config:

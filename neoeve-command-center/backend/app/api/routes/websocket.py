@@ -24,16 +24,33 @@ async def issue_websocket_ticket(
     """
     Issue a short-lived WebSocket ticket.
 
-    Security: JWT auth required, ticket is single-use and expires in 5 minutes.
+    Security:
+    - JWT auth required
+    - Ticket is single-use and expires in 5 minutes
+    - Rate limited: max 10 tickets per user per minute
+    - Returns 429 Too Many Requests if rate limit exceeded
 
-    Returns: {"ticket": "..."}
+    Returns: {"ticket": "..."} or 429 if rate limited
     """
+    from fastapi import HTTPException, status
+
     ticket = ticket_service.issue_ticket(
         tenant_id=current_user.tenant_id,
         user_id=current_user.user_id,
         actor_id=current_user.actor_id,
         actor_role=current_user.actor_role,
     )
+
+    if ticket is None:
+        # Rate limit exceeded - notify client
+        logger.warning(
+            f"WebSocket ticket rate limit exceeded: "
+            f"user={current_user.user_id} tenant={current_user.tenant_id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many ticket requests. Please wait before requesting again.",
+        )
 
     logger.info(
         f"WebSocket ticket issued for tenant={current_user.tenant_id} "
