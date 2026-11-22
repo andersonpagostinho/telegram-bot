@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
-from ..database.models import Execution, Mission
+from ...database.models import Execution, Mission
 from .base import BaseService
 
 

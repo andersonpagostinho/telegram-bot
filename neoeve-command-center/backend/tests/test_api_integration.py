@@ -13,9 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.main import app
 from app.core.security import create_access_token
-from app.database.connection import SessionLocal
-from app.database.models import Agent, Mission, Task, Execution, AgentEvent, Base, ProjectionCheckpoint
-from app.database.connection import engine
+from database.connection import SessionLocal, engine
+from database.models import Agent, Mission, Task, Execution, AgentEvent, Base, ProjectionCheckpoint
 
 
 # Test client

@@ -24,8 +24,8 @@ from sqlalchemy.orm import Session
 
 from app.main import app
 from app.core.security import create_access_token, Identity
-from app.database.connection import SessionLocal
-from app.database.models import Mission, Task, Execution, Base
+from database.connection import SessionLocal
+from database.models import Mission, Task, Execution, Base
 from app.services.websocket_ticket_service import ticket_service
 
 

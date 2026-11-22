@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...core import get_db, get_current_user, Identity
-from ...database.models import Agent, Mission, Task, Execution, AgentEvent, ProjectionCheckpoint
+from ....database.models import Agent, Mission, Task, Execution, AgentEvent, ProjectionCheckpoint
 
 logger = logging.getLogger(__name__)
 

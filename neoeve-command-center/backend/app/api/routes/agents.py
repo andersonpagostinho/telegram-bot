@@ -103,7 +103,7 @@ async def get_agent_recent_events(
     Get recent events for an agent.
     """
     try:
-        from ...database.models import AgentEvent
+        from ....database.models import AgentEvent
         from ...schemas.agent import AgentEventResponse
 
         # Verify agent exists
