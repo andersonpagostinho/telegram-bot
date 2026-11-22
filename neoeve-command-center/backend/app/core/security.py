@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthenticationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from pydantic import BaseModel, ValidationError
 
@@ -90,7 +90,7 @@ def create_access_token(
     return encoded_jwt
 
 
-async def get_current_user(credentials: HTTPAuthenticationCredentials = Depends(security)) -> Identity:
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Identity:
     """
     Validate JWT token and extract identity.
 
