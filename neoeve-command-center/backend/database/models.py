@@ -187,6 +187,45 @@ class Validation(Base):
     )
 
 
+class WebSocketEventLog(Base):
+    """
+    WebSocket event log for reconnection recovery.
+
+    Tracks events sent over WebSocket so that clients can recover missed events
+    when reconnecting (e.g., after network interruption).
+
+    ETAPA 5: Event Recovery mechanism
+    """
+    __tablename__ = "websocket_event_log"
+
+    # Primary key - sequence number (auto-incrementing)
+    # Used for client reconnection cursor
+    sequence = Column(Integer, primary_key=True, autoincrement=True, index=True)
+
+    # Event identification
+    event_id = Column(String(64), nullable=False, index=True, unique=True)
+    event_type = Column(String(64), nullable=False)  # e.g., "MISSION_UPDATED", "TASK_COMPLETED"
+
+    # Multi-tenant isolation
+    tenant_id = Column(String(64), nullable=False, index=True)
+    project_id = Column(String(64), nullable=False, index=True)
+
+    # Event data
+    payload = Column(JSON, nullable=False)  # Full event payload for client
+    created_at = Column(DateTime(timezone=True), default=utc_now, index=True)
+
+    # Retention (for cleanup)
+    # Events older than 24 hours can be pruned
+    ttl_expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    __table_args__ = (
+        Index("idx_websocket_event_tenant", "tenant_id"),
+        Index("idx_websocket_event_created", "created_at"),
+        Index("idx_websocket_event_ttl", "ttl_expires_at"),
+        UniqueConstraint("event_id", name="uq_websocket_event_id"),
+    )
+
+
 class ProjectionCheckpoint(Base):
     """Projection Worker progress tracking for recovery."""
     __tablename__ = "projection_checkpoints"
