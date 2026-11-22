@@ -26,6 +26,7 @@ class EventType(str, Enum):
     AGENT_BLOCKED = "agent_blocked"
     VALIDATION_REQUESTED = "validation_requested"
     VALIDATION_COMPLETED = "validation_completed"
+    DEPLOYMENT_REQUESTED = "deployment_requested"
     MISSION_COMPLETED = "mission_completed"
 
 
