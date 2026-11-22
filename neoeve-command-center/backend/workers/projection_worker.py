@@ -69,21 +69,23 @@ class ProjectionWorker:
 
         # Real metrics (derived from actual execution, not simulated)
         self._metrics = {
-            "total_events_found": 0,      # Total from consume_pending()
-            "total_events_processed": 0,  # Successfully projected
-            "events_duplicate": 0,        # Already-projected events skipped
-            "events_rejected": 0,         # Failed projections (not retried)
-            "events_pending": 0,          # Still in PENDING state
-            "process_failures": 0,        # Exceptions during projection
-            "retries_attempted": 0,       # Total retry attempts
-            "recovered_stuck": 0,         # Events recovered from PROCESSING
-            "latency_ms_sum": 0.0,        # Sum of event processing times
-            "latency_ms_count": 0,        # Count of latency measurements
-            "latency_ms_max": 0.0,        # Maximum processing time
-            "last_event_id": None,        # Last successfully processed event_id
-            "last_sync_at": None,         # Last consume_and_project() completion
-            "current_status": "INITIALIZED",  # INITIALIZED, PROCESSING, IDLE, ERROR
-            "_event_times": {},           # {event_id: start_time} for latency calc
+            "total_events_found": 0,            # Total from consume_pending()
+            "total_events_processed": 0,        # Successfully projected
+            "events_duplicate": 0,              # Already-projected events skipped
+            "events_rejected": 0,               # SECURITY: Rejected due to invalid context
+            "events_validation_failed": 0,      # Failed validation (tenant/project/mission)
+            "events_pending": 0,                # Still in PENDING state
+            "process_failures": 0,              # Exceptions during projection
+            "retries_attempted": 0,             # Total retry attempts
+            "recovered_stuck": 0,               # Events recovered from PROCESSING
+            "latency_ms_sum": 0.0,              # Sum of event processing times
+            "latency_ms_count": 0,              # Count of latency measurements
+            "latency_ms_max": 0.0,              # Maximum processing time
+            "last_event_id": None,              # Last successfully processed event_id
+            "last_rejected_id": None,           # Last REJECTED event_id (security)
+            "last_sync_at": None,               # Last consume_and_project() completion
+            "current_status": "INITIALIZED",    # INITIALIZED, PROCESSING, IDLE, ERROR
+            "_event_times": {},                 # {event_id: start_time} for latency calc
         }
 
     def get_metrics(self) -> Dict[str, Any]:
@@ -180,10 +182,32 @@ class ProjectionWorker:
                         checkpoint.error_count = 0
                         self._metrics["last_event_id"] = event.event_id
 
+                except ValueError as e:
+                    # SECURITY: Validation failure (missing tenant/project/mission context)
+                    # This is a REJECTION, not a transient failure — do NOT retry
+                    logger.error(
+                        f"SECURITY: Event {event.event_id} REJECTED - validation failed: {e}. "
+                        f"Event cannot be projected without valid tenant/project context."
+                    )
+                    self._metrics["events_rejected"] += 1
+                    self._metrics["events_validation_failed"] += 1
+                    self._metrics["last_rejected_id"] = event.event_id
+                    # Mark as permanently failed (no retry) - validation error is not transient
+                    self._event_consumer.mark_failed(
+                        event.event_id,
+                        f"REJECTED: {e}",
+                        retry=False  # SECURITY: Do not retry validation failures
+                    )
+                    # Still advance checkpoint (event processed, even if rejected)
+                    checkpoint.last_processed_event_id = event.event_id
+                    checkpoint.last_processed_at = datetime.now(timezone.utc)
+                    checkpoint.error_count = 0
+
                 except Exception as e:
+                    # Transient failure (DB error, temporary exception)
                     logger.error(f"Failed to project event {event.event_id}: {e}")
                     self._metrics["process_failures"] += 1
-                    # Mark as failed with retry flag
+                    # Mark as failed WITH retry flag (transient failures should be retried)
                     self._event_consumer.mark_failed(event.event_id, str(e), retry=True)
                     checkpoint.error_count += 1
 
@@ -305,35 +329,63 @@ class ProjectionWorker:
         Returns:
             (tenant_id, project_id)
         """
-        # SECURITY: Extract from mission metadata (look up mission context)
-        tenant_id = None
-        project_id = None
-
+        # SECURITY CRITICAL: Mission lookup is MANDATORY (no automatic defaults)
         try:
             mission = self.db_session.query(Mission).filter_by(
                 mission_id=event.mission_id
             ).first()
 
-            if mission:
-                tenant_id = mission.tenant_id
-                project_id = mission.project_id
-                logger.debug(f"Event {event.event_id} resolved to tenant={tenant_id}, project={project_id} from Mission")
+            if not mission:
+                logger.error(
+                    f"SECURITY: Mission {event.mission_id} not found for event {event.event_id}. "
+                    f"Event REJECTED: cannot project without valid Mission context."
+                )
+                raise ValueError(
+                    f"Mission {event.mission_id} not found for event {event.event_id}. "
+                    f"Projection rejected: mandatory Mission context missing."
+                )
+
+            # SECURITY: Require both tenant_id and project_id from Mission record
+            if not mission.tenant_id:
+                logger.error(
+                    f"SECURITY: Mission {event.mission_id} has no tenant_id. "
+                    f"Event {event.event_id} REJECTED."
+                )
+                raise ValueError(
+                    f"Mission {event.mission_id} missing tenant_id. "
+                    f"Event {event.event_id} cannot be projected."
+                )
+
+            if not mission.project_id:
+                logger.error(
+                    f"SECURITY: Mission {event.mission_id} has no project_id. "
+                    f"Event {event.event_id} REJECTED."
+                )
+                raise ValueError(
+                    f"Mission {event.mission_id} missing project_id. "
+                    f"Event {event.event_id} cannot be projected."
+                )
+
+            tenant_id = mission.tenant_id
+            project_id = mission.project_id
+
+            logger.info(
+                f"Event {event.event_id} validated: tenant={tenant_id}, project={project_id}"
+            )
+            return tenant_id, project_id
+
+        except ValueError:
+            # Re-raise validation errors (SECURITY: no fallback permitted)
+            raise
         except Exception as e:
-            logger.warning(f"Could not query mission for event {event.event_id}: {e}")
-
-        # Fallback: Use mission_id as project identifier
-        if not tenant_id:
-            tenant_id = "default-tenant"
-        if not project_id:
-            project_id = event.mission_id
-
-        # SECURITY: Validate context is set (never None for security)
-        if not tenant_id:
-            raise ValueError(f"Cannot determine tenant_id for event {event.event_id}")
-        if not project_id:
-            raise ValueError(f"Cannot determine project_id for event {event.event_id}")
-
-        return tenant_id, project_id
+            logger.error(
+                f"SECURITY: Failed to validate tenant/project for event {event.event_id}: {e}. "
+                f"Event REJECTED."
+            )
+            raise ValueError(
+                f"Failed to validate tenant/project context for event {event.event_id}. "
+                f"Projection rejected: {e}"
+            )
 
     def recover_stuck_events(self, timeout_minutes: int = 30) -> int:
         """

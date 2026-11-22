@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from event_bus.event import Event, EventType, EventStatus
 from event_bus.event_store import EventStore
-from database.models import AgentEvent, ProjectionCheckpoint, Base
+from database.models import AgentEvent, ProjectionCheckpoint, Base, Mission
 from workers.projection_worker import ProjectionWorker
 
 # Use SQLite for testing (avoid PostgreSQL dependency)
@@ -57,8 +57,22 @@ def db_session():
 
 
 @pytest.fixture
-def projection_worker(event_store, db_session):
-    """Create ProjectionWorker instance"""
+def mission_context(db_session):
+    """Create Mission context for security-validated projection (SECURITY REMEDIATION)"""
+    mission = Mission(
+        mission_id="mission-test-001",
+        project_id="project-test-001",
+        tenant_id="tenant-test-001",
+        name="Test Mission"
+    )
+    db_session.add(mission)
+    db_session.commit()
+    return mission
+
+
+@pytest.fixture
+def projection_worker(event_store, db_session, mission_context):
+    """Create ProjectionWorker instance with valid Mission context"""
     return ProjectionWorker(
         event_store=event_store,
         db_session=db_session,
@@ -368,22 +382,134 @@ class TestMetrics:
         assert metrics2["events_duplicate"] == 0  # Duplicate not encountered
 
 
-class TestMultiTenantIsolation:
-    """Test multi-tenant isolation and security"""
+class TestSecurityRemediation:
+    """Test PHASE 3.3 security remediation: mandatory Mission validation (no default-tenant fallback)"""
 
-    def test_isolation_validation_passes(self, event_store, db_session, projection_worker):
-        """Test that isolation validation passes for same-tenant events"""
-        from database.models import Mission
+    def test_event_rejected_when_mission_missing(self, event_store, db_session):
+        """SECURITY: Event rejected when Mission not found (no default-tenant fallback)"""
+        # Create worker WITHOUT mission context
+        worker = ProjectionWorker(
+            event_store=event_store,
+            db_session=db_session,
+            consumer_id="test-worker-security",
+            mission_id="mission-nonexistent-999"
+        )
 
-        # RED: Create mission with specific tenant/project
+        # Create event for non-existent mission
+        event = Event(
+            event_id="evt-sec-001",
+            event_type=EventType.TASK_CREATED,
+            mission_id="mission-nonexistent-999",
+            agent_id="agent-test",
+            correlation_id="corr-sec-001",
+            payload={"secure": False}
+        )
+        event_store.store_event(event)
+
+        # Attempt projection (should be REJECTED, not silently create default-tenant record)
+        processed = worker.consume_and_project()
+        assert processed == 0  # No events processed
+
+        metrics = worker.get_metrics()
+        assert metrics["events_rejected"] == 1  # Event REJECTED (not processed)
+        assert metrics["events_validation_failed"] == 1  # Validation failure recorded
+        assert metrics["total_events_processed"] == 0  # Not counted as processed
+
+        # Verify event NOT projected to PostgreSQL
+        agent_event = db_session.query(AgentEvent).filter_by(event_id="evt-sec-001").first()
+        assert agent_event is None  # Should NOT exist
+
+    def test_event_rejected_when_tenant_missing(self, event_store, db_session):
+        """SECURITY: Event rejected when tenant_id missing from Mission"""
+        pytest.skip("Database schema enforces NOT NULL on tenant_id")
+        # Clear any existing session state
+        db_session.query(Mission).delete()
+        db_session.commit()
+
+        # Create Mission WITHOUT tenant_id
         mission = Mission(
-            mission_id="mission-test-001",
-            project_id="project-secure-001",
-            tenant_id="tenant-secure-001",
-            name="Secure Mission"
+            mission_id="mission-invalid-tenant",
+            project_id="project-test",
+            tenant_id=None,  # INVALID: no tenant
+            name="Invalid Mission"
         )
         db_session.add(mission)
         db_session.commit()
+
+        worker = ProjectionWorker(
+            event_store=event_store,
+            db_session=db_session,
+            consumer_id="test-worker-sec-tenant",
+            mission_id="mission-invalid-tenant"
+        )
+
+        event = Event(
+            event_id="evt-sec-tenant-001",
+            event_type=EventType.TASK_CREATED,
+            mission_id="mission-invalid-tenant",
+            agent_id="agent-test",
+            correlation_id="corr-sec-tenant-001",
+            payload={}
+        )
+        event_store.store_event(event)
+
+        processed = worker.consume_and_project()
+        assert processed == 0
+
+        metrics = worker.get_metrics()
+        assert metrics["events_rejected"] == 1
+        assert metrics["events_validation_failed"] == 1
+
+    def test_event_accepted_when_mission_valid(self, event_store, db_session):
+        """SECURITY: Event accepted when Mission has valid tenant/project context"""
+        mission = Mission(
+            mission_id="mission-valid",
+            project_id="project-valid",
+            tenant_id="tenant-valid",
+            name="Valid Mission"
+        )
+        db_session.add(mission)
+        db_session.commit()
+
+        worker = ProjectionWorker(
+            event_store=event_store,
+            db_session=db_session,
+            consumer_id="test-worker-sec-valid",
+            mission_id="mission-valid"
+        )
+
+        event = Event(
+            event_id="evt-sec-valid-001",
+            event_type=EventType.TASK_CREATED,
+            mission_id="mission-valid",
+            agent_id="agent-test",
+            correlation_id="corr-sec-valid-001",
+            payload={"valid": True}
+        )
+        event_store.store_event(event)
+
+        processed = worker.consume_and_project()
+        assert processed == 1  # Event processed successfully
+
+        metrics = worker.get_metrics()
+        assert metrics["total_events_processed"] == 1
+        assert metrics["events_rejected"] == 0  # No rejections
+
+        # Verify event projected with correct tenant/project
+        agent_event = db_session.query(AgentEvent).filter_by(event_id="evt-sec-valid-001").first()
+        assert agent_event is not None
+        assert agent_event.tenant_id == "tenant-valid"
+        assert agent_event.project_id == "project-valid"
+
+
+class TestMultiTenantIsolation:
+    """Test multi-tenant isolation and security"""
+
+    def test_isolation_validation_passes(self, event_store, db_session, projection_worker, mission_context):
+        """Test that isolation validation passes for same-tenant events"""
+        # Mission context already created by fixture (mission-test-001)
+        # Use it directly
+        mission = mission_context
 
         # RED: Create event with matching mission
         event = Event(
@@ -403,8 +529,8 @@ class TestMultiTenantIsolation:
         # Verify event was projected
         agent_event = db_session.query(AgentEvent).filter_by(event_id="evt-iso-001").first()
         assert agent_event is not None
-        assert agent_event.tenant_id == "tenant-secure-001"
-        assert agent_event.project_id == "project-secure-001"
+        assert agent_event.tenant_id == "tenant-test-001"
+        assert agent_event.project_id == "project-test-001"
 
 
 class TestCorrelationAndCausation:
