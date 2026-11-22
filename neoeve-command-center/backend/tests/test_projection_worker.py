@@ -295,6 +295,45 @@ class TestRecovery:
         assert event_check.status == EventStatus.PENDING
 
 
+class TestMultiTenantIsolation:
+    """Test multi-tenant isolation and security"""
+
+    def test_isolation_validation_passes(self, event_store, db_session, projection_worker):
+        """Test that isolation validation passes for same-tenant events"""
+        from database.models import Mission
+
+        # RED: Create mission with specific tenant/project
+        mission = Mission(
+            mission_id="mission-test-001",
+            project_id="project-secure-001",
+            tenant_id="tenant-secure-001",
+            name="Secure Mission"
+        )
+        db_session.add(mission)
+        db_session.commit()
+
+        # RED: Create event with matching mission
+        event = Event(
+            event_id="evt-iso-001",
+            event_type=EventType.TASK_CREATED,
+            mission_id="mission-test-001",
+            agent_id="agent-test",
+            correlation_id="corr-iso-001",
+            payload={"secure": True}
+        )
+        event_store.store_event(event)
+
+        # RED: Project event (should succeed due to matching tenant/project)
+        processed = projection_worker.consume_and_project()
+        assert processed == 1
+
+        # Verify event was projected
+        agent_event = db_session.query(AgentEvent).filter_by(event_id="evt-iso-001").first()
+        assert agent_event is not None
+        assert agent_event.tenant_id == "tenant-secure-001"
+        assert agent_event.project_id == "project-secure-001"
+
+
 class TestCorrelationAndCausation:
     """Test correlation and causation tracking"""
 

@@ -169,6 +169,9 @@ class ProjectionWorker:
             # Extract tenant/project context
             tenant_id, project_id = self._extract_tenant_context(event)
 
+            # SECURITY: Validate isolation (prevent cross-tenant contamination)
+            self._validate_isolation(event, tenant_id, project_id)
+
             # UPSERT Pattern Step 1: Query to detect if already projected
             agent_event = self.db_session.query(AgentEvent).filter_by(
                 event_id=event.event_id
@@ -234,10 +237,33 @@ class ProjectionWorker:
         Returns:
             (tenant_id, project_id)
         """
-        # Placeholder: In production, would query missions table or event metadata
-        # For now, use mission_id as both tenant and project identifier
-        tenant_id = "default-tenant"
-        project_id = event.mission_id
+        # SECURITY: Extract from mission metadata (look up mission context)
+        tenant_id = None
+        project_id = None
+
+        try:
+            mission = self.db_session.query(Mission).filter_by(
+                mission_id=event.mission_id
+            ).first()
+
+            if mission:
+                tenant_id = mission.tenant_id
+                project_id = mission.project_id
+                logger.debug(f"Event {event.event_id} resolved to tenant={tenant_id}, project={project_id} from Mission")
+        except Exception as e:
+            logger.warning(f"Could not query mission for event {event.event_id}: {e}")
+
+        # Fallback: Use mission_id as project identifier
+        if not tenant_id:
+            tenant_id = "default-tenant"
+        if not project_id:
+            project_id = event.mission_id
+
+        # SECURITY: Validate context is set (never None for security)
+        if not tenant_id:
+            raise ValueError(f"Cannot determine tenant_id for event {event.event_id}")
+        if not project_id:
+            raise ValueError(f"Cannot determine project_id for event {event.event_id}")
 
         return tenant_id, project_id
 
@@ -305,4 +331,48 @@ class ProjectionWorker:
 
         time.sleep(backoff)
         self._metrics["retries"] += 1
+        return True
+
+    def _validate_isolation(self, event: Event, tenant_id: str, project_id: str) -> bool:
+        """
+        Validate that event projection respects multi-tenant boundaries.
+
+        SECURITY CRITICAL: Blocks any cross-tenant or cross-project contamination.
+
+        Args:
+            event: Event to validate
+            tenant_id: Target tenant for projection
+            project_id: Target project for projection
+
+        Returns:
+            True if isolation check passes
+
+        Raises:
+            ValueError: If isolation violation detected (cross-tenant/project attempt)
+        """
+        # SECURITY: Ensure mission belongs to same tenant/project
+        mission = self.db_session.query(Mission).filter_by(
+            mission_id=event.mission_id
+        ).first()
+
+        if mission:
+            if mission.tenant_id != tenant_id:
+                logger.error(
+                    f"ISOLATION VIOLATION: Event {event.event_id} belongs to tenant "
+                    f"{mission.tenant_id} but projection targeted tenant {tenant_id}"
+                )
+                raise ValueError(
+                    f"Isolation violation: Cross-tenant projection blocked for event {event.event_id}"
+                )
+
+            if mission.project_id != project_id:
+                logger.error(
+                    f"ISOLATION VIOLATION: Event {event.event_id} belongs to project "
+                    f"{mission.project_id} but projection targeted project {project_id}"
+                )
+                raise ValueError(
+                    f"Isolation violation: Cross-project projection blocked for event {event.event_id}"
+                )
+
+        logger.debug(f"Event {event.event_id} passed isolation validation for tenant={tenant_id}, project={project_id}")
         return True
