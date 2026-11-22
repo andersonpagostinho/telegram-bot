@@ -81,9 +81,9 @@ class EventDispatcher:
             )
             return False
 
-        # Check governance rules if available
-        if self.governance:
-            decision = self.governance.evaluate(event, target_agent.value, "dispatch")
+        # Check governance rules for sensitive event types (e.g., security rejections)
+        if self.governance and event.event_type in [EventType.REVIEW_REJECTED, EventType.REVIEW_APPROVED]:
+            decision = self.governance.evaluate(event, target_agent.value, "receive")
             if not decision.allowed:
                 logger.warning(f"Governance blocked dispatch: {decision.reason}")
                 return False

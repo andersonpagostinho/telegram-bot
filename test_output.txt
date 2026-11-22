@@ -1,0 +1,75 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\dev\neoeve
+configfile: pytest.ini
+plugins: anyio-4.8.0, asyncio-1.4.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path FAILED [100%]
+
+================================== FAILURES ===================================
+_______ TestPhase5E2EScenarios.test_scenario_1_complete_flow_happy_path _______
+tests\test_phase_5_e2e_scenarios.py:271: in test_scenario_1_complete_flow_happy_path
+    assert self._validate_chain(final_events), "Causation chain broken"
+E   AssertionError: Causation chain broken
+E   assert False
+E    +  where False = _validate_chain([Event(event_id='evt-20261122151247-44bde60f', event_type=<EventType.TASK_ASSIGNED: 'task_assigned'>, mission_id='mission-5aec4489', task_id='task-001', execution_id=None, agent_id='architect', agent_role='architect', timestamp='2026-11-22T15:12:47.171196Z', correlation_id='scenario1-5108a55d', causation_id=None, payload={'description': 'Implement feature', 'priority': 'high'}, schema_version='1.0', metadata={}, status=<EventStatus.COMPLETED: 'COMPLETED'>, created_at_local='2026-11-22T15:12:47.173739'), Event(event_id='evt-20261122151247-2aab883a', event_type=<EventType.TASK_COMPLETED: 'task_completed'>, mission_id='mission-5aec4489', task_id='task-001', execution_id='exec-3d87bcff', agent_id='backend', agent_role='backend', timestamp='2026-11-22T15:12:47.194261Z', correlation_id='scenario1-5108a55d', causation_id='evt-20261122151247-44bde60f', payload={'status': 'completed', 'result': {'task': 'Implement feature', 'files_modified': 2, 'tests_added': 3, 'tests_passed': 3, 'errors': 0, 'output': 'Task executed successfully (simulated)'}, 'timestamp': '2026-11-22T15:12:47.194188', 'commits': ['abc1234', 'def5678']}, schema_version='1.0', metadata={}, status=<EventStatus.PENDING: 'P...metadata={}, status=<EventStatus.PENDING: 'PENDING'>, created_at_local='2026-11-22T15:12:47.267168'), Event(event_id='evt-20261122151247-f379c27c', event_type=<EventType.REVIEW_REQUESTED: 'review_requested'>, mission_id='mission-5aec4489', task_id='task-001', execution_id=None, agent_id='qa', agent_role='qa', timestamp='2026-11-22T15:12:47.317570Z', correlation_id='scenario1-5108a55d', causation_id='evt-20261122151247-0e46b5b0', payload={'requires_security': True}, schema_version='1.0', metadata={}, status=<EventStatus.COMPLETED: 'COMPLETED'>, created_at_local='2026-11-22T15:12:47.318269'), Event(event_id='evt-20261122151247-39ca4977', event_type=<EventType.REVIEW_APPROVED: 'review_approved'>, mission_id='mission-5aec4489', task_id='task-001', execution_id=None, agent_id='security', agent_role='security', timestamp='2026-11-22T15:12:47.335539Z', correlation_id='scenario1-5108a55d', causation_id='evt-20261122151247-f379c27c', payload={'evidence': {'vulnerabilities': 0}, 'severity': 'LOW', 'security_decision': 'APPROVED', 'reason': 'No critical findings'}, schema_version='1.0', metadata={}, status=<EventStatus.PENDING: 'PENDING'>, created_at_local='2026-11-22T15:12:47.336972'), ...])
+E    +    where _validate_chain = <tests.test_phase_5_e2e_scenarios.TestPhase5E2EScenarios object at 0x0000016A77250550>._validate_chain
+------------------------------ Captured log call ------------------------------
+ERROR    tests.test_phase_5_e2e_scenarios:test_phase_5_e2e_scenarios.py:110 Chain broken: event 4 causation evt-20261122151247-0e46b5b0 != prev evt-20261122151247-7906e78c
+============================== warnings summary ===============================
+tests/test_phase_5_e2e_scenarios.py: 10 warnings
+  C:\dev\neoeve\event_bus\event.py:50: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    event_id: str = field(default_factory=lambda: f"evt-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}")
+
+tests/test_phase_5_e2e_scenarios.py: 10 warnings
+  C:\dev\neoeve\event_bus\event.py:63: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+
+tests/test_phase_5_e2e_scenarios.py: 27 warnings
+  C:\dev\neoeve\event_bus\event.py:78: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at_local: str = field(default_factory=lambda: datetime.utcnow().isoformat(), init=False)
+
+tests/test_phase_5_e2e_scenarios.py: 10 warnings
+  C:\dev\neoeve\event_bus\event_store.py:125: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+  C:\dev\neoeve\event_bus\idempotency.py:31: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self._cache[idempotency_key] = (datetime.utcnow(), event_id, result)
+
+tests/test_phase_5_e2e_scenarios.py: 15 warnings
+  C:\dev\neoeve\event_bus\audit_logger.py:26: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat() + "Z",
+
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+  C:\dev\neoeve\event_bus\agent_handlers.py:114: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+  C:\dev\neoeve\event_bus\event_store.py:232: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    """, (status.value, datetime.utcnow().isoformat(), event_id))
+
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+  C:\dev\neoeve\event_bus\event_store.py:238: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    """, (event_id, status.value, datetime.utcnow().isoformat(), error_msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_phase_5_e2e_scenarios.py::TestPhase5E2EScenarios::test_scenario_1_complete_flow_happy_path
+======================= 1 failed, 89 warnings in 0.99s ========================
