@@ -11,6 +11,7 @@ from ...core.security import get_current_user, get_admin_user, Identity
 from ...core.dependencies import get_db
 from ...services.websocket_manager import connection_manager
 from ...services.websocket_ticket_service import ticket_service
+from ...services.websocket_event_log_service import get_event_log_service
 
 logger = logging.getLogger(__name__)
 
@@ -158,19 +159,61 @@ async def websocket_endpoint(
                     await client.send_heartbeat()
 
             elif action == "reconnect":
-                # Client reconnecting - send missed events
-                cursor = data.get("cursor")
+                # Client reconnecting - send missed events (ETAPA 5: Event Recovery)
+                cursor = data.get("cursor")  # Last sequence number seen by client
                 event_types = data.get("event_types", [])
 
                 await connection_manager.subscribe(connection_id, event_types)
 
-                # TODO: Query websocket_event_log for missed events
-                # For now, just acknowledge reconnection
-                await websocket.send_json({
-                    "type": "reconnected",
-                    "cursor": cursor,
-                    "missed_events": [],
-                })
+                # Query websocket_event_log for missed events
+                try:
+                    event_log_service = get_event_log_service()
+                    missed_events = event_log_service.get_missed_events(
+                        db=db,
+                        tenant_id=identity.tenant_id,
+                        cursor=cursor,
+                        limit=100,  # Max 100 events to avoid flooding
+                    )
+
+                    # Filter by event types if specified
+                    if event_types:
+                        missed_events = [
+                            e for e in missed_events
+                            if e.event_type in event_types
+                        ]
+
+                    # Get latest cursor
+                    latest_cursor = None
+                    if missed_events:
+                        latest_cursor = missed_events[-1].sequence
+                        logger.info(
+                            f"Sending {len(missed_events)} missed events to reconnecting client: "
+                            f"connection_id={connection_id} cursor={cursor}→{latest_cursor}"
+                        )
+
+                    # Send reconnection acknowledgment with missed events
+                    await websocket.send_json({
+                        "type": "reconnected",
+                        "cursor": latest_cursor,
+                        "missed_events": [
+                            {
+                                "sequence": e.sequence,
+                                "event_id": e.event_id,
+                                "event_type": e.event_type,
+                                "payload": e.payload,
+                                "created_at": e.created_at.isoformat(),
+                            }
+                            for e in missed_events
+                        ],
+                        "count": len(missed_events),
+                    })
+                except Exception as e:
+                    logger.error(f"Error retrieving missed events: {e}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "RECOVERY_FAILED",
+                        "message": "Failed to retrieve missed events",
+                    })
 
             else:
                 logger.warning(f"Unknown action: {action}")
