@@ -1,4 +1,4 @@
-"""Agent Invocation Bridge — Connects Event Bus to Anthropic Agent Runtime"""
+"""Agent Invocation Bridge — Connects Event Bus to Agent Runtime"""
 
 import logging
 import json
@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import uuid4
 
-from anthropic import Anthropic
 from event_bus.event import Event, EventType, EventStatus
 from event_bus.dispatcher import AgentRole
+from event_bus.runtime import AgentRuntime
 
 
 logger = logging.getLogger(__name__)
@@ -40,11 +40,11 @@ class AgentInvocationBridge:
     - Handle failures gracefully
     """
 
-    def __init__(self, event_bus, dispatcher, governance):
+    def __init__(self, event_bus, dispatcher, governance, runtime: AgentRuntime):
         self.event_bus = event_bus
         self.dispatcher = dispatcher
         self.governance = governance
-        self.anthropic_client = Anthropic()
+        self.runtime = runtime
         self.agent_configs: Dict[str, AgentConfig] = {}
         self._register_default_agents()
 
@@ -170,9 +170,9 @@ Format your response as JSON:
         # Prepare context
         context = self._prepare_context(event, config)
 
-        # Invoke via Anthropic SDK
+        # Invoke via configured runtime
         try:
-            result = await self._execute_via_anthropic(config, context, task_description)
+            result = await self._execute_via_runtime(config, context, task_description)
 
             if result:
                 # Publish result to Event Bus
@@ -227,58 +227,51 @@ Format your response as JSON:
             "execution_id": f"exec-{uuid4().hex[:8]}"
         }
 
-    async def _execute_via_anthropic(
+    async def _execute_via_runtime(
         self,
         config: AgentConfig,
         context: Dict[str, Any],
         task_description: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Execute task via Anthropic SDK.
+        Execute task via configured runtime (subscription or API-based).
 
-        NOTE: Actual implementation requires ANTHROPIC_API_KEY
-        This is the structural foundation ready for authentication.
+        Delegates to runtime abstraction which handles:
+        - Claude Code CLI (subscription-based)
+        - Anthropic SDK (API-based)
+        - Future runtimes
         """
 
         try:
-            # Build messages
-            messages = [
-                {
-                    "role": "user",
-                    "content": f"""{task_description}
-
-Context:
-{json.dumps(context, indent=2)}
-
-Provide your response as valid JSON."""
-                }
-            ]
-
-            # Call Anthropic API
-            # This will use ANTHROPIC_API_KEY from environment
-            response = self.anthropic_client.messages.create(
-                model="claude-opus-4-1-20250805",
+            # Invoke runtime
+            result = await self.runtime.invoke(
+                agent_id=config.agent_id,
+                agent_role=config.agent_role.value,
+                system_prompt=config.system_prompt,
+                task_description=task_description,
+                context=context,
+                authorized_tools=config.authorized_tools,
                 max_tokens=config.max_tokens,
-                system=config.system_prompt,
-                messages=messages,
-                timeout=config.timeout_seconds
+                timeout_seconds=config.timeout_seconds
             )
 
-            # Extract and parse result
-            result_text = response.content[0].text
-
-            # Try to parse JSON
-            try:
-                result_json = json.loads(result_text)
-                result_json["execution_id"] = context["execution_id"]
-                result_json["duration_seconds"] = response.usage.output_tokens
-                return result_json
-            except json.JSONDecodeError:
-                logger.error(f"Agent response not valid JSON: {result_text}")
+            # Check result status
+            if result.status != "COMPLETED":
+                logger.error(f"Runtime execution failed: {result.error}")
                 return None
 
+            if not result.result:
+                logger.error("Runtime returned no result")
+                return None
+
+            # Ensure execution_id is preserved
+            if isinstance(result.result, dict):
+                result.result["execution_id"] = context["execution_id"]
+
+            return result.result
+
         except Exception as e:
-            logger.error(f"Anthropic API error: {e}")
+            logger.error(f"Runtime execution error: {e}", exc_info=True)
             return None
 
     def _handle_failure(self, event_id: str, reason: str, agent_id: str):
