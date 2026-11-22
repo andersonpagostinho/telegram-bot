@@ -165,11 +165,13 @@ class ClaudeCodeRuntime(AgentRuntime):
                 capture_output=True,
                 timeout=timeout,
                 text=True,
+                encoding='utf-8',
+                errors='replace',  # Replace bad characters instead of crashing
                 env=env
             )
 
-            stdout = result.stdout.strip()
-            stderr = result.stderr.strip()
+            stdout = result.stdout.strip() if result.stdout else ""
+            stderr = result.stderr.strip() if result.stderr else ""
 
             if result.returncode != 0:
                 error_msg = stderr or stdout or "Process exited with error"
@@ -236,7 +238,9 @@ IMPORTANT: Respond ONLY with valid JSON. No additional text. Format:
         # Format tools for CLI
         tools_arg = ",".join(authorized_tools) if authorized_tools else ""
 
-        command = ["claude", "-p", task_prompt]
+        import platform
+        cli_cmd = "claude.cmd" if platform.system() == "Windows" else "claude"
+        command = [cli_cmd, "-p", task_prompt]
 
         if tools_arg:
             command.extend(["--allowed-tools", tools_arg])

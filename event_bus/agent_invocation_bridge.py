@@ -150,8 +150,19 @@ Format your response as JSON:
             logger.error(f"Invalid target agent: {target_agent.value}")
             return None
 
-        # Check governance
-        decision = self.governance.evaluate(event, target_agent.value, "execute")
+        # Check governance (use proper action for agent role)
+        action_map = {
+            "backend": "execute_task",
+            "qa": "execute_tests",
+            "security": "audit",
+            "debugger": "investigate",
+            "architect": "publish_task",
+            "release": "verify_readiness",
+            "validator": "analyze_evidence",
+        }
+        action = action_map.get(target_agent.value, "execute")
+
+        decision = self.governance.evaluate(event, target_agent.value, action)
         if not decision.allowed:
             logger.warning(f"Governance blocked execution: {decision.reason}")
             self.event_bus.mark_failed(
