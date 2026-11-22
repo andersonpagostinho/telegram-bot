@@ -72,6 +72,7 @@ from services.normalizacao_service import encontrar_servico_mais_proximo
 from router.conversation_classifier import classificar_contexto_conversa
 from services.classificador_conversa import (
     classificar_contexto_mensagem,
+    classificar_operacao_robusta,
     classificar_intencao_conversacional,
     classificar_confirmacao_cancelamento,
 )
@@ -5892,12 +5893,48 @@ async def roteador_principal(user_id: str, mensagem: str, tenant_id: str = None,
     # CAMADA 0 — CLASSIFICAÇÃO CONTEXTUAL
     # 🔒 P0 FIX: Passar catalogo_servicos específico do tenant
     # 🔥 P0 FIX: Passar catalogo_profissionais para reconhecimento contextual
+    # 🔥 P0.3-A: Usar classificador robusto para discriminação de operação
     # =========================================================
+
+    # P0.3-A: Classificador robusto (discrimina 4 operações claramente)
+    operacao_p03a = classificar_operacao_robusta(
+        texto_usuario,
+        ctx,
+        catalogo_servicos=catalogo_servicos,
+        catalogo_profissionais=catalogo_profissionais
+    )
+    print(f" [P0.3-A_OPERACAO] {operacao_p03a}", flush=True)
+
     class_ctx = classificar_contexto_mensagem(texto_usuario, ctx, catalogo_servicos=catalogo_servicos, catalogo_profissionais=catalogo_profissionais)
 
     print(f" [CLASSIFICADOR CONTEXTO] {class_ctx}", flush=True)
 
     modo_conversa = class_ctx.get("modo_conversa")
+
+    # P0.3-A: Usar resultado robusto para corrigir modo_conversa se necessário
+    if operacao_p03a in ("CONSULTA_DISPONIBILIDADE", "AGENDAMENTO", "CONSULTA_INFORMATIVA"):
+        modo_conversa = "operacional"
+        print(f" [P0.3-A_CORRECAO] Corrigido modo_conversa para 'operacional' (operacao={operacao_p03a})", flush=True)
+
+    # =========================================================
+    # 🔥 P0.3-B: ORQUESTRAÇÃO — Consumir resposta informativa pendente
+    # Garantir que resposta H2 não seja descartada
+    # =========================================================
+    if ctx.get("resposta_informativa_pendente"):
+        resposta_pendente = ctx.get("resposta_informativa_pendente")
+        print(f" [P0.3-B_ORQUESTRAÇÃO] Consumindo resposta pendente", flush=True)
+
+        # Limpar para evitar reuso indevido
+        ctx_cleanup = {
+            "resposta_informativa_pendente": None,
+            "modo_operacao": None,
+        }
+        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_cleanup)
+
+        return await _send_and_stop_ctx(
+            context, user_id, resposta_pendente, ctx,
+            texto_usuario, cliente_id, dono_id
+        )
 
     # ---------------------------------------------------------
     # BLOQUEIA NeoEve para conversa pessoal
@@ -6611,6 +6648,21 @@ Seu agendamento está confirmado! Obrigado!"""
                         print(f" [NEUTRA_DRAFT_RESIDUAL] draft residual em {estado_fluxo}, encerrando", flush=True)
                     else:
                         print(" [NEUTRA_SEM_FLUXO_FIM] Mensagem neutra sem contexto operacional ativo, encerrando", flush=True)
+
+                    # 🔥 P0.3-B: Dupla proteção — não sobrescrever resposta válida
+                    if ctx.get("resposta_informativa_pendente"):
+                        resposta_pendente = ctx.get("resposta_informativa_pendente")
+                        print(f" [P0.3-B_PROTECAO_NEUTRA] Bloqueando resposta neutra, usando resposta pendente", flush=True)
+                        ctx_cleanup = {
+                            "resposta_informativa_pendente": None,
+                            "modo_operacao": None,
+                        }
+                        await salvar_contexto_temporario_v2(dono_id, cliente_id, ctx_cleanup)
+                        return await _send_and_stop_ctx(
+                            context, user_id, resposta_pendente, ctx,
+                            texto_usuario, cliente_id, dono_id
+                        )
+
                     resposta_neutra = "Tudo bem, sem problemas! 😊"
                     return await _send_and_stop(context, user_id, resposta_neutra)
 
@@ -9901,7 +9953,7 @@ Seu agendamento está confirmado! Obrigado!"""
             # =========================================================
             if eh_consulta(texto_usuario):
                 from services.informacao_service import responder_consulta_informativa
-                resposta_info = await responder_consulta_informativa(mensagem, user_id)
+                resposta_info = await responder_consulta_informativa(mensagem, dono_id)
                 if resposta_info:
                     return await _send_and_stop(context, user_id, resposta_info)
                 # informacao_service não soube responder → continua o fluxo normal

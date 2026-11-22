@@ -389,6 +389,83 @@ def classificar_contexto_mensagem(texto: str, ctx: dict | None = None, catalogo_
         "features": f,
     }
 
+def classificar_operacao_robusta(
+    texto: str,
+    ctx: dict | None = None,
+    catalogo_servicos: list[str] | None = None,
+    catalogo_profissionais: list[str] | None = None
+) -> str:
+    """
+    P0.3-A: Classificação robusta de 4 operações.
+
+    Classifica CLARAMENTE em:
+    - "CONSULTA_DISPONIBILIDADE": Pergunta com referência temporal
+    - "AGENDAMENTO": Intenção de agendar (sem dúvida)
+    - "CONSULTA_INFORMATIVA": Pergunta sobre serviço/profissional
+    - "INDEFINIDO": Incompleto ou neutro
+
+    Prioridade:
+    1. Fluxo ativo (continuidade)
+    2. Marca de pergunta + temporal = CONSULTA_DISPONIBILIDADE
+    3. Intenção + temporal = AGENDAMENTO
+    4. Apenas pergunta = CONSULTA_INFORMATIVA
+    5. Nada = INDEFINIDO
+    """
+    ctx = ctx or {}
+    t = normalizar_txt(texto)
+
+    # Continuidade: respeitar fluxo ativo
+    if ctx.get("estado_fluxo") and ctx.get("estado_fluxo") != "idle":
+        return "AGENDAMENTO"  # Continua o fluxo existente
+
+    # Referência temporal
+    tem_temporal = (
+        bool(re.search(r"\b\d{1,2}:\d{2}\b", t))
+        or bool(re.search(r"\b\d{1,2}h\b", t))
+        or bool(re.search(r"\b(hoje|amanha|amanhã|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo)\b", t))
+    )
+
+    # Marca de pergunta/dúvida
+    tem_pergunta = (
+        "?" in texto
+        or bool(re.search(r"^(tem|da|dá|consegue|pode|sera|será|existe|consigo)\b", t))
+        or bool(re.search(r"\b(quem|qual|quais|quando|onde|como)\b", t))
+        or bool(re.search(r"\b(teria|teria\s+horario|teria\s+horário)\b", t))
+    )
+
+    # Intenção afirmativa
+    tem_intencao_afirmativa = bool(
+        re.search(r"\b(quero|queria|preciso|gostaria|vou|consigo|ve|vê|resolve)\b", t)
+    )
+
+    # Verbos de ação (agendar/marcar)
+    tem_acao = bool(
+        re.search(r"\b(agendar|marcar|reserva|reservar)\b", t)
+    )
+
+    # Serviço mencionado (usar catálogo se disponível)
+    servico_mencionado = extrair_servico_do_catalogo(t, catalogo_servicos)
+
+    # ========================================
+    # LÓGICA DE CLASSIFICAÇÃO
+    # ========================================
+
+    # Pergunta + temporal = CONSULTA_DISPONIBILIDADE
+    if tem_pergunta and tem_temporal:
+        return "CONSULTA_DISPONIBILIDADE"
+
+    # Intenção ou ação + temporal = AGENDAMENTO
+    if (tem_intencao_afirmativa or tem_acao) and tem_temporal:
+        return "AGENDAMENTO"
+
+    # Apenas pergunta (sem temporal) = CONSULTA_INFORMATIVA
+    if tem_pergunta:
+        return "CONSULTA_INFORMATIVA"
+
+    # Sem marcadores claros
+    return "INDEFINIDO"
+
+
 def detectar_tipo_ajuste_incremental(texto: str, catalogo_servicos: list[str] | None = None) -> str:
     t = normalizar_txt(texto)
 
