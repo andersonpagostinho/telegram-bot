@@ -16,6 +16,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Overview', path: '/', icon: '📊' },
+  { label: 'Agent Map', path: '/agents', icon: '🕸️' },
   // Additional navigation items prepared for future expansion
 ];
 
