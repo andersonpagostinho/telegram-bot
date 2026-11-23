@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import { theme } from './src/lib/theme/tokens';
 
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -18,7 +19,10 @@ export default {
           100: '#f1f5f9',
           50: '#f8fafc',
         },
+        semantic: theme.colors.semantic,
+        connectivity: theme.colors.connectivity,
       },
+      spacing: theme.spacing,
     },
   },
   plugins: [],

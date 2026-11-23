@@ -1,0 +1,41 @@
+/**
+ * CSS Variables for runtime theme access
+ * Maps to src/lib/theme/tokens.ts
+ */
+
+:root {
+  /* Agent Operational States */
+  --color-agent-idle: #10b981;
+  --color-agent-working: #f59e0b;
+  --color-agent-analyzing: #06b6d4;
+  --color-agent-testing: #8b5cf6;
+  --color-agent-reviewing: #ec4899;
+  --color-agent-blocked: #ef4444;
+  --color-agent-completed: #14b8a6;
+  --color-agent-error: #dc2626;
+
+  /* Connectivity States */
+  --color-connectivity-online: #10b981;
+  --color-connectivity-offline: #6b7280;
+  --color-connectivity-stale: #f59e0b;
+  --color-connectivity-unknown: #9ca3af;
+
+  /* Baseline Colors */
+  --color-bg: #0f172a;
+  --color-card: #1e293b;
+  --color-border: #334155;
+  --color-text: #f1f5f9;
+
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
