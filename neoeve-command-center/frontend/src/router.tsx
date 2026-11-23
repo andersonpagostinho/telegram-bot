@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import App from './App';
 import Overview from './pages/Overview';
 import AgentMap from './pages/AgentMap';
+import ActivityStream from './pages/ActivityStream';
 import NotFound from './pages/NotFound';
 
 export const router = createBrowserRouter([
@@ -11,6 +12,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Overview /> },
       { path: 'agents', element: <AgentMap /> },
+      { path: 'activity', element: <ActivityStream /> },
     ],
     errorElement: <NotFound />,
   },
