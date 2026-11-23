@@ -154,7 +154,7 @@ export class WebSocketService {
         this.handleHeartbeat(message);
         break;
       case 'error':
-        this.emit Error(message.code || 'UNKNOWN_ERROR', message.message || 'Unknown error');
+        this.emitError(message.code || 'UNKNOWN_ERROR', message.message || 'Unknown error');
         break;
     }
   }
