@@ -137,6 +137,29 @@ class ApiClient {
     return response.data;
   }
 
+  async getEvents(
+    params?: Partial<PaginationParams> & {
+      cursor?: number;
+      agent_id?: string;
+      mission_id?: string;
+      event_type?: string;
+    }
+  ): Promise<any> {
+    const queryParams = {
+      limit: params?.per_page || 50,
+      ...(params?.cursor !== undefined && { cursor: params.cursor }),
+      ...(params?.agent_id && { agent_id: params.agent_id }),
+      ...(params?.mission_id && { mission_id: params.mission_id }),
+      ...(params?.event_type && { event_type: params.event_type }),
+    };
+
+    const response = await this.client.get<any>('/events', {
+      params: queryParams,
+    });
+
+    return response.data;
+  }
+
   async issueWebSocketTicket(): Promise<WebSocketTicketResponse> {
     const response = await this.client.post<WebSocketTicketResponse>('/websocket/ticket', {});
     return response.data;
