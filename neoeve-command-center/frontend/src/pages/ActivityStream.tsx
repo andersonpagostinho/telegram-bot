@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import PageHeader from '../components/layout/PageHeader';
-import { Timeline, EventItem } from '../components/timeline';
+import { Timeline } from '../components/timeline';
 import { LoadingState, EmptyState, ErrorState } from '../components/common';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { apiClient } from '../services/api';
@@ -12,21 +12,23 @@ interface TimelineEvent {
   event_type: string;
   sequence: number;
   timestamp: Date;
-  agent?: string;
+  agent: string;
   status: 'IDLE' | 'WORKING' | 'ANALYZING' | 'TESTING' | 'REVIEWING' | 'BLOCKED' | 'COMPLETED' | 'ERROR';
   description: string;
   mission_id?: string;
-  payload?: any;
 }
 
 export default function ActivityStream() {
-  const { isConnected } = useWebSocket({ eventTypes: ['AGENT_UPDATED', 'MISSION_UPDATED', 'EXECUTION_COMPLETED'] });
+  const { isConnected, onEvent } = useWebSocket({
+    eventTypes: ['AGENT_UPDATED', 'MISSION_UPDATED', 'EXECUTION_COMPLETED']
+  });
 
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
+  const eventIdsRef = useRef(new Set<string>());
 
   // Fetch historical events
   useEffect(() => {
@@ -39,18 +41,22 @@ export default function ActivityStream() {
         });
 
         if (response.events && Array.isArray(response.events)) {
-          const mapped = response.events.map((evt: any) => ({
-            id: evt.event_id,
-            event_id: evt.event_id,
-            event_type: evt.event_type,
-            sequence: evt.sequence,
-            timestamp: new Date(evt.created_at),
-            agent: evt.payload?.source_agent || evt.payload?.agent_id,
-            status: mapEventTypeToStatus(evt.event_type),
-            description: formatEventDescription(evt),
-            mission_id: evt.payload?.mission_id,
-            payload: evt.payload,
-          }));
+          const mapped = response.events
+            .filter((evt: any) => !eventIdsRef.current.has(evt.event_id))
+            .map((evt: any) => {
+              eventIdsRef.current.add(evt.event_id);
+              return {
+                id: evt.event_id,
+                event_id: evt.event_id,
+                event_type: evt.event_type,
+                sequence: evt.sequence,
+                timestamp: new Date(evt.created_at),
+                agent: evt.payload?.source_agent || evt.payload?.agent_id || 'unknown',
+                status: mapEventTypeToStatus(evt.event_type),
+                description: formatEventDescription(evt),
+                mission_id: evt.payload?.mission_id,
+              };
+            });
 
           setEvents(mapped);
           setCursor(response.cursor);
@@ -67,6 +73,36 @@ export default function ActivityStream() {
     fetchEvents();
   }, []);
 
+  // Listen for real-time events
+  useEffect(() => {
+    if (!onEvent) return;
+
+    const unsubscribe = onEvent((wsEvent: any) => {
+      // Skip if already seen
+      if (eventIdsRef.current.has(wsEvent.event_id)) {
+        return;
+      }
+
+      eventIdsRef.current.add(wsEvent.event_id);
+
+      const newEvent: TimelineEvent = {
+        id: wsEvent.event_id,
+        event_id: wsEvent.event_id,
+        event_type: wsEvent.event_type,
+        sequence: wsEvent.cursor || 0,
+        timestamp: new Date(wsEvent.timestamp || Date.now()),
+        agent: wsEvent.data?.source_agent || wsEvent.data?.agent_id || 'unknown',
+        status: mapEventTypeToStatus(wsEvent.event_type),
+        description: formatEventDescription({ event_type: wsEvent.event_type, payload: wsEvent.data }),
+        mission_id: wsEvent.data?.mission_id,
+      };
+
+      setEvents(prev => [newEvent, ...prev]);
+    });
+
+    return () => unsubscribe();
+  }, [onEvent]);
+
   // Load more events
   const loadMore = async () => {
     if (!hasMore || cursor === undefined) return;
@@ -78,18 +114,22 @@ export default function ActivityStream() {
       });
 
       if (response.events && Array.isArray(response.events)) {
-        const mapped = response.events.map((evt: any) => ({
-          id: evt.event_id,
-          event_id: evt.event_id,
-          event_type: evt.event_type,
-          sequence: evt.sequence,
-          timestamp: new Date(evt.created_at),
-          agent: evt.payload?.source_agent || evt.payload?.agent_id,
-          status: mapEventTypeToStatus(evt.event_type),
-          description: formatEventDescription(evt),
-          mission_id: evt.payload?.mission_id,
-          payload: evt.payload,
-        }));
+        const mapped = response.events
+          .filter((evt: any) => !eventIdsRef.current.has(evt.event_id))
+          .map((evt: any) => {
+            eventIdsRef.current.add(evt.event_id);
+            return {
+              id: evt.event_id,
+              event_id: evt.event_id,
+              event_type: evt.event_type,
+              sequence: evt.sequence,
+              timestamp: new Date(evt.created_at),
+              agent: evt.payload?.source_agent || evt.payload?.agent_id || 'unknown',
+              status: mapEventTypeToStatus(evt.event_type),
+              description: formatEventDescription(evt),
+              mission_id: evt.payload?.mission_id,
+            };
+          });
 
         setEvents(prev => [...prev, ...mapped]);
         setCursor(response.cursor);
@@ -154,7 +194,7 @@ export default function ActivityStream() {
             }}
           />
           <span style={{ color: theme.colors.baseline.text }}>
-            {isConnected ? 'Live updates enabled' : 'Offline'}
+            {isConnected ? '🔴 Live updates enabled' : '⚪ Offline (historical only)'}
           </span>
         </div>
 
@@ -170,7 +210,7 @@ export default function ActivityStream() {
               id: evt.event_id,
               type: evt.event_type as any,
               timestamp: evt.timestamp,
-              agent: evt.agent || 'unknown',
+              agent: evt.agent,
               status: evt.status,
               description: evt.description,
             }))}
@@ -192,7 +232,7 @@ export default function ActivityStream() {
                 fontSize: '0.875rem',
               }}
             >
-              Load More
+              Load More Events
             </button>
           </div>
         )}
@@ -217,13 +257,13 @@ function formatEventDescription(evt: any): string {
   const payload = evt.payload || {};
 
   if (type.includes('MISSION')) {
-    return `Mission ${payload.mission_id}: ${type.replace(/_/g, ' ').toLowerCase()}`;
+    return `Mission: ${type.replace(/_/g, ' ').toLowerCase()}`;
   }
   if (type.includes('EXECUTION')) {
-    return `Execution by ${payload.source_agent}: ${type.replace(/_/g, ' ').toLowerCase()}`;
+    return `Execution: ${type.replace(/_/g, ' ').toLowerCase()}`;
   }
   if (type.includes('AGENT')) {
-    return `Agent ${payload.source_agent}: ${type.replace(/_/g, ' ').toLowerCase()}`;
+    return `Agent update: ${type.replace(/_/g, ' ').toLowerCase()}`;
   }
   return type.replace(/_/g, ' ').toLowerCase();
 }

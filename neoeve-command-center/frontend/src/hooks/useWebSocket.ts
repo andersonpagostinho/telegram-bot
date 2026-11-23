@@ -100,5 +100,6 @@ export function useWebSocket({ eventTypes = [] }: WebSocketHookOptions = {}) {
     isConnected,
     connect: websocketService.connect,
     disconnect: websocketService.disconnect,
+    onEvent: websocketService.onEvent.bind(websocketService),
   };
 }
