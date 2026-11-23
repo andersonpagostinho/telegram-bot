@@ -30,3 +30,10 @@ global.WebSocket = class WebSocket {
   send = vi.fn();
   close = vi.fn();
 } as any;
+
+// Mock ResizeObserver (required for Recharts)
+global.ResizeObserver = class ResizeObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+} as any;
