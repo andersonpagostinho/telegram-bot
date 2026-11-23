@@ -95,8 +95,8 @@ describe('Common Components', () => {
       last_execution_at: '2026-11-22T09:50:00Z',
       updated_at: '2026-11-22T10:05:00Z',
       metrics_summary: { tasks_completed: 5 },
-      current_mission_id: null,
-      current_task_id: null,
+      current_mission_id: undefined,
+      current_task_id: undefined,
     };
 
     it('should render agent name and role', () => {
@@ -123,7 +123,7 @@ describe('Common Components', () => {
     });
 
     it('should not invent activity when missing', () => {
-      const agentNoActivity = { ...mockAgent, last_event_at: null };
+      const agentNoActivity = { ...mockAgent, last_event_at: undefined };
       const { container } = render(<AgentCard agent={agentNoActivity} />);
       const fakeActivity = container.textContent?.includes('simulated') || false;
       expect(fakeActivity).toBe(false);

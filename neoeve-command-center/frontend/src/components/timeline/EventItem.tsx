@@ -17,8 +17,8 @@ export const EventItem: React.FC<EventItemProps> = ({ event }) => {
         <div className="flex items-center gap-2 mb-1">
           <span className="text-sm font-semibold text-slate-50">{event.agent}</span>
           <StatusIndicator
-            operationalState={event.status}
-            connectivityState="ONLINE"
+            status={event.status}
+            connectivity="ONLINE"
           />
         </div>
         <p className="text-sm text-slate-300">{event.description}</p>

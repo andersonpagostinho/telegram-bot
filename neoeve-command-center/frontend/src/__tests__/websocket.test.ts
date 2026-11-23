@@ -63,7 +63,7 @@ describe('WebSocket Service', () => {
     it('should not duplicate subscriptions', () => {
       ws.subscribe(['EVENT_A']);
       ws.subscribe(['EVENT_A']);
-      expect(ws.subscriptions.length).toBe(1);
+      expect(ws.subscriptions.size).toBe(1);
     });
   });
 

@@ -10,9 +10,10 @@ interface WebSocketTicketResponse {
 }
 
 interface WebSocketMessage {
-  type: string;
+  type?: string;
   event_id?: string;
   event_type?: string;
+  event_types?: string[];
   data?: unknown;
   cursor?: number;
   timestamp?: string;
@@ -36,7 +37,7 @@ export class WebSocketService {
 
   // Connection state
   public isConnected = false;
-  public cursor: number | null = null;
+  public cursor: number | undefined = undefined;
 
   // Subscriptions
   public subscriptions: Set<string> = new Set();
@@ -62,6 +63,14 @@ export class WebSocketService {
   constructor() {
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     this.url = baseUrl.replace('http', 'ws');
+  }
+
+  /**
+   * Set authentication token (token is managed by API client, this is for integration)
+   */
+  public setToken(token: string): void {
+    // Token is set on the API client via auth store
+    // This method is here for hook compatibility
   }
 
   /**
@@ -125,7 +134,7 @@ export class WebSocketService {
     }
 
     // If reconnecting, request missed events
-    if (this.cursor !== null) {
+    if (this.cursor !== undefined) {
       this.reconnect();
     }
   }
@@ -333,7 +342,7 @@ export class WebSocketService {
     }
 
     this.isConnected = false;
-    this.cursor = null;
+    this.cursor = undefined;
     this.ticket = null;
     this.eventHandlers.clear();
     this.errorHandlers.clear();

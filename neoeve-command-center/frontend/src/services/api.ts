@@ -32,8 +32,10 @@ class ApiClient {
 
     // Add request interceptor for auth
     this.client.interceptors.request.use((config) => {
-      const headers = this.getHeaders();
-      config.headers = { ...config.headers, ...headers };
+      const authHeaders = this.getHeaders();
+      Object.entries(authHeaders).forEach(([key, value]) => {
+        config.headers.set(key, value);
+      });
       return config;
     });
 
