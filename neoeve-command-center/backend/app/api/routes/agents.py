@@ -150,3 +150,40 @@ async def get_agent_recent_events(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve events",
         )
+
+
+@router.post("/seed", response_model=dict)
+async def seed_agents(
+    db: Session = Depends(get_db),
+    current_user: Identity = Depends(get_current_user),
+):
+    """
+    Initialize the 7 agents in the system.
+
+    Admin-only operation to register all system agents.
+    Idempotent: can be called multiple times safely.
+    """
+    try:
+        from app.services.agent_registry import AgentRegistry
+
+        # Clear existing agents (safe for testing)
+        db.query(Agent).delete()
+        db.commit()
+
+        # Register all 7 agents
+        AgentRegistry.register_all_agents(db)
+
+        agents = db.query(Agent).all()
+        logger.info(f"Seeded {len(agents)} agents (user={current_user.user_id})")
+
+        return {
+            "success": True,
+            "message": f"Registered {len(agents)} agents",
+            "agents_count": len(agents),
+        }
+    except Exception as e:
+        logger.error(f"Error seeding agents: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to seed agents",
+        )
