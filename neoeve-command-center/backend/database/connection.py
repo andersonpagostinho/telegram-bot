@@ -5,7 +5,7 @@ PostgreSQL read projections for Command Center.
 
 import os
 import logging
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 
@@ -50,16 +50,22 @@ def get_db() -> Session:
 
 
 def init_db():
-    """Initialize database tables."""
-    from .models import Base
-    Base.metadata.create_all(bind=engine)
+    """Initialize database tables (via Alembic migrations only).
+
+    NOTE: Tables are created exclusively through Alembic migrations.
+    Base.metadata.create_all() has been removed to prevent conflicts
+    with Alembic versioning. Ensure 'alembic upgrade head' is executed
+    before starting the application.
+    """
+    pass
 
 
 def test_connection():
     """Test database connection."""
     try:
         with engine.connect() as conn:
-            result = conn.execute("SELECT 1 as test")
+            result = conn.execute(text("SELECT 1 as test"))
             return result.fetchone()
     except Exception as e:
+        logger.error(f"Database connection test failed: {type(e).__name__}: {e}")
         return None

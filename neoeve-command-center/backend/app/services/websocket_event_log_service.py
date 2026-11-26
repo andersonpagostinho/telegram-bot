@@ -13,7 +13,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
-from ...database.models import WebSocketEventLog
+from database.models import WebSocketEventLog
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,12 @@ class WebSocketEventLogService:
 
         ETAPA 5: Persist events for recovery
 
+        TRANSACTIONAL DESIGN:
+        - This method flushes (not commits) to allow caller to control transaction boundary
+        - Caller (ProjectionWorker.consume_and_project) manages the atomic commit
+        - Atomicity: AgentEvent + WebSocketEventLog + ProcessedEvent all commit together
+        - Idempotency: UNIQUE constraint on event_id prevents duplicates
+
         Args:
             db: Database session
             event_id: Unique event identifier
@@ -64,6 +70,19 @@ class WebSocketEventLogService:
             Sequence number of logged event, or None if failed
         """
         try:
+            # Check if event already exists (idempotency)
+            existing = db.query(WebSocketEventLog).filter_by(
+                event_id=event_id
+            ).first()
+
+            if existing:
+                logger.debug(
+                    f"WebSocket event already logged (idempotent): event_id={event_id} "
+                    f"sequence={existing.sequence}"
+                )
+                return existing.sequence
+
+            # Create new event
             now = datetime.now(timezone.utc)
             ttl_expires = now + timedelta(hours=self.event_ttl_hours)
 
@@ -78,19 +97,19 @@ class WebSocketEventLogService:
             )
 
             db.add(event)
-            db.commit()
+            db.flush()  # Validate constraints but don't commit (let caller control transaction)
 
             logger.debug(
-                f"WebSocket event logged: event_id={event_id} "
+                f"WebSocket event prepared for logging: event_id={event_id} "
                 f"type={event_type} tenant={tenant_id} sequence={event.sequence}"
             )
 
             return event.sequence
 
         except Exception as e:
-            logger.error(f"Failed to log WebSocket event {event_id}: {e}")
-            db.rollback()
-            return None
+            # Don't rollback here - let caller handle transaction state
+            logger.error(f"Failed to prepare WebSocket event {event_id}: {e}")
+            raise  # Propagate to caller for proper transaction handling
 
     def get_missed_events(
         self,

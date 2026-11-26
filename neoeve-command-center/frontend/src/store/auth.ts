@@ -29,11 +29,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearError: () =>
     set({ error: null }),
 
-  reset: () =>
-    set({
+  reset: () => {
+    // Clear localStorage
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+
+    return set({
       user: null,
       token: null,
       isLoading: false,
       error: null,
-    }),
+    });
+  },
 }));

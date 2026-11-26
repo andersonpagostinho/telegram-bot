@@ -6,9 +6,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from ...core import get_db, get_current_user, Identity
-from ...schemas.validation import ValidationResponse, ValidationListResponse
-from ...services.validation_service import ValidationService
+from app.core import get_db, get_current_user, Identity
+from app.schemas.validation import ValidationResponse, ValidationListResponse
+from app.services.validation_service import ValidationService
 
 logger = logging.getLogger(__name__)
 

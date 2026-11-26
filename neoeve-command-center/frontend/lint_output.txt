@@ -1,0 +1,22 @@
+﻿
+> neoeve-command-center-frontend@0.1.0 lint
+> tsc --noEmit
+
+src/__tests__/common.test.tsx(98,7): error TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/__tests__/common.test.tsx(99,7): error TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/__tests__/common.test.tsx(127,47): error TS2322: Type '{ last_event_at: null; updated_at: string; agent_id: string; agent_role: string; runtime: string; status: "IDLE" | "WORKING" | "ANALYZING" | "TESTING" | "REVIEWING" | "BLOCKED" | "COMPLETED" | "ERROR"; ... 5 more ...; current_task_id?: string; }' is not assignable to type 'AgentResponse'.
+  Types of property 'last_event_at' are incompatible.
+    Type 'null' is not assignable to type 'string | undefined'.
+src/__tests__/websocket.test.ts(66,31): error TS2339: Property 'length' does not exist on type 'Set<string>'.
+src/components/timeline/EventItem.tsx(20,13): error TS2322: Type '{ operationalState: "IDLE" | "WORKING" | "ANALYZING" | "TESTING" | "REVIEWING" | "BLOCKED" | "COMPLETED" | "ERROR"; connectivityState: string; }' is not assignable to type 'IntrinsicAttributes & StatusIndicatorProps'.
+  Property 'operationalState' does not exist on type 'IntrinsicAttributes & StatusIndicatorProps'.
+src/hooks/useWebSocket.ts(26,22): error TS2339: Property 'setToken' does not exist on type 'WebSocketService'.
+src/services/api.ts(16,34): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/services/api.ts(17,33): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/services/api.ts(36,7): error TS2322: Type '{ [x: string]: any; Accept?: AxiosHeaderValue | undefined; "Content-Length"?: AxiosHeaderValue | undefined; "User-Agent"?: AxiosHeaderValue | undefined; "Content-Encoding"?: AxiosHeaderValue | undefined; Authorization?: AxiosHeaderValue | undefined; Location?: AxiosHeaderValue | undefined; 'Content-Type'?: ContentTy...' is not assignable to type 'AxiosRequestHeaders'.
+  Type '{ [x: string]: any; Accept?: AxiosHeaderValue | undefined; "Content-Length"?: AxiosHeaderValue | undefined; "User-Agent"?: AxiosHeaderValue | undefined; "Content-Encoding"?: AxiosHeaderValue | undefined; Authorization?: AxiosHeaderValue | undefined; Location?: AxiosHeaderValue | undefined; 'Content-Type'?: ContentTy...' is missing the following properties from type 'AxiosHeaders': set, get, has, delete, and 24 more.
+src/services/websocket.ts(63,33): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/services/websocket.ts(123,9): error TS2561: Object literal may only specify known properties, but 'event_types' does not exist in type 'WebSocketMessage'. Did you mean to write 'event_type'?
+src/services/websocket.ts(233,9): error TS2561: Object literal may only specify known properties, but 'event_types' does not exist in type 'WebSocketMessage'. Did you mean to write 'event_type'?
+src/services/websocket.ts(252,9): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.

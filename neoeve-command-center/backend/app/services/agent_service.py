@@ -3,7 +3,7 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
-from ...database.models import Agent
+from database.models import Agent
 from .base import BaseService
 
 

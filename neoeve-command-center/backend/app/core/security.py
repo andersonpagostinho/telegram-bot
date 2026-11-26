@@ -11,10 +11,76 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from pydantic import BaseModel, ValidationError
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, InvalidHash
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+# Password hasher (Argon2id)
+_ph = PasswordHasher()
+
+
+def normalize_email(email: str) -> str:
+    """
+    Normalize email for consistent storage and comparison.
+
+    Contract:
+    - Remove leading/trailing whitespace
+    - Convert to lowercase
+    - Ensures compatibility with LOWER(email) PostgreSQL index
+
+    Args:
+        email: Raw email address
+
+    Returns:
+        Normalized email (lowercase, whitespace trimmed)
+
+    Raises:
+        ValueError: If email is empty after normalization
+    """
+    normalized = email.strip().lower()
+    if not normalized:
+        raise ValueError("Email cannot be empty")
+    return normalized
+
+
+def hash_password(password: str) -> str:
+    """
+    Hash password using Argon2id.
+
+    Args:
+        password: Plain text password
+
+    Returns:
+        Hashed password (safe to store in database)
+
+    Raises:
+        ValueError: If password is empty
+    """
+    if not password or len(password) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    return _ph.hash(password)
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """
+    Verify password against hash using Argon2id.
+
+    Args:
+        password: Plain text password to verify
+        password_hash: Stored hash from database
+
+    Returns:
+        True if password matches, False otherwise
+    """
+    try:
+        _ph.verify(password_hash, password)
+        return True
+    except (VerifyMismatchError, InvalidHash):
+        return False
+
 
 # HTTP Bearer authentication scheme
 security = HTTPBearer(description="Bearer token for authentication")

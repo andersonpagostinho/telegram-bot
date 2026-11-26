@@ -1,0 +1,84 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\dev\neoeve
+configfile: pytest.ini
+plugins: anyio-4.8.0, asyncio-1.4.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 61 items
+
+tests\test_recovery_service.py::TestRecoveryServiceIdempotency::test_execution_maintains_id_across_retries PASSED [  1%]
+tests\test_recovery_service.py::TestRecoveryServiceIdempotency::test_attempt_number_increments PASSED [  3%]
+tests\test_recovery_service.py::TestRecoveryServiceLease::test_acquire_lease_generates_token PASSED [  4%]
+tests\test_recovery_service.py::TestRecoveryServiceLease::test_lease_prevents_concurrent_acquisition PASSED [  6%]
+tests\test_recovery_service.py::TestRecoveryServiceLease::test_expired_lease_allows_new_acquisition PASSED [  8%]
+tests\test_recovery_service.py::TestRecoveryServiceFencingToken::test_fencing_token_validates_on_update PASSED [  9%]
+tests\test_recovery_service.py::TestRecoveryServiceFencingToken::test_old_fencing_token_rejected PASSED [ 11%]
+tests\test_recovery_service.py::TestRecoveryServiceFailureClassification::test_classify_transient_timeout PASSED [ 13%]
+tests\test_recovery_service.py::TestRecoveryServiceFailureClassification::test_classify_permanent_permission PASSED [ 14%]
+tests\test_recovery_service.py::TestRecoveryServiceFailureClassification::test_classify_unknown_error PASSED [ 16%]
+tests\test_recovery_service.py::TestRecoveryServiceFailureClassification::test_classify_empty_error PASSED [ 18%]
+tests\test_recovery_service.py::TestRecoveryServiceRetryPolicy::test_should_retry_transient PASSED [ 19%]
+tests\test_recovery_service.py::TestRecoveryServiceRetryPolicy::test_should_not_retry_permanent PASSED [ 21%]
+tests\test_recovery_service.py::TestRecoveryServiceRetryPolicy::test_exponential_backoff PASSED [ 22%]
+tests\test_recovery_service.py::TestRecoveryServiceIdempotencyKey::test_generate_deterministic_key PASSED [ 24%]
+tests\test_recovery_service.py::TestRecoveryServiceIdempotencyKey::test_different_executions_different_keys PASSED [ 26%]
+tests\test_recovery_service.py::TestRecoveryServiceIdempotencyKey::test_mark_and_check_event_processed PASSED [ 27%]
+tests\test_recovery_service.py::TestRecoveryServiceAuditTrail::test_record_execution_attempt PASSED [ 29%]
+tests\test_recovery_service.py::TestRecoveryServiceFindRecoverable::test_find_recoverable_filters_correctly PASSED [ 31%]
+tests\test_recovery_service.py::TestRecoveryServiceIntegration::test_complete_recovery_workflow PASSED [ 32%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_total_recovered PASSED [ 34%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_successful_recoveries PASSED [ 36%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_failed_recoveries PASSED [ 37%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_pending_retry_count PASSED [ 39%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_pending_executions PASSED [ 40%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_failures_by_classification PASSED [ 42%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_average_recovery_time PASSED [ 44%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_recovery_history_for_execution PASSED [ 45%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_recent_failures PASSED [ 47%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_worker_health PASSED [ 49%]
+tests\test_recovery_dashboard.py::TestRecoveryDashboard::test_dashboard_summary PASSED [ 50%]
+tests\test_recovery_dashboard.py::TestDashboardIsolation::test_metrics_isolated_by_tenant PASSED [ 52%]
+tests\test_recovery_dashboard.py::TestDashboardIsolation::test_history_isolation_by_tenant PASSED [ 54%]
+tests\test_recovery_dashboard.py::TestDashboardAbsenceOfData::test_metrics_empty_tenant PASSED [ 55%]
+tests\test_recovery_dashboard.py::TestDashboardAbsenceOfData::test_average_time_empty_tenant PASSED [ 57%]
+tests\test_recovery_dashboard.py::TestDashboardAbsenceOfData::test_worker_health_empty_tenant PASSED [ 59%]
+tests\test_recovery_dashboard.py::TestDashboardAbsenceOfData::test_dashboard_summary_empty_tenant PASSED [ 60%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryBasic::test_1_normal_execution_completes PASSED [ 62%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryBasic::test_2_transient_failure_triggers_retry PASSED [ 63%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryBasic::test_3_permanent_failure_no_retry PASSED [ 65%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryBasic::test_4_unknown_result_handled_safely PASSED [ 67%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryConcurrency::test_5_duplicate_execution_prevented PASSED [ 68%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryConcurrency::test_6_expired_lease_allows_recovery PASSED [ 70%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryConcurrency::test_7_old_worker_rejected_by_fencing_token PASSED [ 72%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryAudit::test_8_execution_attempt_recorded PASSED [ 73%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryAudit::test_9_event_deduplication_idempotent PASSED [ 75%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryAudit::test_10_isolation_between_tenants PASSED [ 77%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryAudit::test_11_max_attempts_respected PASSED [ 78%]
+tests\test_integration_recovery.py::TestIntegrationRecoveryAudit::test_12_security_validation_preserved PASSED [ 80%]
+tests\test_integration_metrics_persistence.py::TestMetricsPersistence::test_successful_execution_records_metrics PASSED [ 81%]
+tests\test_integration_metrics_persistence.py::TestMetricsPersistence::test_failed_execution_records_metrics PASSED [ 83%]
+tests\test_integration_metrics_persistence.py::TestMetricsPersistence::test_metrics_isolated_by_tenant PASSED [ 85%]
+tests\test_integration_metrics_persistence.py::TestMetricsPersistence::test_idempotency_of_metrics_recording PASSED [ 86%]
+tests\test_integration_metrics_persistence.py::TestMetricsServiceIntegration::test_dashboard_summary_reports_metrics PASSED [ 88%]
+tests\test_recovery_service_postgresql.py::TestPostgresqlConcurrency::test_a_two_workers_dispute_lease PASSED [ 90%]
+tests\test_recovery_service_postgresql.py::TestPostgresqlConcurrency::test_b_concurrent_fencing_token_increment PASSED [ 91%]
+tests\test_recovery_service_postgresql.py::TestPostgresqlConcurrency::test_c_old_worker_rejected_after_expiration PASSED [ 93%]
+tests\test_recovery_service_postgresql.py::TestPostgresqlConcurrency::test_d_interrupted_transaction_rollback PASSED [ 95%]
+tests\test_recovery_service_postgresql.py::TestPostgresqlConcurrency::test_e_tenant_isolation PASSED [ 96%]
+tests\test_recovery_service_postgresql.py::TestPostgresqlConcurrency::test_f_duplicate_events_idempotent PASSED [ 98%]
+tests\test_recovery_service_postgresql.py::TestPostgresqlConcurrency::test_g_select_for_update_locking PASSED [100%]
+
+============================== warnings summary ===============================
+..\..\..\..\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323
+..\..\..\..\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323
+..\..\..\..\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323
+..\..\..\..\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323
+..\..\..\..\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323
+..\..\..\..\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323
+..\..\..\..\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323
+  C:\Users\ANDERSON\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\_internal\_config.py:323: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.11/migration/
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 61 passed, 7 warnings in 185.60s (0:03:05) ==================

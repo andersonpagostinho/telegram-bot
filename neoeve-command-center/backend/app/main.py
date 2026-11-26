@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .core import settings
-from ..database.connection import init_db
+from database.connection import init_db
 from .api.router import api_router
 
 # Setup logging
@@ -35,8 +35,12 @@ async def lifespan(app: FastAPI):
     """
     Lifespan context for FastAPI startup/shutdown.
 
-    Startup: Initialize database schema
-    Shutdown: Cleanup (if needed in future)
+    Startup:
+    - Initialize database schema
+    - Start Approval Scheduler for Outbox Publisher, Recovery, and Projection Worker
+
+    Shutdown:
+    - Stop Approval Scheduler gracefully
     """
     logger.info("Starting Command Center API...")
     try:
@@ -46,7 +50,75 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize database: {e}")
         raise
 
+    # Start Approval Scheduler
+    try:
+        from .core.scheduler import init_scheduler
+        scheduler = init_scheduler(
+            interval_seconds=10,  # Run every 10 seconds
+            outbox_batch_size=10,
+            projection_batch_size=50,
+        )
+        logger.info("Approval Scheduler started")
+        app.state.scheduler = scheduler
+    except Exception as e:
+        logger.error(f"Failed to start Approval Scheduler: {e}")
+        # Non-fatal: continue even if scheduler fails
+        app.state.scheduler = None
+
+    # Verify Claude Code subscription (startup diagnostics)
+    try:
+        from .services.claude_code_adapter import ClaudeCodeAdapter
+        from app.services.agent_registry import AgentRegistry, ConnectivityState
+        from database.connection import get_db
+
+        adapter = ClaudeCodeAdapter(subscription_only=True)
+        health = adapter.health_check()
+
+        if health["cli_available"]:
+            logger.info("✓ Claude Code CLI available")
+            if health["subscription_valid"]:
+                logger.info("✓ Claude Pro subscription verified")
+                app.state.claude_auth_status = "ONLINE"
+
+                # PHASE 1: Mark all agents ONLINE only after successful health check
+                # Health check must pass BOTH: CLI available AND subscription valid
+                try:
+                    db = next(get_db())
+                    for key, agent_config in AgentRegistry.AGENTS.items():
+                        agent_id = agent_config["agent_id"]
+                        success = AgentRegistry.update_connectivity_state(
+                            db, agent_id, ConnectivityState.ONLINE
+                        )
+                        if success:
+                            logger.info(f"Agent {agent_id} marked ONLINE (health check passed)")
+                        else:
+                            logger.warning(f"Agent {agent_id} not found in database")
+                    db.close()
+                except Exception as hc_err:
+                    logger.error(f"Failed to update agent connectivity during startup: {hc_err}")
+            else:
+                logger.warning("⚠ Claude Code CLI found but subscription not valid")
+                logger.warning(f"  Reason: {health['subscription_status'].get('error', 'unknown')}")
+                app.state.claude_auth_status = "AUTH_REQUIRED"
+        else:
+            logger.warning("⚠ Claude Code CLI not available")
+            if health["errors"]:
+                logger.warning(f"  Errors: {'; '.join(health['errors'])}")
+            app.state.claude_auth_status = "OFFLINE"
+    except Exception as e:
+        logger.warning(f"⚠ Could not verify Claude Code authentication: {e}")
+        app.state.claude_auth_status = "UNKNOWN"
+
     yield
+
+    # Stop Approval Scheduler
+    try:
+        if hasattr(app.state, "scheduler") and app.state.scheduler:
+            from .core.scheduler import stop_scheduler
+            stop_scheduler()
+            logger.info("Approval Scheduler stopped")
+    except Exception as e:
+        logger.error(f"Error stopping Approval Scheduler: {e}")
 
     logger.info("Shutting down Command Center API...")
 
@@ -95,7 +167,7 @@ async def health_check_detailed():
     - PostgreSQL connection
     - Projection Worker health (if available)
     """
-    from ..database.connection import test_connection
+    from database.connection import test_connection
 
     db_status = "connected"
     db_error = None

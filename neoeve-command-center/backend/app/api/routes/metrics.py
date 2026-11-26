@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ...core import get_db, get_current_user, Identity
-from ....database.models import Agent, Mission, Task, Execution, AgentEvent, ProjectionCheckpoint
+from app.core import get_db, get_current_user, Identity
+from database.models import Agent, Mission, Task, Execution, AgentEvent, ProjectionCheckpoint
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +24,12 @@ async def metrics_overview(
     Get system overview metrics.
 
     Returns real data from PostgreSQL projections.
+
+    NOTE: Agents are GLOBAL system resources (not tenant-scoped).
+    Missions, Tasks, and Executions are filtered by current_user.tenant_id.
     """
     try:
-        # Count agents by status
+        # Count agents by status (GLOBAL - not tenant-specific)
         total_agents = db.query(func.count(Agent.agent_id)).scalar() or 0
         active_agents = (
             db.query(func.count(Agent.agent_id))
@@ -235,4 +238,51 @@ async def metrics_projection_worker(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve metrics",
+        )
+
+
+@router.get("/scheduler")
+async def metrics_scheduler(
+    current_user: Identity = Depends(get_current_user),
+):
+    """
+    Get Approval Scheduler status and metrics.
+
+    ETAPA 4: Scheduler automation for Outbox Publisher, Recovery, and Projection Worker.
+    Returns:
+    - Scheduler status (running/stopped)
+    - Total runs and last execution time
+    - Counts of published Outbox events, recovered events, projected events
+    - Error count
+    """
+    try:
+        from app.core.scheduler import get_scheduler
+
+        scheduler = get_scheduler()
+
+        if not scheduler:
+            return {
+                "status": "not_running",
+                "error": "Scheduler not initialized",
+            }
+
+        metrics = scheduler.get_metrics()
+
+        logger.info(f"Scheduler metrics retrieved (user={current_user.user_id})")
+
+        return {
+            "status": "running",
+            "total_runs": metrics.get("total_runs", 0),
+            "last_run_at": metrics.get("last_run_at"),
+            "outbox_published": metrics.get("outbox_published", 0),
+            "outbox_failed": metrics.get("outbox_failed", 0),
+            "events_recovered": metrics.get("events_recovered", 0),
+            "events_projected": metrics.get("events_projected", 0),
+            "errors": metrics.get("errors", 0),
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving Scheduler metrics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve scheduler metrics",
         )

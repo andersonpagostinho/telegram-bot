@@ -2,17 +2,82 @@
 
 import logging
 from typing import Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ...core import get_db, get_current_user, Identity
-from ...schemas.mission import MissionResponse, MissionListResponse, MissionEventResponse
-from ...services.mission_service import MissionService
+from app.core import get_db, get_current_user, Identity
+from app.schemas.mission import MissionResponse, MissionListResponse, MissionEventResponse
+from app.services.mission_service import MissionService
+from app.services.event_bus import publish_event
+from database.models import Mission, utc_now
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/missions", tags=["missions"])
+
+
+# B4 ETAPA 1: Request schema for mission creation
+class MissionCreateRequest(BaseModel):
+    """Request to create a new mission."""
+    name: str = Field(..., min_length=1, max_length=256, description="Mission name")
+    description: Optional[str] = Field(None, description="Mission description")
+
+
+@router.post("", response_model=MissionResponse, status_code=status.HTTP_201_CREATED)
+async def create_mission(
+    request: MissionCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: Identity = Depends(get_current_user),
+):
+    """
+    Create a new mission for authenticated tenant/project.
+
+    B4 ETAPA 1: Mission creation with multi-tenant isolation.
+
+    SECURITY: tenant_id and project_id from JWT, never from request.
+    """
+    try:
+        # B4 ETAPA 1 BLOCKER FIX: Derive project_id from tenant (not actor_role)
+        mission_id = f"mission_{uuid4().hex[:12]}"
+        project_id = f"{current_user.tenant_id}_default"
+
+        mission = Mission(
+            mission_id=mission_id,
+            project_id=project_id,  # Derived: tenant_default (not actor_role)
+            tenant_id=current_user.tenant_id,  # From JWT
+            name=request.name,
+            status="PENDING",
+        )
+        db.add(mission)
+        db.commit()
+
+        # Publish mission.created event (BLOCKER FIX: use derived project_id)
+        publish_event(
+            event_type="mission.created",
+            tenant_id=current_user.tenant_id,
+            project_id=project_id,  # Consistent with mission.project_id
+            actor_id=current_user.user_id,
+            mission_id=mission_id,
+            payload={"name": request.name},
+        )
+
+        logger.info(
+            f"Created mission {mission_id} for tenant={current_user.tenant_id} "
+            f"(user={current_user.user_id})"
+        )
+
+        return MissionResponse.from_orm(mission)
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating mission: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create mission"
+        )
 
 
 @router.get("", response_model=MissionListResponse)
@@ -34,7 +99,7 @@ async def list_missions(
 
         missions, total = service.list_missions(
             tenant_id=current_user.tenant_id,
-            project_id=current_user.actor_role,  # Using actor_role as project for now
+            project_id=f"{current_user.tenant_id}_default",  # BLOCKER FIX: derived project
             page=page,
             per_page=per_page,
             status=status_filter,
@@ -71,9 +136,10 @@ async def get_mission(
     """
     try:
         service = MissionService(db)
+        project_id = f"{current_user.tenant_id}_default"
         mission = service.get_mission(
             tenant_id=current_user.tenant_id,
-            project_id=current_user.actor_role,
+            project_id=project_id,  # BLOCKER FIX: derived project (not actor_role)
             mission_id=mission_id,
         )
 
@@ -118,11 +184,12 @@ async def get_mission_events(
     """
     try:
         service = MissionService(db)
+        project_id = f"{current_user.tenant_id}_default"
 
         # Verify mission exists and belongs to tenant
         mission = service.get_mission(
             tenant_id=current_user.tenant_id,
-            project_id=current_user.actor_role,
+            project_id=project_id,  # BLOCKER FIX: derived project (not actor_role)
             mission_id=mission_id,
         )
 

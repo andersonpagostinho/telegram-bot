@@ -7,15 +7,15 @@ import logging
 from fastapi import APIRouter, WebSocket, Query, Depends
 from sqlalchemy.orm import Session
 
-from ...core.security import get_current_user, get_admin_user, Identity
-from ...core.dependencies import get_db
-from ...services.websocket_manager import connection_manager
-from ...services.websocket_ticket_service import ticket_service
-from ...services.websocket_event_log_service import get_event_log_service
+from app.core.security import get_current_user, get_admin_user, Identity
+from app.core.dependencies import get_db
+from app.services.websocket_manager import connection_manager
+from app.services.websocket_ticket_service import ticket_service
+from app.services.websocket_event_log_service import get_event_log_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["websocket"])
+router = APIRouter(prefix="/websocket", tags=["websocket"])
 
 
 @router.post("/ticket")

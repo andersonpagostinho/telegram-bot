@@ -8,8 +8,13 @@ import { Outlet } from 'react-router-dom';
 import Topbar from './Topbar';
 import Sidebar from './Sidebar';
 import ErrorBoundary from '../ErrorBoundary';
+// TODO: Fix useWebSocket infinite loop issue before re-enabling
+// import { useWebSocket } from '../../hooks/useWebSocket';
 
 export default function AppShell() {
+  // WebSocket connection with event subscriptions
+  // TODO: Re-enable after fixing infinite update loop
+  // useWebSocket({ eventTypes: ['AGENT_UPDATED', 'MISSION_UPDATED', 'EXECUTION_STARTED', 'EXECUTION_COMPLETED'] });
   return (
     <ErrorBoundary>
       <div

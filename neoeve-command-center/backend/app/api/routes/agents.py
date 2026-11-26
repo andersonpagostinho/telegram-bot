@@ -6,9 +6,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from ...core import get_db, get_current_user, Identity
-from ...schemas.agent import AgentResponse, AgentListResponse
-from ...services.agent_service import AgentService
+from app.core import get_db, get_current_user, Identity
+from app.schemas.agent import AgentResponse, AgentListResponse
+from app.services.agent_service import AgentService
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +103,8 @@ async def get_agent_recent_events(
     Get recent events for an agent.
     """
     try:
-        from ....database.models import AgentEvent
-        from ...schemas.agent import AgentEventResponse
+        from database.models import AgentEvent
+        from app.schemas.agent import AgentEventResponse
 
         # Verify agent exists
         service = AgentService(db)

@@ -14,7 +14,12 @@ interface WebSocketHookOptions {
 
 export function useWebSocket({ eventTypes = [] }: WebSocketHookOptions = {}) {
   const queryClient = useQueryClient();
-  const { isConnected, setConnected, setCursor, subscribe } = useWebSocketStore();
+  // Use memoized selectors to prevent infinite re-renders
+  // Without selectors, useWebSocketStore() returns a new object reference each time
+  const isConnected = useWebSocketStore((state) => state.isConnected);
+  const setConnected = useWebSocketStore((state) => state.setConnected);
+  const setCursor = useWebSocketStore((state) => state.setCursor);
+  const subscribe = useWebSocketStore((state) => state.subscribe);
   const { token } = useAuthStore();
   const connectionInitialized = useRef(false);
 
@@ -36,9 +41,24 @@ export function useWebSocket({ eventTypes = [] }: WebSocketHookOptions = {}) {
 
     // Subscribe to errors
     const unsubscribeError = websocketService.onError((error) => {
-      console.error('WebSocket error:', error);
-      if (error.code === 'UNAUTHORIZED') {
+      console.error(`WebSocket error [${error.code}]: ${error.message}`, error);
+
+      // Handle authentication expiration
+      if (error.code === 'AUTH_EXPIRED' || error.code === 'UNAUTHORIZED') {
         setConnected(false);
+
+        // Clear auth and logout on AUTH_EXPIRED
+        if (error.code === 'AUTH_EXPIRED') {
+          const authStore = useAuthStore.getState();
+          authStore.reset();
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+
+          // Redirect to login (unless already there)
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
+        }
       }
     });
 

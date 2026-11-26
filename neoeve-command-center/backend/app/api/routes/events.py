@@ -11,10 +11,9 @@ from sqlalchemy import and_
 from typing import Optional, List
 from datetime import datetime, timezone
 
-from ...database.connection import get_db
-from ...database.models import WebSocketEventLog
-from ...core.auth import get_current_user, get_current_tenant
-from ...schemas.events import EventResponse, EventListResponse
+from app.core import get_db, get_current_user, get_current_tenant
+from database.models import WebSocketEventLog
+from app.schemas.events import EventResponse, EventListResponse
 
 router = APIRouter(prefix="/events", tags=["events"])
 

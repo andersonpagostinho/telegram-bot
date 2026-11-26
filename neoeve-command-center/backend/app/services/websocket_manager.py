@@ -14,8 +14,8 @@ import uuid
 from fastapi import WebSocket
 from sqlalchemy.orm import Session
 
-from ..core.security import Identity
-from ...database.models import Mission
+from app.core.security import Identity
+from database.models import Mission
 
 logger = logging.getLogger(__name__)
 

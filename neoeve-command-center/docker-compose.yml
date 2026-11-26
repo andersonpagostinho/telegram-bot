@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # PostgreSQL para testes C.2.3.2 - Concorrência, Event Bus, WebSocket
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: neoeve_postgres_test
+    environment:
+      POSTGRES_USER: neoeve_dev
+      POSTGRES_PASSWORD: neoeve_dev_123
+      POSTGRES_DB: neoeve_command_center
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist data durante testes
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neoeve_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - neoeve_network
+
+  # PostgreSQL para homologação RecoveryService (ETAPA 3.3.2)
+  # Isolado de produção com credentials e porta exclusivas
+  postgres-recovery-test:
+    image: postgres:15-alpine
+    container_name: neoeve_postgres_recovery_test
+    environment:
+      POSTGRES_USER: recovery_test_user
+      POSTGRES_PASSWORD: recovery_test_pass_${RECOVERY_TEST_PASS_SUFFIX:-7XqR9kL2mN4}
+      POSTGRES_DB: neoeve_recovery_test
+    ports:
+      - "5433:5432"
+    volumes:
+      # Volume descartável exclusivamente para homologação
+      - postgres_recovery_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recovery_test_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - neoeve_network
+    # Garantir que este container não interfira com banco principal
+    depends_on: []
+
+  # Event Store SQLite (simulado como serviço para referência)
+  # Em produção: arquivo local sqlite:///event_store.db
+  # Aqui: apenas documentation (SQLite já funciona local)
+
+networks:
+  neoeve_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  postgres_recovery_test_data:
+    driver: local

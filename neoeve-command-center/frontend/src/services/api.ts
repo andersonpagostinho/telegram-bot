@@ -3,7 +3,7 @@
  * Handles HTTP requests, JWT authentication, and error normalization
  */
 
-import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import {
   AgentListResponse,
   MissionListResponse,
@@ -12,6 +12,10 @@ import {
   PaginationParams,
 } from '../types/api';
 import { normalizeApiError, NormalizedError } from './errors';
+import { useAuthStore } from '../store/auth';
+
+// Shared refresh promise to prevent multiple simultaneous refreshes
+let refreshPromise: Promise<boolean> | null = null;
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_VERSION = import.meta.env.VITE_API_VERSION || 'v1';
@@ -25,6 +29,7 @@ class ApiClient {
     this.client = axios.create({
       baseURL: `${API_BASE_URL}/api/${API_VERSION}`,
       timeout: 30000,
+      withCredentials: true, // Allow sending cookies (HttpOnly refresh_token)
       headers: {
         'Content-Type': 'application/json',
       },
@@ -42,7 +47,53 @@ class ApiClient {
     // Add response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
+      async (error: AxiosError) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retried?: boolean };
+        const url = originalRequest.url || '';
+
+        // 401 Unauthorized - try to refresh token (but NOT for auth endpoints)
+        if (error.response?.status === 401 && !originalRequest._retried && !url.includes('/auth/')) {
+          originalRequest._retried = true;
+
+          try {
+            // Share refresh promise across concurrent requests
+            if (!refreshPromise) {
+              refreshPromise = attemptTokenRefresh();
+            }
+
+            const refreshSuccess = await refreshPromise;
+            refreshPromise = null;
+
+            if (refreshSuccess) {
+              // Retry original request with new token
+              return this.client(originalRequest);
+            } else {
+              // Refresh failed - logout
+              throw new Error('Token refresh failed');
+            }
+          } catch (refreshErr) {
+            // Refresh failed or error occurred
+            console.error('Token refresh failed:', refreshErr);
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+
+            const { reset } = useAuthStore.getState();
+            reset();
+
+            // Redirect to login
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
+
+            const normalized = normalizeApiError({
+              status: 401,
+              statusText: 'Session Expired',
+              data: { detail: 'Token refresh failed' },
+            });
+            return Promise.reject(normalized);
+          }
+        }
+
         const normalized = normalizeApiError({
           status: error.response?.status || 500,
           statusText: error.response?.statusText || 'Unknown Error',
@@ -163,6 +214,62 @@ class ApiClient {
   async issueWebSocketTicket(): Promise<WebSocketTicketResponse> {
     const response = await this.client.post<WebSocketTicketResponse>('/websocket/ticket', {});
     return response.data;
+  }
+
+  async login(credentials: { email: string; password: string }): Promise<any> {
+    const response = await this.client.post('/auth/login', credentials);
+    return response.data;
+  }
+
+  async selectTenant(data: { selection_token: string; tenant_id: string }): Promise<any> {
+    const response = await this.client.post('/auth/select-tenant', data);
+    return response.data;
+  }
+
+  async logout(): Promise<any> {
+    const response = await this.client.post('/auth/logout', {});
+    this.clearToken();
+    return response.data;
+  }
+}
+
+// Standalone function to attempt token refresh
+async function attemptTokenRefresh(): Promise<boolean> {
+  try {
+    // Create temporary client to call refresh (avoid interceptor loop)
+    const tempClient = axios.create({
+      baseURL: `${API_BASE_URL}/api/${API_VERSION}`,
+      timeout: 30000,
+      withCredentials: true, // Send refresh_token cookie
+    });
+
+    const response = await tempClient.post<{ access_token: string }>(
+      '/auth/refresh',
+      {}
+    );
+
+    if (!response.data?.access_token) {
+      console.error('No access token in refresh response');
+      return false;
+    }
+
+    // Update token in store
+    apiClient.setToken(response.data.access_token);
+
+    const authStore = useAuthStore.getState();
+    const currentUser = authStore.user;
+
+    if (currentUser) {
+      // Update localStorage
+      localStorage.setItem('auth_token', response.data.access_token);
+      authStore.setAuth(currentUser, response.data.access_token);
+    }
+
+    console.info('Token refreshed successfully via interceptor');
+    return true;
+  } catch (err) {
+    console.error('Token refresh failed in interceptor:', err);
+    return false;
   }
 }
 

@@ -19,12 +19,10 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Get database URL from environment
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://neoeve_dev:neoeve_dev_123@localhost:5432/neoeve_command_center"
-)
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# NOTE: Database URL is determined in run_migrations_online() with priority:
+# 1. TEST_DATABASE_URL environment variable
+# 2. DATABASE_URL environment variable
+# 3. sqlalchemy.url from alembic.ini (respects alembic_etapa_a.ini for ETAPA A)
 
 
 def run_migrations_offline() -> None:
@@ -43,17 +41,39 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = os.getenv(
-        "DATABASE_URL",
-        "postgresql://neoeve_dev:neoeve_dev_123@localhost:5432/neoeve_command_center"
-    )
+    import sys
+    print("[ALEMBIC_DEBUG] run_migrations_online() START", file=sys.stderr)
 
+    configuration = config.get_section(config.config_ini_section)
+
+    # Debug: show config state
+    ini_url = config.get_main_option("sqlalchemy.url")
+    print(f"[ALEMBIC_DEBUG] config.config_file_name: {config.config_file_name}", file=sys.stderr)
+    print(f"[ALEMBIC_DEBUG] INI sqlalchemy.url: {ini_url}", file=sys.stderr)
+    print(f"[ALEMBIC_DEBUG] ENV TEST_DATABASE_URL: {os.getenv('TEST_DATABASE_URL')}", file=sys.stderr)
+    print(f"[ALEMBIC_DEBUG] ENV DATABASE_URL: {os.getenv('DATABASE_URL')}", file=sys.stderr)
+
+    # Priority: TEST_DATABASE_URL env > DATABASE_URL env > alembic.ini url
+    # This ensures alembic_etapa_a.ini's sqlalchemy.url is respected when no env vars are set
+    db_url = os.getenv("TEST_DATABASE_URL") or os.getenv("DATABASE_URL")
+
+    if not db_url:
+        # Fall back to what's configured in alembic.ini (critical for alembic_etapa_a.ini)
+        db_url = ini_url
+        print(f"[ALEMBIC_DEBUG] No env vars, using INI url: {db_url}", file=sys.stderr)
+    else:
+        print(f"[ALEMBIC_DEBUG] Using env var: {db_url}", file=sys.stderr)
+
+    configuration["sqlalchemy.url"] = db_url
+    print(f"[ALEMBIC_DEBUG] FINAL DATABASE_URL: {db_url}", file=sys.stderr)
+
+    print("[ALEMBIC_DEBUG] Creating engine...", file=sys.stderr)
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    print("[ALEMBIC_DEBUG] Engine created, connecting...", file=sys.stderr)
 
     with connectable.connect() as connection:
         context.configure(

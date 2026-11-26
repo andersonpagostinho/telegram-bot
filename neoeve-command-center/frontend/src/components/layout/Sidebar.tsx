@@ -18,11 +18,15 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Overview', path: '/', icon: '📊' },
   { label: 'Agent Map', path: '/agents', icon: '🕸️' },
   { label: 'Activity Stream', path: '/activity', icon: '📡' },
-  // Additional navigation items prepared for future expansion
+  { label: 'Missions', path: '/missions', icon: '🎯' },
+  { label: 'Validations', path: '/validations', icon: '✅' },
+  { label: 'History', path: '/history', icon: '📜' },
 ];
 
 export default function Sidebar() {
-  const { sidebarOpen, toggleSidebar } = useUIStore();
+  // Use memoized selectors to prevent unnecessary re-renders
+  const sidebarOpen = useUIStore((state) => state.sidebarOpen);
+  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const location = useLocation();
 
   const isActive = (path: string) => {

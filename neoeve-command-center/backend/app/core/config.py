@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")  # Must be set in production
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))  # 15 minutes (production default)
 
     # Database (SECURITY: No default credentials - must be set in environment)
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list = os.getenv(
         "CORS_ORIGINS",
-        "http://localhost:3000,http://localhost:8080"
+        "http://localhost:3000,http://localhost:5173,http://localhost:8080"
     ).split(",")
 
     # Logging

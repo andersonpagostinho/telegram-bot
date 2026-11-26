@@ -1,9 +1,11 @@
 /**
  * WebSocket Service for real-time Command Center events
  * Implements ticket-based authentication, reconnection, and event recovery
+ * With token renewal support (PHASE 2B integration)
  */
 
 import { apiClient } from './api';
+import { useAuthStore } from '../store/auth';
 
 interface WebSocketTicketResponse {
   ticket: string;
@@ -48,6 +50,7 @@ export class WebSocketService {
   public maxRetryDelay = 30000;
   private retryCount = 0;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private refreshAttempted = false; // Track if refresh was tried in this cycle
 
   // Event deduplication (sliding window)
   public recentEventIds: Map<string, number> = new Map();
@@ -75,10 +78,32 @@ export class WebSocketService {
 
   /**
    * Connect to WebSocket after obtaining ticket
+   * Includes token renewal before requesting ticket (PHASE 2B integration)
    */
   async connect(): Promise<boolean> {
     try {
-      // Get ticket from API
+      this.refreshAttempted = false;
+
+      // PHASE 2B: Ensure token is valid before requesting ticket
+      const authStore = useAuthStore.getState();
+      if (!authStore.token) {
+        this.emitError('AUTH_ERROR', 'No authentication token available');
+        return false;
+      }
+
+      // Try to get ticket
+      return await this.requestTicketWithRetry();
+    } catch (error: any) {
+      this.emitError('CONNECTION_ERROR', error.message || 'Failed to connect');
+      return false;
+    }
+  }
+
+  /**
+   * Request ticket with retry on 401 (attempt refresh once)
+   */
+  private async requestTicketWithRetry(): Promise<boolean> {
+    try {
       const response = await apiClient.issueWebSocketTicket();
       this.ticket = (response as any).ticket;
 
@@ -89,7 +114,38 @@ export class WebSocketService {
 
       return this.establishConnection();
     } catch (error: any) {
-      this.emitError('CONNECTION_ERROR', error.message || 'Failed to connect');
+      // If 401 and haven't tried refresh yet: attempt refresh + retry
+      if (error.response?.status === 401 && !this.refreshAttempted) {
+        this.refreshAttempted = true;
+        console.info('Ticket request received 401, attempting token refresh...');
+
+        // The interceptor in api.ts will handle refresh automatically
+        // Just retry the ticket request once
+        try {
+          const response = await apiClient.issueWebSocketTicket();
+          this.ticket = (response as any).ticket;
+
+          if (!this.ticket) {
+            this.emitError('TICKET_ERROR', 'Failed to obtain WebSocket ticket after refresh');
+            return false;
+          }
+
+          console.info('Ticket obtained successfully after token refresh');
+          return this.establishConnection();
+        } catch (retryError: any) {
+          this.emitError('AUTH_EXPIRED', 'Token refresh failed during ticket request');
+          return false;
+        }
+      }
+
+      // If 401 and already tried refresh: auth expired
+      if (error.response?.status === 401) {
+        this.emitError('AUTH_EXPIRED', 'Authentication expired');
+        return false;
+      }
+
+      // Other errors
+      this.emitError('TICKET_ERROR', error.message || 'Failed to obtain WebSocket ticket');
       return false;
     }
   }
@@ -216,6 +272,8 @@ export class WebSocketService {
   private onClose(): void {
     this.isConnected = false;
     this.ws = null;
+    this.ticket = null; // Invalidate ticket (must get new one on reconnect)
+    this.refreshAttempted = false; // Reset refresh flag for next attempt
 
     if (this.retryCount < this.maxRetries) {
       const delay = this.getRetryDelay(this.retryCount);
