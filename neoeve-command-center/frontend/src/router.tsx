@@ -3,9 +3,6 @@ import App from './App';
 import Overview from './pages/Overview';
 import AgentMap from './pages/AgentMap';
 import ActivityStream from './pages/ActivityStream';
-import Missions from './pages/Missions';
-import ValidationCenter from './pages/ValidationCenter';
-import MissionHistory from './pages/MissionHistory';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -22,9 +19,6 @@ export const router = createBrowserRouter([
       { index: true, element: <ProtectedRoute element={<Overview />} /> },
       { path: 'agents', element: <ProtectedRoute element={<AgentMap />} /> },
       { path: 'activity', element: <ProtectedRoute element={<ActivityStream />} /> },
-      { path: 'missions', element: <ProtectedRoute element={<Missions />} /> },
-      { path: 'validations', element: <ProtectedRoute element={<ValidationCenter />} /> },
-      { path: 'history', element: <ProtectedRoute element={<MissionHistory />} /> },
     ],
     errorElement: <NotFound />,
   },

@@ -18,9 +18,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Overview', path: '/', icon: '📊' },
   { label: 'Agent Map', path: '/agents', icon: '🕸️' },
   { label: 'Activity Stream', path: '/activity', icon: '📡' },
-  { label: 'Missions', path: '/missions', icon: '🎯' },
-  { label: 'Validations', path: '/validations', icon: '✅' },
-  { label: 'History', path: '/history', icon: '📜' },
 ];
 
 export default function Sidebar() {
